@@ -19,6 +19,33 @@ case "$action" in
         echo "Installing base development packages..."
         sudo apt -y install curl git htop build-essential python3-dev
         ;;
+    "install-build-tools")
+        echo "Installing polyglot build tools (C/C++, Fortran, Go, Rust, Java, etc.)..."
+        sudo apt -y update
+        # Core compilers and build tools
+        sudo apt -y install clang llvm gfortran golang ninja-build cmake meson
+        # Java (try openjdk-25, fallback to openjdk-21 if not available)
+        if apt-cache show openjdk-25-jdk >/dev/null 2>&1; then
+            sudo apt -y install openjdk-25-jdk
+        elif apt-cache show openjdk-21-jdk >/dev/null 2>&1; then
+            sudo apt -y install openjdk-21-jdk
+        else
+            sudo apt -y install default-jdk
+        fi
+        # Install Rust via rustup if not already installed
+        if ! command -v rustup >/dev/null 2>&1; then
+            echo "Installing Rust via rustup..."
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+            # Source cargo env for current session
+            if [ -f "$HOME/.cargo/env" ]; then
+                . "$HOME/.cargo/env"
+            fi
+            echo "Rust installed successfully"
+        else
+            echo "Rust (rustup) already installed"
+        fi
+        echo "Build tools installation complete"
+        ;;
     "setup-venv")
         echo "Setting up central python virtual environment..."
         if [ ! -d "/home/punk/.venv" ]; then
@@ -28,12 +55,13 @@ case "$action" in
         echo "Virtual environment ready at /home/punk/.venv"
         ;;
     "help")
-        echo "Usage: $0 {update|upgrade|install-base|setup-venv}"
+        echo "Usage: $0 {update|upgrade|install-base|install-build-tools|setup-venv}"
         echo ""
-        echo "  update      - Update package lists"
-        echo "  upgrade     - Update and upgrade system packages"
-        echo "  install-base - Install base development packages"
-        echo "  setup-venv  - Set up central Python virtual environment"
+        echo "  update            - Update package lists"
+        echo "  upgrade           - Update and upgrade system packages"
+        echo "  install-base      - Install base development packages"
+        echo "  install-build-tools - Install polyglot build tools (C/C++, Fortran, Go, Rust, Java)"
+        echo "  setup-venv        - Set up central Python virtual environment"
         exit 0
         ;;
     *)
