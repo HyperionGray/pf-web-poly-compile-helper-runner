@@ -1,1 +1,11 @@
 **.code-workspace
+
+# Build artifacts
+demos/**/web/wasm/**/pkg/
+demos/**/web/wasm/**/*.js
+demos/**/web/wasm/**/*.wasm
+demos/**/web/wasm/**/*.d.ts
+demos/**/target/
+demos/**/Cargo.lock
+node_modules/
+*.log
