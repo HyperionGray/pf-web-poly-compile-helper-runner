@@ -1,0 +1,12 @@
+[Unit]
+Description=PacketFS Dispatcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 -m pf_runner.cli dispatch --topic commit
+Restart=always
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

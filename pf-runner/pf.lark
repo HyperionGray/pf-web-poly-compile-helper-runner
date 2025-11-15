@@ -1,0 +1,74 @@
+// Lark grammar for the .pf language
+start: statement+
+
+statement: env_var | task | comment
+
+// Comments start with #
+comment: COMMENT
+
+// Environment variable definition: env name="value"
+env_var: "env" IDENTIFIER "=" STRING
+
+// Task definition with optional parameters
+task: "task" IDENTIFIER param* NEWLINE task_body+ "end"
+
+// Task parameter: name="value"
+param: IDENTIFIER "=" STRING
+
+// Things that can appear inside a task
+task_body: describe | shell | for_loop | if_stmt | sync_stmt
+
+// Task description
+describe: "describe" TEXT_LINE
+
+// Shell command
+shell: "shell" TEXT_LINE
+
+// If statement with optional else (use helper rules to keep bodies separate)
+if_stmt: "if" condition NEWLINE if_body else_body? "end"
+if_body: task_body+
+else_body: "else" NEWLINE task_body+
+
+// Simple conditions for now
+condition: var_equals | var_exists | command_succeeds
+
+// Variable comparison: $var == "value" or $var != "value"
+var_equals: variable EQUALS_OP STRING
+
+// Variable existence: $var (true if set and non-empty)
+var_exists: variable
+
+// Command success: `command` (true if exit code is 0)
+command_succeeds: BACKQUOTE COMMAND_TEXT BACKQUOTE
+
+// For loop with iteration
+for_loop: "for" IDENTIFIER "in" iterable NEWLINE task_body+ "end"
+
+// What you can iterate over
+iterable: array | variable
+
+// Array literal: ["item1", "item2", "item3"]
+array: "[" STRING ("," STRING)* "]"
+
+// Variable reference: $variable_name
+variable: "$" IDENTIFIER
+
+// Sync files/directories using rsync-over-ssh or local paths
+sync_stmt: "sync" sync_kv+
+sync_kv: IDENTIFIER "=" STRING
+       | IDENTIFIER "=" array
+       | IDENTIFIER           // flag, treated as true
+
+// Tokens
+IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_-]*/
+STRING: /"[^"]*"/
+TEXT_LINE: /[^\r\n]+/
+COMMAND_TEXT: /[^`]+/
+COMMENT: /#[^\r\n]*/
+BACKQUOTE: "`"
+EQUALS_OP: "==" | "!="
+
+// Ignore whitespace and newlines (except where explicitly used)
+%import common.NEWLINE
+%import common.WS
+%ignore WS

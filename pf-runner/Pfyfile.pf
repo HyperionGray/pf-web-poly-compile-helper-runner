@@ -1,0 +1,78 @@
+#!lang:bash
+include ./Pfyfile.shells.pf
+
+task default-task
+  describe This is a task from the default Pfyfile.pf
+  shell echo "Hello from the default Pfyfile.pf"
+end
+
+task setup
+  describe Install core polyglot toolchains (Java, Android build tools, Go, LLVM, Ninja, Fortran)
+  shell sudo apt-get update
+  shell sudo apt-get install -y java google-android-build-tools-34.0.0-installer 'openjdk-25-*' golang llvm ninja ninja-build gfortran
+end
+
+task setup-optional
+  describe Install optional interpreters (LuaJIT, zsh-static, ch) and rustup
+  shell sudo apt-get install -y luajit2 zsh-static ch
+  shell if ! command -v rustup >/dev/null 2>&1; then curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; else echo \"rustup already installed\"; fi
+end
+
+task ff3-dev
+  describe Start FastFiles3 dev server
+  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
+  shell cd /home/punk/Projects/ff3new/FastFiles3 && HOST=${HOST:-127.0.0.1} PORT=${PORT:-8000} RELOAD=${RELOAD:-1} BUILD_UI=${BUILD_UI:-1} RUN_DAEMONS=${RUN_DAEMONS:-0} FF3_VFS_MODE=${FF3_VFS_MODE:-windowed} FF3_RECEIVER_MODE=${FF3_RECEIVER_MODE:-windowed} bash scripts/dev_server.sh
+end
+
+task ff3-dev-all
+  describe Start FastFiles3 with QUIC/UDP/repair/integrity daemons
+  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
+  shell cd /home/punk/Projects/ff3new/FastFiles3 && HOST=${HOST:-127.0.0.1} PORT=${PORT:-8000} RELOAD=${RELOAD:-1} BUILD_UI=${BUILD_UI:-1} RUN_DAEMONS=1 FF3_VFS_MODE=${FF3_VFS_MODE:-windowed} FF3_RECEIVER_MODE=${FF3_RECEIVER_MODE:-windowed} bash scripts/dev_server.sh
+end
+
+task ff3-daemons-start
+  describe Start FF3 background daemons (QUIC, UDP, repair, integrity)
+  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
+  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf daemons-start
+end
+
+task ff3-daemons-stop
+  describe Stop FF3 background daemons
+  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf daemons-stop
+end
+
+task ff3-integrity-sender
+  describe Start integrity sender daemon (hash registry)
+  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
+  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf integrity-sender
+end
+
+task ff3-integrity-receiver
+  describe Start integrity receiver daemon (monitors manifests, triggers repairs)
+  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
+  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf integrity-receiver
+end
+
+task ff3-repaird
+  describe Start TCP repair daemon (receiver-side)
+  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
+  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf repaird
+end
+
+task ff3-quic
+  describe Start QUIC receiver (NDJSON BREF)
+  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
+  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf quic
+end
+
+task ff3-udp
+  describe Start UDP receiver (NDJSON BREF)
+  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
+  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf udp
+end
+
+task ff3-tests
+  describe Run FastFiles3 Playwright tests
+  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
+  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf tests
+end

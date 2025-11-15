@@ -1,0 +1,13 @@
+# simple test file
+env name="test-app"
+
+task hello
+  describe Say hello to the world
+  shell echo "Hello from ${name}!"
+  shell date
+end
+
+task vars name="default"
+  describe Test variable substitution  
+  shell echo "Task parameter: ${name}"
+end

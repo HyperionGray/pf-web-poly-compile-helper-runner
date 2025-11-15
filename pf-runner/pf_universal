@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Universal launcher for pf_parser.py that works from any CWD and install path.
+# Resolves symlinks to locate the repository directory reliably.
+
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "${SCRIPT_PATH}")" && pwd)"
+
+# Ensure repo root is on PYTHONPATH
+export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH:-}"
+
+# Use the central venv Python as requested
+exec /home/punk/.venv/bin/python "${SCRIPT_DIR}/pf_parser.py" "$@"

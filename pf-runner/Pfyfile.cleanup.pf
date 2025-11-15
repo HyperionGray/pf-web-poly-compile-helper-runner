@@ -1,0 +1,37 @@
+# Pfyfile.cleanup.pf - Cleanup and maintenance tasks
+
+task clean-dist
+  describe Clean distribution files
+  shell rm -rf dist/
+  shell echo "Distribution directory cleaned"
+end
+
+task clean-cache
+  describe Clean Python cache files
+  shell find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+  shell find . -name "*.pyc" -delete 2>/dev/null || true
+  shell echo "Python cache files cleaned"
+end
+
+task clean-logs
+  describe Clean log files
+  shell rm -rf logs/
+  shell echo "Log files cleaned"
+end
+
+task clean-all
+  describe Clean all temporary and generated files
+  shell ./pf.py clean-dist
+  shell ./pf.py clean-cache
+  shell ./pf.py clean-logs
+  shell echo "All cleanup tasks completed"
+end
+
+task organize
+  describe Organize and validate project structure
+  shell echo "Checking project organization..."
+  shell ls -la
+  shell echo "Validating includes..."
+  shell ./pf.py list
+  shell echo "Project structure validated"
+end

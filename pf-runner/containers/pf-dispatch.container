@@ -1,0 +1,12 @@
+[Unit]
+Description=PacketFS Dispatcher (container)
+
+[Container]
+Image=registry.fedoraproject.org/fedora:41
+Volume=/pf:/mnt/pf:Z
+Exec=/usr/bin/bash -lc 'python3 -m pip install pf-runner && PF_ROOT=/mnt/pf pf dispatch --topic commit'
+UserNS=host
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

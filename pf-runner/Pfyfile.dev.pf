@@ -1,0 +1,27 @@
+# Pfyfile.dev.pf - Development tasks
+
+task dev-setup
+  describe Set up development environment
+  shell ./scripts/system-setup.sh setup-venv
+  shell /home/punk/.venv/bin/pip install "fabric>=3.2,<4"
+  shell /home/punk/.venv/bin/pip install pytest black flake8 mypy
+end
+
+task dev-test
+  describe Run development tests
+  shell /home/punk/.venv/bin/python -m pytest tests/ -v
+end
+
+task dev-lint
+  describe Run code linting and formatting
+  shell /home/punk/.venv/bin/python -m black pf.py
+  shell /home/punk/.venv/bin/python -m flake8 pf.py --max-line-length=120
+  shell /home/punk/.venv/bin/python -m mypy pf.py --ignore-missing-imports
+end
+
+task dev-symlink
+  describe Create symlink to make pf available globally
+  shell mkdir -p ~/.local/bin
+  shell ln -sf "$PWD/pf.py" "$HOME/.local/bin/pf"
+  shell echo "Symlink created. Ensure ~/.local/bin is in your PATH"
+end

@@ -1,0 +1,37 @@
+# Pfyfile.tests.pf - Testing tasks
+
+task test-basic
+  describe Test basic pf.py functionality
+  shell ./pf.py list
+  shell ./pf.py test_echo test_param=testing
+  shell ./pf.py test_params param1=hello param2=world
+end
+
+task test-integration
+  describe Run integration tests with real commands
+  shell ./pf.py update
+  shell echo "Integration tests completed successfully"
+end
+
+task test-docs
+  describe Test all examples from documentation
+  shell ./pf.py bootstrap
+  shell echo "Documentation examples tested"
+end
+task test-shells
+  describe Verify shell runners and a few languages
+  shell [lang:bash] echo "bash ok"
+  shell [lang:zsh]  print -l "zsh ok"
+  shell [lang:fish] echo fish_ok
+  shell [lang:sh]   echo sh_ok
+  shell [lang:dash] echo dash_ok
+  shell [lang:pwsh] Write-Output 'pwsh ok'
+  shell [lang:python] print("py ok")
+  shell [lang:node] console.log("node ok")
+  shell [lang:perl] print "perl ok\n"
+  shell [lang:php]  echo "php ok\n";
+  shell [lang:ruby] puts "ruby ok"
+  shell [lang:r]    cat("r ok\n")
+  shell [lang:julia] println("julia ok")
+  shell [lang:lua]  print("lua ok")
+end

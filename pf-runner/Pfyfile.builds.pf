@@ -1,0 +1,31 @@
+# Pfyfile.builds.pf - Build and release tasks
+
+task build-validate
+  describe Validate pf.py syntax and functionality
+  shell /home/punk/.venv/bin/python -m py_compile pf.py
+  shell ./pf.py list
+  shell chmod +x pf.py
+end
+
+task build-package
+  describe Create distribution package
+  shell mkdir -p dist
+  shell cp pf.py dist/
+  shell cp README.md dist/
+  shell cp -r scripts dist/
+  shell tar -czf dist/pf-runner.tar.gz -C dist pf.py README.md scripts/
+end
+
+task build-install
+  describe Install pf.py to system
+  shell sudo cp pf.py /usr/local/bin/pf
+  shell sudo chmod +x /usr/local/bin/pf
+  shell echo "pf installed to /usr/local/bin/pf"
+end
+
+task build-uninstall
+  describe Uninstall pf.py from system
+  shell sudo rm -f /usr/local/bin/pf
+  shell rm -f ~/.local/bin/pf
+  shell echo "pf uninstalled"
+end

@@ -1,0 +1,47 @@
+# Pfyfile.web-demo.pf — tasks to build and serve the polyglot web demos
+
+task web-build-rust
+  shell_lang bash
+  shell cd demos/pf-web-polyglot-demo-plus-c/rust && wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
+end
+
+task web-build-c
+  shell_lang bash
+  shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
+end
+
+task web-build-fortran
+  shell_lang bash
+  shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown
+end
+
+task web-build-wat
+  shell_lang bash
+  shell cd demos/pf-web-polyglot-demo-plus-c/asm && wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
+end
+
+task web-build-all
+  shell_lang bash
+  shell pf web-build-rust
+  shell pf web-build-c
+  shell pf web-build-fortran
+  shell pf web-build-wat
+end
+
+task web-serve-plus-c
+  shell_lang bash
+  shell cd demos/pf-web-polyglot-demo-plus-c/web && python3 -m http.server 8080
+end
+
+task web-serve-polyglot
+  shell_lang bash
+  shell cd demos/pf-web-polyglot-demo/web && python3 -m http.server 8081
+end
+
+task web-serve-cautionary
+  shell_lang bash
+  shell cd demos/pf-web-cautionary-segfault/web && python3 -m http.server 8082
+end
+
+# Include pf doctor if you want it in this bundle:
+# include ./pf-runner-helpers/Pfyfile.doctor.pf

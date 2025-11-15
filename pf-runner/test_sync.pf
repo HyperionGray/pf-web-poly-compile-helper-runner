@@ -1,0 +1,8 @@
+# Sync test
+env PROJECT_ROOT="/home/punk/Projects/packetfs/full_apps/packetfs-infinity"
+
+# Local dry-run sync to a temp directory
+task sync_local
+  describe Dry-run local sync of static assets
+  sync src="$PROJECT_ROOT/app/static/" dest="$PROJECT_ROOT/data/sync_test/" excludes=["*.pyc","__pycache__/"] dry verbose
+end
