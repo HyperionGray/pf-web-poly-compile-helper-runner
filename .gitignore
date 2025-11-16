@@ -10,6 +10,10 @@ demos/**/Cargo.lock
 node_modules/
 *.log
 
+# Test artifacts
+test-results/
+playwright-report/
+
 # CodeQL artifacts
 _codeql_*
 

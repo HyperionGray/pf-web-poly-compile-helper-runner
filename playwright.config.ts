@@ -8,4 +8,10 @@ export default defineConfig({
     ['list'],
     ['html', { outputFolder: 'playwright-report', open: 'never' }]
   ],
+  webServer: {
+    command: 'node tools/static-server.mjs web 8080',
+    port: 8080,
+    timeout: 10_000,
+    reuseExistingServer: !process.env.CI,
+  },
 });
