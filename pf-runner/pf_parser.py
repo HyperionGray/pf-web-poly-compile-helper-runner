@@ -1203,19 +1203,14 @@ BUILTINS: Dict[str, List[str]] = {
     "install-base": ["shell ./scripts/system-setup.sh install-base"],
     "setup-venv": ["shell ./scripts/system-setup.sh setup-venv"],
     "reboot": ["shell sudo shutdown -r +1 'pf reboot requested'"],
-    "podman_install": [
-        "packages install podman",
-        "shell sudo usermod -aG podman ${SUDO_USER:-$USER} || true",
-        "shell systemctl --user enable podman.socket || true",
+    "completions": [
+        "shell cd $(dirname $(readlink -f $(which pf 2>/dev/null || echo ./pf))) && make install-completions",
     ],
-    "docker_compat": [
-        "packages install podman-docker",
-        "shell sudo touch /etc/containers/nodocker",
+    "autobuild": [
+        "autobuild",
     ],
-    "nginx_install": [
-        "packages install nginx",
-        "service enable nginx",
-        "service start nginx",
+    "build_detect": [
+        "build_detect",
     ],
 }
 

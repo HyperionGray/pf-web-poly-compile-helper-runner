@@ -1,8 +1,0 @@
-# web.pf
-task web
-  describe Install & start nginx
-  packages install nginx
-  copy ./nginx.conf /etc/nginx/nginx.conf mode=0644
-  service enable nginx
-  service start nginx
-end
