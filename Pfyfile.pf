@@ -14,9 +14,39 @@ task web-build-rust
   shell cd demos/pf-web-polyglot-demo-plus-c/rust && wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
 end
 
+task web-build-rust-wasm
+  describe Build Rust to WebAssembly
+  shell_lang bash
+  shell cd demos/pf-web-polyglot-demo-plus-c/rust && wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
+end
+
+task web-build-rust-llvm
+  describe Build Rust to LLVM IR
+  shell_lang bash
+  shell cd demos/pf-web-polyglot-demo-plus-c/rust && mkdir -p ../web/llvm/rust && rustc --emit=llvm-ir --crate-type=lib src/lib_simple.rs -o ../web/llvm/rust/lib.ll
+end
+
 task web-build-c
   shell_lang bash
   shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
+end
+
+task web-build-c-wasm
+  describe Build C to WebAssembly
+  shell_lang bash
+  shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
+end
+
+task web-build-c-asm
+  describe Build C to asm.js
+  shell_lang bash
+  shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O2 -sWASM=0 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/asm/c/c_trap_asm.js
+end
+
+task web-build-c-llvm
+  describe Build C to LLVM IR
+  shell_lang bash
+  shell cd demos/pf-web-polyglot-demo-plus-c/c && mkdir -p .tmp && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -I.tmp c_trap.c -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
 end
 
 task web-build-fortran
@@ -24,17 +54,54 @@ task web-build-fortran
   shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown
 end
 
+task web-build-fortran-wasm
+  describe Build Fortran to WebAssembly
+  shell_lang bash
+  shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown
+end
+
+task web-build-fortran-llvm
+  describe Build Fortran to LLVM IR
+  shell_lang bash
+  shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 --show-llvm -o ../web/llvm/fortran/hello.ll
+end
+
 task web-build-wat
   shell_lang bash
   shell cd demos/pf-web-polyglot-demo-plus-c/asm && wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
 end
 
-task web-build-all
+task web-build-wat-wasm
+  describe Build WAT to WebAssembly
   shell_lang bash
+  shell cd demos/pf-web-polyglot-demo-plus-c/asm && wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
+end
+
+task web-build-all
   shell pf web-build-rust
   shell pf web-build-c
   shell pf web-build-fortran
   shell pf web-build-wat
+end
+
+task web-build-all-wasm
+  describe Build all languages to WebAssembly
+  shell pf web-build-rust-wasm
+  shell pf web-build-c-wasm
+  shell pf web-build-fortran-wasm
+  shell pf web-build-wat-wasm
+end
+
+task web-build-all-asm
+  describe Build all languages to asm.js where supported
+  shell pf web-build-c-asm
+end
+
+task web-build-all-llvm
+  describe Build all languages to LLVM IR where supported
+  shell pf web-build-rust-llvm
+  shell pf web-build-c-llvm
+  shell pf web-build-fortran-llvm
 end
 
 task install-base
