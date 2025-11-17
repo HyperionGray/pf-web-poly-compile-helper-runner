@@ -30,7 +30,7 @@ make install            # Installs to /usr/local/bin with completions (requires 
 Single-file **Fabric** runner with a tiny, readable DSL, parallel SSH, and live output.
 
 - One file: `pf_parser.py` (or `pf.py`)
-- Symbol-free DSL: `shell`, `packages install/remove`, `service start/stop/enable/disable/restart`, `directory`, `copy`
+- Symbol-free DSL: `shell`, `packages install/remove`, `service start/stop/enable/disable/restart`, `directory`, `copy`, `sync`
 - Task metadata: `describe` shows in `pf list`
 - Project split: `include` other `.pf` files from `Pfyfile.pf`
 - Per-task params: `pf run-tls tls_cert=... port=9443` → use `$tls_cert`, `$port` in DSL
@@ -271,6 +271,41 @@ Available LLVM variants:
 - `c-llvm-bc` / `c-bc` - C to LLVM bitcode (then disassembled to IR)
 - `cpp-llvm-bc` / `cpp-bc` - C++ to LLVM bitcode
 - `fortran-llvm` / `fortran-ir` / `fortran-ll` - Fortran to LLVM IR (requires flang)
+
+### File Synchronization with `sync`
+
+The `sync` verb provides rsync-based file synchronization for both local and remote (SSH) transfers:
+
+```text
+task backup-local
+  describe Sync files locally with excludes
+  sync src="/project/src/" dest="/backup/src/" excludes=["*.log","*.tmp"] verbose
+end
+
+task deploy-remote
+  describe Deploy to remote server
+  sync src="./build/" dest="/var/www/app/" host="server.com" user="deploy" port="22" delete
+end
+
+task sync-with-file
+  describe Sync using exclude file
+  sync src="./" dest="/backup/" exclude_file=".rsync-exclude" dry
+end
+```
+
+**Parameters:**
+- `src=<path>` (required) - Source directory path
+- `dest=<path>` (required) - Destination directory path
+- `host=<host>` - Remote hostname for SSH sync
+- `user=<user>` - SSH username
+- `port=<port>` - SSH port (default: 22)
+- `excludes=["pattern1","pattern2"]` - Array of exclude patterns
+- `exclude_file=<path>` - File containing exclude patterns (one per line)
+- `delete` - Mirror mode: delete extraneous files in destination
+- `dry` - Dry-run mode: show what would be transferred
+- `verbose` - Verbose output
+
+All string parameters support variable interpolation (`$VAR` or `${VAR}`). See [SYNC.md](SYNC.md) for complete documentation.
 
 ### Build System Helpers
 
