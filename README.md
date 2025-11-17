@@ -80,6 +80,17 @@ Convert compiled binaries back to LLVM IR for analysis, optimization, and transf
 
 See [LLVM Lifting Guide](docs/LLVM-LIFTING.md) for complete documentation.
 
+### Advanced Debugging & Reverse Engineering 🐛
+Interactive debugging and reverse engineering for ELF binaries (C/C++/Rust):
+- **GDB & LLDB**: Support for both standard debuggers with seamless switching
+- **pwndbg Integration**: Enhanced GDB with exploit development and reverse engineering features
+- **Interactive Shell**: Simplified debugging interface with abstracted commands
+- **Binary Analysis**: Automated disassembly, string extraction, and security feature detection
+- **Practice Examples**: Vulnerable binaries for learning debugging and exploitation techniques
+- **Multi-Language**: Dedicated support for C, C++, and Rust debugging workflows
+
+See [Debugging Guide](demos/debugging/README.md) for complete documentation.
+
 ### Testing & Development
 - **Live dev server**: Static HTTP server with CORS headers for WASM
 - **Playwright tests**: Automated browser testing for WASM modules
@@ -629,6 +640,7 @@ npx playwright show-report
 - **pf-runner Documentation**: See [`pf-runner/README.md`](pf-runner/README.md) for comprehensive pf runner documentation
 - **LLVM Lifting Guide**: See [`docs/LLVM-LIFTING.md`](docs/LLVM-LIFTING.md) for binary lifting documentation
 - **Binary Lifting Examples**: See [`demos/binary-lifting/README.md`](demos/binary-lifting/README.md) for lifting tutorials
+- **Debugging Guide**: See [`demos/debugging/README.md`](demos/debugging/README.md) for debugging and reverse engineering
 - **Web Demo Documentation**: See [`demos/pf-web-polyglot-demo-plus-c/README.md`](demos/pf-web-polyglot-demo-plus-c/README.md)
 - **WIT Components**: See [`pf/wit/README.md`](pf/wit/README.md)
 
@@ -672,6 +684,16 @@ Additional documentation in `pf-runner/`:
 | `pf optimize-lifted-ir input=<file.ll>` | Optimize lifted LLVM IR |
 | `pf test-lifting-workflow` | Test complete lifting workflow |
 | `pf lifting-help` | Show detailed lifting commands help |
+| **Debugging & Reverse Engineering** | |
+| `pf install-debuggers` | Install GDB, LLDB, and pwndbg |
+| `pf build-debug-examples` | Build C/C++/Rust debug examples |
+| `pf debug binary=<path>` | Start interactive debugger shell |
+| `pf debug-gdb binary=<path>` | Debug directly with GDB |
+| `pf debug-lldb binary=<path>` | Debug directly with LLDB |
+| `pf debug-info binary=<path>` | Show binary information |
+| `pf disassemble binary=<path>` | Disassemble binary |
+| `pf binary-info binary=<path>` | Show detailed binary info |
+| `pf debug-help` | Show debugging commands help |
 | **Installation & Setup** | |
 | `pf install-base` | Install base pf runner and dependencies |
 | `pf install-web` | Install web/WASM development tools |
