@@ -81,5 +81,35 @@ task test-sync-all
   shell ./pf test-sync-local
   shell ./pf test-sync-excludes
   shell ./pf test-sync-dry
+  shell ./pf test-sync-vars
+  shell ./pf test-sync-exclude-file
   shell echo "All sync tests passed!"
+end
+
+task test-sync-vars
+  describe Test sync with variable interpolation
+  env TEST_SRC="/tmp/pf_sync_vars_src"
+  env TEST_DEST="/tmp/pf_sync_vars_dest"
+  shell mkdir -p $TEST_SRC $TEST_DEST
+  shell echo "var test" > $TEST_SRC/vartest.txt
+  sync src="$TEST_SRC/" dest="$TEST_DEST/" verbose
+  shell test -f $TEST_DEST/vartest.txt && echo "✓ Variable interpolation works"
+  shell rm -rf $TEST_SRC $TEST_DEST
+  shell echo "Variable interpolation test passed!"
+end
+
+task test-sync-exclude-file
+  describe Test sync with exclude file
+  shell mkdir -p /tmp/pf_sync_exf_src /tmp/pf_sync_exf_dest
+  shell echo "include this" > /tmp/pf_sync_exf_src/include.txt
+  shell echo "exclude this" > /tmp/pf_sync_exf_src/exclude.bak
+  shell echo "exclude too" > /tmp/pf_sync_exf_src/temp.cache
+  shell echo "*.bak" > /tmp/pf_sync_exclude.txt
+  shell echo "*.cache" >> /tmp/pf_sync_exclude.txt
+  sync src="/tmp/pf_sync_exf_src/" dest="/tmp/pf_sync_exf_dest/" exclude_file="/tmp/pf_sync_exclude.txt" verbose
+  shell test -f /tmp/pf_sync_exf_dest/include.txt && echo "✓ include.txt synced"
+  shell test ! -f /tmp/pf_sync_exf_dest/exclude.bak && echo "✓ exclude.bak excluded via file"
+  shell test ! -f /tmp/pf_sync_exf_dest/temp.cache && echo "✓ temp.cache excluded via file"
+  shell rm -rf /tmp/pf_sync_exf_src /tmp/pf_sync_exf_dest /tmp/pf_sync_exclude.txt
+  shell echo "Exclude file test passed!"
 end
