@@ -3,6 +3,9 @@
 # Include binary lifting tasks
 include Pfyfile.lifting.pf
 
+# Include debugging and reverse engineering tasks
+include Pfyfile.debugging.pf
+
 task web-dev
   shell_lang bash
   shell node tools/static-server.mjs ${dir:-web} ${port:-8080}
