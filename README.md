@@ -226,6 +226,37 @@ pf web-build-wat      # WAT → WASM
 pf web-build-fortran  # Fortran → WASM (optional, requires lfortran)
 ```
 
+Build to specific formats:
+```bash
+# Build all to WebAssembly
+pf web-build-all-wasm
+
+# Build all to asm.js (where supported)
+pf web-build-all-asm
+
+# Build all to LLVM IR (where supported)
+pf web-build-all-llvm
+```
+
+Individual language compilation targets:
+```bash
+# Rust
+pf web-build-rust-wasm  # Rust → WASM
+pf web-build-rust-llvm  # Rust → LLVM IR
+
+# C
+pf web-build-c-wasm     # C → WASM
+pf web-build-c-asm      # C → asm.js
+pf web-build-c-llvm     # C → LLVM IR
+
+# Fortran
+pf web-build-fortran-wasm  # Fortran → WASM
+pf web-build-fortran-llvm  # Fortran → LLVM IR
+
+# WebAssembly Text
+pf web-build-wat-wasm   # WAT → WASM
+```
+
 #### Start Development Server
 
 ```bash
@@ -591,10 +622,17 @@ Additional documentation in `pf-runner/`:
 | `pf web-dev` | Start development server (default: localhost:8080) |
 | `pf web-test` | Run Playwright tests |
 | `pf web-build-all` | Build all WASM modules (Rust, C, Fortran, WAT) |
+| `pf web-build-all-wasm` | Build all languages to WebAssembly |
+| `pf web-build-all-asm` | Build all languages to asm.js (where supported) |
+| `pf web-build-all-llvm` | Build all languages to LLVM IR (where supported) |
 | `pf web-build-rust` | Build Rust → WASM |
+| `pf web-build-rust-llvm` | Build Rust → LLVM IR |
 | `pf web-build-c` | Build C → WASM |
+| `pf web-build-c-asm` | Build C → asm.js |
+| `pf web-build-c-llvm` | Build C → LLVM IR |
 | `pf web-build-wat` | Assemble WAT → WASM |
 | `pf web-build-fortran` | Build Fortran → WASM |
+| `pf web-build-fortran-llvm` | Build Fortran → LLVM IR |
 | `pf install-base` | Install base pf runner and dependencies |
 | `pf install-web` | Install web/WASM development tools |
 | `pf install` | Install everything (base + web) |

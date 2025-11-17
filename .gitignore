@@ -5,6 +5,8 @@ demos/**/web/wasm/**/pkg/
 demos/**/web/wasm/**/*.js
 demos/**/web/wasm/**/*.wasm
 demos/**/web/wasm/**/*.d.ts
+demos/**/web/asm/**/*.js
+demos/**/web/llvm/**/*.ll
 demos/**/target/
 demos/**/Cargo.lock
 node_modules/

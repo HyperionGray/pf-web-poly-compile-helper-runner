@@ -45,14 +45,29 @@ To build all the WASM modules, you need to install the required toolchains:
 Using the pf task runner:
 
 ```bash
-# Build all modules
+# Build all modules to their default targets
 pf web-build-all
 
-# Or build individually:
+# Build all to specific formats
+pf web-build-all-wasm   # All languages → WebAssembly
+pf web-build-all-asm    # Supported languages → asm.js
+pf web-build-all-llvm   # Supported languages → LLVM IR
+
+# Or build individually by language
 pf web-build-rust
 pf web-build-c
 pf web-build-wat
 pf web-build-fortran  # Optional, requires lfortran
+
+# Build specific language to specific format
+pf web-build-rust-wasm   # Rust → WASM
+pf web-build-rust-llvm   # Rust → LLVM IR
+pf web-build-c-wasm      # C → WASM
+pf web-build-c-asm       # C → asm.js
+pf web-build-c-llvm      # C → LLVM IR
+pf web-build-fortran-wasm   # Fortran → WASM
+pf web-build-fortran-llvm   # Fortran → LLVM IR
+pf web-build-wat-wasm    # WAT → WASM
 ```
 
 ### Running the Demo
