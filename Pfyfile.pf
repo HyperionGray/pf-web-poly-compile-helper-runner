@@ -127,3 +127,14 @@ task install
   shell_lang bash
   shell bash install.sh all
 end
+
+task sync-demo
+  describe Demo of sync command - sync files with rsync
+  shell_lang bash
+  shell echo "Sync command examples:"
+  shell echo "  Local:  sync src=/path/src/ dest=/path/dest/ verbose"
+  shell echo "  Remote: sync src=/local/ dest=/remote/ host=server.com user=deploy port=22"
+  shell echo "  Excludes: sync src=./ dest=/backup/ excludes=[\"*.log\",\"*.tmp\"] delete dry"
+  shell echo "  From file: sync src=./ dest=/backup/ exclude_file=.rsync-exclude"
+  shell echo "See pf-runner/SYNC.md for full documentation"
+end
