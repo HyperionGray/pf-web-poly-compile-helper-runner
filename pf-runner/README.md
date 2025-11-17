@@ -1,24 +1,42 @@
 # pf — tiny Fabric runner (symbol-free DSL)
 
-INSTALL
+## Quick Install (One Command)
 
-make setup # (creates ./pf symlink)
-make install-local # (creates symlink in ~/.local/bin
+```bash
+# Clone and install pf with completions
+cd pf-runner && make setup && make install-local && make install-completions
+```
 
-That's it!
+That's it! The `pf` command is now available in your shell with tab completions.
+
+### Alternative Install Methods
+
+**Development/Local:**
+```bash
+make setup              # Creates ./pf symlink for local use
+make install-local      # Installs pf to ~/.local/bin
+make install-completions # Installs shell completions (bash & zsh)
+```
+
+**System-wide with static binary:**
+```bash
+make build              # Creates static executable
+make install            # Installs to /usr/local/bin with completions (requires sudo)
+```
 
 
 ## WHAT IS IT!?
 
 Single-file **Fabric** runner with a tiny, readable DSL, parallel SSH, and live output.
 
-- One file: `pf.py`
+- One file: `pf_parser.py` (or `pf.py`)
 - Symbol-free DSL: `shell`, `packages install/remove`, `service start/stop/enable/disable/restart`, `directory`, `copy`
 - Task metadata: `describe` shows in `pf list`
 - Project split: `include` other `.pf` files from `Pfyfile.pf`
 - Per-task params: `pf run-tls tls_cert=... port=9443` → use `$tls_cert`, `$port` in DSL
 - **Per-task env**: line `env KEY=VAL KEY2=VAL2` applies to the rest of the task
 - Host args: `env=prod`, `hosts=user@ip:port,...`, repeatable `host=...`
+- **Shell completions**: Automatic task and option completion for bash and zsh
 
 ## Install
 
@@ -50,6 +68,57 @@ pf setup-optional
 ```
 
 Feel free to tweak the package list if your distro uses different names or you want to pin versions.
+
+## Command-Line Syntax & Argument Flexibility
+
+The `pf` command line parser is **flexible about argument order**. You can mix options, parameters, and task names in any order that feels natural:
+
+```bash
+# All of these are equivalent:
+pf my-task param=value env=prod
+pf env=prod my-task param=value
+pf param=value env=prod my-task
+
+# Multiple tasks with their own parameters:
+pf build release=true test coverage=true
+
+# Environment and host options can appear anywhere:
+pf env=staging deploy host=server1.com:22
+pf host=server1.com:22 env=staging deploy
+```
+
+### Available Command-Line Options
+
+- `env=NAME` - Use a named environment from `ENV_MAP` (can specify multiple)
+- `hosts=user@host:port,...` - Connect to specific hosts (comma-separated)
+- `host=user@host:port` - Connect to a single host (can specify multiple)
+- `user=USERNAME` - Default SSH username
+- `port=PORT` - Default SSH port
+- `sudo=true` - Run commands with sudo
+- `sudo_user=USER` - Run commands as a specific user with sudo
+
+### Shell Compatibility
+
+The DSL is designed to be **shell-friendly**:
+
+- **Variables**: Use `$VAR` or `${VAR}` for variable interpolation
+- **Quoting**: Single and double quotes work as expected in shell commands
+- **Line continuations**: Backslash `\` works for multi-line commands
+- **Environment variables**: Both task-level `env` and system environment variables are supported
+- **Parameter passing**: `key=value` pairs work naturally without special escaping
+
+Example with complex shell structures:
+```text
+task deploy
+  env VERSION=1.0.0 ENVIRONMENT=prod
+  shell docker build -t myapp:${VERSION} .
+  shell docker tag myapp:${VERSION} myapp:latest
+  shell if [ "$ENVIRONMENT" = "prod" ]; then \
+          docker push myapp:${VERSION}; \
+          docker push myapp:latest; \
+        fi
+end
+```
 
 ## DSL
 
@@ -104,6 +173,85 @@ Place `#!lang:python` (or `#!lang:fish`) at the very top of a Pfyfile to set a r
 - `java-android` looks for `ANDROID_SDK_ROOT`/`ANDROID_HOME` plus build-tools (`d8`) and `dalvikvm`. If those aren’t present it falls back to running on the local JVM after compiling against whatever `android.jar` it can find.
 
 Because the snippets expand to real shell scripts, they inherit your `sudo=true`/remote host settings and obey per-task `env` just like regular `shell` lines. Treat this as a "test test runner" sandbox — there are zero safety guarantees when mixing exotic interpreters.
+
+### Language Specification Rules
+
+**IMPORTANT**: When using polyglot shell features, you must specify the language in one of three ways:
+
+1. **Per-command inline**: `shell [lang:python] print("hello")`
+2. **Task-level setting**: Use `shell_lang python` at the start of a task
+3. **Global/file-level**: Add `#!lang:python` as the first line of your Pfyfile.pf
+
+**Without specifying a language**, commands are executed as regular shell commands (bash by default).
+
+#### Language Scope Hierarchy
+
+Language specifications follow this precedence (highest to lowest):
+
+1. **Inline language tags** `[lang:...]` - Applies to single command only
+2. **Task-level `shell_lang`** - Applies to all subsequent commands in the task
+3. **File-level shebang** `#!lang:...` - Applies to entire file as default
+4. **Environment variable** `PF_SHELL_TEMPLATE` - System-wide default
+5. **Built-in default** - Standard bash shell
+
+#### Resetting Language Context
+
+```text
+# Set language for a task
+task python-heavy
+  shell_lang python
+  shell print("This runs in Python")
+  shell import sys; print(sys.version)
+  
+  # Reset to default shell
+  shell_lang default
+  shell echo "Back to bash"
+  
+  # Or clear completely (same as default)
+  shell_lang none
+  shell pwd
+end
+
+# File-level default
+#!lang:python
+
+task task1
+  # All shells use Python by default
+  shell print("Hello from Python")
+end
+
+task task2
+  # Override with bash for this task
+  shell_lang bash
+  shell echo "Hello from bash"
+end
+```
+
+#### Best Practices
+
+- **Be explicit**: Always specify the language when using polyglot features
+- **Minimize context switching**: Group commands of the same language together
+- **Document language requirements**: Use `describe` to note language dependencies
+- **Test language availability**: Check that required interpreters are installed
+
+Example with clear language specification:
+```text
+task build-and-test
+  describe Build Rust project and run Python tests (requires: rust, python3)
+  
+  # Rust compilation
+  shell_lang rust
+  shell @build/compile.rs
+  
+  # Switch to Python for testing
+  shell_lang python
+  shell @tests/runner.py
+  
+  # Back to shell for cleanup
+  shell_lang bash
+  shell rm -rf target/debug/test-*
+end
+```
 
 ### LLVM IR Output
 

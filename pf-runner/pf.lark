@@ -1,28 +1,63 @@
 // Lark grammar for the .pf language
+// 
+// This grammar defines the syntax for .pf task definition files.
+// The actual pf_parser.py uses a simpler text-based parser for performance,
+// but this grammar serves as formal documentation of the language syntax.
+//
+// Key Features:
+// - Symbol-free DSL with intuitive verb-based syntax
+// - Flexible parameter passing (name=value pairs)
+// - Polyglot shell support for multiple languages
+// - Control flow (if/else, for loops)
+// - Variable interpolation ($var, ${var})
+// - Include mechanism for modular task files
+
 start: statement+
 
 statement: env_var | task | comment
 
-// Comments start with #
+// Comments start with # and continue to end of line
 comment: COMMENT
 
-// Environment variable definition: env name="value"
+// Global environment variable definition: env name="value"
+// Used for setting repository-wide or project-level configuration
 env_var: "env" IDENTIFIER "=" STRING
 
 // Task definition with optional parameters
+// Parameters can appear in any order before the task name or after it
+// Examples: 
+//   task my-task param1="value" param2="value"
+//   task my-task
 task: "task" IDENTIFIER param* NEWLINE task_body+ "end"
 
 // Task parameter: name="value"
+// These become available as $name within the task
 param: IDENTIFIER "=" STRING
 
-// Things that can appear inside a task
-task_body: describe | shell | for_loop | if_stmt | sync_stmt
+// Things that can appear inside a task body
+// These are the core DSL verbs for task definitions
+task_body: describe | shell | shell_lang | env_stmt | for_loop | if_stmt | sync_stmt
 
-// Task description
+// Task description - displayed in 'pf list'
 describe: "describe" TEXT_LINE
 
-// Shell command
+// Shell command with optional language specification
+// Examples:
+//   shell echo "hello"
+//   shell [lang:python] print("hello")
+//   shell @script.py -- arg1 arg2
 shell: "shell" TEXT_LINE
+
+// Language specification for subsequent shell commands
+// Examples:
+//   shell_lang python
+//   shell_lang default
+//   shell_lang none
+shell_lang: "shell_lang" IDENTIFIER
+
+// Task-local environment variable (applies to remaining commands)
+// Example: env VAR1=value VAR2=value
+env_stmt: "env" TEXT_LINE
 
 // If statement with optional else (use helper rules to keep bodies separate)
 if_stmt: "if" condition NEWLINE if_body else_body? "end"
@@ -50,23 +85,42 @@ iterable: array | variable
 // Array literal: ["item1", "item2", "item3"]
 array: "[" STRING ("," STRING)* "]"
 
-// Variable reference: $variable_name
+// Variable reference: $variable_name or ${variable_name}
+// Variables are interpolated from: task params → task env → process env
 variable: "$" IDENTIFIER
 
 // Sync files/directories using rsync-over-ssh or local paths
+// Examples:
+//   sync src="/path/to/source" dst="user@host:/dest"
+//   sync src=["/file1", "/file2"] dst="/dest" recursive
 sync_stmt: "sync" sync_kv+
 sync_kv: IDENTIFIER "=" STRING
        | IDENTIFIER "=" array
        | IDENTIFIER           // flag, treated as true
 
+// Additional DSL verbs (not in grammar but supported by parser):
+// - packages install/remove <names...>
+// - service start/stop/enable/disable/restart <name>
+// - directory <path> [mode=0755]
+// - copy <local> <remote> [mode=0644] [user=...] [group=...]
+// - makefile <targets...> [jobs=N] [VAR=value...]
+// - cmake <source_dir> [build_dir=...] [build_type=...]
+// - meson <source_dir> [build_dir=...] [buildtype=...]
+// - cargo <subcommand> [release=true] [features=...]
+// - go_build [output=...] [tags=...] [race=true]
+// - configure [prefix=...] [feature=true/false...]
+// - justfile <recipe> [args...]
+// - autobuild [release=true] [jobs=N] [dir=<path>]
+// - build_detect (detect build system)
+
 // Tokens
-IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_-]*/
-STRING: /"[^"]*"/
-TEXT_LINE: /[^\r\n]+/
-COMMAND_TEXT: /[^`]+/
-COMMENT: /#[^\r\n]*/
-BACKQUOTE: "`"
-EQUALS_OP: "==" | "!="
+IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_-]*/      // Task names, variables, parameters
+STRING: /"[^"]*"/                           // Quoted strings (double quotes)
+TEXT_LINE: /[^\r\n]+/                       // Any text until end of line
+COMMAND_TEXT: /[^`]+/                       // Text between backticks
+COMMENT: /#[^\r\n]*/                        // Comments from # to end of line
+BACKQUOTE: "`"                              // Backticks for command execution
+EQUALS_OP: "==" | "!="                      // Comparison operators
 
 // Ignore whitespace and newlines (except where explicitly used)
 %import common.NEWLINE
