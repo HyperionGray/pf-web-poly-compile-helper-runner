@@ -76,65 +76,129 @@ pf build_detect
 
 ## Prerequisites
 
-### System Requirements
+### Minimum Requirements
 - Linux (Ubuntu/Debian recommended) or macOS
-- Python 3.8+ with pip
-- Node.js 18+ (for static server and Playwright tests)
 - Git
+- Python 3.8+ with pip
+- sudo access (for system package installation)
 
-### Optional (for WASM compilation)
-- **Rust toolchain**: For building Rust WASM modules
-  ```bash
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-  cargo install wasm-pack
-  ```
+**Note:** The installer script (`./install.sh`) will automatically install most prerequisites. You only need Git and Python to get started.
 
-- **Emscripten**: For compiling C/C++ to WASM
-  ```bash
-  git clone https://github.com/emscripten-core/emsdk.git
-  cd emsdk
-  ./emsdk install latest
-  ./emsdk activate latest
-  source ./emsdk_env.sh
-  ```
+### Optional Prerequisites
+These will be installed automatically by the installer if you choose the "web" or "all" installation:
 
-- **WABT**: WebAssembly Binary Toolkit for WAT compilation
-  ```bash
-  # Ubuntu/Debian:
-  sudo apt-get install wabt
-  
-  # macOS:
-  brew install wabt
-  ```
+- Node.js 18+ (for static server and Playwright tests)
+- Rust toolchain (for building Rust WASM modules)
+- Emscripten (for compiling C/C++ to WASM)
+- WABT (WebAssembly Binary Toolkit for WAT compilation)
+- LFortran (for Fortran WASM compilation - experimental)
 
-- **LFortran**: For Fortran WASM compilation (experimental)
-  - Follow instructions at https://lfortran.org/
+## Installation
+
+### Recommended: One-Command Install
+
+The easiest way to get started:
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd pf-web-poly-compile-helper-runner
+
+# Run the installer (interactive mode)
+./install.sh
+
+# Or install everything directly
+./install.sh all
+```
+
+The installer will:
+1. Install Python Fabric library (task runner framework)
+2. Set up the pf command-line tool
+3. Install shell completions (bash/zsh)
+4. Optionally install web/WASM development tools
+
+**Installation Modes:**
+
+- `./install.sh base` - Install just pf runner and core dependencies
+- `./install.sh web` - Install web/WASM development tools only
+- `./install.sh all` - Install everything (recommended)
+- `./install.sh --help` - Show detailed help
+
+### Using pf Tasks (After Initial Install)
+
+Once pf is installed, you can use these tasks:
+
+```bash
+pf install-base  # Install/update base components
+pf install-web   # Install/update web tools
+pf install       # Install/update everything
+```
+
+### What Gets Installed?
+
+**Base Installation:**
+- Python Fabric library (`fabric>=3.2,<4`)
+- pf runner CLI tool (installed to `~/.local/bin/pf`)
+- Shell completions for bash and zsh
+- Core build tools (gcc, make, git)
+
+**Web Installation:**
+- Node.js and npm (if not present)
+- Playwright for browser testing
+- Rust toolchain with wasm-pack
+- WABT (WebAssembly Binary Toolkit)
+- Emscripten info (manual installation guidance)
+- LFortran info (optional Fortran support)
 
 ## Quick Start
 
 ### 1. Install pf-runner
 
-The repository includes an installation script that sets up the pf task runner:
+The repository includes a **comprehensive installer script** that sets up everything you need:
+
+#### One-Command Installation (Recommended)
 
 ```bash
-# Run the complete setup (installs dependencies and builds pf-runner)
-./start.sh
+# Interactive installer - choose what to install
+./install.sh
+
+# Or install everything directly
+./install.sh all
 ```
 
-This script will:
-- Update system packages
-- Set up Python virtual environment
-- Install base dependencies
-- Install build tools
-- Build and install the pf runner
+The installer provides three installation modes:
 
-Alternatively, for manual installation:
+- **Base** (`./install.sh base`): Install pf runner, Python dependencies, and core build tools
+- **Web** (`./install.sh web`): Install web/WASM development tools (Node.js, Playwright, Rust, Emscripten, WABT)
+- **All** (`./install.sh all`): Install everything (recommended)
+
+#### Using pf Commands
+
+After initial installation, you can also use pf tasks:
+
+```bash
+pf install-base  # Install base pf runner and dependencies
+pf install-web   # Install web/WASM development tools
+pf install       # Install everything
+```
+
+#### Legacy Installation (Alternative)
+
+The older installation script is still available:
+
+```bash
+./start.sh  # Legacy setup script
+```
+
+#### Manual Installation
+
+For manual control:
 
 ```bash
 cd pf-runner
-pip install "fabric>=3.2,<4"
-make setup        # Creates ./pf symlink
-make install      # Installs to system or ~/.local/bin
+pip install --user "fabric>=3.2,<4"
+make setup          # Creates ./pf symlink
+make install-local  # Installs to ~/.local/bin
 ```
 
 ### 2. Verify Installation
@@ -531,14 +595,31 @@ Additional documentation in `pf-runner/`:
 | `pf web-build-c` | Build C → WASM |
 | `pf web-build-wat` | Assemble WAT → WASM |
 | `pf web-build-fortran` | Build Fortran → WASM |
+| `pf install-base` | Install base pf runner and dependencies |
+| `pf install-web` | Install web/WASM development tools |
+| `pf install` | Install everything (base + web) |
 | `pf list` | List all available tasks |
 
 ## Troubleshooting
 
-### pf command not found
-- Run `./start.sh` to install pf-runner
-- Or use `./pf-runner/pf` instead of `pf`
+### Installation Issues
+
+#### pf command not found
+- Run `./install.sh base` to install pf-runner
+- Or run `source ~/.bashrc` to reload your shell configuration
 - Check that `~/.local/bin` is in your PATH
+- Legacy option: Run `./start.sh` to use the older installer
+
+#### Fabric import error
+- Ensure Fabric is installed: `pip install --user "fabric>=3.2,<4"`
+- Verify with: `python3 -c "import fabric; print(fabric.__version__)"`
+- Re-run: `./install.sh base`
+
+#### Installation script fails
+- Check that you have sudo access for system packages
+- Ensure internet connection is available
+- Review error messages for specific missing dependencies
+- Try manual installation steps from README
 
 ### WASM build failures
 - **Rust**: Ensure `wasm-pack` is installed: `cargo install wasm-pack`

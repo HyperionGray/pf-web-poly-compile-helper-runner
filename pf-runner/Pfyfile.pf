@@ -19,6 +19,21 @@ task setup-optional
   shell if ! command -v rustup >/dev/null 2>&1; then curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; else echo \"rustup already installed\"; fi
 end
 
+task install-base
+  describe Install base pf runner, Python dependencies, and core build tools
+  shell cd .. && bash install.sh base
+end
+
+task install-web
+  describe Install web/WASM development tools (Node.js, Playwright, Rust, Emscripten, WABT)
+  shell cd .. && bash install.sh web
+end
+
+task install
+  describe Install everything - base pf runner and all web/WASM development tools
+  shell cd .. && bash install.sh all
+end
+
 task ff3-dev
   describe Start FastFiles3 dev server
   shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi

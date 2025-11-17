@@ -36,3 +36,21 @@ task web-build-all
   shell pf web-build-fortran
   shell pf web-build-wat
 end
+
+task install-base
+  describe Install base pf runner, Python dependencies, and core build tools
+  shell_lang bash
+  shell bash install.sh base
+end
+
+task install-web
+  describe Install web/WASM development tools (Node.js, Playwright, Rust, Emscripten, WABT)
+  shell_lang bash
+  shell bash install.sh web
+end
+
+task install
+  describe Install everything - base pf runner and all web/WASM development tools
+  shell_lang bash
+  shell bash install.sh all
+end
