@@ -22,9 +22,8 @@ import os
 import re
 import sys
 import shlex
-import textwrap
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Tuple, Optional, Callable
+from typing import List, Dict, Tuple, Optional
 
 from fabric import Connection
 
@@ -35,9 +34,6 @@ ENV_MAP: Dict[str, List[str] | str] = {
     "prod": ["ubuntu@10.0.0.5:22", "punk@10.4.4.4:24"],
     "staging": "staging@10.1.2.3:22,staging@10.1.2.4:22",
 }
-DEFAULT_SHELL_TEMPLATE: Optional[str] = None
-DEFAULT_SHELL_LANG: Optional[str] = None
-PFY_ROOT: Optional[str] = None
 
 # ---------- Pfyfile discovery ----------
 def _find_pfyfile(start_dir: Optional[str] = None, file_arg: Optional[str] = None) -> str:
@@ -71,372 +67,6 @@ def _interpolate(text: str, params: dict, extra_env: dict | None = None) -> str:
         return str(merged.get(key, m.group(0)))
     return _VAR_RE.sub(repl, text)
 
-# ---------- Polyglot shell helpers ----------
-_POLY_DELIM = "__PFY_LANG__"
-
-
-def _cmd_str(parts: List[str] | Tuple[str, ...]) -> str:
-    return " ".join(shlex.quote(p) for p in parts)
-
-
-def _poly_args(args: List[str]) -> str:
-    cleaned = [a for a in args if a]
-    return " ".join(shlex.quote(a) for a in cleaned)
-
-
-def _ensure_newline(src: str) -> str:
-    return src if src.endswith("\n") else f"{src}\n"
-
-
-def _build_script_command(interpreter_cmd: str, ext: str, code: str, args: List[str], basename: str = "pf_poly") -> str:
-    code = _ensure_newline(code)
-    arg_str = _poly_args(args)
-    return (
-        "tmpdir=$(mktemp -d)\n"
-        f'src="$tmpdir/{basename}{ext}"\n'
-        "cat <<'"
-        + _POLY_DELIM
-        + "' > \"$src\"\n"
-        f"{code}"
-        + _POLY_DELIM
-        + "\nchmod +x \"$src\" 2>/dev/null || true\n"
-        + f"{interpreter_cmd} \"$src\""
-        + (f" {arg_str}" if arg_str else "")
-        + "\nrc=$?\nrm -rf \"$tmpdir\"\nexit $rc\n"
-    )
-
-
-def _build_compile_command(
-    ext: str,
-    code: str,
-    compiler_cmd: str,
-    run_cmd: str,
-    args: List[str],
-    setup_lines: List[str] | None = None,
-    basename: str = "pf_poly",
-    append_args: bool = True,
-) -> str:
-    code = _ensure_newline(code)
-    arg_str = _poly_args(args)
-    setup = "\n".join(setup_lines or [])
-    if setup:
-        setup += "\n"
-    mapping = {
-        "src": '"$src"',
-        "bin": '"$bin"',
-        "dir": '"$tmpdir"',
-        "classes": '"$classes"',
-        "jar": '"$jar"',
-    }
-    compiler = compiler_cmd.format(**mapping)
-    run_mapping = dict(mapping)
-    run_mapping["args"] = arg_str
-    runner = run_cmd.format(**run_mapping)
-    if append_args and arg_str:
-        runner = f"{runner} {arg_str}"
-    return (
-        "tmpdir=$(mktemp -d)\n"
-        f'src="$tmpdir/{basename}{ext}"\n'
-        'bin="$tmpdir/pf_poly_bin"\n'
-        + setup
-        + "cat <<'"
-        + _POLY_DELIM
-        + "' > \"$src\"\n"
-        f"{code}"
-        + _POLY_DELIM
-        + "\n"
-        + compiler
-        + "\nrc=$?\n"
-        + "if [ $rc -eq 0 ]; then\n"
-        + f"  {runner}\n"
-        + "  rc=$?\n"
-        + "fi\n"
-        + "rm -rf \"$tmpdir\"\nexit $rc\n"
-    )
-
-
-def _build_browser_js_command(code: str, args: List[str]) -> str:
-    code = _ensure_newline(code)
-    arg_str = _poly_args(args)
-    snippet = textwrap.indent(code, "  ")
-    body = (
-        "const { chromium } = require('playwright');\n"
-        "(async () => {\n"
-        "  const browser = await chromium.launch({ headless: process.env.PF_HEADFUL ? false : true });\n"
-        "  const page = await browser.newPage();\n"
-        f"{snippet}"
-        "  await browser.close();\n"
-        "})().catch(err => {\n"
-        "  console.error(err);\n"
-        "  process.exit(1);\n"
-        "});\n"
-    )
-    return (
-        "tmpdir=$(mktemp -d)\n"
-        'src="$tmpdir/pf_poly_browser.mjs"\n'
-        "cat <<'"
-        + _POLY_DELIM
-        + "' > \"$src\"\n"
-        + body
-        + _POLY_DELIM
-        + "\nnode \"$src\""
-        + (f" {arg_str}" if arg_str else "")
-        + "\nrc=$?\nrm -rf \"$tmpdir\"\nexit $rc\n"
-    )
-
-
-def _script_profile(parts: List[str] | Tuple[str, ...], ext: str, basename: str = "pf_poly"):
-    cmd = _cmd_str(parts)
-
-    def builder(code: str, args: List[str]) -> str:
-        return _build_script_command(cmd, ext, code, args, basename=basename)
-
-    return builder
-
-
-def _compile_profile(
-    ext: str,
-    compiler_cmd: str,
-    run_cmd: str,
-    setup_lines: List[str] | None = None,
-    basename: str = "pf_poly",
-    append_args: bool = True,
-):
-    def builder(code: str, args: List[str]) -> str:
-        return _build_compile_command(
-            ext,
-            code,
-            compiler_cmd,
-            run_cmd,
-            args,
-            setup_lines or [],
-            basename=basename,
-            append_args=append_args,
-        )
-
-    return builder
-
-
-def _java_openjdk_builder() -> Callable[[str, List[str]], str]:
-    return _compile_profile(
-        ".java",
-        "javac -d {classes} {src}",
-        "(cd {classes} && java Main{args})",
-        setup_lines=['classes="$tmpdir/classes"', 'mkdir -p "$classes"'],
-        basename="Main",
-        append_args=False,
-    )
-
-
-def _java_android_builder() -> Callable[[str, List[str]], str]:
-    def builder(code: str, args: List[str]) -> str:
-        code = _ensure_newline(code)
-        arg_str = _poly_args(args)
-        body = f"""tmpdir=$(mktemp -d)
-src="$tmpdir/Main.java"
-classes="$tmpdir/classes"
-dexdir="$tmpdir/dex"
-mkdir -p "$classes" "$dexdir"
-cat <<'{_POLY_DELIM}' > "$src"
-{code}{_POLY_DELIM}
-
-ANDROID_SDK="${{ANDROID_SDK_ROOT:-${{ANDROID_HOME:-}}}}"
-platform_jar="${{ANDROID_PLATFORM_JAR:-}}"
-if [ -z "$platform_jar" ] && [ -n "$ANDROID_SDK" ]; then
-  latest_platform=$(ls -1 "$ANDROID_SDK/platforms" 2>/dev/null | sort -V | tail -1)
-  if [ -n "$latest_platform" ] && [ -f "$ANDROID_SDK/platforms/$latest_platform/android.jar" ]; then
-    platform_jar="$ANDROID_SDK/platforms/$latest_platform/android.jar"
-  fi
-fi
-javac_cp=""
-if [ -n "$platform_jar" ] && [ -f "$platform_jar" ]; then
-  javac_cp="-classpath $platform_jar"
-fi
-javac $javac_cp -d "$classes" "$src"
-rc=$?
-if [ $rc -ne 0 ]; then
-  rm -rf "$tmpdir"
-  exit $rc
-fi
-
-d8_bin="${{ANDROID_D8:-}}"
-if [ -z "$d8_bin" ] && [ -n "$ANDROID_SDK" ]; then
-  latest_bt=$(ls -1 "$ANDROID_SDK/build-tools" 2>/dev/null | sort -V | tail -1)
-  if [ -n "$latest_bt" ] && [ -x "$ANDROID_SDK/build-tools/$latest_bt/d8" ]; then
-    d8_bin="$ANDROID_SDK/build-tools/$latest_bt/d8"
-  fi
-fi
-
-if [ -n "$d8_bin" ] && command -v dalvikvm >/dev/null 2>&1; then
-  "$d8_bin" --output "$dexdir" "$classes" >/dev/null
-  rc=$?
-  if [ $rc -eq 0 ]; then
-    dalvikvm -cp "$dexdir/classes.dex" Main{" " + arg_str if arg_str else ""}
-    rc=$?
-    rm -rf "$tmpdir"
-    exit $rc
-  fi
-fi
-
-(cd "$classes" && java Main{" " + arg_str if arg_str else ""})
-rc=$?
-rm -rf "$tmpdir"
-exit $rc
-"""
-        return body
-
-    return builder
-
-
-POLYGLOT_LANGS: Dict[str, Callable[[str, List[str]], str]] = {
-    # Shells
-    "bash": _script_profile(["bash"], ".sh"),
-    "sh": _script_profile(["sh"], ".sh"),
-    "dash": _script_profile(["dash"], ".sh"),
-    "zsh": _script_profile(["zsh"], ".sh"),
-    "fish": _script_profile(["fish"], ".fish"),
-    "ksh": _script_profile(["ksh"], ".sh"),
-    "tcsh": _script_profile(["tcsh"], ".csh"),
-    "pwsh": _script_profile(["pwsh", "-NoLogo", "-NonInteractive", "-File"], ".ps1"),
-
-    # Scripting / Interpreted
-    "python": _script_profile(["python3"], ".py"),
-    "node": _script_profile(["node"], ".js"),
-    "deno": _script_profile(["deno", "run"], ".ts"),
-    "ts-node": _script_profile(["ts-node"], ".ts"),
-    "perl": _script_profile(["perl"], ".pl"),
-    "php": _script_profile(["php"], ".php"),
-    "ruby": _script_profile(["ruby"], ".rb"),
-    "r": _script_profile(["Rscript"], ".R"),
-    "julia": _script_profile(["julia"], ".jl"),
-    "haskell": _script_profile(["runghc"], ".hs"),
-    "ocaml": _script_profile(["ocaml"], ".ml"),
-    "elixir": _script_profile(["elixir"], ".exs"),
-    "dart": _script_profile(["dart", "run"], ".dart"),
-    "lua": _script_profile(["lua"], ".lua"),
-
-    # Compiled / AOT
-    "go": _script_profile(["go", "run"], ".go"),
-    "rust": _compile_profile(".rs", "rustc {src} -o {bin}", "{bin}"),
-    "c": _compile_profile(".c", "clang -x c {src} -o {bin}", "{bin}"),
-    "cpp": _compile_profile(".cc", "clang++ {src} -o {bin}", "{bin}"),
-    "c-llvm": _compile_profile(".c", "clang -x c -S -emit-llvm {src} -o {bin}.ll && cat {bin}.ll", "echo '(LLVM IR generated)'"),
-    "cpp-llvm": _compile_profile(".cc", "clang++ -S -emit-llvm {src} -o {bin}.ll && cat {bin}.ll", "echo '(LLVM IR generated)'"),
-    "c-llvm-bc": _compile_profile(".c", "clang -x c -c -emit-llvm {src} -o {bin}.bc && llvm-dis {bin}.bc -o {bin}.ll && cat {bin}.ll", "echo '(LLVM bitcode generated)'"),
-    "cpp-llvm-bc": _compile_profile(".cc", "clang++ -c -emit-llvm {src} -o {bin}.bc && llvm-dis {bin}.bc -o {bin}.ll && cat {bin}.ll", "echo '(LLVM bitcode generated)'"),
-    "fortran": _compile_profile(".f90", "gfortran {src} -o {bin}", "{bin}"),
-    "fortran-llvm": _compile_profile(".f90", "flang {src} -S -emit-llvm -o {bin}.ll && cat {bin}.ll", "echo '(LLVM IR generated)'"),
-    "asm": _compile_profile(".s", "clang -x assembler {src} -o {bin}", "{bin}"),
-    "zig": _compile_profile(".zig", "zig build-exe -O Debug -femit-bin={bin} {src}", "{bin}"),
-    "nim": _compile_profile(".nim", "nim c -o:{bin} {src}", "{bin}"),
-    "crystal": _compile_profile(".cr", "crystal build -o {bin} {src}", "{bin}"),
-    "haskell-compile": _compile_profile(".hs", "ghc -o {bin} {src}", "{bin}"),
-    "ocamlc": _compile_profile(".ml", "ocamlc -o {bin} {src}", "{bin}"),
-
-    # Java / JVM
-    "java-openjdk": _java_openjdk_builder(),
-    "java-android": _java_android_builder(),
-}
-
-POLYGLOT_ALIASES = {
-    # Shells
-    "shell": "bash",
-    "sh": "sh",
-    "zshell": "zsh",
-    "powershell": "pwsh",
-    "ps1": "pwsh",
-
-    # Python
-    "py": "python",
-    "python3": "python",
-    "ipython": "python",
-
-    # JavaScript / TypeScript
-    "javascript": "node",
-    "js": "node",
-    "nodejs": "node",
-    "ts": "deno",
-    "typescript": "deno",
-    "tsnode": "ts-node",
-
-    # C-family
-    "c++": "cpp",
-    "cxx": "cpp",
-    "clang": "c",
-    "clang++": "cpp",
-    "g++": "cpp",
-    "gcc": "c",
-    "c-ir": "c-llvm",
-    "c-ll": "c-llvm",
-    "cpp-ir": "cpp-llvm",
-    "cpp-ll": "cpp-llvm",
-    "c-bc": "c-llvm-bc",
-    "cpp-bc": "cpp-llvm-bc",
-    "fortran-ll": "fortran-llvm",
-    "fortran-ir": "fortran-llvm",
-
-    # Others common
-    "golang": "go",
-    "rb": "ruby",
-    "pl": "perl",
-    "ml": "ocaml",
-    "hs": "haskell",
-    "fortran90": "fortran",
-    "gfortran": "fortran",
-    "java": "java-openjdk",
-    "java-openjdk": "java-openjdk",
-    "java-android-google": "java-android",
-    "java-android": "java-android",
-    "android-java": "java-android",
-    "fishshell": "fish",
-    "shellscript": "bash",
-    "dashshell": "dash",
-    "asm86": "asm",
-}
-
-
-def _parse_polyglot_template(template: str) -> Optional[str]:
-    stripped = template.strip()
-    m = re.match(r"^(?:lang|language|polyglot)\s*(?:[:=]|\s+)\s*(.+)$", stripped, re.IGNORECASE)
-    if not m:
-        return None
-    return m.group(1).strip().lower()
-
-
-def _extract_polyglot_source(cmd: str, working_dir: Optional[str] = None) -> Tuple[str, List[str], Optional[str]]:
-    raw = cmd.strip()
-    base_dir = working_dir or PFY_ROOT or os.getcwd()
-    if not raw:
-        raise ValueError("polyglot shell requires code or @file reference")
-    if raw.startswith("@") or raw.startswith("file:"):
-        tokens = shlex.split(cmd)
-        if not tokens:
-            raise ValueError("polyglot file token missing")
-        source_token = tokens.pop(0)
-        if source_token.startswith("@"):
-            rel_path = source_token[1:]
-        else:
-            rel_path = source_token[5:]
-        full_path = rel_path if os.path.isabs(rel_path) else os.path.join(base_dir, rel_path)
-        if not os.path.exists(full_path):
-            raise FileNotFoundError(f"polyglot source file not found: {full_path}")
-        with open(full_path, "r", encoding="utf-8") as poly_file:
-            code = poly_file.read()
-        if tokens and tokens[0] == "--":
-            tokens = tokens[1:]
-        return code, tokens, full_path
-    return cmd, [], None
-
-
-def _render_polyglot_command(lang_hint: Optional[str], cmd: str, working_dir: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
-    if not lang_hint:
-        return None, None
-    lang_key = _canonical_lang(lang_hint)
-    builder = POLYGLOT_LANGS[lang_key]
-    snippet, lang_args, _ = _extract_polyglot_source(cmd, working_dir)
-    rendered = builder(snippet, lang_args)
-    return rendered, lang_key
-
 # ---------- DSL (include + describe) ----------
 class Task:
     def __init__(self, name: str):
@@ -448,35 +78,6 @@ class Task:
 def _read_text_file(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
-
-def _canonical_lang(name: str) -> str:
-    lang_key = POLYGLOT_ALIASES.get(name.lower(), name.lower())
-    if lang_key not in POLYGLOT_LANGS:
-        raise ValueError(f"Unknown polyglot language: {name}")
-    return lang_key
-
-
-def _maybe_extract_shebang(text: str) -> str:
-    """Support shebang-like directive (e.g., '#!fish' or '#!lang:python')."""
-    global DEFAULT_SHELL_TEMPLATE, DEFAULT_SHELL_LANG
-    lines = text.splitlines()
-    idx = next((i for i, line in enumerate(lines) if line.strip()), None)
-    if idx is None:
-        return text
-    first_stripped = lines[idx].strip()
-    if first_stripped.startswith("#!"):
-        directive = first_stripped[2:].strip()
-        lower = directive.lower()
-        if lower.startswith(("lang:", "language:", "polyglot:")):
-            lang_part = directive.split(":", 1)[1].strip() if ":" in directive else ""
-            DEFAULT_SHELL_LANG = _canonical_lang(lang_part) if lang_part else None
-            DEFAULT_SHELL_TEMPLATE = None
-        else:
-            DEFAULT_SHELL_TEMPLATE = directive or None
-            DEFAULT_SHELL_LANG = None
-        del lines[idx]
-        return "\n".join(lines)
-    return text
 
 def _expand_includes_from_text(text: str, base_dir: str, visited: set[str]) -> str:
     out_lines: List[str] = []
@@ -515,17 +116,11 @@ def _expand_includes_from_text(text: str, base_dir: str, visited: set[str]) -> s
     return "\n".join(out_lines) + ("\n" if out_lines and not out_lines[-1].endswith("\n") else "")
 
 def _load_pfy_source_with_includes(file_arg: Optional[str] = None) -> str:
-    global DEFAULT_SHELL_TEMPLATE, DEFAULT_SHELL_LANG, PFY_ROOT
-    DEFAULT_SHELL_TEMPLATE = None
-    DEFAULT_SHELL_LANG = None
-    PFY_ROOT = None
     pfy_resolved = _find_pfyfile(file_arg=file_arg)
     if os.path.exists(pfy_resolved):
         base_dir = os.path.dirname(os.path.abspath(pfy_resolved)) or "."
-        PFY_ROOT = base_dir
         visited: set[str] = {os.path.abspath(pfy_resolved)}
         main_text = _read_text_file(pfy_resolved)
-        main_text = _maybe_extract_shebang(main_text)
         return _expand_includes_from_text(main_text, base_dir, visited)
     return PFY_EMBED
 
@@ -613,38 +208,9 @@ def _c_for(spec, sudo: bool, sudo_user: Optional[str]):
     return Connection(host=spec["host"], user=spec["user"],
                       port=spec["port"] if spec["port"] else 22), sudo, sudo_user
 
-def _build_shell_invocation(cmd: str, template_override: Optional[str] = None) -> Tuple[List[str] | str, bool]:
-    template = template_override or DEFAULT_SHELL_TEMPLATE or os.environ.get("PF_SHELL_TEMPLATE")
-    if template:
-        if "{cmd}" in template:
-            return template.format(cmd=cmd), True
-        parts = shlex.split(template)
-    else:
-        shell_env = os.environ.get("SHELL")
-        if shell_env:
-            parts = shlex.split(shell_env)
-        else:
-            return cmd, True
-    exe = os.path.basename(parts[0])
-    if exe.startswith("python"):
-        return parts + ["-c", cmd], False
-    shell_flags = {
-        "bash": "-lc",
-        "sh": "-lc",
-        "zsh": "-lc",
-        "ksh": "-lc",
-        "fish": "-c",
-    }
-    flag = shell_flags.get(exe, "-c")
-    return parts + [flag, cmd], False
-
-def _run_local(cmd: str, env=None, shell_template: Optional[str] = None):
+def _run_local(cmd: str, env=None):
     import subprocess
-    invocation, use_shell = _build_shell_invocation(cmd, template_override=shell_template)
-    if use_shell:
-        p = subprocess.Popen(invocation, shell=True, env=env)
-    else:
-        p = subprocess.Popen(invocation, shell=False, env=env)
+    p = subprocess.Popen(cmd, shell=True, env=env)
     return p.wait()
 
 def _sudo_wrap(cmd: str, sudo_user: Optional[str]) -> str:
@@ -652,23 +218,13 @@ def _sudo_wrap(cmd: str, sudo_user: Optional[str]) -> str:
         return f"sudo -u {shlex.quote(sudo_user)} -H bash -lc {shlex.quote(cmd)}"
     return f"sudo bash -lc {shlex.quote(cmd)}"
 
-def _exec_line_fabric(
-    c: Optional[Connection],
-    line: str,
-    sudo: bool,
-    sudo_user: Optional[str],
-    prefix: str,
-    params: dict,
-    task_env: dict,
-    shell_template: Optional[str],
-    shell_lang: Optional[str],
-):
+def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user: Optional[str], prefix: str, params: dict, task_env: dict):
     # interpolate & parse
     line = _interpolate(line, params, task_env)
     parts = shlex.split(line)
     if not parts: return 0
 
-    def run(cmd: str, template_override: Optional[str] = None):
+    def run(cmd: str):
         # Build environment for this command
         merged_env = dict(os.environ)
         if task_env:
@@ -683,8 +239,7 @@ def _exec_line_fabric(
             else:
                 display = full
             print(f"{prefix}$ {display}")
-            effective_template = template_override if template_override is not None else shell_template
-            return _run_local(full, env=merged_env, shell_template=effective_template)
+            return _run_local(full, env=merged_env)
         else:
             exports = " ".join([f"export {k}={shlex.quote(str(v))};" for k,v in (task_env or {}).items()])
             shown = f"{exports} {cmd}".strip()
@@ -701,29 +256,9 @@ def _exec_line_fabric(
     op = parts[0]; args = parts[1:]
 
     if op == "shell":
-        inline_template = None
-        lang_used = None
-        if args and args[0].startswith("[") and args[0].endswith("]"):
-            inline_template = args[0][1:-1].strip()
-            args = args[1:]
-            if inline_template.lower() in {"default", "reset"}:
-                inline_template = DEFAULT_SHELL_TEMPLATE
         cmd = " ".join(args)
-        if inline_template:
-            lang_hint = _parse_polyglot_template(inline_template)
-            if lang_hint:
-                rendered, lang_used = _render_polyglot_command(lang_hint, cmd, PFY_ROOT)
-                cmd = rendered
-                inline_template = None
-        if not lang_used:
-            default_lang = shell_lang or DEFAULT_SHELL_LANG
-            if default_lang:
-                rendered, lang_used = _render_polyglot_command(default_lang, cmd, PFY_ROOT)
-                if rendered is not None:
-                    cmd = rendered
-                    inline_template = None
         if not cmd: raise ValueError("shell needs a command")
-        return run(cmd, template_override=inline_template)
+        return run(cmd)
 
     if op == "packages":
         if len(args) < 2: raise ValueError("packages install/remove <names...>")
@@ -783,416 +318,6 @@ def _exec_line_fabric(
     # 'env' is handled in the runner loop (stateful), so treat as no-op here
     if op == "env":
         return 0
-
-    # ---------- Build System Helpers ----------
-    if op == "makefile" or op == "make":
-        # makefile [target...] [VAR=value...] [clean] [verbose] [jobs=N]
-        pos, kv = _split_kv(args)
-        make_args = []
-        if kv.get("jobs"):
-            make_args.append(f"-j{kv['jobs']}")
-        elif kv.get("parallel") == "true":
-            make_args.append("-j")
-        if kv.get("verbose") == "true":
-            make_args.append("V=1")
-        # Add any VAR=value pairs
-        for k, v in kv.items():
-            if k not in {"jobs", "parallel", "verbose"}:
-                make_args.append(f"{k}={shlex.quote(v)}")
-        # Add targets
-        make_args.extend([shlex.quote(t) for t in pos])
-        cmd = "make " + " ".join(make_args) if make_args else "make"
-        return run(cmd)
-
-    if op == "cmake":
-        # cmake [source_dir] [build_dir] [generator=...] [build_type=...] [options...]
-        pos, kv = _split_kv(args)
-        source_dir = pos[0] if pos else "."
-        build_dir = kv.get("build_dir", "build")
-        
-        # Configure step
-        configure_args = ["cmake", "-S", shlex.quote(source_dir), "-B", shlex.quote(build_dir)]
-        if kv.get("generator"):
-            configure_args.extend(["-G", shlex.quote(kv["generator"])])
-        if kv.get("build_type"):
-            configure_args.append(f"-DCMAKE_BUILD_TYPE={shlex.quote(kv['build_type'])}")
-        # Add any other -D options
-        for k, v in kv.items():
-            if k not in {"build_dir", "generator", "build_type", "target", "jobs"}:
-                configure_args.append(f"-D{k}={shlex.quote(v)}")
-        
-        rc = run(" ".join(configure_args))
-        if rc != 0:
-            return rc
-        
-        # Build step
-        build_args = ["cmake", "--build", shlex.quote(build_dir)]
-        if kv.get("jobs"):
-            build_args.extend(["-j", kv["jobs"]])
-        if kv.get("target"):
-            build_args.extend(["--target", shlex.quote(kv["target"])])
-        
-        return run(" ".join(build_args))
-
-    if op == "meson" or op == "ninja":
-        # meson [source_dir] [build_dir] [options...]
-        pos, kv = _split_kv(args)
-        source_dir = pos[0] if pos else "."
-        build_dir = kv.get("build_dir", "builddir")
-        
-        # Check if build directory already exists (reconfigure vs initial setup)
-        check_cmd = f"test -f {shlex.quote(build_dir)}/build.ninja"
-        rc_check = run(check_cmd)
-        
-        if rc_check != 0:
-            # Initial setup
-            setup_args = ["meson", "setup", shlex.quote(build_dir), shlex.quote(source_dir)]
-            if kv.get("buildtype"):
-                setup_args.append(f"--buildtype={shlex.quote(kv['buildtype'])}")
-            for k, v in kv.items():
-                if k not in {"build_dir", "buildtype", "target"}:
-                    setup_args.append(f"-D{k}={shlex.quote(v)}")
-            rc = run(" ".join(setup_args))
-            if rc != 0:
-                return rc
-        
-        # Compile
-        compile_args = ["meson", "compile", "-C", shlex.quote(build_dir)]
-        if kv.get("target"):
-            compile_args.append(shlex.quote(kv["target"]))
-        
-        return run(" ".join(compile_args))
-
-    if op == "cargo":
-        # cargo <subcommand> [args...] [release] [features=...] [target=...]
-        if not args:
-            raise ValueError("cargo requires a subcommand (build, test, run, etc.)")
-        pos, kv = _split_kv(args)
-        subcommand = pos[0]
-        cargo_args = ["cargo", subcommand]
-        
-        if kv.get("release") == "true":
-            cargo_args.append("--release")
-        if kv.get("features"):
-            cargo_args.extend(["--features", shlex.quote(kv["features"])])
-        if kv.get("target"):
-            cargo_args.extend(["--target", shlex.quote(kv["target"])])
-        if kv.get("manifest_path"):
-            cargo_args.extend(["--manifest-path", shlex.quote(kv["manifest_path"])])
-        
-        # Add remaining positional args
-        cargo_args.extend([shlex.quote(a) for a in pos[1:]])
-        
-        # Add remaining kv pairs as flags
-        for k, v in kv.items():
-            if k not in {"release", "features", "target", "manifest_path"}:
-                if v == "true":
-                    cargo_args.append(f"--{k}")
-                else:
-                    cargo_args.extend([f"--{k}", shlex.quote(v)])
-        
-        return run(" ".join(cargo_args))
-
-    if op == "go_build" or op == "gobuild":
-        # go_build [subcommand=build] [output=...] [tags=...] [race] [package]
-        pos, kv = _split_kv(args)
-        subcommand = kv.get("subcommand", "build")
-        go_args = ["go", subcommand]
-        
-        if kv.get("output"):
-            go_args.extend(["-o", shlex.quote(kv["output"])])
-        if kv.get("tags"):
-            go_args.extend(["-tags", shlex.quote(kv["tags"])])
-        if kv.get("race") == "true":
-            go_args.append("-race")
-        if kv.get("ldflags"):
-            go_args.extend(["-ldflags", shlex.quote(kv["ldflags"])])
-        
-        # Add package path if provided
-        go_args.extend([shlex.quote(p) for p in pos])
-        
-        return run(" ".join(go_args))
-
-    if op == "configure":
-        # configure [prefix=...] [options...]
-        pos, kv = _split_kv(args)
-        configure_script = pos[0] if pos else "./configure"
-        configure_args = [configure_script]
-        
-        if kv.get("prefix"):
-            configure_args.append(f"--prefix={shlex.quote(kv['prefix'])}")
-        
-        # Add boolean flags
-        for k, v in kv.items():
-            if k == "prefix":
-                continue
-            if v == "true":
-                configure_args.append(f"--enable-{k}")
-            elif v == "false":
-                configure_args.append(f"--disable-{k}")
-            else:
-                configure_args.append(f"--{k}={shlex.quote(v)}")
-        
-        return run(" ".join(configure_args))
-
-    if op == "justfile" or op == "just":
-        # justfile [recipe] [args...]
-        just_args = ["just"]
-        just_args.extend([shlex.quote(a) for a in args])
-        return run(" ".join(just_args))
-
-    if op == "build_detect" or op == "detect_build":
-        # Detect build system and suggest command
-        # This is informational only - prints what it finds
-        detection_script = """
-if [ -f Makefile ] || [ -f makefile ] || [ -f GNUmakefile ]; then
-    echo "Detected: Makefile (use 'makefile' verb)"
-fi
-if [ -f CMakeLists.txt ]; then
-    echo "Detected: CMake (use 'cmake' verb)"
-fi
-if [ -f meson.build ]; then
-    echo "Detected: Meson (use 'meson' verb)"
-fi
-if [ -f Cargo.toml ]; then
-    echo "Detected: Rust/Cargo (use 'cargo build' verb)"
-fi
-if [ -f go.mod ] || [ -f go.sum ]; then
-    echo "Detected: Go module (use 'go_build' verb)"
-fi
-if [ -f configure ] || [ -f configure.ac ]; then
-    echo "Detected: Autotools/Configure (use 'configure' verb)"
-fi
-if [ -f justfile ] || [ -f Justfile ]; then
-    echo "Detected: Just (use 'justfile' verb)"
-fi
-if [ -f build.ninja ]; then
-    echo "Detected: Ninja build files (use 'ninja' verb or run ninja directly)"
-fi
-if [ -f package.json ]; then
-    echo "Detected: Node.js/npm project (package.json found)"
-fi
-if [ -f setup.py ] || [ -f pyproject.toml ]; then
-    echo "Detected: Python project (setup.py or pyproject.toml found)"
-fi
-if [ -f build.gradle ] || [ -f build.gradle.kts ] || [ -f pom.xml ]; then
-    echo "Detected: Java/JVM project (Gradle or Maven)"
-fi
-"""
-        return run(detection_script)
-
-    if op == "autobuild" or op == "auto_build":
-        # Automagic builder - detects build system and runs appropriate build command
-        # Supports: Cargo, Go, CMake, Meson, Make, npm, Python, Maven/Gradle, Just, Autotools
-        # Optional parameters: target=<target>, jobs=<N>, release=<true/false>, dir=<path>
-        
-        pos, kv = _split_kv(args)
-        target_dir = kv.get("dir", ".")
-        jobs = kv.get("jobs", "4")
-        is_release = kv.get("release", "").lower() in ("true", "yes", "1")
-        custom_target = kv.get("target", "")
-        
-        autobuild_script = f"""
-set -e
-cd {shlex.quote(target_dir)}
-
-echo "==> Automagic Builder: Detecting build system..."
-
-# Priority order for build system detection (most specific to most general)
-BUILD_SYSTEM=""
-
-# 1. Check for Rust/Cargo (high priority - well-defined)
-if [ -f Cargo.toml ]; then
-    BUILD_SYSTEM="cargo"
-    echo "✓ Detected: Rust/Cargo project"
-fi
-
-# 2. Check for Go module (high priority - well-defined)
-if [ -z "$BUILD_SYSTEM" ] && [ -f go.mod ]; then
-    BUILD_SYSTEM="go"
-    echo "✓ Detected: Go module"
-fi
-
-# 3. Check for Node.js/npm (high priority for web projects)
-if [ -z "$BUILD_SYSTEM" ] && [ -f package.json ]; then
-    BUILD_SYSTEM="npm"
-    echo "✓ Detected: Node.js/npm project"
-fi
-
-# 4. Check for Python project
-if [ -z "$BUILD_SYSTEM" ] && ([ -f setup.py ] || [ -f pyproject.toml ]); then
-    BUILD_SYSTEM="python"
-    echo "✓ Detected: Python project"
-fi
-
-# 5. Check for Java/Maven
-if [ -z "$BUILD_SYSTEM" ] && [ -f pom.xml ]; then
-    BUILD_SYSTEM="maven"
-    echo "✓ Detected: Maven project"
-fi
-
-# 6. Check for Java/Gradle
-if [ -z "$BUILD_SYSTEM" ] && ([ -f build.gradle ] || [ -f build.gradle.kts ]); then
-    BUILD_SYSTEM="gradle"
-    echo "✓ Detected: Gradle project"
-fi
-
-# 7. Check for CMake (higher priority than raw Makefile)
-if [ -z "$BUILD_SYSTEM" ] && [ -f CMakeLists.txt ]; then
-    BUILD_SYSTEM="cmake"
-    echo "✓ Detected: CMake project"
-fi
-
-# 8. Check for Meson
-if [ -z "$BUILD_SYSTEM" ] && [ -f meson.build ]; then
-    BUILD_SYSTEM="meson"
-    echo "✓ Detected: Meson project"
-fi
-
-# 9. Check for Just
-if [ -z "$BUILD_SYSTEM" ] && ([ -f justfile ] || [ -f Justfile ]); then
-    BUILD_SYSTEM="just"
-    echo "✓ Detected: Just build"
-fi
-
-# 10. Check for Autotools (before generic Makefile)
-if [ -z "$BUILD_SYSTEM" ] && ([ -f configure ] || [ -f configure.ac ]); then
-    BUILD_SYSTEM="autotools"
-    echo "✓ Detected: Autotools/Configure"
-fi
-
-# 11. Check for generic Makefile (lowest priority)
-if [ -z "$BUILD_SYSTEM" ] && ([ -f Makefile ] || [ -f makefile ] || [ -f GNUmakefile ]); then
-    BUILD_SYSTEM="make"
-    echo "✓ Detected: Makefile"
-fi
-
-# 12. Check for Ninja build files
-if [ -z "$BUILD_SYSTEM" ] && [ -f build.ninja ]; then
-    BUILD_SYSTEM="ninja"
-    echo "✓ Detected: Ninja build"
-fi
-
-# If no build system detected, error out
-if [ -z "$BUILD_SYSTEM" ]; then
-    echo "✗ Error: No build system detected in $(pwd)"
-    echo "Supported: Cargo.toml, go.mod, package.json, CMakeLists.txt, Makefile, meson.build, etc."
-    exit 1
-fi
-
-echo "==> Building with $BUILD_SYSTEM..."
-
-# Execute appropriate build command based on detected system
-case "$BUILD_SYSTEM" in
-    cargo)
-        if [ "{is_release}" = "True" ]; then
-            echo "Running: cargo build --release"
-            cargo build --release
-        else
-            echo "Running: cargo build"
-            cargo build
-        fi
-        ;;
-    go)
-        if [ -n "{custom_target}" ]; then
-            echo "Running: go build -o {custom_target}"
-            go build -o {shlex.quote(custom_target)}
-        else
-            echo "Running: go build"
-            go build
-        fi
-        ;;
-    npm)
-        # Check for build script in package.json
-        if grep -q '"build"' package.json 2>/dev/null; then
-            echo "Running: npm run build"
-            npm run build
-        else
-            echo "Running: npm install"
-            npm install
-        fi
-        ;;
-    python)
-        if [ -f pyproject.toml ]; then
-            echo "Running: pip install -e ."
-            pip install -e .
-        elif [ -f setup.py ]; then
-            echo "Running: python setup.py build"
-            python setup.py build
-        fi
-        ;;
-    maven)
-        echo "Running: mvn compile"
-        mvn compile
-        ;;
-    gradle)
-        if [ -x ./gradlew ]; then
-            echo "Running: ./gradlew build"
-            ./gradlew build
-        else
-            echo "Running: gradle build"
-            gradle build
-        fi
-        ;;
-    cmake)
-        BUILD_DIR="build"
-        BUILD_TYPE="Release"
-        if [ "{is_release}" = "False" ]; then
-            BUILD_TYPE="Debug"
-        fi
-        echo "Running: cmake -B $BUILD_DIR -DCMAKE_BUILD_TYPE=$BUILD_TYPE"
-        cmake -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
-        echo "Running: cmake --build $BUILD_DIR -j {jobs}"
-        cmake --build "$BUILD_DIR" -j {jobs}
-        ;;
-    meson)
-        BUILD_DIR="builddir"
-        BUILDTYPE="release"
-        if [ "{is_release}" = "False" ]; then
-            BUILDTYPE="debug"
-        fi
-        if [ ! -d "$BUILD_DIR" ]; then
-            echo "Running: meson setup $BUILD_DIR --buildtype=$BUILDTYPE"
-            meson setup "$BUILD_DIR" --buildtype="$BUILDTYPE"
-        fi
-        echo "Running: meson compile -C $BUILD_DIR -j {jobs}"
-        meson compile -C "$BUILD_DIR" -j {jobs}
-        ;;
-    make)
-        TARGET="{custom_target if custom_target else 'all'}"
-        echo "Running: make $TARGET -j{jobs}"
-        make $TARGET -j{jobs}
-        ;;
-    just)
-        if [ -n "{custom_target}" ]; then
-            echo "Running: just {custom_target}"
-            just {shlex.quote(custom_target)}
-        else
-            echo "Running: just"
-            just
-        fi
-        ;;
-    autotools)
-        if [ ! -f config.status ]; then
-            echo "Running: ./configure"
-            ./configure
-        fi
-        echo "Running: make -j{jobs}"
-        make -j{jobs}
-        ;;
-    ninja)
-        echo "Running: ninja -j{jobs}"
-        ninja -j{jobs}
-        ;;
-    *)
-        echo "✗ Error: Unknown build system: $BUILD_SYSTEM"
-        exit 1
-        ;;
-esac
-
-echo "==> Build completed successfully with $BUILD_SYSTEM"
-"""
-        return run(autobuild_script)
 
     raise ValueError(f"Unknown verb: {op}")
 
@@ -1282,9 +407,14 @@ def main(argv: List[str]) -> int:
             tasks = argv[i+1:]; break
         tasks = argv[i:]; break
 
-    if not tasks or tasks[0] in {"help", "--help"}:
-        print("Usage: pf [<pfy_file>] [env=NAME]* [hosts=..|host=..]* [user=..] [port=..] [sudo=true] [sudo_user=..] <task|list> [more_tasks...]")
-        print("\\nAvailable tasks:"); _print_list(file_arg=pfy_file_arg); return 0
+    if not tasks or tasks[0] in {"help", "--help", "-h"}:
+        if len(tasks) > 1:
+            _print_task_help(tasks[1], file_arg=pfy_file_arg)
+        else:
+            print("Usage: pf [<pfy_file>] [env=NAME]* [hosts=..|host=..]* [user=..] [port=..] [sudo=true] [sudo_user=..] <task|list|help> [more_tasks...]")
+            print("\nAvailable tasks:")
+            _print_list(file_arg=pfy_file_arg)
+        return 0
     if tasks[0] == "list":
         _print_list(file_arg=pfy_file_arg); return 0
 
@@ -1345,8 +475,6 @@ def main(argv: List[str]) -> int:
         for tname, lines, params in selected:
             print(f"{prefix} --> {tname}")
             task_env = {}
-            task_shell_template = DEFAULT_SHELL_TEMPLATE
-            task_shell_lang = DEFAULT_SHELL_LANG
             for ln in lines:
                 stripped = ln.strip()
                 if stripped.startswith('env '):
@@ -1355,33 +483,8 @@ def main(argv: List[str]) -> int:
                             k,v = tok.split('=',1)
                             task_env[k] = _interpolate(v, params, task_env)
                     continue
-                if stripped.startswith('shell_template'):
-                    parts = shlex.split(stripped)
-                    if len(parts) > 1:
-                        candidate = " ".join(parts[1:])
-                        if candidate.lower() in {"default", "reset"}:
-                            task_shell_template = DEFAULT_SHELL_TEMPLATE
-                        else:
-                            task_shell_template = candidate
-                    else:
-                        task_shell_template = DEFAULT_SHELL_TEMPLATE
-                    continue
-                if stripped.startswith('shell_lang') or stripped.startswith('shell_language'):
-                    parts = shlex.split(stripped)
-                    if len(parts) > 1:
-                        candidate = parts[1]
-                        lower = candidate.lower()
-                        if lower in {"default", "reset"}:
-                            task_shell_lang = DEFAULT_SHELL_LANG
-                        elif lower in {"none", "off", "clear"}:
-                            task_shell_lang = None
-                        else:
-                            task_shell_lang = _canonical_lang(candidate)
-                    else:
-                        task_shell_lang = DEFAULT_SHELL_LANG
-                    continue
                 try:
-                    rc = _exec_line_fabric(c, ln, sflag, suser, prefix, params, task_env, task_shell_template, task_shell_lang)
+                    rc = _exec_line_fabric(c, ln, sflag, suser, prefix, params, task_env)
                     if rc != 0:
                         print(f"{prefix} !! command failed (rc={rc}): {ln}", file=sys.stderr)
                         return rc
