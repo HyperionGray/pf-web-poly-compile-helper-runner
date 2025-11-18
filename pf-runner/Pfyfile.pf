@@ -1,3 +1,5 @@
+include "Pfyfile.cleanup.pf"
+
 #!lang:bash
 include ./Pfyfile.shells.pf
 include ./Pfyfile.build-helpers.pf

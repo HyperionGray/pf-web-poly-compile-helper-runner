@@ -22,9 +22,8 @@ import os
 import re
 import sys
 import shlex
-import textwrap
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Tuple, Optional, Callable
+from typing import List, Dict, Tuple, Optional
 
 from fabric import Connection
 
@@ -35,9 +34,6 @@ ENV_MAP: Dict[str, List[str] | str] = {
     "prod": ["ubuntu@10.0.0.5:22", "punk@10.4.4.4:24"],
     "staging": "staging@10.1.2.3:22,staging@10.1.2.4:22",
 }
-DEFAULT_SHELL_TEMPLATE: Optional[str] = None
-DEFAULT_SHELL_LANG: Optional[str] = None
-PFY_ROOT: Optional[str] = None
 
 # ---------- Pfyfile discovery ----------
 def _find_pfyfile(start_dir: Optional[str] = None, file_arg: Optional[str] = None) -> str:
@@ -449,35 +445,6 @@ def _read_text_file(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-def _canonical_lang(name: str) -> str:
-    lang_key = POLYGLOT_ALIASES.get(name.lower(), name.lower())
-    if lang_key not in POLYGLOT_LANGS:
-        raise ValueError(f"Unknown polyglot language: {name}")
-    return lang_key
-
-
-def _maybe_extract_shebang(text: str) -> str:
-    """Support shebang-like directive (e.g., '#!fish' or '#!lang:python')."""
-    global DEFAULT_SHELL_TEMPLATE, DEFAULT_SHELL_LANG
-    lines = text.splitlines()
-    idx = next((i for i, line in enumerate(lines) if line.strip()), None)
-    if idx is None:
-        return text
-    first_stripped = lines[idx].strip()
-    if first_stripped.startswith("#!"):
-        directive = first_stripped[2:].strip()
-        lower = directive.lower()
-        if lower.startswith(("lang:", "language:", "polyglot:")):
-            lang_part = directive.split(":", 1)[1].strip() if ":" in directive else ""
-            DEFAULT_SHELL_LANG = _canonical_lang(lang_part) if lang_part else None
-            DEFAULT_SHELL_TEMPLATE = None
-        else:
-            DEFAULT_SHELL_TEMPLATE = directive or None
-            DEFAULT_SHELL_LANG = None
-        del lines[idx]
-        return "\n".join(lines)
-    return text
-
 def _expand_includes_from_text(text: str, base_dir: str, visited: set[str]) -> str:
     out_lines: List[str] = []
     inside_task = False
@@ -515,17 +482,11 @@ def _expand_includes_from_text(text: str, base_dir: str, visited: set[str]) -> s
     return "\n".join(out_lines) + ("\n" if out_lines and not out_lines[-1].endswith("\n") else "")
 
 def _load_pfy_source_with_includes(file_arg: Optional[str] = None) -> str:
-    global DEFAULT_SHELL_TEMPLATE, DEFAULT_SHELL_LANG, PFY_ROOT
-    DEFAULT_SHELL_TEMPLATE = None
-    DEFAULT_SHELL_LANG = None
-    PFY_ROOT = None
     pfy_resolved = _find_pfyfile(file_arg=file_arg)
     if os.path.exists(pfy_resolved):
         base_dir = os.path.dirname(os.path.abspath(pfy_resolved)) or "."
-        PFY_ROOT = base_dir
         visited: set[str] = {os.path.abspath(pfy_resolved)}
         main_text = _read_text_file(pfy_resolved)
-        main_text = _maybe_extract_shebang(main_text)
         return _expand_includes_from_text(main_text, base_dir, visited)
     return PFY_EMBED
 
@@ -613,38 +574,9 @@ def _c_for(spec, sudo: bool, sudo_user: Optional[str]):
     return Connection(host=spec["host"], user=spec["user"],
                       port=spec["port"] if spec["port"] else 22), sudo, sudo_user
 
-def _build_shell_invocation(cmd: str, template_override: Optional[str] = None) -> Tuple[List[str] | str, bool]:
-    template = template_override or DEFAULT_SHELL_TEMPLATE or os.environ.get("PF_SHELL_TEMPLATE")
-    if template:
-        if "{cmd}" in template:
-            return template.format(cmd=cmd), True
-        parts = shlex.split(template)
-    else:
-        shell_env = os.environ.get("SHELL")
-        if shell_env:
-            parts = shlex.split(shell_env)
-        else:
-            return cmd, True
-    exe = os.path.basename(parts[0])
-    if exe.startswith("python"):
-        return parts + ["-c", cmd], False
-    shell_flags = {
-        "bash": "-lc",
-        "sh": "-lc",
-        "zsh": "-lc",
-        "ksh": "-lc",
-        "fish": "-c",
-    }
-    flag = shell_flags.get(exe, "-c")
-    return parts + [flag, cmd], False
-
-def _run_local(cmd: str, env=None, shell_template: Optional[str] = None):
+def _run_local(cmd: str, env=None):
     import subprocess
-    invocation, use_shell = _build_shell_invocation(cmd, template_override=shell_template)
-    if use_shell:
-        p = subprocess.Popen(invocation, shell=True, env=env)
-    else:
-        p = subprocess.Popen(invocation, shell=False, env=env)
+    p = subprocess.Popen(cmd, shell=True, env=env)
     return p.wait()
 
 def _sudo_wrap(cmd: str, sudo_user: Optional[str]) -> str:
@@ -652,23 +584,13 @@ def _sudo_wrap(cmd: str, sudo_user: Optional[str]) -> str:
         return f"sudo -u {shlex.quote(sudo_user)} -H bash -lc {shlex.quote(cmd)}"
     return f"sudo bash -lc {shlex.quote(cmd)}"
 
-def _exec_line_fabric(
-    c: Optional[Connection],
-    line: str,
-    sudo: bool,
-    sudo_user: Optional[str],
-    prefix: str,
-    params: dict,
-    task_env: dict,
-    shell_template: Optional[str],
-    shell_lang: Optional[str],
-):
+def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user: Optional[str], prefix: str, params: dict, task_env: dict):
     # interpolate & parse
     line = _interpolate(line, params, task_env)
     parts = shlex.split(line)
     if not parts: return 0
 
-    def run(cmd: str, template_override: Optional[str] = None):
+    def run(cmd: str):
         # Build environment for this command
         merged_env = dict(os.environ)
         if task_env:
@@ -683,8 +605,7 @@ def _exec_line_fabric(
             else:
                 display = full
             print(f"{prefix}$ {display}")
-            effective_template = template_override if template_override is not None else shell_template
-            return _run_local(full, env=merged_env, shell_template=effective_template)
+            return _run_local(full, env=merged_env)
         else:
             exports = " ".join([f"export {k}={shlex.quote(str(v))};" for k,v in (task_env or {}).items()])
             shown = f"{exports} {cmd}".strip()
@@ -701,29 +622,9 @@ def _exec_line_fabric(
     op = parts[0]; args = parts[1:]
 
     if op == "shell":
-        inline_template = None
-        lang_used = None
-        if args and args[0].startswith("[") and args[0].endswith("]"):
-            inline_template = args[0][1:-1].strip()
-            args = args[1:]
-            if inline_template.lower() in {"default", "reset"}:
-                inline_template = DEFAULT_SHELL_TEMPLATE
         cmd = " ".join(args)
-        if inline_template:
-            lang_hint = _parse_polyglot_template(inline_template)
-            if lang_hint:
-                rendered, lang_used = _render_polyglot_command(lang_hint, cmd, PFY_ROOT)
-                cmd = rendered
-                inline_template = None
-        if not lang_used:
-            default_lang = shell_lang or DEFAULT_SHELL_LANG
-            if default_lang:
-                rendered, lang_used = _render_polyglot_command(default_lang, cmd, PFY_ROOT)
-                if rendered is not None:
-                    cmd = rendered
-                    inline_template = None
         if not cmd: raise ValueError("shell needs a command")
-        return run(cmd, template_override=inline_template)
+        return run(cmd)
 
     if op == "packages":
         if len(args) < 2: raise ValueError("packages install/remove <names...>")
@@ -1365,9 +1266,14 @@ def main(argv: List[str]) -> int:
             tasks = argv[i+1:]; break
         tasks = argv[i:]; break
 
-    if not tasks or tasks[0] in {"help", "--help"}:
-        print("Usage: pf [<pfy_file>] [env=NAME]* [hosts=..|host=..]* [user=..] [port=..] [sudo=true] [sudo_user=..] <task|list> [more_tasks...]")
-        print("\\nAvailable tasks:"); _print_list(file_arg=pfy_file_arg); return 0
+    if not tasks or tasks[0] in {"help", "--help", "-h"}:
+        if len(tasks) > 1:
+            _print_task_help(tasks[1], file_arg=pfy_file_arg)
+        else:
+            print("Usage: pf [<pfy_file>] [env=NAME]* [hosts=..|host=..]* [user=..] [port=..] [sudo=true] [sudo_user=..] <task|list|help> [more_tasks...]")
+            print("\nAvailable tasks:")
+            _print_list(file_arg=pfy_file_arg)
+        return 0
     if tasks[0] == "list":
         _print_list(file_arg=pfy_file_arg); return 0
 
@@ -1428,8 +1334,6 @@ def main(argv: List[str]) -> int:
         for tname, lines, params in selected:
             print(f"{prefix} --> {tname}")
             task_env = {}
-            task_shell_template = DEFAULT_SHELL_TEMPLATE
-            task_shell_lang = DEFAULT_SHELL_LANG
             for ln in lines:
                 stripped = ln.strip()
                 if stripped.startswith('env '):
@@ -1438,40 +1342,15 @@ def main(argv: List[str]) -> int:
                             k,v = tok.split('=',1)
                             task_env[k] = _interpolate(v, params, task_env)
                     continue
-                if stripped.startswith('shell_template'):
-                    parts = shlex.split(stripped)
-                    if len(parts) > 1:
-                        candidate = " ".join(parts[1:])
-                        if candidate.lower() in {"default", "reset"}:
-                            task_shell_template = DEFAULT_SHELL_TEMPLATE
-                        else:
-                            task_shell_template = candidate
-                    else:
-                        task_shell_template = DEFAULT_SHELL_TEMPLATE
-                    continue
-                if stripped.startswith('shell_lang') or stripped.startswith('shell_language'):
-                    parts = shlex.split(stripped)
-                    if len(parts) > 1:
-                        candidate = parts[1]
-                        lower = candidate.lower()
-                        if lower in {"default", "reset"}:
-                            task_shell_lang = DEFAULT_SHELL_LANG
-                        elif lower in {"none", "off", "clear"}:
-                            task_shell_lang = None
-                        else:
-                            task_shell_lang = _canonical_lang(candidate)
-                    else:
-                        task_shell_lang = DEFAULT_SHELL_LANG
-                    continue
                 try:
-                    rc = _exec_line_fabric(c, ln, sflag, suser, prefix, params, task_env, task_shell_template, task_shell_lang)
+                    rc = _exec_line_fabric(c, ln, sflag, suser, prefix, params, task_env)
                     if rc != 0:
                         print(f"{prefix} !! command failed (rc={rc}): {ln}", file=sys.stderr)
                         return rc
                 except Exception as e:
                     print(f"{prefix} !! error: {e}", file=sys.stderr)
                     return 1
-        if c is not None:
+x        if c is not None:
             c.close()
         return rc
 

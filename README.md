@@ -21,7 +21,7 @@ This repository provides:
 - **Modular configuration**: Split tasks into multiple `.pf` files with `include`
 - **Parameter interpolation**: Pass runtime parameters to tasks
 
-### Automagic Builder 🪄
+### Automagic Builder
 The **automagic builder** is an intelligent build system that automatically detects your project type and runs the appropriate build command - no configuration needed! Just run `pf autobuild` and it handles the rest.
 
 **Supported Build Systems:**

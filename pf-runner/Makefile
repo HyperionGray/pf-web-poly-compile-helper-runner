@@ -107,7 +107,9 @@ uninstall-completions:
 	@rm -f /usr/local/share/zsh/site-functions/_pf "$(HOME)/.zsh/completions/_pf"
 	@echo "Removed completion files"
 
-build:
+build: clean
+	@echo "Cleaning virtual environment..."
+	@pf venv-clean
 	@echo "Building static executable..."
 	@$(PF_PY) -m PyInstaller --onefile $(PF_SCRIPT)
 	@echo "Build complete. Executable at dist/$(PF_SCRIPT:.py=)"
