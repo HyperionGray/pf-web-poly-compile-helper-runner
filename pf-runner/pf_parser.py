@@ -23,7 +23,7 @@ import re
 import sys
 import shlex
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Callable
 
 from fabric import Connection
 
@@ -1350,7 +1350,7 @@ def main(argv: List[str]) -> int:
                 except Exception as e:
                     print(f"{prefix} !! error: {e}", file=sys.stderr)
                     return 1
-x        if c is not None:
+        if c is not None:
             c.close()
         return rc
 
