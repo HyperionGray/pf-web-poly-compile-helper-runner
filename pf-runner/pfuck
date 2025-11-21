@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""
+pfuck - autocorrect failed pf commands (like thefuck but for pf tasks)
+
+Analyzes the last pf command from shell history and suggests corrections
+for failed tasks.
+"""
+
+import os
+import sys
+import subprocess
+from pathlib import Path
+
+def get_shell_history():
+    """Get the last command from shell history"""
+    shell = os.environ.get('SHELL', '/bin/bash')
+    
+    # Try to read from bash history
+    bash_history = Path.home() / '.bash_history'
+    if bash_history.exists():
+        with open(bash_history, 'r', errors='ignore') as f:
+            lines = f.readlines()
+            # Find last pf command
+            for line in reversed(lines):
+                if line.strip().startswith('pf '):
+                    return line.strip()
+    
+    # Try zsh history
+    zsh_history = Path.home() / '.zsh_history'
+    if zsh_history.exists():
+        with open(zsh_history, 'r', errors='ignore') as f:
+            lines = f.readlines()
+            for line in reversed(lines):
+                # zsh history format: : timestamp:0;command
+                if ';' in line:
+                    cmd = line.split(';', 1)[1].strip()
+                    if cmd.startswith('pf '):
+                        return cmd
+                elif line.strip().startswith('pf '):
+                    return line.strip()
+    
+    return None
+
+def get_last_fc_command():
+    """Get last command using fc -l"""
+    try:
+        result = subprocess.run(['fc', '-ln', '-1'], 
+                              capture_output=True, 
+                              text=True, 
+                              shell=False)
+        if result.returncode == 0:
+            cmd = result.stdout.strip()
+            if cmd.startswith('pf '):
+                return cmd
+    except:
+        pass
+    return None
+
+def parse_pf_command(cmd):
+    """Parse pf command to extract task name"""
+    parts = cmd.split()
+    if not parts or parts[0] != 'pf':
+        return None
+    
+    # Skip options and find the task name
+    for part in parts[1:]:
+        if not part.startswith('-') and '=' not in part:
+            return part
+    return None
+
+def get_available_tasks():
+    """Get list of available tasks from pf"""
+    try:
+        pf_path = Path(__file__).parent / 'pf'
+        result = subprocess.run([str(pf_path), 'list'], 
+                              capture_output=True, 
+                              text=True)
+        if result.returncode != 0:
+            return []
+        
+        tasks = []
+        in_tasks_section = False
+        for line in result.stdout.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith('Built-ins:'):
+                in_tasks_section = True
+                continue
+            if line.startswith('Environments:'):
+                break
+            if in_tasks_section:
+                # Extract task names (ignore descriptions after —)
+                if '—' in line:
+                    task_name = line.split('—')[0].strip()
+                else:
+                    task_name = line.strip()
+                
+                # Skip section headers
+                if task_name.startswith('[') or task_name.startswith('From '):
+                    continue
+                
+                # Handle multi-task lines from Built-ins
+                if '  ' in task_name:
+                    tasks.extend([t.strip() for t in task_name.split() if t.strip()])
+                else:
+                    if task_name:
+                        tasks.append(task_name)
+        
+        return [t for t in tasks if t and not t.startswith('-')]
+    except Exception as e:
+        print(f"Error getting tasks: {e}", file=sys.stderr)
+        return []
+
+def fuzzy_match(query, candidates, n=5):
+    """Find best fuzzy matches using difflib"""
+    import difflib
+    return difflib.get_close_matches(query, candidates, n=n, cutoff=0.3)
+
+def main():
+    # Get last command
+    last_cmd = get_last_fc_command() or get_shell_history()
+    
+    if not last_cmd:
+        print("❌ Could not find last pf command in history", file=sys.stderr)
+        return 1
+    
+    if not last_cmd.startswith('pf '):
+        print(f"❌ Last command was not a pf command: {last_cmd}", file=sys.stderr)
+        return 1
+    
+    print(f"Last command: {last_cmd}")
+    
+    # Parse the failed task
+    failed_task = parse_pf_command(last_cmd)
+    if not failed_task:
+        print("❌ Could not parse task name from command", file=sys.stderr)
+        return 1
+    
+    print(f"Failed task: {failed_task}")
+    
+    # Get available tasks
+    available_tasks = get_available_tasks()
+    if not available_tasks:
+        print("❌ Could not load available tasks", file=sys.stderr)
+        return 1
+    
+    # Find similar tasks
+    suggestions = fuzzy_match(failed_task, available_tasks, n=5)
+    
+    if not suggestions:
+        print(f"\n❌ No similar tasks found for '{failed_task}'")
+        print("\nAvailable task categories:")
+        print("  Run 'pf list' to see all tasks")
+        return 1
+    
+    print(f"\n💡 Did you mean one of these?")
+    for i, suggestion in enumerate(suggestions, 1):
+        print(f"  {i}. pf {suggestion}")
+    
+    print(f"\n🔧 To run the first suggestion:")
+    print(f"   {last_cmd.replace(failed_task, suggestions[0])}")
+    
+    # Offer to run the suggestion
+    try:
+        choice = input("\nRun suggestion #1? [Y/n]: ").strip().lower()
+        if choice in ('', 'y', 'yes'):
+            corrected_cmd = last_cmd.replace(failed_task, suggestions[0])
+            print(f"\n▶ Running: {corrected_cmd}")
+            parts = corrected_cmd.split()
+            os.execvp(parts[0], parts)
+    except KeyboardInterrupt:
+        print("\n\nCancelled.")
+        return 0
+    except EOFError:
+        # Non-interactive mode
+        pass
+    
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())

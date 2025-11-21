@@ -9,6 +9,9 @@ demos/**/web/asm/**/*.js
 demos/**/web/llvm/**/*.ll
 demos/**/target/
 demos/**/Cargo.lock
+demos/debugging/examples/bin/
+demos/binary-lifting/examples/bin/
+demos/binary-lifting/examples/output/
 node_modules/
 *.log
 
