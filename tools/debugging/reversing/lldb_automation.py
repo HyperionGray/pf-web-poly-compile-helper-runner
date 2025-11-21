@@ -5,6 +5,7 @@ Automate LLDB debugging sessions with custom breakpoints and scripts.
 """
 
 import sys
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -181,5 +182,4 @@ def main():
         sys.exit(1)
 
 if __name__ == '__main__':
-    import os
     main()

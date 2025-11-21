@@ -8,7 +8,6 @@ import sys
 import os
 import subprocess
 import hashlib
-import magic
 from pathlib import Path
 
 class FirmwareAnalyzer:
