@@ -1,339 +1,175 @@
-# Advanced Kernel-Mode Debugging Tasks
-# Low-level debugging tools for kernel drivers, firmware, and system-level code
+# Debugging and Reverse Engineering Tasks
+# Advanced debugging support for ELF binaries (C/C++, Rust) with GDB/LLDB + pwndbg
 
 # ============================================================================
 # Installation Tasks
 # ============================================================================
 
-task install-debug-tools
-  describe Install all debugging and reversing tools (lldb, radare2, ghidra helpers)
+task install-debuggers
+  describe Install GDB, LLDB, and pwndbg for advanced debugging
   shell_lang bash
-  shell bash tools/debugging/install-debug-tools.sh
+  shell bash tools/debugging/install-debuggers.sh
 end
 
-task install-radare2
-  describe Install radare2 reverse engineering framework
+task check-debuggers
+  describe Check if debuggers are installed and configured
   shell_lang bash
-  shell sudo apt-get update && sudo apt-get install -y radare2 || echo "radare2 installation may require manual steps"
-  shell pip3 install --user r2pipe
-end
-
-task install-ghidra
-  describe Download and setup Ghidra reverse engineering tool
-  shell_lang bash
-  shell bash tools/debugging/install-ghidra.sh
-end
-
-task install-lldb
-  describe Install LLDB debugger
-  shell_lang bash
-  shell sudo apt-get update && sudo apt-get install -y lldb || echo "lldb may need manual installation"
-end
-
-task install-firmware-tools
-  describe Install firmware analysis tools (binwalk, flashrom)
-  shell_lang bash
-  shell sudo apt-get update && sudo apt-get install -y binwalk flashrom || echo "Some tools may need manual installation"
-end
-
-task install-fuzzing-tools
-  describe Install kernel fuzzing tools (syzkaller, afl++)
-  shell_lang bash
-  shell bash tools/debugging/install-fuzzing-tools.sh
+  shell echo "=== Checking Debugger Installation ==="
+  shell which gdb && gdb --version | head -1 || echo "GDB not found"
+  shell which lldb && lldb --version | head -1 || echo "LLDB not found"
+  shell test -d "$HOME/.pwndbg" && echo "✓ pwndbg installed at $HOME/.pwndbg" || echo "✗ pwndbg not installed"
+  shell test -f "$HOME/.gdbinit" && grep -q pwndbg "$HOME/.gdbinit" && echo "✓ pwndbg configured in .gdbinit" || echo "✗ pwndbg not configured"
 end
 
 # ============================================================================
-# IOCTL Discovery and Analysis
+# Build Example Binaries for Debugging
 # ============================================================================
 
-task ioctl-discover
-  describe Discover IOCTLs in kernel module or driver (binary=/path/to/driver)
+task build-debug-examples
+  describe Build all debugging example binaries (C, C++, Rust)
+  shell_lang bash
+  shell cd demos/debugging/examples && mkdir -p bin
+  shell echo "Building C example with debug symbols..."
+  shell cd demos/debugging/examples && gcc -g -O0 -fno-stack-protector -z execstack -no-pie vulnerable.c -o bin/vulnerable
+  shell echo "Building C example optimized for reverse engineering..."
+  shell cd demos/debugging/examples && gcc -O2 vulnerable.c -o bin/vulnerable_opt
+  shell echo "Building C++ example..."
+  shell cd demos/debugging/examples && g++ -g -O0 -std=c++17 debug_cpp.cpp -o bin/debug_cpp
+  shell cd demos/debugging/examples && g++ -O2 -std=c++17 debug_cpp.cpp -o bin/debug_cpp_opt
+  shell echo "Building Rust example debug..."
+  shell cd demos/debugging/examples && rustc -g debug_rust.rs -o bin/debug_rust || echo "Rust not available, skipping"
+  shell cd demos/debugging/examples && rustc -C opt-level=2 debug_rust.rs -o bin/debug_rust_opt 2>/dev/null || echo "Rust optimized build skipped"
+  shell echo ""
+  shell echo "Build complete! Binaries available in demos/debugging/examples/bin/"
+  shell ls -lh demos/debugging/examples/bin/
+end
+
+task clean-debug-examples
+  describe Clean debugging example binaries
+  shell_lang bash
+  shell cd demos/debugging && rm -rf examples/bin
+  shell cd demos/debugging && mkdir -p examples/bin
+  shell echo "Cleaned debug examples"
+end
+
+# ============================================================================
+# Interactive Debugging Tasks
+# ============================================================================
+
+task debug
+  describe Start interactive debugger for a binary (binary=/path/to/binary, debugger=gdb|lldb)
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf debug binary=path/to/binary" && exit 1)
+  shell python3 tools/debugging/pwndebug.py ${debugger:+--debugger ${debugger}} ${binary}
+end
+
+task debug-gdb
+  describe Debug a binary directly with GDB (binary=/path/to/binary)
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf debug-gdb binary=path/to/binary" && exit 1)
+  shell python3 tools/debugging/pwndebug.py --debugger gdb --direct ${binary}
+end
+
+task debug-lldb
+  describe Debug a binary directly with LLDB (binary=/path/to/binary)
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf debug-lldb binary=path/to/binary" && exit 1)
+  shell python3 tools/debugging/pwndebug.py --debugger lldb --direct ${binary}
+end
+
+task debug-info
+  describe Show information about a binary (binary=/path/to/binary)
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf debug-info binary=path/to/binary" && exit 1)
+  shell python3 tools/debugging/pwndebug.py --info ${binary}
+end
+
+# ============================================================================
+# Example Debugging Sessions
+# ============================================================================
+
+task debug-example-c
+  describe Debug the C vulnerable example (interactive)
+  shell_lang bash
+  shell python3 tools/debugging/pwndebug.py demos/debugging/examples/bin/vulnerable test_input
+end
+
+task debug-example-cpp
+  describe Debug the C++ example (interactive)
+  shell_lang bash
+  shell python3 tools/debugging/pwndebug.py demos/debugging/examples/bin/debug_cpp
+end
+
+task debug-example-rust
+  describe Debug the Rust example (interactive)
+  shell_lang bash
+  shell python3 tools/debugging/pwndebug.py demos/debugging/examples/bin/debug_rust arg1 arg2
+end
+
+# ============================================================================
+# Reverse Engineering Tasks
+# ============================================================================
+
+task disassemble
+  describe Disassemble a binary (binary=/path/to/binary)
   shell_lang bash
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell python3 tools/debugging/ioctl/discover_ioctls.py ${binary} ${output_dir:-./output}
+  shell objdump -d -M intel ${binary} | less
 end
 
-task ioctl-fuzz
-  describe Fuzz discovered IOCTLs (driver=/path/to/driver, ioctl_list=/path/to/list)
-  shell_lang bash
-  shell test -n "${driver}" || (echo "Error: driver parameter required" && exit 1)
-  shell python3 tools/debugging/ioctl/fuzz_ioctls.py ${driver} ${ioctl_list:-} ${iterations:-1000}
-end
-
-task ioctl-analyze
-  describe Analyze IOCTL structure and parameters (binary=/path/to/driver)
+task strings-analysis
+  describe Extract and analyze strings from binary (binary=/path/to/binary)
   shell_lang bash
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell python3 tools/debugging/ioctl/analyze_ioctls.py ${binary}
+  shell echo "=== Extracting strings from ${binary} ==="
+  shell strings ${binary} | head -50
+  shell echo ""
+  shell echo "Total strings found: $(strings ${binary} | wc -l)"
 end
 
-# ============================================================================
-# Firmware Analysis and Extraction
-# ============================================================================
-
-task firmware-extract
-  describe Extract firmware from binary image (image=/path/to/firmware.bin)
-  shell_lang bash
-  shell test -n "${image}" || (echo "Error: image parameter required" && exit 1)
-  shell mkdir -p ${output_dir:-./firmware_extracted}
-  shell binwalk -e ${image} -C ${output_dir:-./firmware_extracted}
-  shell echo "Firmware extracted to ${output_dir:-./firmware_extracted}"
-end
-
-task firmware-analyze
-  describe Analyze firmware image for vulnerabilities (image=/path/to/firmware.bin)
-  shell_lang bash
-  shell test -n "${image}" || (echo "Error: image parameter required" && exit 1)
-  shell python3 tools/debugging/firmware/analyze_firmware.py ${image}
-end
-
-task firmware-flash
-  describe Flash firmware to device using flashrom (chip=<chip_type>, file=/path/to/firmware.bin)
-  shell_lang bash
-  shell test -n "${chip}" || (echo "Error: chip parameter required" && exit 1)
-  shell test -n "${file}" || (echo "Error: file parameter required" && exit 1)
-  shell sudo flashrom -p ${programmer:-internal} -c ${chip} -w ${file} ${verify:+--verify}
-end
-
-task firmware-read
-  describe Read firmware from device using flashrom (chip=<chip_type>, output=/path/to/save.bin)
-  shell_lang bash
-  shell test -n "${chip}" || (echo "Error: chip parameter required" && exit 1)
-  shell sudo flashrom -p ${programmer:-internal} -c ${chip} -r ${output:-firmware_dump.bin}
-  shell echo "Firmware dumped to ${output:-firmware_dump.bin}"
-end
-
-# ============================================================================
-# Reversing Flow Automation
-# ============================================================================
-
-task reverse-lldb
-  describe Automated LLDB debugging session with breakpoints (binary=/path/to/binary, script=/path/to/lldb_script)
+task binary-info
+  describe Show detailed binary information (binary=/path/to/binary)
   shell_lang bash
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell python3 tools/debugging/reversing/lldb_automation.py ${binary} ${script:-}
-end
-
-task reverse-radare2
-  describe Automated radare2 analysis (binary=/path/to/binary, commands=/path/to/r2_commands)
-  shell_lang bash
-  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell python3 tools/debugging/reversing/r2_automation.py ${binary} ${commands:-}
-end
-
-task reverse-ghidra
-  describe Run Ghidra headless analysis (binary=/path/to/binary, script=/path/to/ghidra_script.py)
-  shell_lang bash
-  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell bash tools/debugging/reversing/ghidra_headless.sh ${binary} ${script:-}
-end
-
-task reverse-auto-breakpoints
-  describe Generate automatic breakpoints with complex conditionals (binary=/path/to/binary)
-  shell_lang bash
-  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell python3 tools/debugging/reversing/auto_breakpoints.py ${binary} ${functions:-} ${conditions:-}
-end
-
-task reverse-control-flow
-  describe Extract and visualize control flow graph (binary=/path/to/binary)
-  shell_lang bash
-  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell python3 tools/debugging/reversing/control_flow.py ${binary} ${output_dir:-./cfg_output}
+  shell echo "=== Binary Information: ${binary} ==="
+  shell file ${binary}
+  shell echo ""
+  shell echo "=== Size Information ==="
+  shell size ${binary}
+  shell echo ""
+  shell echo "=== Section Headers ==="
+  shell readelf -S ${binary} | head -30
+  shell echo ""
+  shell echo "=== Dynamic Symbols ==="
+  shell nm -D ${binary} 2>/dev/null | head -20 || echo "No dynamic symbols"
 end
 
 # ============================================================================
-# Vulnerability Detection
+# Testing and Demo Tasks
 # ============================================================================
 
-task vuln-scan
-  describe Scan binary for common vulnerability patterns (binary=/path/to/binary)
+task test-debugger-workflow
+  describe Test complete debugging workflow with examples
   shell_lang bash
-  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell python3 tools/debugging/vulnerability/scan_vulnerabilities.py ${binary}
+  shell echo "=== Testing Debugging Workflow ==="
+  shell echo "1. Building example binaries..."
+  shell cd demos/debugging/examples && mkdir -p bin
+  shell cd demos/debugging/examples && gcc -g -O0 vulnerable.c -o bin/vulnerable 2>&1 | tail -5
+  shell echo ""
+  shell echo "2. Showing binary info..."
+  shell python3 tools/debugging/pwndebug.py --info demos/debugging/examples/bin/vulnerable
+  shell echo ""
+  shell echo "3. Testing string extraction..."
+  shell strings demos/debugging/examples/bin/vulnerable | grep -E "(vulnerable|secret)" || true
+  shell echo ""
+  shell echo "=== Workflow test complete ==="
+  shell echo ""
+  shell echo "To start debugging, run:"
+  shell echo "  pf debug binary=demos/debugging/examples/bin/vulnerable"
 end
-
-task vuln-heuristic
-  describe Run heuristic-based weakness detection (binary=/path/to/binary)
-  shell_lang bash
-  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell python3 tools/debugging/vulnerability/heuristic_analysis.py ${binary}
-end
-
-task vuln-kernel-check
-  describe Check kernel module for common security issues (module=/path/to/module.ko)
-  shell_lang bash
-  shell test -n "${module}" || (echo "Error: module parameter required" && exit 1)
-  shell python3 tools/debugging/vulnerability/kernel_security_check.py ${module}
-end
-
-# ============================================================================
-# Fuzzing Infrastructure
-# ============================================================================
-
-task fuzz-basic
-  describe Run basic fast fuzzer on binary (binary=/path/to/binary, iterations=10000)
-  shell_lang bash
-  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell python3 tools/debugging/fuzzing/fast_fuzzer.py ${binary} ${iterations:-10000} ${timeout:-5}
-end
-
-task fuzz-kernel-syzkaller
-  describe Run Syzkaller kernel fuzzer (config=/path/to/syzkaller.cfg)
-  shell_lang bash
-  shell test -n "${config}" || (echo "Error: config parameter required" && exit 1)
-  shell bash tools/debugging/fuzzing/run_syzkaller.sh ${config} ${duration:-3600}
-end
-
-task fuzz-kfuzz
-  describe Run KFuzz on kernel module (module=/path/to/module.ko)
-  shell_lang bash
-  shell test -n "${module}" || (echo "Error: module parameter required" && exit 1)
-  shell bash tools/debugging/fuzzing/run_kfuzz.sh ${module} ${iterations:-10000}
-end
-
-task fuzz-parallel
-  describe Run parallel fuzzing campaign (binary=/path/to/binary, workers=4)
-  shell_lang bash
-  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell python3 tools/debugging/fuzzing/parallel_fuzzer.py ${binary} ${workers:-4} ${iterations:-10000}
-end
-
-# ============================================================================
-# MicroVM Swarm Support
-# ============================================================================
-
-task vmkit-setup
-  describe Setup VMKit environment for micro-VM fuzzing swarm
-  shell_lang bash
-  shell bash tools/debugging/vmkit/setup_vmkit.sh
-end
-
-task vmkit-deploy
-  describe Deploy fuzzing campaign to microVM swarm (binary=/path/to/binary, vms=10)
-  shell_lang bash
-  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell python3 tools/debugging/vmkit/deploy_swarm.py ${binary} ${vms:-10} ${duration:-3600}
-end
-
-task vmkit-monitor
-  describe Monitor microVM swarm fuzzing progress
-  shell_lang bash
-  shell python3 tools/debugging/vmkit/monitor_swarm.py ${session_id:-}
-end
-
-task vmkit-collect
-  describe Collect results from microVM swarm (session_id=<id>)
-  shell_lang bash
-  shell test -n "${session_id}" || (echo "Error: session_id parameter required" && exit 1)
-  shell python3 tools/debugging/vmkit/collect_results.py ${session_id} ${output_dir:-./swarm_results}
-end
-
-# ============================================================================
-# Plugin Support
-# ============================================================================
-
-task plugin-radare2-install
-  describe Install custom radare2 plugin (plugin=/path/to/plugin.py)
-  shell_lang bash
-  shell test -n "${plugin}" || (echo "Error: plugin parameter required" && exit 1)
-  shell bash tools/debugging/plugins/install_r2_plugin.sh ${plugin}
-end
-
-task plugin-binja-install
-  describe Install Binary Ninja plugin (plugin=/path/to/plugin.py)
-  shell_lang bash
-  shell test -n "${plugin}" || (echo "Error: plugin parameter required" && exit 1)
-  shell bash tools/debugging/plugins/install_binja_plugin.sh ${plugin}
-end
-
-task plugin-create-radare2
-  describe Create radare2 plugin template (name=<plugin_name>)
-  shell_lang bash
-  shell test -n "${name}" || (echo "Error: name parameter required" && exit 1)
-  shell python3 tools/debugging/plugins/create_r2_plugin.py ${name} ${output_dir:-./plugins}
-end
-
-task plugin-create-binja
-  describe Create Binary Ninja plugin template (name=<plugin_name>)
-  shell_lang bash
-  shell test -n "${name}" || (echo "Error: name parameter required" && exit 1)
-  shell python3 tools/debugging/plugins/create_binja_plugin.py ${name} ${output_dir:-./plugins}
-end
-
-# ============================================================================
-# Complete Workflow Examples
-# ============================================================================
-
-task debug-workflow-full
-  describe Complete debugging workflow on a binary (binary=/path/to/binary)
-  shell_lang bash
-  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell echo "=== Full Debugging Workflow ==="
-  shell echo "1. Vulnerability scan..."
-  shell pf vuln-scan binary=${binary}
-  shell echo "2. IOCTL discovery..."
-  shell pf ioctl-discover binary=${binary}
-  shell echo "3. Control flow analysis..."
-  shell pf reverse-control-flow binary=${binary}
-  shell echo "4. Basic fuzzing..."
-  shell pf fuzz-basic binary=${binary} iterations=1000
-  shell echo "=== Workflow complete ==="
-end
-
-task debug-kernel-module
-  describe Debug and analyze kernel module (module=/path/to/module.ko)
-  shell_lang bash
-  shell test -n "${module}" || (echo "Error: module parameter required" && exit 1)
-  shell echo "=== Kernel Module Analysis ==="
-  shell echo "1. Security check..."
-  shell pf vuln-kernel-check module=${module}
-  shell echo "2. IOCTL discovery..."
-  shell pf ioctl-discover binary=${module}
-  shell echo "3. Vulnerability scan..."
-  shell pf vuln-scan binary=${module}
-  shell echo "=== Analysis complete ==="
-end
-
-# ============================================================================
-# Documentation Tasks
-# ============================================================================
 
 task debug-help
-  describe Show help for debugging tasks
+  describe Show debugging commands help
   shell_lang bash
-  shell echo "=== Advanced Kernel-Mode Debugging Tools ==="
-  shell echo ""
-  shell echo "IOCTL Analysis:"
-  shell echo "  pf ioctl-discover binary=/path/to/driver"
-  shell echo "  pf ioctl-fuzz driver=/path/to/driver iterations=10000"
-  shell echo ""
-  shell echo "Firmware:"
-  shell echo "  pf firmware-extract image=/path/to/firmware.bin"
-  shell echo "  pf firmware-analyze image=/path/to/firmware.bin"
-  shell echo "  pf firmware-flash chip=MX25L3205D file=/path/to/firmware.bin"
-  shell echo ""
-  shell echo "Reversing:"
-  shell echo "  pf reverse-lldb binary=/path/to/binary"
-  shell echo "  pf reverse-radare2 binary=/path/to/binary"
-  shell echo "  pf reverse-auto-breakpoints binary=/path/to/binary"
-  shell echo ""
-  shell echo "Vulnerability Detection:"
-  shell echo "  pf vuln-scan binary=/path/to/binary"
-  shell echo "  pf vuln-kernel-check module=/path/to/module.ko"
-  shell echo ""
-  shell echo "Fuzzing:"
-  shell echo "  pf fuzz-basic binary=/path/to/binary iterations=10000"
-  shell echo "  pf fuzz-kernel-syzkaller config=/path/to/config"
-  shell echo "  pf fuzz-parallel binary=/path/to/binary workers=8"
-  shell echo ""
-  shell echo "MicroVM Swarm:"
-  shell echo "  pf vmkit-deploy binary=/path/to/binary vms=20"
-  shell echo "  pf vmkit-monitor"
-  shell echo ""
-  shell echo "Plugins:"
-  shell echo "  pf plugin-create-radare2 name=my_plugin"
-  shell echo "  pf plugin-create-binja name=my_plugin"
-  shell echo ""
-  shell echo "See docs/KERNEL-DEBUGGING.md for detailed documentation"
+  shell bash tools/debugging/quick-reference.sh
 end

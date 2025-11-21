@@ -3,7 +3,7 @@
 # Include binary lifting tasks
 include Pfyfile.lifting.pf
 
-# Include advanced debugging tasks
+# Include debugging and reverse engineering tasks
 include Pfyfile.debugging.pf
 
 task web-dev

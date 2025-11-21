@@ -80,17 +80,16 @@ Convert compiled binaries back to LLVM IR for analysis, optimization, and transf
 
 See [LLVM Lifting Guide](docs/LLVM-LIFTING.md) for complete documentation.
 
-### Advanced Kernel-Mode Debugging 🔍
-Low-level debugging tools for kernel drivers, firmware, and system-level code:
-- **IOCTL Discovery**: Automatically discover and analyze kernel driver IOCTLs
-- **Firmware Analysis**: Extract, analyze, and flash firmware images with security scanning
-- **Reversing Automation**: LLDB, radare2, and Ghidra integration with automatic breakpoints
-- **Vulnerability Detection**: Heuristic-based security analysis and pattern matching
-- **Fast Fuzzing**: High-speed fuzzer with crash detection and parallel execution
-- **MicroVM Swarms**: Distributed fuzzing with VMKit integration for massive parallelization
-- **Plugin Support**: Create and manage radare2 and Binary Ninja plugins
+### Advanced Debugging & Reverse Engineering 🐛
+Interactive debugging and reverse engineering for ELF binaries (C/C++/Rust):
+- **GDB & LLDB**: Support for both standard debuggers with seamless switching
+- **pwndbg Integration**: Enhanced GDB with exploit development and reverse engineering features
+- **Interactive Shell**: Simplified debugging interface with abstracted commands
+- **Binary Analysis**: Automated disassembly, string extraction, and security feature detection
+- **Practice Examples**: Vulnerable binaries for learning debugging and exploitation techniques
+- **Multi-Language**: Dedicated support for C, C++, and Rust debugging workflows
 
-See [Kernel Debugging Guide](docs/KERNEL-DEBUGGING.md) for complete documentation.
+See [Debugging Guide](demos/debugging/README.md) for complete documentation.
 
 ### Testing & Development
 - **Live dev server**: Static HTTP server with CORS headers for WASM
@@ -643,6 +642,7 @@ npx playwright show-report
 - **Kernel Debugging Guide**: See [`docs/KERNEL-DEBUGGING.md`](docs/KERNEL-DEBUGGING.md) for advanced debugging features
 - **Kernel Debugging Demo**: See [`demos/kernel-debugging/README.md`](demos/kernel-debugging/README.md) for examples
 - **Binary Lifting Examples**: See [`demos/binary-lifting/README.md`](demos/binary-lifting/README.md) for lifting tutorials
+- **Debugging Guide**: See [`demos/debugging/README.md`](demos/debugging/README.md) for debugging and reverse engineering
 - **Web Demo Documentation**: See [`demos/pf-web-polyglot-demo-plus-c/README.md`](demos/pf-web-polyglot-demo-plus-c/README.md)
 - **WIT Components**: See [`pf/wit/README.md`](pf/wit/README.md)
 
@@ -686,19 +686,16 @@ Additional documentation in `pf-runner/`:
 | `pf optimize-lifted-ir input=<file.ll>` | Optimize lifted LLVM IR |
 | `pf test-lifting-workflow` | Test complete lifting workflow |
 | `pf lifting-help` | Show detailed lifting commands help |
-| **Kernel Debugging Commands** | |
-| `pf install-debug-tools` | Install debugging tools (LLDB, radare2, etc.) |
-| `pf ioctl-discover binary=<driver>` | Discover IOCTLs in kernel driver |
-| `pf ioctl-fuzz driver=<device>` | Fuzz discovered IOCTLs |
-| `pf firmware-analyze image=<file>` | Analyze firmware security |
-| `pf firmware-extract image=<file>` | Extract firmware filesystem |
-| `pf reverse-lldb binary=<file>` | Automated LLDB debugging session |
-| `pf reverse-radare2 binary=<file>` | Automated radare2 analysis |
-| `pf vuln-scan binary=<file>` | Scan for vulnerabilities |
-| `pf fuzz-basic binary=<file>` | Fast fuzzing with crash detection |
-| `pf vmkit-deploy binary=<file> vms=10` | Deploy to microVM swarm |
-| `pf plugin-create-radare2 name=<name>` | Create radare2 plugin template |
-| `pf debug-help` | Show all debugging commands |
+| **Debugging & Reverse Engineering** | |
+| `pf install-debuggers` | Install GDB, LLDB, and pwndbg |
+| `pf build-debug-examples` | Build C/C++/Rust debug examples |
+| `pf debug binary=<path>` | Start interactive debugger shell |
+| `pf debug-gdb binary=<path>` | Debug directly with GDB |
+| `pf debug-lldb binary=<path>` | Debug directly with LLDB |
+| `pf debug-info binary=<path>` | Show binary information |
+| `pf disassemble binary=<path>` | Disassemble binary |
+| `pf binary-info binary=<path>` | Show detailed binary info |
+| `pf debug-help` | Show debugging commands help |
 | **Installation & Setup** | |
 | `pf install-base` | Install base pf runner and dependencies |
 | `pf install-web` | Install web/WASM development tools |
