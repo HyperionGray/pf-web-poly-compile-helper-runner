@@ -69,6 +69,17 @@ pf build_detect
 - **Fortran**: Experimental WASM support via LFortran
 - **WAT**: Assemble WebAssembly text format with WABT
 
+### Binary Injection & Advanced Debugging 🔧
+Compile code to shared libraries and inject into binaries for advanced debugging and analysis:
+- **Shared Library Compilation**: Build .so/.dylib from C, C++, Rust, Fortran
+- **Function Hooking**: Intercept and monitor function calls at runtime
+- **Binary Patching**: Replace library dependencies in existing binaries
+- **WASM Injection**: Combine and inject WebAssembly components
+- **Assembly Patching**: Direct binary modification at machine code level
+- **Cross-Language Integration**: Inject code from any supported language into any binary
+
+See [Binary Injection Guide](docs/BINARY-INJECTION.md) for complete documentation.
+
 ### LLVM Binary Lifting 🔬
 Convert compiled binaries back to LLVM IR for analysis, optimization, and transformation:
 - **RetDec**: Automatic binary-to-LLVM lifting for multiple architectures (x86, ARM, MIPS)
@@ -90,6 +101,16 @@ Inject compiled polyglot code into existing binaries and shared libraries:
 - **Security Research**: Tools for binary analysis, reverse engineering, and penetration testing
 
 See [Binary Injection Guide](demos/binary-injection/README.md) for complete documentation.
+### Advanced Debugging & Reverse Engineering 🐛
+Interactive debugging and reverse engineering for ELF binaries (C/C++/Rust):
+- **GDB & LLDB**: Support for both standard debuggers with seamless switching
+- **pwndbg Integration**: Enhanced GDB with exploit development and reverse engineering features
+- **Interactive Shell**: Simplified debugging interface with abstracted commands
+- **Binary Analysis**: Automated disassembly, string extraction, and security feature detection
+- **Practice Examples**: Vulnerable binaries for learning debugging and exploitation techniques
+- **Multi-Language**: Dedicated support for C, C++, and Rust debugging workflows
+
+See [Debugging Guide](demos/debugging/README.md) for complete documentation.
 
 ### Testing & Development
 - **Live dev server**: Static HTTP server with CORS headers for WASM
@@ -638,8 +659,12 @@ npx playwright show-report
 ## Documentation
 
 - **pf-runner Documentation**: See [`pf-runner/README.md`](pf-runner/README.md) for comprehensive pf runner documentation
+- **Binary Injection Guide**: See [`docs/BINARY-INJECTION.md`](docs/BINARY-INJECTION.md) for injection and hooking documentation
 - **LLVM Lifting Guide**: See [`docs/LLVM-LIFTING.md`](docs/LLVM-LIFTING.md) for binary lifting documentation
+- **Kernel Debugging Guide**: See [`docs/KERNEL-DEBUGGING.md`](docs/KERNEL-DEBUGGING.md) for advanced debugging features
+- **Kernel Debugging Demo**: See [`demos/kernel-debugging/README.md`](demos/kernel-debugging/README.md) for examples
 - **Binary Lifting Examples**: See [`demos/binary-lifting/README.md`](demos/binary-lifting/README.md) for lifting tutorials
+- **Debugging Guide**: See [`demos/debugging/README.md`](demos/debugging/README.md) for debugging and reverse engineering
 - **Web Demo Documentation**: See [`demos/pf-web-polyglot-demo-plus-c/README.md`](demos/pf-web-polyglot-demo-plus-c/README.md)
 - **WIT Components**: See [`pf/wit/README.md`](pf/wit/README.md)
 
@@ -701,6 +726,26 @@ Additional documentation in `pf-runner/`:
 | `pf inject-wasm-into-binary wasm_source=<file.wasm> target_binary=<path>` | Complete WASM injection workflow |
 | `pf test-injection-workflow` | Test complete injection pipeline |
 | `pf injection-help` | Show detailed injection commands help |
+| `pf compile-c-shared-lib source=<c>` | Compile C to shared library (.so/.dylib) |
+| `pf compile-rust-shared-lib crate=<dir>` | Compile Rust to shared library |
+| `pf inject-shared-lib binary=<exe> lib=<so>` | Inject library into program (LD_PRELOAD) |
+| `pf patch-binary-deps binary=<exe> old_lib=<old> new_lib=<new>` | Patch binary dependencies |
+| `pf create-hook-lib output=<file.c>` | Generate function hook template |
+| `pf wasm-to-native input=<wasm> output=<so>` | Convert WASM to native library |
+| `pf inject-wasm-component host=<wasm> component=<wasm>` | Inject WASM into WASM |
+| `pf demo-injection-workflow` | Demo complete injection workflow |
+| `pf install-injection-tools` | Install patchelf, nasm, binaryen, wabt |
+| `pf injection-help` | Show detailed injection commands help |
+| **Debugging & Reverse Engineering** | |
+| `pf install-debuggers` | Install GDB, LLDB, and pwndbg |
+| `pf build-debug-examples` | Build C/C++/Rust debug examples |
+| `pf debug binary=<path>` | Start interactive debugger shell |
+| `pf debug-gdb binary=<path>` | Debug directly with GDB |
+| `pf debug-lldb binary=<path>` | Debug directly with LLDB |
+| `pf debug-info binary=<path>` | Show binary information |
+| `pf disassemble binary=<path>` | Disassemble binary |
+| `pf binary-info binary=<path>` | Show detailed binary info |
+| `pf debug-help` | Show debugging commands help |
 | **Installation & Setup** | |
 | `pf install-base` | Install base pf runner and dependencies |
 | `pf install-web` | Install web/WASM development tools |

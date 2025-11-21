@@ -66,12 +66,16 @@ install-local: setup
 	@# Install as a symlink so the wrapper can resolve back to the repo
 	@ln -sfn "$(abspath pf_parser.py)" "$(HOME)/.local/bin/pf"
 	@echo "Installed symlink: $(HOME)/.local/bin/pf -> $(abspath pf_parser.py)"
+	@# Install pfuck
+	@ln -sfn "$(abspath pfuck)" "$(HOME)/.local/bin/pfuck"
+	@echo "Installed symlink: $(HOME)/.local/bin/pfuck -> $(abspath pfuck)"
 	@echo ""
 	@echo "To install shell completions, run: make install-completions"
 
 uninstall-local:
 	@rm -f "$(HOME)/.local/bin/pf"
-	@echo "Removed: $(HOME)/.local/bin/pf"
+	@rm -f "$(HOME)/.local/bin/pfuck"
+	@echo "Removed: $(HOME)/.local/bin/pf and $(HOME)/.local/bin/pfuck"
 
 install-completions:
 	@echo "Installing shell completions..."

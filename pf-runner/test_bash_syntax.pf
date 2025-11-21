@@ -1,0 +1,71 @@
+# test_bash_syntax.pf - Tests for bash syntax friendliness
+# Tests that quotes, brackets, and bash constructs are preserved
+
+task test-double-quotes
+  describe Test double quote preservation
+  shell echo "hello world"
+  shell var="test value" && echo "$var"
+end
+
+task test-single-quotes
+  describe Test single quote preservation
+  shell echo 'hello world'
+  shell var='test value' && echo "$var"
+end
+
+task test-single-brackets
+  describe Test single bracket [ ] syntax
+  shell [ -f "/etc/passwd" ] && echo "single bracket works"
+  shell [ "hello" = "hello" ] && echo "string comparison works"
+end
+
+task test-double-brackets
+  describe Test double bracket [[ ]] syntax (bash specific)
+  shell [[ -f "/etc/passwd" ]] && echo "double bracket works"
+  shell [[ "hello" == "hello" ]] && echo "string comparison works"
+end
+
+task test-mixed-quotes
+  describe Test mixed quotes and special chars
+  shell echo "Double 'quotes' inside"
+  shell echo 'Single "quotes" inside'
+  shell echo "Backslash: \\ and dollar: \$"
+end
+
+task test-bash-arrays
+  describe Test bash array syntax
+  shell arr=(one two three) && echo "${arr[0]}"
+  shell arr=(one two three) && echo "${arr[@]}"
+end
+
+task test-bash-loops
+  describe Test bash loops
+  shell for i in 1 2 3; do echo "Loop $i"; done
+  shell while [ 1 -eq 1 ]; do echo "while works"; break; done
+end
+
+task test-pipes-and-redirects
+  describe Test pipes and redirects with quotes
+  shell echo "test data" | grep "test" && echo "pipe works"
+  shell echo "error" 2>&1 | grep "error" && echo "redirect works"
+end
+
+task test-command-substitution
+  describe Test command substitution
+  shell result=$(echo "hello") && echo "$result"
+  shell echo "Date: $(date +%Y-%m-%d)" | grep -E "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+end
+
+task run-all-bash-tests
+  describe Run all bash syntax tests
+  shell echo "=== Running bash syntax tests ==="
+  shell [ -f "/etc/passwd" ] && echo "✓ Single brackets work"
+  shell [[ -f "/etc/passwd" ]] && echo "✓ Double brackets work"
+  shell var="hello world" && echo "✓ Double quotes: $var"
+  shell var='hello world' && echo "✓ Single quotes work"
+  shell arr=(one two) && echo "✓ Arrays: ${arr[0]}"
+  shell for i in 1; do echo "✓ Loops work"; done
+  shell echo "test" | grep "test" && echo "✓ Pipes work"
+  shell result=$(echo "cmd") && echo "✓ Command substitution: $result"
+  shell echo "=== All tests passed! ==="
+end

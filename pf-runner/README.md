@@ -38,6 +38,62 @@ Single-file **Fabric** runner with a tiny, readable DSL, parallel SSH, and live 
 - Host args: `env=prod`, `hosts=user@ip:port,...`, repeatable `host=...`
 - **Shell completions**: Automatic task and option completion for bash and zsh
 
+## What's New! 🎉
+
+### Organized Task List Output
+Tasks are now automatically **grouped by their source file**, making `pf list` much cleaner:
+
+```bash
+$ pf list
+Built-ins:
+  update  upgrade  install-base  ...
+
+From Pfyfile.pf:
+  default-task  setup  install  ...
+
+[shells] From Pfyfile.shells.pf:
+  bash-cli  zsh-cli  shell-cli  ...
+
+[tests] From Pfyfile.tests.pf:
+  test-basic  test-integration  ...
+```
+
+Include files like `Pfyfile.shells.pf` automatically create logical groups with clean section headers!
+
+### Inline Environment Variables in Shell Commands
+You can now set environment variables inline in shell commands:
+
+```bash
+task my-task
+  shell MY_VAR=hello bash -c 'echo $MY_VAR'
+  shell PORT=8080 API_KEY=secret ./start-server.sh
+  shell DEBUG=1 npm run build
+end
+```
+
+This properly preserves quoting and passes environment variables to the command.
+
+### pfuck - Autocorrect Failed Commands
+Like `thefuck` but specifically for pf tasks! When a task fails due to a typo:
+
+```bash
+$ pf orgnaize
+[error] no such task: orgnaize — did you mean: organize?
+
+$ pfuck
+Last command: pf orgnaize
+Failed task: orgnaize
+
+💡 Did you mean one of these?
+  1. pf organize
+  2. pf upgrade
+  ...
+
+Run suggestion #1? [Y/n]:
+```
+
+Install pfuck alongside pf for even easier task correction!
+
 ## Install
 
 ```bash

@@ -23,7 +23,7 @@ import re
 import sys
 import shlex
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Callable
 
 from fabric import Connection
 
@@ -435,27 +435,40 @@ def _render_polyglot_command(lang_hint: Optional[str], cmd: str, working_dir: Op
 
 # ---------- DSL (include + describe) ----------
 class Task:
-    def __init__(self, name: str):
+    def __init__(self, name: str, source_file: Optional[str] = None):
         self.name = name
         self.lines: List[str] = []
         self.description: Optional[str] = None
+        self.source_file = source_file  # Track which file this task came from
     def add(self, line: str): self.lines.append(line)
 
 def _read_text_file(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-def _expand_includes_from_text(text: str, base_dir: str, visited: set[str]) -> str:
+def _expand_includes_from_text(text: str, base_dir: str, visited: set[str], current_file: Optional[str] = None) -> Tuple[str, Dict[str, str]]:
+    """Expand includes and track which file each task came from.
+    Returns: (expanded_text, task_name_to_source_file_map)
+    """
     out_lines: List[str] = []
+    task_sources: Dict[str, str] = {}
     inside_task = False
+    current_task_name = None
+    
     for raw in text.splitlines():
         line = raw.rstrip("\n")
         stripped = line.strip()
         if stripped.startswith("task "):
             inside_task = True
+            task_name = stripped.split(None, 1)[1].strip() if len(stripped.split()) > 1 else ""
+            current_task_name = task_name
+            # Track the source file for this task (use current_file if in an include)
+            if current_file:
+                task_sources[task_name] = current_file
             out_lines.append(line); continue
         if stripped == "end":
             inside_task = False
+            current_task_name = None
             out_lines.append(line); continue
         if not inside_task and stripped.startswith("include "):
             try:
@@ -473,24 +486,32 @@ def _expand_includes_from_text(text: str, base_dir: str, visited: set[str]) -> s
                     continue
                 visited.add(inc_full)
                 inc_text = _read_text_file(inc_full)
-                inc_expanded = _expand_includes_from_text(inc_text, os.path.dirname(inc_full), visited)
+                
+                # Process included file with its path as current_file
+                inc_expanded, inc_sources = _expand_includes_from_text(inc_text, os.path.dirname(inc_full), visited, inc_full)
+                
+                # Merge task sources
+                task_sources.update(inc_sources)
+                
                 out_lines.append(f"# --- begin include: {inc_full} ---")
                 out_lines.append(inc_expanded)
                 out_lines.append(f"# --- end include: {inc_full} ---")
                 continue
         out_lines.append(line)
-    return "\n".join(out_lines) + ("\n" if out_lines and not out_lines[-1].endswith("\n") else "")
+    return "\n".join(out_lines) + ("\n" if out_lines and not out_lines[-1].endswith("\n") else ""), task_sources
 
-def _load_pfy_source_with_includes(file_arg: Optional[str] = None) -> str:
+def _load_pfy_source_with_includes(file_arg: Optional[str] = None) -> Tuple[str, Dict[str, str]]:
+    """Load Pfyfile with includes expanded, return (text, task_sources)"""
     pfy_resolved = _find_pfyfile(file_arg=file_arg)
     if os.path.exists(pfy_resolved):
         base_dir = os.path.dirname(os.path.abspath(pfy_resolved)) or "."
         visited: set[str] = {os.path.abspath(pfy_resolved)}
         main_text = _read_text_file(pfy_resolved)
         return _expand_includes_from_text(main_text, base_dir, visited)
-    return PFY_EMBED
+    return PFY_EMBED, {}
 
-def parse_pfyfile_text(text: str) -> Dict[str, Task]:
+def parse_pfyfile_text(text: str, task_sources: Optional[Dict[str, str]] = None) -> Dict[str, Task]:
+    """Parse Pfyfile text into Task objects with optional source tracking"""
     tasks: Dict[str, Task] = {}
     cur: Optional[Task] = None
     for raw in text.splitlines():
@@ -499,7 +520,10 @@ def parse_pfyfile_text(text: str) -> Dict[str, Task]:
         if line.startswith("task "):
             name = line.split(None, 1)[1].strip()
             if not name: raise ValueError("Task name missing.")
-            cur = Task(name); tasks[name] = cur; continue
+            source_file = task_sources.get(name) if task_sources else None
+            cur = Task(name, source_file=source_file)
+            tasks[name] = cur
+            continue
         if line == "end":
             cur = None; continue
         if cur is None: continue
@@ -511,8 +535,8 @@ def parse_pfyfile_text(text: str) -> Dict[str, Task]:
     return tasks
 
 def list_dsl_tasks_with_desc(file_arg: Optional[str] = None) -> List[Tuple[str, Optional[str]]]:
-    src = _load_pfy_source_with_includes(file_arg=file_arg)
-    tasks = parse_pfyfile_text(src)
+    src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
+    tasks = parse_pfyfile_text(src, task_sources)
     return [(t.name, t.description) for t in tasks.values()]
 
 # ---------- Embedded sample ----------
@@ -576,7 +600,10 @@ def _c_for(spec, sudo: bool, sudo_user: Optional[str]):
 
 def _run_local(cmd: str, env=None):
     import subprocess
-    p = subprocess.Popen(cmd, shell=True, env=env)
+    # Use bash explicitly for better bash syntax support (arrays, [[, etc.)
+    # Wrap command to execute via bash -c
+    bash_cmd = ["bash", "-c", cmd]
+    p = subprocess.Popen(bash_cmd, env=env)
     return p.wait()
 
 def _sudo_wrap(cmd: str, sudo_user: Optional[str]) -> str:
@@ -587,9 +614,17 @@ def _sudo_wrap(cmd: str, sudo_user: Optional[str]) -> str:
 def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user: Optional[str], prefix: str, params: dict, task_env: dict):
     # interpolate & parse
     line = _interpolate(line, params, task_env)
-    parts = shlex.split(line)
-    if not parts: return 0
-
+    
+    # Extract the verb (first word) to determine the operation
+    # For 'shell' commands, we preserve the rest of the line as-is to maintain bash syntax
+    stripped = line.strip()
+    if not stripped: return 0
+    
+    # Split at most once to get the verb and the rest
+    parts_split = stripped.split(maxsplit=1)
+    verb = parts_split[0]
+    rest_of_line = parts_split[1] if len(parts_split) > 1 else ""
+    
     def run(cmd: str):
         # Build environment for this command
         merged_env = dict(os.environ)
@@ -619,12 +654,15 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
             r = c.run(full_cmd, pty=True, warn=True, hide=False)
             return r.exited
 
+    # Handle 'shell' command specially - preserve bash syntax
+    if verb == "shell":
+        if not rest_of_line: raise ValueError("shell needs a command")
+        return run(rest_of_line)
+    
+    # For other commands, parse with shlex to handle quoted arguments
+    parts = shlex.split(line)
+    if not parts: return 0
     op = parts[0]; args = parts[1:]
-
-    if op == "shell":
-        cmd = " ".join(args)
-        if not cmd: raise ValueError("shell needs a command")
-        return run(cmd)
 
     if op == "packages":
         if len(args) < 2: raise ValueError("packages install/remove <names...>")
@@ -1205,20 +1243,60 @@ BUILTINS: Dict[str, List[str]] = {
 
 # ---------- CLI ----------
 def _print_list(file_arg: Optional[str] = None):
+    """Print available tasks grouped by source"""
     print("Built-ins:")
     print("  " + "  ".join(BUILTINS.keys()))
-    dsl = list_dsl_tasks_with_desc(file_arg=file_arg)
-    if dsl:
+    
+    # Load tasks with source tracking
+    src_text, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
+    tasks = parse_pfyfile_text(src_text, task_sources)
+    
+    if tasks:
         resolved = _find_pfyfile(file_arg=file_arg)
         source = resolved if os.path.exists(resolved) else "embedded PFY_EMBED"
-        print(f"From {source}:")
-        for name, desc in dsl:
-            if desc:
-                print(f"  {name}  —  {desc}")
+        
+        # Group tasks by their source file
+        from collections import defaultdict
+        tasks_by_source = defaultdict(list)
+        main_tasks = []
+        
+        for task in tasks.values():
+            if task.source_file:
+                tasks_by_source[task.source_file].append(task)
             else:
-                print(f"  {name}")
+                main_tasks.append(task)
+        
+        # Print main tasks first
+        if main_tasks:
+            print(f"\nFrom {source}:")
+            for task in main_tasks:
+                if task.description:
+                    print(f"  {task.name}  —  {task.description}")
+                else:
+                    print(f"  {task.name}")
+        
+        # Print tasks grouped by include file
+        for source_file in sorted(tasks_by_source.keys()):
+            # Generate subcommand name from filename
+            basename = os.path.basename(source_file)
+            # Remove Pfyfile. prefix and .pf suffix
+            subcommand_name = basename
+            if subcommand_name.startswith("Pfyfile."):
+                subcommand_name = subcommand_name[8:]  # Remove "Pfyfile."
+            if subcommand_name.endswith(".pf"):
+                subcommand_name = subcommand_name[:-3]  # Remove ".pf"
+            # Convert underscores to hyphens
+            subcommand_name = subcommand_name.replace("_", "-")
+            
+            print(f"\n[{subcommand_name}] From {source_file}:")
+            for task in sorted(tasks_by_source[source_file], key=lambda t: t.name):
+                if task.description:
+                    print(f"  {task.name}  —  {task.description}")
+                else:
+                    print(f"  {task.name}")
+    
     if ENV_MAP:
-        print("Environments:")
+        print("\nEnvironments:")
         for k, v in ENV_MAP.items():
             vs = _normalize_hosts(v)
             print(f"  {k}: {', '.join(vs) if vs else '(empty)'}")
@@ -1284,8 +1362,8 @@ def main(argv: List[str]) -> int:
         merged_hosts = ["@local"]
 
     # Load tasks once
-    dsl_src = _load_pfy_source_with_includes(file_arg=pfy_file_arg)
-    dsl_tasks = parse_pfyfile_text(dsl_src)
+    dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=pfy_file_arg)
+    dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
     valid_task_names = set(BUILTINS.keys()) | set(dsl_tasks.keys()) | {"list", "help", "--help"}
 
     # Parse multi-task + params: <task> [k=v ...] <task2> [k=v ...] ...
@@ -1323,10 +1401,10 @@ def main(argv: List[str]) -> int:
             ctuple = (None, sudo, sudo_user)
         else:
             ctuple = _c_for(spec, sudo, sudo_user)
-        c, sflag, suser = ctuple if isinstance(ctuple, tuple) else (None, sudo, sudo_user)
-        if c is not None:
+        connection, sflag, suser = ctuple if isinstance(ctuple, tuple) else (None, sudo, sudo_user)
+        if connection is not None:
             try:
-                c.open()
+                connection.open()
             except Exception as e:
                 print(f"{prefix} connect error: {e}", file=sys.stderr)
                 return 1
@@ -1343,14 +1421,14 @@ def main(argv: List[str]) -> int:
                             task_env[k] = _interpolate(v, params, task_env)
                     continue
                 try:
-                    rc = _exec_line_fabric(c, ln, sflag, suser, prefix, params, task_env)
+                    rc = _exec_line_fabric(connection, ln, sflag, suser, prefix, params, task_env)
                     if rc != 0:
                         print(f"{prefix} !! command failed (rc={rc}): {ln}", file=sys.stderr)
                         return rc
                 except Exception as e:
                     print(f"{prefix} !! error: {e}", file=sys.stderr)
                     return 1
-x        if c is not None:
+        if c is not None:
             c.close()
         return rc
 
