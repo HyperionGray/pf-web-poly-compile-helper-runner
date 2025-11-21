@@ -1,0 +1,34 @@
+# Test file to demonstrate bash syntax issues and fixes
+
+task test-quotes
+  describe Test various quoting scenarios that should be preserved
+  shell echo 'single quotes should be preserved'
+  shell echo "double quotes should be preserved"
+  shell echo 'mixed "quotes" should work'
+  shell echo "mixed 'quotes' should work"
+  shell echo 'complex $var "nested" quotes'
+end
+
+task test-brackets
+  describe Test bash bracket constructs that should work
+  shell if [[ -f "/etc/passwd" ]]; then echo "file exists"; fi
+  shell if [ -f "/etc/passwd" ]; then echo "file exists with single brackets"; fi
+  shell [[ "test" == "test" ]] && echo "double bracket comparison works"
+  shell [ "test" = "test" ] && echo "single bracket comparison works"
+end
+
+task test-complex-bash
+  describe Test complex bash constructs
+  shell for f in *.txt; do echo "Processing $f"; done
+  shell VAR='value with spaces' && echo "$VAR"
+  shell echo ${HOME:-'/default/path'}
+  shell test -n "$USER" && echo "User is: $USER"
+end
+
+task test-operators
+  describe Test bash operators and special characters
+  shell echo "result: $(date +%Y-%m-%d)"
+  shell echo "files: $(ls -la | wc -l)"
+  shell echo 'literal $var should not expand'
+  shell echo "expanded $USER should expand"
+end
