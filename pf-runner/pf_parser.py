@@ -435,27 +435,41 @@ def _render_polyglot_command(lang_hint: Optional[str], cmd: str, working_dir: Op
 
 # ---------- DSL (include + describe) ----------
 class Task:
-    def __init__(self, name: str):
+    def __init__(self, name: str, source_file: Optional[str] = None):
         self.name = name
         self.lines: List[str] = []
         self.description: Optional[str] = None
+        self.source_file = source_file  # Track which file this task came from
     def add(self, line: str): self.lines.append(line)
 
 def _read_text_file(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-def _expand_includes_from_text(text: str, base_dir: str, visited: set[str]) -> str:
+def _expand_includes_from_text(text: str, base_dir: str, visited: set[str]) -> Tuple[str, Dict[str, str]]:
+    """Expand includes and track which file each task came from.
+    Returns: (expanded_text, task_name_to_source_file_map)
+    """
     out_lines: List[str] = []
+    task_sources: Dict[str, str] = {}
     inside_task = False
+    current_task_name = None
+    current_source = None
+    
     for raw in text.splitlines():
         line = raw.rstrip("\n")
         stripped = line.strip()
         if stripped.startswith("task "):
             inside_task = True
+            task_name = stripped.split(None, 1)[1].strip() if len(stripped.split()) > 1 else ""
+            current_task_name = task_name
+            # Track the source file for this task
+            if current_source:
+                task_sources[task_name] = current_source
             out_lines.append(line); continue
         if stripped == "end":
             inside_task = False
+            current_task_name = None
             out_lines.append(line); continue
         if not inside_task and stripped.startswith("include "):
             try:
@@ -473,24 +487,35 @@ def _expand_includes_from_text(text: str, base_dir: str, visited: set[str]) -> s
                     continue
                 visited.add(inc_full)
                 inc_text = _read_text_file(inc_full)
-                inc_expanded = _expand_includes_from_text(inc_text, os.path.dirname(inc_full), visited)
+                
+                # Save old source, set new source for included file
+                old_source = current_source
+                current_source = inc_full
+                inc_expanded, inc_sources = _expand_includes_from_text(inc_text, os.path.dirname(inc_full), visited)
+                current_source = old_source
+                
+                # Merge task sources
+                task_sources.update(inc_sources)
+                
                 out_lines.append(f"# --- begin include: {inc_full} ---")
                 out_lines.append(inc_expanded)
                 out_lines.append(f"# --- end include: {inc_full} ---")
                 continue
         out_lines.append(line)
-    return "\n".join(out_lines) + ("\n" if out_lines and not out_lines[-1].endswith("\n") else "")
+    return "\n".join(out_lines) + ("\n" if out_lines and not out_lines[-1].endswith("\n") else ""), task_sources
 
-def _load_pfy_source_with_includes(file_arg: Optional[str] = None) -> str:
+def _load_pfy_source_with_includes(file_arg: Optional[str] = None) -> Tuple[str, Dict[str, str]]:
+    """Load Pfyfile with includes expanded, return (text, task_sources)"""
     pfy_resolved = _find_pfyfile(file_arg=file_arg)
     if os.path.exists(pfy_resolved):
         base_dir = os.path.dirname(os.path.abspath(pfy_resolved)) or "."
         visited: set[str] = {os.path.abspath(pfy_resolved)}
         main_text = _read_text_file(pfy_resolved)
         return _expand_includes_from_text(main_text, base_dir, visited)
-    return PFY_EMBED
+    return PFY_EMBED, {}
 
-def parse_pfyfile_text(text: str) -> Dict[str, Task]:
+def parse_pfyfile_text(text: str, task_sources: Optional[Dict[str, str]] = None) -> Dict[str, Task]:
+    """Parse Pfyfile text into Task objects with optional source tracking"""
     tasks: Dict[str, Task] = {}
     cur: Optional[Task] = None
     for raw in text.splitlines():
@@ -499,7 +524,10 @@ def parse_pfyfile_text(text: str) -> Dict[str, Task]:
         if line.startswith("task "):
             name = line.split(None, 1)[1].strip()
             if not name: raise ValueError("Task name missing.")
-            cur = Task(name); tasks[name] = cur; continue
+            source_file = task_sources.get(name) if task_sources else None
+            cur = Task(name, source_file=source_file)
+            tasks[name] = cur
+            continue
         if line == "end":
             cur = None; continue
         if cur is None: continue
@@ -511,8 +539,8 @@ def parse_pfyfile_text(text: str) -> Dict[str, Task]:
     return tasks
 
 def list_dsl_tasks_with_desc(file_arg: Optional[str] = None) -> List[Tuple[str, Optional[str]]]:
-    src = _load_pfy_source_with_includes(file_arg=file_arg)
-    tasks = parse_pfyfile_text(src)
+    src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
+    tasks = parse_pfyfile_text(src, task_sources)
     return [(t.name, t.description) for t in tasks.values()]
 
 # ---------- Embedded sample ----------
@@ -622,9 +650,90 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
     op = parts[0]; args = parts[1:]
 
     if op == "shell":
-        cmd = " ".join(args)
-        if not cmd: raise ValueError("shell needs a command")
-        return run(cmd)
+        # Handle inline environment variables: shell ENV_VAR=value command...
+        # Work with the original line to preserve quoting
+        # Extract "shell " prefix
+        shell_idx = line.find("shell")
+        if shell_idx == -1:
+            raise ValueError("shell command parsing error")
+        
+        after_shell = line[shell_idx + 5:].lstrip()
+        
+        # Extract ENV_VAR=value pairs from the beginning
+        inline_env = {}
+        cmd_start = 0
+        
+        # Tokenize carefully to find ENV_VAR=value at the start
+        tokens = []
+        try:
+            tokens = list(shlex.shlex(after_shell, posix=True, punctuation_chars=False))
+        except:
+            # If shlex fails, just use the whole thing as command
+            cmd = after_shell
+            if not cmd: raise ValueError("shell needs a command")
+            return run(cmd)
+        
+        # Scan tokens for ENV_VAR=value pattern at the start
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            # Check if this looks like ENV_VAR=value (no spaces, has =, alphanumeric key)
+            if '=' in token and not token.startswith('-'):
+                key_val = token.split('=', 1)
+                if len(key_val) == 2 and key_val[0].replace('_', '').replace('-', '').isalnum():
+                    # This is an env var
+                    inline_env[key_val[0]] = key_val[1]
+                    # Find where this token ends in the original string
+                    cmd_start = after_shell.find(token, cmd_start) + len(token)
+                    # Skip any whitespace after this token
+                    while cmd_start < len(after_shell) and after_shell[cmd_start].isspace():
+                        cmd_start += 1
+                    i += 1
+                    continue
+            # Not an env var, rest is the command
+            break
+        
+        # Get the command part (everything after the env vars)
+        cmd = after_shell[cmd_start:].strip()
+        
+        if not cmd: 
+            if inline_env:
+                raise ValueError("shell needs a command after environment variables")
+            else:
+                raise ValueError("shell needs a command")
+        
+        if inline_env:
+            # Add inline env vars to task_env temporarily for this command
+            temp_env = dict(task_env) if task_env else {}
+            temp_env.update(inline_env)
+            
+            # Build environment for this command
+            merged_env = dict(os.environ)
+            merged_env.update({k: _interpolate(str(v), params, temp_env) for k, v in temp_env.items()})
+            
+            # Execute with merged environment
+            if c is None:
+                full = cmd if not sudo else _sudo_wrap(cmd, sudo_user)
+                exports = " ".join([f"{k}={shlex.quote(str(v))}" for k,v in inline_env.items()])
+                display = f"{exports} {full}"
+                print(f"{prefix}$ {display}")
+                return _run_local(full, env=merged_env)
+            else:
+                exports = " ".join([f"export {k}={shlex.quote(str(v))};" for k,v in inline_env.items()])
+                shown = f"{exports} {cmd}".strip()
+                print(f"{prefix}$ {(('(sudo) ' + shown) if sudo else shown)}")
+                full_cmd = f"{exports} {cmd}" if exports else cmd
+                if sudo:
+                    if sudo_user:
+                        full_cmd = f"sudo -u {shlex.quote(sudo_user)} -H bash -lc {shlex.quote(full_cmd)}"
+                    else:
+                        full_cmd = f"sudo bash -lc {shlex.quote(full_cmd)}"
+                r = c.run(full_cmd, pty=True, warn=True, hide=False)
+                return r.exited
+        else:
+            # No inline env vars, just run the command
+            if not cmd: raise ValueError("shell needs a command")
+            return run(cmd)
 
     if op == "packages":
         if len(args) < 2: raise ValueError("packages install/remove <names...>")
@@ -1284,8 +1393,8 @@ def main(argv: List[str]) -> int:
         merged_hosts = ["@local"]
 
     # Load tasks once
-    dsl_src = _load_pfy_source_with_includes(file_arg=pfy_file_arg)
-    dsl_tasks = parse_pfyfile_text(dsl_src)
+    dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=pfy_file_arg)
+    dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
     valid_task_names = set(BUILTINS.keys()) | set(dsl_tasks.keys()) | {"list", "help", "--help"}
 
     # Parse multi-task + params: <task> [k=v ...] <task2> [k=v ...] ...
