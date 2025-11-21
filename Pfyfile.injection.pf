@@ -8,8 +8,7 @@
 task compile-c-shared-lib
   describe Compile C code to shared library (.so on Linux, .dylib on macOS) - source=/path/to/file.c output=/path/to/lib.so
   shell test -n "$source" || (echo "Error: source parameter required" && exit 1)
-  shell test -z "$output" && output="lib.so"; mkdir -p "$(dirname "$output")"
-  shell if [ "$(uname)" = "Darwin" ]; then ext=".dylib"; else ext=".so"; fi; test -z "$output" && output="lib$ext"; clang -shared -fPIC -O2 "$source" -o "$output"
+  shell test -z "$output" && output="lib.so"; mkdir -p "$(dirname "$output")"; clang -shared -fPIC -O2 "$source" -o "$output"
   shell echo "Compiled shared library: $output"
   shell file "$output"
 end
@@ -202,12 +201,13 @@ end
 task install-injection-tools
   describe Install tools needed for binary injection (patchelf, nasm, binaryen)
   shell echo "Installing binary injection tools..."
-  shell if [ "$(uname)" = "Linux" ]; then sudo apt-get update && sudo apt-get install -y patchelf nasm binaryen wabt || echo "Some tools may require manual installation"; else echo "On macOS, install via Homebrew: brew install patchelf nasm binaryen wabt"; fi
+  shell OS="$(uname)"
+  shell if [ "$OS" = "Linux" ]; then if command -v apt-get >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y patchelf nasm binaryen wabt; elif command -v dnf >/dev/null 2>&1; then sudo dnf install -y patchelf nasm binaryen wabt; elif command -v pacman >/dev/null 2>&1; then sudo pacman -S --noconfirm patchelf nasm binaryen wabt; else echo "Unsupported Linux distribution. Please install manually: patchelf, nasm, binaryen, wabt"; fi; elif [ "$OS" = "Darwin" ]; then if command -v brew >/dev/null 2>&1; then brew install patchelf nasm binaryen wabt; else echo "Homebrew not found. Install from https://brew.sh then run: brew install patchelf nasm binaryen wabt"; fi; else echo "Unsupported OS. Please install manually: patchelf, nasm, binaryen, wabt"; fi
   shell echo "Verifying installations..."
-  shell patchelf --version 2>/dev/null || echo "patchelf not installed"
-  shell nasm -version 2>/dev/null || echo "nasm not installed"
-  shell wasm-merge --version 2>/dev/null || echo "binaryen not installed"
-  shell wasm2c --version 2>/dev/null || echo "wabt not installed"
+  shell patchelf --version 2>/dev/null || echo "  patchelf: NOT installed"
+  shell nasm -version 2>/dev/null || echo "  nasm: NOT installed"
+  shell wasm-merge --version 2>/dev/null || echo "  binaryen: NOT installed"
+  shell wasm2c --version 2>/dev/null || echo "  wabt: NOT installed"
 end
 
 # ============================================================================

@@ -34,4 +34,4 @@ cat > "$OUTPUT" << 'EOF'
 EOF
 
 echo "Created WASM hook template: $OUTPUT"
-echo "Compile with: wat2wasm $OUTPUT -o hook.wasm"
+echo "Compile with: wat2wasm $OUTPUT -o ${OUTPUT%.wat}.wasm"
