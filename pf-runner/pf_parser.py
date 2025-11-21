@@ -1401,10 +1401,10 @@ def main(argv: List[str]) -> int:
             ctuple = (None, sudo, sudo_user)
         else:
             ctuple = _c_for(spec, sudo, sudo_user)
-        c, sflag, suser = ctuple if isinstance(ctuple, tuple) else (None, sudo, sudo_user)
-        if c is not None:
+        connection, sflag, suser = ctuple if isinstance(ctuple, tuple) else (None, sudo, sudo_user)
+        if connection is not None:
             try:
-                c.open()
+                connection.open()
             except Exception as e:
                 print(f"{prefix} connect error: {e}", file=sys.stderr)
                 return 1
@@ -1421,7 +1421,7 @@ def main(argv: List[str]) -> int:
                             task_env[k] = _interpolate(v, params, task_env)
                     continue
                 try:
-                    rc = _exec_line_fabric(c, ln, sflag, suser, prefix, params, task_env)
+                    rc = _exec_line_fabric(connection, ln, sflag, suser, prefix, params, task_env)
                     if rc != 0:
                         print(f"{prefix} !! command failed (rc={rc}): {ln}", file=sys.stderr)
                         return rc

@@ -1,0 +1,252 @@
+# Binary Injection and Shared Library Compilation Tasks
+# This file contains tasks for compiling code to shared libraries and injecting into binaries
+
+# ============================================================================
+# Shared Library Compilation Tasks
+# ============================================================================
+
+task compile-c-shared-lib
+  describe Compile C code to shared library (.so on Linux, .dylib on macOS) - source=/path/to/file.c output=/path/to/lib.so
+  shell test -n "$source" || (echo "Error: source parameter required" && exit 1)
+  shell test -z "$output" && output="lib.so"; mkdir -p "$(dirname "$output")"; clang -shared -fPIC -O2 "$source" -o "$output"
+  shell echo "Compiled shared library: $output"
+  shell file "$output"
+end
+
+task compile-rust-shared-lib
+  describe Compile Rust code to shared library (.so/.dylib) - crate=/path/to/crate output=/path/to/lib.so
+  shell test -n "${crate}" || (echo "Error: crate parameter required" && exit 1)
+  shell cd ${crate} && cargo build --release --lib
+  shell echo "Compiled shared library in ${crate}/target/release/"
+  shell ls -lh ${crate}/target/release/*.so ${crate}/target/release/*.dylib 2>/dev/null || echo "Built library"
+end
+
+task compile-fortran-shared-lib
+  describe Compile Fortran code to shared library (.so/.dylib) - source=/path/to/file.f90 output=/path/to/lib.so
+  shell test -n "${source}" || (echo "Error: source parameter required" && exit 1)
+  shell mkdir -p $(dirname ${output:-lib.so})
+  shell if [ "$(uname)" = "Darwin" ]; then gfortran -shared -fPIC -O2 ${source} -o ${output:-lib.dylib}; else gfortran -shared -fPIC -O2 ${source} -o ${output:-lib.so}; fi
+  shell echo "Compiled shared library: ${output:-lib.so}"
+  shell file ${output:-lib.so}
+end
+
+task compile-cpp-shared-lib
+  describe Compile C++ code to shared library (.so/.dylib) - source=/path/to/file.cpp output=/path/to/lib.so
+  shell test -n "${source}" || (echo "Error: source parameter required" && exit 1)
+  shell mkdir -p $(dirname ${output:-lib.so})
+  shell if [ "$(uname)" = "Darwin" ]; then clang++ -shared -fPIC -O2 -std=c++17 ${source} -o ${output:-lib.dylib}; else clang++ -shared -fPIC -O2 -std=c++17 ${source} -o ${output:-lib.so}; fi
+  shell echo "Compiled shared library: ${output:-lib.so}"
+  shell file ${output:-lib.so}
+end
+
+# ============================================================================
+# WASM/ASM.js to Native Conversion Tasks
+# ============================================================================
+
+task wasm-to-native
+  describe Convert WebAssembly to native shared library - input=/path/to/file.wasm output=/path/to/lib.so
+  shell test -n "${input}" || (echo "Error: input parameter required" && exit 1)
+  shell mkdir -p $(dirname ${output:-lib.so})
+  shell echo "Converting WASM to native requires wasm2c from WABT + compilation"
+  shell wasm2c ${input} -o ${input%.wasm}.c 2>/dev/null || (echo "Error: wasm2c not available. Install WABT: sudo apt-get install wabt" && exit 1)
+  shell if [ "$(uname)" = "Darwin" ]; then clang -shared -fPIC -O2 ${input%.wasm}.c -o ${output:-lib.dylib}; else clang -shared -fPIC -O2 ${input%.wasm}.c -o ${output:-lib.so}; fi
+  shell echo "Compiled native library: ${output:-lib.so}"
+  shell rm -f ${input%.wasm}.c
+end
+
+task asm-to-native
+  describe Convert asm.js to native shared library - input=/path/to/file_asm.js output=/path/to/lib.so
+  shell test -n "${input}" || (echo "Error: input parameter required" && exit 1)
+  shell echo "Note: asm.js is JavaScript, direct conversion to native requires complex transpilation"
+  shell echo "Consider using the original C/C++ source with compile-c-shared-lib or compile-cpp-shared-lib"
+end
+
+# ============================================================================
+# Binary Injection and Patching Tasks
+# ============================================================================
+
+task inject-shared-lib
+  describe Inject/preload a shared library into a binary execution - binary=/path/to/binary lib=/path/to/lib.so args="binary args"
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell test -n "${lib}" || (echo "Error: lib parameter required" && exit 1)
+  shell test -f "${lib}" || (echo "Error: Library ${lib} not found" && exit 1)
+  shell echo "Running ${binary} with preloaded library ${lib}"
+  shell if [ "$(uname)" = "Darwin" ]; then DYLD_INSERT_LIBRARIES=${lib} DYLD_FORCE_FLAT_NAMESPACE=1 ${binary} ${args}; else LD_PRELOAD=${lib} ${binary} ${args}; fi
+end
+
+task patch-binary-deps
+  describe Patch binary to use custom shared library - binary=/path/to/binary old_lib=libold.so new_lib=/path/to/libnew.so
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell test -n "${old_lib}" || (echo "Error: old_lib parameter required" && exit 1)
+  shell test -n "${new_lib}" || (echo "Error: new_lib parameter required" && exit 1)
+  shell echo "Patching ${binary} to replace ${old_lib} with ${new_lib}"
+  shell if [ "$(uname)" = "Darwin" ]; then install_name_tool -change ${old_lib} ${new_lib} ${binary}; else patchelf --replace-needed ${old_lib} ${new_lib} ${binary} 2>/dev/null || (echo "Error: patchelf not installed. Install with: sudo apt-get install patchelf" && exit 1); fi
+  shell echo "Binary patched successfully"
+  shell if [ "$(uname)" = "Darwin" ]; then otool -L ${binary}; else ldd ${binary}; fi
+end
+
+task inspect-binary-deps
+  describe Inspect shared library dependencies of a binary - binary=/path/to/binary
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell echo "Dependencies for ${binary}:"
+  shell if [ "$(uname)" = "Darwin" ]; then otool -L ${binary}; else ldd ${binary}; fi
+end
+
+task create-hook-lib
+  describe Create a hook library template for function interception - output=/path/to/hook.c
+  shell test -z "$output" && output=hook.c; bash tools/injection/create-hook-lib.sh "$output"
+end
+
+# ============================================================================
+# WebAssembly Injection Tasks
+# ============================================================================
+
+task inject-wasm-component
+  describe Inject WASM component into an existing WASM module - host=/path/to/host.wasm component=/path/to/component.wasm output=/path/to/combined.wasm
+  shell test -n "${host}" || (echo "Error: host parameter required" && exit 1)
+  shell test -n "${component}" || (echo "Error: component parameter required" && exit 1)
+  shell mkdir -p $(dirname ${output:-combined.wasm})
+  shell echo "Combining WASM modules..."
+  shell wasm-merge ${host} main ${component} injected -o ${output:-combined.wasm} 2>/dev/null || (echo "Error: wasm-merge not available. This requires Binaryen: sudo apt-get install binaryen" && exit 1)
+  shell echo "Combined WASM module: ${output:-combined.wasm}"
+  shell wasm-objdump -x ${output:-combined.wasm} | head -50
+end
+
+task create-wasm-hook
+  describe Create WebAssembly hook/wrapper module - output=/path/to/hook.wat
+  shell test -z "$output" && output=hook.wat; bash tools/injection/create-wasm-hook.sh "$output"
+end
+
+# ============================================================================
+# Assembly-Level Injection Tasks
+# ============================================================================
+
+task inject-asm-patch
+  describe Inject assembly code patch into binary - binary=/path/to/binary patch=/path/to/patch.asm offset=0x1000
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell test -n "${patch}" || (echo "Error: patch parameter required" && exit 1)
+  shell test -n "${offset}" || (echo "Error: offset parameter required" && exit 1)
+  shell echo "Assembling patch..."
+  shell nasm -f bin ${patch} -o /tmp/patch.bin 2>/dev/null || (echo "Error: nasm not installed. Install with: sudo apt-get install nasm" && exit 1)
+  shell echo "Creating backup..."
+  shell cp ${binary} ${binary}.backup
+  shell echo "Patching binary at offset ${offset}..."
+  shell dd if=/tmp/patch.bin of=${binary} bs=1 seek=$((${offset})) conv=notrunc
+  shell echo "Patch applied. Backup saved as ${binary}.backup"
+  shell rm -f /tmp/patch.bin
+end
+
+task disassemble-for-injection
+  describe Disassemble binary section for injection analysis - binary=/path/to/binary section=.text
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell echo "Disassembling ${binary} section ${section:-.text}..."
+  shell objdump -d -j ${section:-.text} ${binary} | head -100
+  shell echo ""
+  shell echo "Use this output to find injection points"
+end
+
+# ============================================================================
+# Complete Injection Workflow Tasks
+# ============================================================================
+
+task demo-injection-workflow
+  describe Demonstrate complete injection workflow with C code
+  shell echo "=== Binary Injection Workflow Demo ==="
+  shell mkdir -p demos/injection-demo
+  shell echo "1. Creating hook library source..."
+  shell pf create-hook-lib output=demos/injection-demo/hook.c
+  shell echo "2. Compiling hook library..."
+  shell pf compile-c-shared-lib source=demos/injection-demo/hook.c output=demos/injection-demo/hook.so
+  shell echo "3. Creating test program..."
+  shell echo '#include <stdio.h>' > demos/injection-demo/test.c
+  shell echo '#include <stdlib.h>' >> demos/injection-demo/test.c
+  shell echo 'int main() {' >> demos/injection-demo/test.c
+  shell echo '    void* p = malloc(100);' >> demos/injection-demo/test.c
+  shell echo '    printf("Allocated: %p\\n", p);' >> demos/injection-demo/test.c
+  shell echo '    free(p);' >> demos/injection-demo/test.c
+  shell echo '    return 0;' >> demos/injection-demo/test.c
+  shell echo '}' >> demos/injection-demo/test.c
+  shell gcc demos/injection-demo/test.c -o demos/injection-demo/test
+  shell echo "4. Running with hook library..."
+  shell pf inject-shared-lib binary=demos/injection-demo/test lib=demos/injection-demo/hook.so
+  shell echo ""
+  shell echo "=== Demo Complete ==="
+end
+
+task demo-wasm-injection
+  describe Demonstrate WASM component injection workflow
+  shell echo "=== WASM Injection Workflow Demo ==="
+  shell mkdir -p demos/wasm-injection-demo
+  shell echo "1. Creating base WASM module..."
+  shell cat > demos/wasm-injection-demo/base.wat << 'WAT_EOF'
+(module
+  (func $original (param $x i32) (result i32)
+    local.get $x
+    i32.const 10
+    i32.mul)
+  (export "calculate" (func $original))
+)
+WAT_EOF
+  shell wat2wasm demos/wasm-injection-demo/base.wat -o demos/wasm-injection-demo/base.wasm 2>/dev/null || echo "WABT not installed"
+  shell echo "2. Creating hook component..."
+  shell pf create-wasm-hook output=demos/wasm-injection-demo/hook.wat
+  shell echo "=== Demo files created in demos/wasm-injection-demo/ ==="
+  shell ls -lh demos/wasm-injection-demo/
+end
+
+# ============================================================================
+# Installation Tasks
+# ============================================================================
+
+task install-injection-tools
+  describe Install tools needed for binary injection (patchelf, nasm, binaryen)
+  shell echo "Installing binary injection tools..."
+  shell OS="$(uname)"
+  shell if [ "$OS" = "Linux" ]; then if command -v apt-get >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y patchelf nasm binaryen wabt; elif command -v dnf >/dev/null 2>&1; then sudo dnf install -y patchelf nasm binaryen wabt; elif command -v pacman >/dev/null 2>&1; then sudo pacman -S --noconfirm patchelf nasm binaryen wabt; else echo "Unsupported Linux distribution. Please install manually: patchelf, nasm, binaryen, wabt"; fi; elif [ "$OS" = "Darwin" ]; then if command -v brew >/dev/null 2>&1; then brew install patchelf nasm binaryen wabt; else echo "Homebrew not found. Install from https://brew.sh then run: brew install patchelf nasm binaryen wabt"; fi; else echo "Unsupported OS. Please install manually: patchelf, nasm, binaryen, wabt"; fi
+  shell echo "Verifying installations..."
+  shell patchelf --version 2>/dev/null || echo "  patchelf: NOT installed"
+  shell nasm -version 2>/dev/null || echo "  nasm: NOT installed"
+  shell wasm-merge --version 2>/dev/null || echo "  binaryen: NOT installed"
+  shell wasm2c --version 2>/dev/null || echo "  wabt: NOT installed"
+end
+
+# ============================================================================
+# Help and Documentation Tasks
+# ============================================================================
+
+task injection-help
+  describe Show help for binary injection tasks
+  shell echo "=== Binary Injection and Shared Library Compilation ==="
+  shell echo ""
+  shell echo "SHARED LIBRARY COMPILATION:"
+  shell echo "  pf compile-c-shared-lib source=code.c output=lib.so"
+  shell echo "  pf compile-rust-shared-lib crate=./my-crate"
+  shell echo "  pf compile-fortran-shared-lib source=code.f90 output=lib.so"
+  shell echo "  pf compile-cpp-shared-lib source=code.cpp output=lib.so"
+  shell echo ""
+  shell echo "WASM/ASM CONVERSION:"
+  shell echo "  pf wasm-to-native input=module.wasm output=lib.so"
+  shell echo ""
+  shell echo "BINARY INJECTION:"
+  shell echo "  pf inject-shared-lib binary=./program lib=hook.so"
+  shell echo "  pf patch-binary-deps binary=./program old_lib=libold.so new_lib=./libnew.so"
+  shell echo "  pf inspect-binary-deps binary=./program"
+  shell echo ""
+  shell echo "HOOK CREATION:"
+  shell echo "  pf create-hook-lib output=hook.c"
+  shell echo "  pf create-wasm-hook output=hook.wat"
+  shell echo ""
+  shell echo "WASM INJECTION:"
+  shell echo "  pf inject-wasm-component host=base.wasm component=plugin.wasm output=combined.wasm"
+  shell echo ""
+  shell echo "ASSEMBLY PATCHING:"
+  shell echo "  pf disassemble-for-injection binary=./program"
+  shell echo "  pf inject-asm-patch binary=./program patch=code.asm offset=0x1000"
+  shell echo ""
+  shell echo "DEMONSTRATIONS:"
+  shell echo "  pf demo-injection-workflow"
+  shell echo "  pf demo-wasm-injection"
+  shell echo ""
+  shell echo "INSTALLATION:"
+  shell echo "  pf install-injection-tools"
+end

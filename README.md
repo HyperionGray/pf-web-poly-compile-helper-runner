@@ -69,6 +69,17 @@ pf build_detect
 - **Fortran**: Experimental WASM support via LFortran
 - **WAT**: Assemble WebAssembly text format with WABT
 
+### Binary Injection & Advanced Debugging 🔧
+Compile code to shared libraries and inject into binaries for advanced debugging and analysis:
+- **Shared Library Compilation**: Build .so/.dylib from C, C++, Rust, Fortran
+- **Function Hooking**: Intercept and monitor function calls at runtime
+- **Binary Patching**: Replace library dependencies in existing binaries
+- **WASM Injection**: Combine and inject WebAssembly components
+- **Assembly Patching**: Direct binary modification at machine code level
+- **Cross-Language Integration**: Inject code from any supported language into any binary
+
+See [Binary Injection Guide](docs/BINARY-INJECTION.md) for complete documentation.
+
 ### LLVM Binary Lifting 🔬
 Convert compiled binaries back to LLVM IR for analysis, optimization, and transformation:
 - **RetDec**: Automatic binary-to-LLVM lifting for multiple architectures (x86, ARM, MIPS)
@@ -638,6 +649,7 @@ npx playwright show-report
 ## Documentation
 
 - **pf-runner Documentation**: See [`pf-runner/README.md`](pf-runner/README.md) for comprehensive pf runner documentation
+- **Binary Injection Guide**: See [`docs/BINARY-INJECTION.md`](docs/BINARY-INJECTION.md) for injection and hooking documentation
 - **LLVM Lifting Guide**: See [`docs/LLVM-LIFTING.md`](docs/LLVM-LIFTING.md) for binary lifting documentation
 - **Kernel Debugging Guide**: See [`docs/KERNEL-DEBUGGING.md`](docs/KERNEL-DEBUGGING.md) for advanced debugging features
 - **Kernel Debugging Demo**: See [`demos/kernel-debugging/README.md`](demos/kernel-debugging/README.md) for examples
@@ -686,6 +698,17 @@ Additional documentation in `pf-runner/`:
 | `pf optimize-lifted-ir input=<file.ll>` | Optimize lifted LLVM IR |
 | `pf test-lifting-workflow` | Test complete lifting workflow |
 | `pf lifting-help` | Show detailed lifting commands help |
+| **Binary Injection Commands** | |
+| `pf compile-c-shared-lib source=<c>` | Compile C to shared library (.so/.dylib) |
+| `pf compile-rust-shared-lib crate=<dir>` | Compile Rust to shared library |
+| `pf inject-shared-lib binary=<exe> lib=<so>` | Inject library into program (LD_PRELOAD) |
+| `pf patch-binary-deps binary=<exe> old_lib=<old> new_lib=<new>` | Patch binary dependencies |
+| `pf create-hook-lib output=<file.c>` | Generate function hook template |
+| `pf wasm-to-native input=<wasm> output=<so>` | Convert WASM to native library |
+| `pf inject-wasm-component host=<wasm> component=<wasm>` | Inject WASM into WASM |
+| `pf demo-injection-workflow` | Demo complete injection workflow |
+| `pf install-injection-tools` | Install patchelf, nasm, binaryen, wabt |
+| `pf injection-help` | Show detailed injection commands help |
 | **Debugging & Reverse Engineering** | |
 | `pf install-debuggers` | Install GDB, LLDB, and pwndbg |
 | `pf build-debug-examples` | Build C/C++/Rust debug examples |
