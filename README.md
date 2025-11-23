@@ -21,6 +21,14 @@ This repository provides:
 - **Modular configuration**: Split tasks into multiple `.pf` files with `include`
 - **Parameter interpolation**: Pass runtime parameters to tasks
 
+### REST API Server 🌐
+- **Build Management**: Trigger WebAssembly builds via REST endpoints
+- **Real-time Updates**: WebSocket connections for live build status
+- **Project Management**: List projects, modules, and build artifacts
+- **Status Tracking**: Monitor build progress and retrieve detailed logs
+- **Backward Compatibility**: Maintains static file serving for existing web demo
+- **Multi-language Support**: API endpoints for Rust, C, Fortran, and WAT builds
+
 ### Automagic Builder
 The **automagic builder** is an intelligent build system that automatically detects your project type and runs the appropriate build command - no configuration needed! Just run `pf autobuild` and it handles the rest.
 
@@ -331,11 +339,40 @@ pf web-build-wat-wasm   # WAT → WASM
 pf web-dev
 ```
 
-The server will start on http://localhost:8080. Open this URL in your browser to see the polyglot WASM demo in action.
+The server will start on http://localhost:8080 with full REST API support. Open this URL in your browser to see the polyglot WASM demo in action.
+
+**New REST API Features:**
+- **Build via API**: Trigger builds using REST endpoints
+- **Real-time Status**: WebSocket connections for live build updates
+- **Build Management**: Monitor progress and retrieve logs
 
 You can customize the port and directory:
 ```bash
 pf web-dev port=3000 dir=demos/pf-web-polyglot-demo-plus-c/web
+```
+
+**API Examples:**
+```bash
+# Health check
+curl http://localhost:8080/api/health
+
+# Trigger Rust build
+curl -X POST http://localhost:8080/api/build/rust \
+  -H "Content-Type: application/json" \
+  -d '{"target": "wasm"}'
+
+# Check build status
+curl http://localhost:8080/api/status
+
+# Build all languages
+curl -X POST http://localhost:8080/api/build/all \
+  -H "Content-Type: application/json" \
+  -d '{"target": "wasm"}'
+```
+
+**Legacy Static Server:**
+```bash
+pf web-dev-static  # Use basic static file server
 ```
 
 #### Run Tests
@@ -671,6 +708,7 @@ npx playwright show-report
 ## Documentation
 
 - **pf-runner Documentation**: See [`pf-runner/README.md`](pf-runner/README.md) for comprehensive pf runner documentation
+- **REST API Guide**: See [`docs/REST-API.md`](docs/REST-API.md) for complete API documentation and examples
 - **Binary Injection Guide**: See [`docs/BINARY-INJECTION.md`](docs/BINARY-INJECTION.md) for injection and hooking documentation
 - **LLVM Lifting Guide**: See [`docs/LLVM-LIFTING.md`](docs/LLVM-LIFTING.md) for binary lifting documentation
 - **Kernel Debugging Guide**: See [`docs/KERNEL-DEBUGGING.md`](docs/KERNEL-DEBUGGING.md) for advanced debugging features
@@ -693,7 +731,9 @@ Additional documentation in `pf-runner/`:
 | `pf autobuild` | **Automagic builder** - auto-detect and build any project |
 | `pf autobuild release=true` | Build in release/optimized mode |
 | `pf build_detect` | Detect build system without building |
-| `pf web-dev` | Start development server (default: localhost:8080) |
+| `pf web-dev` | **Start development server with REST API support** |
+| `pf web-dev-static` | Start basic static file server (legacy) |
+| `pf api-server` | Start REST API server |
 | `pf web-test` | Run Playwright tests |
 | `pf web-build-all` | Build all WASM modules (Rust, C, Fortran, WAT) |
 | `pf web-build-all-wasm` | Build all languages to WebAssembly |

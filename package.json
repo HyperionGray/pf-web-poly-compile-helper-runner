@@ -10,11 +10,19 @@
   "scripts": {
     "test": "playwright test",
     "test:ui": "playwright test --ui",
-    "test:debug": "playwright test --debug"
+    "test:debug": "playwright test --debug",
+    "api-server": "node tools/api-server.mjs",
+    "dev": "node tools/api-server.mjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "ws": "^8.14.2",
+    "multer": "^1.4.5-lts.1"
+  },
   "devDependencies": {
     "@playwright/test": "^1.56.1"
   }

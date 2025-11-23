@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REST API Demo - pf WebAssembly Builder</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        h2 { color: #666; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover { background: #0052a3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .log {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .status {
+            color: #666;
+            font-style: italic;
+            margin: 10px 0;
+        }
+        .error { color: #cc0000; }
+        .success { color: #00aa00; }
+        .warning { color: #ff8800; }
+        .build-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 5px 0;
+        }
+        .build-progress {
+            background: #e9ecef;
+            border-radius: 4px;
+            height: 20px;
+            margin: 5px 0;
+        }
+        .build-progress-bar {
+            background: #007bff;
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌐 REST API Demo - WebAssembly Builder</h1>
+    <p>This demo showcases the REST API for building WebAssembly modules from multiple languages.</p>
+
+    <div class="section">
+        <h2>🔧 Build Controls</h2>
+        <div class="controls">
+            <select id="language-select">
+                <option value="rust">Rust</option>
+                <option value="c">C</option>
+                <option value="fortran">Fortran</option>
+                <option value="wat">WAT</option>
+            </select>
+            <select id="target-select">
+                <option value="wasm">WebAssembly</option>
+                <option value="llvm">LLVM IR</option>
+                <option value="asm">asm.js</option>
+            </select>
+            <button id="build-single">Build Selected</button>
+            <button id="build-all">Build All Languages</button>
+            <button id="refresh-status">Refresh Status</button>
+        </div>
+        <div id="build-status" class="status">Ready to build</div>
+    </div>
+
+    <div class="section">
+        <h2>📊 Build Status</h2>
+        <div id="builds-container">
+            <div class="status">No builds yet</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📋 System Information</h2>
+        <div id="system-info" class="log">Loading system information...</div>
+    </div>
+
+    <div class="section">
+        <h2>📁 Available Projects</h2>
+        <div id="projects-info" class="log">Loading projects...</div>
+    </div>
+
+    <div class="section">
+        <h2>📦 Built Modules</h2>
+        <div id="modules-info" class="log">Loading modules...</div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let ws = null;
+        let builds = new Map();
+
+        // Initialize WebSocket connection
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                updateBuildStatus('🔗 Connected to real-time updates');
+            };
+            
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                handleWebSocketMessage(message);
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                updateBuildStatus('🔌 Disconnected from real-time updates');
+                // Reconnect after 3 seconds
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function handleWebSocketMessage(message) {
+            switch (message.type) {
+                case 'initial_status':
+                    message.builds.forEach(build => {
+                        builds.set(build.buildId, build);
+                    });
+                    renderBuilds();
+                    break;
+                case 'build_started':
+                    builds.set(message.buildId, {
+                        buildId: message.buildId,
+                        language: message.language,
+                        target: message.target,
+                        status: 'running',
+                        progress: 0
+                    });
+                    renderBuilds();
+                    break;
+                case 'build_progress':
+                    const progressBuild = builds.get(message.buildId);
+                    if (progressBuild) {
+                        progressBuild.status = message.status;
+                        progressBuild.progress = message.progress;
+                        builds.set(message.buildId, progressBuild);
+                        renderBuilds();
+                    }
+                    break;
+                case 'build_completed':
+                    const completedBuild = builds.get(message.buildId);
+                    if (completedBuild) {
+                        completedBuild.status = 'completed';
+                        completedBuild.progress = 100;
+                        builds.set(message.buildId, completedBuild);
+                        renderBuilds();
+                        loadModules(); // Refresh modules list
+                    }
+                    break;
+                case 'build_failed':
+                    const failedBuild = builds.get(message.buildId);
+                    if (failedBuild) {
+                        failedBuild.status = 'failed';
+                        failedBuild.error = message.error;
+                        builds.set(message.buildId, failedBuild);
+                        renderBuilds();
+                    }
+                    break;
+            }
+        }
+
+        function updateBuildStatus(message, className = 'status') {
+            const statusEl = document.getElementById('build-status');
+            statusEl.textContent = message;
+            statusEl.className = className;
+        }
+
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || `HTTP ${response.status}`);
+                }
+                
+                return data;
+            } catch (error) {
+                console.error(`API call failed: ${endpoint}`, error);
+                throw error;
+            }
+        }
+
+        async function buildLanguage() {
+            const language = document.getElementById('language-select').value;
+            const target = document.getElementById('target-select').value;
+            
+            try {
+                updateBuildStatus(`🚀 Starting ${language} → ${target} build...`, 'status warning');
+                
+                const result = await apiCall(`/build/${language}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target })
+                });
+                
+                updateBuildStatus(`✅ Build queued: ${result.buildId}`, 'status success');
+            } catch (error) {
+                updateBuildStatus(`❌ Build failed: ${error.message}`, 'status error');
+            }
+        }
+
+        async function buildAll() {
+            const target = document.getElementById('target-select').value;
+            
+            try {
+                updateBuildStatus(`🚀 Starting build for all languages → ${target}...`, 'status warning');
+                
+                const result = await apiCall('/build/all', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target })
+                });
+                
+                updateBuildStatus(`✅ All builds queued: ${result.buildIds.length} builds`, 'status success');
+            } catch (error) {
+                updateBuildStatus(`❌ Build all failed: ${error.message}`, 'status error');
+            }
+        }
+
+        async function refreshStatus() {
+            try {
+                const result = await apiCall('/status');
+                builds.clear();
+                result.builds.forEach(build => {
+                    builds.set(build.buildId, build);
+                });
+                renderBuilds();
+                updateBuildStatus('✅ Status refreshed', 'status success');
+            } catch (error) {
+                updateBuildStatus(`❌ Refresh failed: ${error.message}`, 'status error');
+            }
+        }
+
+        function renderBuilds() {
+            const container = document.getElementById('builds-container');
+            
+            if (builds.size === 0) {
+                container.innerHTML = '<div class="status">No builds yet</div>';
+                return;
+            }
+            
+            const buildsArray = Array.from(builds.values()).sort((a, b) => 
+                new Date(b.startTime || 0) - new Date(a.startTime || 0)
+            );
+            
+            container.innerHTML = buildsArray.map(build => `
+                <div class="build-item">
+                    <div><strong>${build.language} → ${build.target}</strong> (${build.buildId})</div>
+                    <div>Status: <span class="${getStatusClass(build.status)}">${build.status}</span></div>
+                    ${build.progress !== undefined ? `
+                        <div class="build-progress">
+                            <div class="build-progress-bar" style="width: ${build.progress}%"></div>
+                        </div>
+                        <div>Progress: ${build.progress}%</div>
+                    ` : ''}
+                    ${build.error ? `<div class="error">Error: ${build.error}</div>` : ''}
+                    ${build.duration ? `<div>Duration: ${Math.round(build.duration / 1000)}s</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function getStatusClass(status) {
+            switch (status) {
+                case 'completed': return 'success';
+                case 'failed': return 'error';
+                case 'running': return 'warning';
+                default: return 'status';
+            }
+        }
+
+        async function loadSystemInfo() {
+            try {
+                const info = await apiCall('/system');
+                document.getElementById('system-info').textContent = JSON.stringify(info, null, 2);
+            } catch (error) {
+                document.getElementById('system-info').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function loadProjects() {
+            try {
+                const projects = await apiCall('/projects');
+                document.getElementById('projects-info').textContent = JSON.stringify(projects, null, 2);
+            } catch (error) {
+                document.getElementById('projects-info').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function loadModules() {
+            try {
+                const modules = await apiCall('/modules');
+                document.getElementById('modules-info').textContent = JSON.stringify(modules, null, 2);
+            } catch (error) {
+                document.getElementById('modules-info').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        // Event listeners
+        document.getElementById('build-single').addEventListener('click', buildLanguage);
+        document.getElementById('build-all').addEventListener('click', buildAll);
+        document.getElementById('refresh-status').addEventListener('click', refreshStatus);
+
+        // Initialize
+        connectWebSocket();
+        loadSystemInfo();
+        loadProjects();
+        loadModules();
+        refreshStatus();
+    </script>
+</body>
+</html>

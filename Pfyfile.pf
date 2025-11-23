@@ -9,8 +9,21 @@ include Pfyfile.injection.pf
 include Pfyfile.debugging.pf
 
 task web-dev
+  describe Start development server with REST API support
+  shell_lang bash
+  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+end
+
+task web-dev-static
+  describe Start basic static file server (legacy)
   shell_lang bash
   shell node tools/static-server.mjs ${dir:-web} ${port:-8080}
+end
+
+task api-server
+  describe Start REST API server
+  shell_lang bash
+  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
 end
 
 task web-test
