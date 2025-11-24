@@ -7,13 +7,13 @@
 
 task install-debuggers
   describe Install GDB, LLDB, and pwndbg for advanced debugging
-  shell_lang bash
+   bash
   shell bash tools/debugging/install-debuggers.sh
 end
 
 task check-debuggers
   describe Check if debuggers are installed and configured
-  shell_lang bash
+   bash
   shell echo "=== Checking Debugger Installation ==="
   shell which gdb && gdb --version | head -1 || echo "GDB not found"
   shell which lldb && lldb --version | head -1 || echo "LLDB not found"
@@ -27,7 +27,7 @@ end
 
 task build-debug-examples
   describe Build all debugging example binaries (C, C++, Rust)
-  shell_lang bash
+   bash
   shell cd demos/debugging/examples && mkdir -p bin
   shell echo "Building C example with debug symbols..."
   shell cd demos/debugging/examples && gcc -g -O0 -fno-stack-protector -z execstack -no-pie vulnerable.c -o bin/vulnerable
@@ -46,7 +46,7 @@ end
 
 task clean-debug-examples
   describe Clean debugging example binaries
-  shell_lang bash
+   bash
   shell cd demos/debugging && rm -rf examples/bin
   shell cd demos/debugging && mkdir -p examples/bin
   shell echo "Cleaned debug examples"
@@ -58,28 +58,28 @@ end
 
 task debug
   describe Start interactive debugger for a binary (binary=/path/to/binary, debugger=gdb|lldb)
-  shell_lang bash
+   bash
   shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf debug binary=path/to/binary" && exit 1)
   shell python3 tools/debugging/pwndebug.py ${debugger:+--debugger ${debugger}} ${binary}
 end
 
 task debug-gdb
   describe Debug a binary directly with GDB (binary=/path/to/binary)
-  shell_lang bash
+   bash
   shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf debug-gdb binary=path/to/binary" && exit 1)
   shell python3 tools/debugging/pwndebug.py --debugger gdb --direct ${binary}
 end
 
 task debug-lldb
   describe Debug a binary directly with LLDB (binary=/path/to/binary)
-  shell_lang bash
+   bash
   shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf debug-lldb binary=path/to/binary" && exit 1)
   shell python3 tools/debugging/pwndebug.py --debugger lldb --direct ${binary}
 end
 
 task debug-info
   describe Show information about a binary (binary=/path/to/binary)
-  shell_lang bash
+   bash
   shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf debug-info binary=path/to/binary" && exit 1)
   shell python3 tools/debugging/pwndebug.py --info ${binary}
 end
@@ -90,19 +90,19 @@ end
 
 task debug-example-c
   describe Debug the C vulnerable example (interactive)
-  shell_lang bash
+   bash
   shell python3 tools/debugging/pwndebug.py demos/debugging/examples/bin/vulnerable test_input
 end
 
 task debug-example-cpp
   describe Debug the C++ example (interactive)
-  shell_lang bash
+   bash
   shell python3 tools/debugging/pwndebug.py demos/debugging/examples/bin/debug_cpp
 end
 
 task debug-example-rust
   describe Debug the Rust example (interactive)
-  shell_lang bash
+   bash
   shell python3 tools/debugging/pwndebug.py demos/debugging/examples/bin/debug_rust arg1 arg2
 end
 
@@ -112,14 +112,14 @@ end
 
 task disassemble
   describe Disassemble a binary (binary=/path/to/binary)
-  shell_lang bash
+   bash
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
   shell objdump -d -M intel ${binary} | less
 end
 
 task strings-analysis
   describe Extract and analyze strings from binary (binary=/path/to/binary)
-  shell_lang bash
+   bash
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
   shell echo "=== Extracting strings from ${binary} ==="
   shell strings ${binary} | head -50
@@ -129,7 +129,7 @@ end
 
 task binary-info
   describe Show detailed binary information (binary=/path/to/binary)
-  shell_lang bash
+   bash
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
   shell echo "=== Binary Information: ${binary} ==="
   shell file ${binary}
@@ -150,7 +150,7 @@ end
 
 task test-debugger-workflow
   describe Test complete debugging workflow with examples
-  shell_lang bash
+   bash
   shell echo "=== Testing Debugging Workflow ==="
   shell echo "1. Building example binaries..."
   shell cd demos/debugging/examples && mkdir -p bin
@@ -170,6 +170,6 @@ end
 
 task debug-help
   describe Show debugging commands help
-  shell_lang bash
+   bash
   shell bash tools/debugging/quick-reference.sh
 end

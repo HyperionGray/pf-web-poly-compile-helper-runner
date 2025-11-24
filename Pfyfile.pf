@@ -27,75 +27,75 @@ task api-server
 end
 
 task web-test
-  shell_lang bash
+  
   shell npx playwright test --reporter=list
 end
 
 task web-build-rust
-  shell_lang bash
+  
   shell cd demos/pf-web-polyglot-demo-plus-c/rust && wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
 end
 
 task web-build-rust-wasm
   describe Build Rust to WebAssembly
-  shell_lang bash
+  
   shell cd demos/pf-web-polyglot-demo-plus-c/rust && wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
 end
 
 task web-build-rust-llvm
   describe Build Rust to LLVM IR with optimization (opt_level=3 by default, parallel=false)
-  shell_lang bash
+  
   shell cd demos/pf-web-polyglot-demo-plus-c/rust && mkdir -p ../web/llvm/rust && rustc --emit=llvm-ir --crate-type=lib -C opt-level=${opt_level:-3} src/lib_simple.rs -o ../web/llvm/rust/lib.ll
 end
 
 task web-build-c
-  shell_lang bash
+  
   shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
 end
 
 task web-build-c-wasm
   describe Build C to WebAssembly
-  shell_lang bash
+  
   shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
 end
 
 task web-build-c-asm
   describe Build C to asm.js
-  shell_lang bash
+  
   shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O2 -sWASM=0 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/asm/c/c_trap_asm.js
 end
 
 task web-build-c-llvm
   describe Build C to LLVM IR with optimization (opt_level=3 by default, parallel=false for OpenMP)
-  shell_lang bash
+  
   shell cd demos/pf-web-polyglot-demo-plus-c/c && mkdir -p .tmp && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
 end
 
 task web-build-fortran
-  shell_lang bash
+  
   shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown
 end
 
 task web-build-fortran-wasm
   describe Build Fortran to WebAssembly
-  shell_lang bash
+  
   shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown
 end
 
 task web-build-fortran-llvm
   describe Build Fortran to LLVM IR with optimization (opt_level=3 by default, parallel=false for OpenMP)
-  shell_lang bash
+  
   shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 --show-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -o ../web/llvm/fortran/hello.ll
 end
 
 task web-build-wat
-  shell_lang bash
+  
   shell cd demos/pf-web-polyglot-demo-plus-c/asm && wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
 end
 
 task web-build-wat-wasm
   describe Build WAT to WebAssembly
-  shell_lang bash
+  
   shell cd demos/pf-web-polyglot-demo-plus-c/asm && wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
 end
 
@@ -128,31 +128,31 @@ end
 
 task web-build-c-llvm-opt
   describe Build C to LLVM IR with custom optimization passes (passes="pass1,pass2,..." uses new pass manager)
-  shell_lang bash
+  
   shell cd demos/pf-web-polyglot-demo-plus-c/c && mkdir -p .tmp ../web/llvm/c && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o .tmp/c_trap_unopt.ll && opt-18 -S -passes="${passes:-mem2reg,instcombine,simplifycfg,loop-vectorize}" .tmp/c_trap_unopt.ll -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
 end
 
 task install-base
   describe Install base pf runner, Python dependencies, and core build tools
-  shell_lang bash
+  
   shell bash install.sh base
 end
 
 task install-web
   describe Install web/WASM development tools (Node.js, Playwright, Rust, Emscripten, WABT)
-  shell_lang bash
+  
   shell bash install.sh web
 end
 
 task install
   describe Install everything - base pf runner and all web/WASM development tools
-  shell_lang bash
+  
   shell bash install.sh all
 end
 
 task sync-demo
   describe Demo of sync command - sync files with rsync
-  shell_lang bash
+  
   shell echo "Sync command examples:"
   shell echo "  Local:  sync src=/path/src/ dest=/path/dest/ verbose"
   shell echo "  Remote: sync src=/local/ dest=/remote/ host=server.com user=deploy port=22"

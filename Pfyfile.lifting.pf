@@ -7,13 +7,13 @@
 
 task install-retdec
   describe Install RetDec for binary lifting to LLVM IR
-  shell_lang bash
+   bash
   shell bash tools/lifting/install-retdec.sh
 end
 
 task install-lifting-tools
   describe Install all LLVM lifting tools
-  shell_lang bash
+   bash
   shell echo "Installing LLVM lifting tools..."
   shell bash tools/lifting/install-retdec.sh
 end
@@ -24,7 +24,7 @@ end
 
 task build-lifting-examples
   describe Build all example binaries for lifting demonstrations
-  shell_lang bash
+   bash
   shell cd demos/binary-lifting/examples && mkdir -p bin output
   shell cd demos/binary-lifting/examples && gcc -O0 -g simple_math.c -o bin/simple_math_O0
   shell cd demos/binary-lifting/examples && gcc -O2 simple_math.c -o bin/simple_math_O2
@@ -41,7 +41,7 @@ end
 
 task clean-lifting-examples
   describe Clean built binaries and lifted output
-  shell_lang bash
+   bash
   shell cd demos/binary-lifting && rm -rf examples/bin examples/output
   shell cd demos/binary-lifting && mkdir -p examples/bin examples/output
   shell echo "Cleaned lifting examples"
@@ -53,7 +53,7 @@ end
 
 task lift-binary-retdec
   describe Lift a binary to LLVM IR using RetDec (binary=/path/to/binary)
-  shell_lang bash
+   bash
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
   shell mkdir -p ${output_dir:-demos/binary-lifting/examples/output}
   shell retdec-decompiler.py --backend llvmir --no-memory-limit ${binary} -o ${output_dir:-demos/binary-lifting/examples/output}/$(basename ${binary}).ll
@@ -62,7 +62,7 @@ end
 
 task lift-examples-retdec
   describe Lift all example binaries using RetDec
-  shell_lang bash
+   bash
   shell retdec-decompiler.py --backend llvmir demos/binary-lifting/examples/bin/simple_math -o demos/binary-lifting/examples/output/simple_math.ll || echo "RetDec not installed - run: pf install-retdec"
   shell retdec-decompiler.py --backend llvmir demos/binary-lifting/examples/bin/string_ops -o demos/binary-lifting/examples/output/string_ops.ll || echo "RetDec not installed"
   shell retdec-decompiler.py --backend llvmir demos/binary-lifting/examples/bin/loop_example -o demos/binary-lifting/examples/output/loop_example.ll || echo "RetDec not installed"
@@ -76,7 +76,7 @@ end
 
 task lift-inspect
   describe Inspect a binary with LLVM tools (binary=/path/to/binary)
-  shell_lang bash
+   bash
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
   shell echo "Binary Information:"
   shell file ${binary}
@@ -90,7 +90,7 @@ end
 
 task lift-disassemble
   describe Disassemble a binary to assembly (binary=/path/to/binary)
-  shell_lang bash
+   bash
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
   shell mkdir -p ${output_dir:-demos/binary-lifting/examples/output}
   shell llvm-objdump-18 -d ${binary} > ${output_dir:-demos/binary-lifting/examples/output}/$(basename ${binary}).asm 2>&1
@@ -100,7 +100,7 @@ end
 
 task lift-examples-simple
   describe Inspect and analyze all examples with simple LLVM tools
-  shell_lang bash
+   bash
   shell echo "Analyzing simple_math:"
   shell file demos/binary-lifting/examples/bin/simple_math
   shell size demos/binary-lifting/examples/bin/simple_math
@@ -120,7 +120,7 @@ end
 
 task optimize-lifted-ir
   describe Optimize lifted LLVM IR (input=/path/to/file.ll, opt_level=3)
-  shell_lang bash
+   bash
   shell test -n "${input}" || (echo "Error: input parameter required" && exit 1)
   shell opt-18 -S -O${opt_level:-3} ${input} -o ${output:-${input%.ll}_opt.ll}
   shell echo "Original size: $(wc -l < ${input}) lines"
@@ -130,7 +130,7 @@ end
 
 task analyze-lifted-ir
   describe Analyze lifted LLVM IR with statistics (input=/path/to/file.ll)
-  shell_lang bash
+   bash
   shell test -n "${input}" || (echo "Error: input parameter required" && exit 1)
   shell echo "Analyzing ${input}..."
   shell opt-18 -stats -O3 ${input} -o /dev/null 2>&1 | grep -E "(statistics|NumInstructions|NumFunctions|NumBlocks)"
@@ -138,7 +138,7 @@ end
 
 task recompile-lifted
   describe Recompile lifted LLVM IR to executable (input=/path/to/file.ll)
-  shell_lang bash
+   bash
   shell test -n "${input}" || (echo "Error: input parameter required" && exit 1)
   shell clang -O2 ${input} -o ${output:-${input%.ll}_recompiled}
   shell echo "Successfully recompiled to: ${output:-${input%.ll}_recompiled}"
@@ -152,7 +152,7 @@ end
 
 task test-lifting-workflow
   describe Test complete lifting workflow with examples
-  shell_lang bash
+   bash
   shell echo "=== Testing Complete Lifting Workflow ==="
   shell echo "1. Building examples..."
   shell cd demos/binary-lifting/examples && mkdir -p bin output
@@ -174,6 +174,6 @@ end
 
 task lifting-help
   describe Show help for LLVM lifting tasks
-  shell_lang bash
+   bash
   shell bash tools/lifting/quick-reference.sh
 end
