@@ -301,8 +301,10 @@ def __lldb_init_module(debugger, internal_dict):
         
         except subprocess.TimeoutExpired:
             print(f"[-] LLDB timed out")
-        except FileNotFoundError:
-            print(f"[-] LLDB not found. Install with: sudo apt-get install lldb")
+        except (FileNotFoundError, subprocess.CalledProcessError) as e:
+            print(f"[-] LLDB error: {e}")
+            if isinstance(e, FileNotFoundError):
+                print(f"[-] LLDB not found. Install with: sudo apt-get install lldb")
         except Exception as e:
             print(f"[-] Error: {e}")
         

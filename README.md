@@ -101,6 +101,9 @@ See [LLVM Lifting Guide](docs/LLVM-LIFTING.md) for complete documentation.
 
 ### Advanced Kernel Debugging 🛡️
 Comprehensive kernel-mode debugging and security analysis capabilities:
+- **🎯 Automagic Parse Function Detection**: Automatically identify parse functions in binaries for vulnerability research
+- **📊 Complexity Analysis**: Detect functions with many if/else statements, long functions, and high cyclomatic complexity
+- **⚡ In-Memory Fuzzing**: Blazing fast fuzzing (100-1000x faster) with loop-back capability and mutation strategies
 - **IOCTL Detection**: Automated identification and analysis of IOCTL handlers in kernel modules
 - **Firmware Extraction**: Integration with flashrom and other tools for firmware dumping and analysis
 - **Advanced Breakpoints**: LLDB integration with complex conditional breakpoints and vulnerability detection
@@ -110,7 +113,23 @@ Comprehensive kernel-mode debugging and security analysis capabilities:
 - **Vulnerability Scanning**: Automated detection of common kernel vulnerabilities and attack patterns
 - **Mass Fuzzing Integration**: Syzkaller and KFuzz integration for comprehensive kernel testing
 
+**NEW: Automagic Vulnerability Discovery**
+```bash
+# Comprehensive analysis in one command
+pf kernel-automagic-analysis binary=/path/to/binary
+
+# Detect parse functions automatically
+pf kernel-parse-detect binary=/path/to/binary
+
+# Find complex functions (many if/else, long functions)
+pf kernel-complexity-analyze binary=/path/to/binary
+
+# Fast in-memory fuzzing with loop-back
+pf kernel-fuzz-in-memory binary=/path/to/binary function=parse_input
+```
+
 See [Kernel Debugging Guide](docs/KERNEL-DEBUGGING.md) for complete documentation.
+See [Automagic Demo](demos/kernel-debugging/AUTOMAGIC-DEMO.md) for hands-on examples.
 ### Binary Injection 💉
 Inject compiled polyglot code into existing binaries and shared libraries:
 - **Multi-Language Payloads**: Create injectable libraries from Rust, C, Fortran, WASM, or LLVM IR
@@ -788,6 +807,11 @@ Additional documentation in `pf-runner/`:
 | `pf demo-injection-workflow` | Demo complete injection workflow |
 | `pf install-injection-tools` | Install patchelf, nasm, binaryen, wabt |
 | `pf injection-help` | Show detailed injection commands help |
+| **Automagic Vulnerability Discovery** | |
+| `pf kernel-automagic-analysis binary=<path>` | **Comprehensive auto-analysis: parse functions + complexity + vulnerabilities** |
+| `pf kernel-parse-detect binary=<path>` | **Auto-detect parse functions in binary** |
+| `pf kernel-complexity-analyze binary=<path>` | **Find functions with many if/else, long functions, high complexity** |
+| `pf kernel-fuzz-in-memory binary=<path>` | **Fast in-memory fuzzing with loop-back (100-1000x faster)** |
 | **Debugging & Reverse Engineering** | |
 | `pf install-debuggers` | Install GDB, LLDB, and pwndbg |
 | `pf build-debug-examples` | Build C/C++/Rust debug examples |
