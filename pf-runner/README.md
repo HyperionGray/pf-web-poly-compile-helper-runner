@@ -105,8 +105,20 @@ chmod +x pf.py
 
 ```bash
 pf list
+# or
+pf --list
+
+# Legacy style:
 pf env=prod update
+
+# Classic style:
+pf --env=prod update
+pf --env prod update
+
+# With hosts:
 pf hosts=ubuntu@10.0.0.5:22,punk@10.4.4.4:24 run-tls tls_cert=$PWD/certs/server.crt tls_key=$PWD/certs/server.key port=9443
+# or
+pf --hosts=ubuntu@10.0.0.5:22,punk@10.4.4.4:24 run-tls --tls_cert=$PWD/certs/server.crt --tls_key=$PWD/certs/server.key --port=9443
 ```
 
 ## Toolchain setup
@@ -127,7 +139,7 @@ Feel free to tweak the package list if your distro uses different names or you w
 
 ## Command-Line Syntax & Argument Flexibility
 
-The `pf` command line parser is **flexible about argument order**. You can mix options, parameters, and task names in any order that feels natural:
+The `pf` command line parser is **flexible about argument order** and supports **both classic (`--arg`) and legacy (`arg=value`) styles**. You can mix options, parameters, and task names in any order that feels natural:
 
 ```bash
 # All of these are equivalent:
@@ -135,23 +147,37 @@ pf my-task param=value env=prod
 pf env=prod my-task param=value
 pf param=value env=prod my-task
 
+# Classic style with -- prefix also works:
+pf my-task --param=value --env=prod
+pf --env=prod my-task --param=value
+pf --env prod my-task param=value
+
+# Mix both styles freely:
+pf env=prod my-task --param=value
+pf --env=prod my-task param=value
+
 # Multiple tasks with their own parameters:
 pf build release=true test coverage=true
+pf build --release=true test --coverage=true
 
 # Environment and host options can appear anywhere:
 pf env=staging deploy host=server1.com:22
 pf host=server1.com:22 env=staging deploy
+pf --env=staging deploy --host=server1.com:22
+pf --host server1.com:22 --env staging deploy
 ```
 
 ### Available Command-Line Options
 
-- `env=NAME` - Use a named environment from `ENV_MAP` (can specify multiple)
-- `hosts=user@host:port,...` - Connect to specific hosts (comma-separated)
-- `host=user@host:port` - Connect to a single host (can specify multiple)
-- `user=USERNAME` - Default SSH username
-- `port=PORT` - Default SSH port
-- `sudo=true` - Run commands with sudo
-- `sudo_user=USER` - Run commands as a specific user with sudo
+Options can be specified in either format: `option=value` or `--option=value` or `--option value`
+
+- `env=NAME` or `--env=NAME` or `--env NAME` - Use a named environment from `ENV_MAP` (can specify multiple)
+- `hosts=user@host:port,...` or `--hosts=...` or `--hosts ...` - Connect to specific hosts (comma-separated)
+- `host=user@host:port` or `--host=...` or `--host ...` - Connect to a single host (can specify multiple)
+- `user=USERNAME` or `--user=USERNAME` or `--user USERNAME` - Default SSH username
+- `port=PORT` or `--port=PORT` or `--port PORT` - Default SSH port
+- `sudo=true` or `--sudo` - Run commands with sudo
+- `sudo_user=USER` or `--sudo-user=USER` or `--sudo-user USER` - Run commands as a specific user with sudo
 
 ### Shell Compatibility
 

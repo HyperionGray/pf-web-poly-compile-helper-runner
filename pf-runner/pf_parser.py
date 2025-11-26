@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/home/punk/.venv/bin/python
 """
 pf.py — single-file, symbol-free Fabric runner with a tiny DSL.
 
@@ -1328,6 +1328,48 @@ def main(argv: List[str]) -> int:
     i = 0
     while i < len(argv):
         a = argv[i]
+        
+        # Handle --arg=value format
+        if a.startswith("--") and "=" in a:
+            k, v = a[2:].split("=", 1)  # Strip -- prefix and split
+            if k == "hosts": host_specs.extend(_normalize_hosts(v))
+            elif k == "host": host_specs.append(v.strip())
+            elif k == "env": env_names.append(v.strip())
+            elif k == "user": user = v
+            elif k == "port": port = v
+            elif k in ("sudo", "become"): sudo = v.lower() in ("1","true","yes","on")
+            elif k in ("sudo_user", "become_user", "sudo-user", "become-user"): sudo_user = v
+            else:
+                tasks = argv[i:]; break
+            i += 1; continue
+        
+        # Handle --arg value format
+        if a.startswith("--") and i + 1 < len(argv):
+            k = a[2:]  # Strip -- prefix
+            # Special handling for --list and --help (treat as tasks)
+            if k in ("list", "help"):
+                tasks = argv[i:]; break
+            # Check if next arg is a value (doesn't start with --)
+            next_arg = argv[i + 1]
+            if k in ("hosts", "host", "env", "user", "port", "sudo-user", "sudo_user", "become-user", "become_user") and not next_arg.startswith("--"):
+                v = next_arg
+                if k == "hosts": host_specs.extend(_normalize_hosts(v))
+                elif k == "host": host_specs.append(v.strip())
+                elif k == "env": env_names.append(v.strip())
+                elif k == "user": user = v
+                elif k == "port": port = v
+                elif k in ("sudo_user", "become_user", "sudo-user", "become-user"): sudo_user = v
+                i += 2; continue
+            # Handle boolean flags like --sudo, --become
+            elif k in ("sudo", "become"):
+                sudo = True
+                i += 1; continue
+        
+        # Handle --list and --help as standalone flags
+        if a in ("--list", "--help", "-h"):
+            tasks = argv[i:]; break
+        
+        # Handle legacy arg=value format (without --)
         if "=" in a and not a.startswith("--"):
             k, v = a.split("=", 1)
             if k == "hosts": host_specs.extend(_normalize_hosts(v))
@@ -1340,6 +1382,7 @@ def main(argv: List[str]) -> int:
             else:
                 tasks = argv[i:]; break
             i += 1; continue
+        
         if a == "--":
             tasks = argv[i+1:]; break
         tasks = argv[i:]; break
@@ -1348,11 +1391,11 @@ def main(argv: List[str]) -> int:
         if len(tasks) > 1:
             _print_task_help(tasks[1], file_arg=pfy_file_arg)
         else:
-            print("Usage: pf [<pfy_file>] [env=NAME]* [hosts=..|host=..]* [user=..] [port=..] [sudo=true] [sudo_user=..] <task|list|help> [more_tasks...]")
+            print("Usage: pf [<pfy_file>] [env=NAME|--env=NAME|--env NAME]* [hosts=..|--hosts=..|--hosts ..] [user=..|--user=..|--user ..] [port=..|--port=..|--port ..] [sudo=true|--sudo] [sudo_user=..|--sudo-user=..|--sudo-user ..] <task|list|help> [more_tasks...]")
             print("\nAvailable tasks:")
             _print_list(file_arg=pfy_file_arg)
         return 0
-    if tasks[0] == "list":
+    if tasks[0] in ("list", "--list"):
         _print_list(file_arg=pfy_file_arg); return 0
 
     # Resolve hosts
@@ -1364,12 +1407,12 @@ def main(argv: List[str]) -> int:
     # Load tasks once
     dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=pfy_file_arg)
     dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
-    valid_task_names = set(BUILTINS.keys()) | set(dsl_tasks.keys()) | {"list", "help", "--help"}
+    valid_task_names = set(BUILTINS.keys()) | set(dsl_tasks.keys()) | {"list", "help", "--help", "--list"}
 
     # Parse multi-task + params: <task> [k=v ...] <task2> [k=v ...] ...
     selected = []
     j = 0
-    all_names_for_alias = list(BUILTINS.keys()) + list(dsl_tasks.keys()) + ["list","help","--help"]
+    all_names_for_alias = list(BUILTINS.keys()) + list(dsl_tasks.keys()) + ["list","help","--help","--list"]
     aliasmap_all = _alias_map(all_names_for_alias)
     while j < len(tasks):
         tname = tasks[j]
@@ -1383,8 +1426,13 @@ def main(argv: List[str]) -> int:
                 return 1
         j += 1
         params = {}
-        while j < len(tasks) and ("=" in tasks[j]) and (not tasks[j].startswith("--")):
-            k, v = tasks[j].split("=", 1)
+        while j < len(tasks) and ("=" in tasks[j]):
+            arg = tasks[j]
+            # Support both --param=value and param=value formats
+            if arg.startswith("--"):
+                k, v = arg[2:].split("=", 1)  # Strip -- prefix
+            else:
+                k, v = arg.split("=", 1)
             params[k] = v
             j += 1
         if tname in BUILTINS:
