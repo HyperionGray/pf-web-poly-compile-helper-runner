@@ -1,0 +1,53 @@
+# test_quotes.pf - Tests for quote preservation in shell commands
+# This test file ensures that quotes are preserved correctly in .pf files
+
+task test-double-quotes
+  describe Test double quote preservation in shell commands
+  shell echo "hello world"
+  shell echo "value with spaces"
+  shell test -f "/etc/passwd" && echo "File check with quotes works"
+end
+
+task test-single-quotes
+  describe Test single quote preservation
+  shell echo 'hello world'
+  shell echo 'value with spaces'
+end
+
+task test-mixed-quotes
+  describe Test mixed quote scenarios
+  shell echo "Double with 'single' inside"
+  shell echo 'Single with "double" inside'
+end
+
+task test-escaped-quotes
+  describe Test escaped quotes
+  shell echo "Escaped \" quotes work"
+  shell echo 'Can use "double" in single quotes'
+end
+
+task test-bash-syntax
+  describe Test bash-specific syntax with quotes
+  shell [[ "test" == "test" ]] && echo "Double bracket comparison works"
+  shell [[ -f "/etc/passwd" ]] && echo "File test works"
+  shell [ "hello" = "hello" ] && echo "Single bracket works"
+end
+
+task test-complex-bash
+  describe Test complex bash constructs with quotes
+  shell var="value with spaces"; echo "Variable: $var"
+  shell array=("item 1" "item 2"); echo "Array: ${array[@]}"
+  shell cmd='echo "nested"'; bash -c "$cmd"
+end
+
+task test-all-quotes
+  describe Run all quote preservation tests
+  shell echo "=== Running all quote tests ==="
+  shell ./pf test_quotes.pf test-double-quotes
+  shell ./pf test_quotes.pf test-single-quotes  
+  shell ./pf test_quotes.pf test-mixed-quotes
+  shell ./pf test_quotes.pf test-escaped-quotes
+  shell ./pf test_quotes.pf test-bash-syntax
+  shell ./pf test_quotes.pf test-complex-bash
+  shell echo "=== All tests completed ==="
+end
