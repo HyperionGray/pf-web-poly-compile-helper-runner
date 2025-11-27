@@ -1,0 +1,178 @@
+# Security Testing and Fuzzing Tasks
+# Web application security scanning inspired by Burp Suite and massweb
+
+task security-scan
+  describe Run comprehensive security scan on web application
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} ${checks:+--checks ${checks}} ${verbose:+--verbose}
+end
+
+task security-scan-verbose
+  describe Run security scan with verbose output
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --verbose
+end
+
+task security-scan-json
+  describe Run security scan and output JSON report
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --json
+end
+
+task security-scan-sqli
+  describe Scan for SQL injection vulnerabilities only
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --checks sqli --verbose
+end
+
+task security-scan-xss
+  describe Scan for XSS vulnerabilities only
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --checks xss --verbose
+end
+
+task security-scan-critical
+  describe Run critical vulnerability checks (SQLi, XSS, CMDI, XXE)
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --checks sqli,xss,cmdi,xxe --verbose
+end
+
+task security-fuzz
+  describe Run web application fuzzer
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} ${type:+--type ${type}} ${delay:+--delay ${delay}} ${verbose:+--verbose}
+end
+
+task security-fuzz-verbose
+  describe Run fuzzer with verbose output
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --verbose
+end
+
+task security-fuzz-sqli
+  describe Fuzz with SQL injection payloads
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type sqli --verbose
+end
+
+task security-fuzz-xss
+  describe Fuzz with XSS payloads
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type xss --verbose
+end
+
+task security-fuzz-traversal
+  describe Fuzz with path traversal payloads
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type traversal --verbose
+end
+
+task security-fuzz-all
+  describe Run complete fuzzing suite with all payload types
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type all --verbose
+end
+
+task security-test-all
+  describe Run complete security test suite (scan + fuzz)
+  describe Performs comprehensive security testing on target URL
+  shell echo "=== Starting Security Test Suite ==="
+  shell echo "Target: ${url:-http://localhost:8080}"
+  shell echo ""
+  shell echo "=== Phase 1: Security Scan ==="
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --verbose
+  shell echo ""
+  shell echo "=== Phase 2: Fuzzing ==="
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type all --verbose
+  shell echo ""
+  shell echo "=== Security Testing Complete ==="
+end
+
+task security-test-api
+  describe Run security tests specifically for REST API endpoints
+  shell echo "=== Testing API Security ==="
+  shell echo "API Base: ${url:-http://localhost:8080/api}"
+  shell echo ""
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080/api} --verbose
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type all --verbose
+end
+
+task security-test-dev
+  describe Run security tests against development server
+  describe Starts dev server and runs security tests, then stops server
+  shell echo "=== Starting Development Server ==="
+  shell node tools/api-server.mjs demos/pf-web-polyglot-demo-plus-c/web 8080 &
+  shell sleep 5
+  shell echo ""
+  shell echo "=== Running Security Tests ==="
+  shell node tools/security/scanner.mjs http://localhost:8080 --verbose
+  shell node tools/security/fuzzer.mjs http://localhost:8080 --type all --verbose
+  shell echo ""
+  shell echo "=== Stopping Server ==="
+  shell pkill -f "api-server.mjs" || true
+end
+
+task security-check-headers
+  describe Check security headers only
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --checks headers --verbose
+end
+
+task security-check-csrf
+  describe Check for CSRF protection
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --checks csrf --verbose
+end
+
+task security-check-auth
+  describe Check authentication and access control
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --checks auth --verbose
+end
+
+task security-report
+  describe Generate comprehensive security report in JSON
+  shell echo "=== Generating Security Report ==="
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --json > security-scan-report.json
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type all --json > security-fuzz-report.json
+  shell echo "Reports saved:"
+  shell echo "  - security-scan-report.json"
+  shell echo "  - security-fuzz-report.json"
+end
+
+task security-help
+  describe Show security testing help and available commands
+  shell echo "Web Application Security Testing"
+  shell echo "=================================="
+  shell echo ""
+  shell echo "Available Tasks:"
+  shell echo ""
+  shell echo "Scanning:"
+  shell echo "  pf security-scan [url=<url>]              - Run comprehensive security scan"
+  shell echo "  pf security-scan-verbose [url=<url>]      - Verbose security scan"
+  shell echo "  pf security-scan-json [url=<url>]         - JSON output"
+  shell echo "  pf security-scan-sqli [url=<url>]         - SQL injection scan only"
+  shell echo "  pf security-scan-xss [url=<url>]          - XSS scan only"
+  shell echo "  pf security-scan-critical [url=<url>]     - Critical vulnerabilities only"
+  shell echo ""
+  shell echo "Fuzzing:"
+  shell echo "  pf security-fuzz [url=<url>]              - Run web fuzzer"
+  shell echo "  pf security-fuzz-sqli [url=<url>]         - SQL injection fuzzing"
+  shell echo "  pf security-fuzz-xss [url=<url>]          - XSS fuzzing"
+  shell echo "  pf security-fuzz-traversal [url=<url>]    - Path traversal fuzzing"
+  shell echo "  pf security-fuzz-all [url=<url>]          - All fuzzing payloads"
+  shell echo ""
+  shell echo "Complete Testing:"
+  shell echo "  pf security-test-all [url=<url>]          - Run all security tests"
+  shell echo "  pf security-test-api [url=<url>]          - API security testing"
+  shell echo "  pf security-test-dev                      - Test dev server"
+  shell echo ""
+  shell echo "Specific Checks:"
+  shell echo "  pf security-check-headers [url=<url>]     - Security headers check"
+  shell echo "  pf security-check-csrf [url=<url>]        - CSRF protection check"
+  shell echo "  pf security-check-auth [url=<url>]        - Authentication check"
+  shell echo ""
+  shell echo "Reporting:"
+  shell echo "  pf security-report [url=<url>]            - Generate JSON reports"
+  shell echo ""
+  shell echo "Examples:"
+  shell echo "  pf security-scan url=http://localhost:8080"
+  shell echo "  pf security-fuzz url=http://localhost:8080/search type=sqli"
+  shell echo "  pf security-test-all url=http://example.com"
+  shell echo ""
+  shell echo "For more information, see: docs/SECURITY-TESTING.md"
+end
+
+task install-security-tools
+  describe Install additional security testing dependencies
+  describe Currently no additional dependencies needed (uses built-in Node.js fetch)
+  shell echo "✓ Security tools ready (no additional installation needed)"
+  shell echo "Security scanner: tools/security/scanner.mjs"
+  shell echo "Web fuzzer: tools/security/fuzzer.mjs"
+  shell echo "Documentation: docs/SECURITY-TESTING.md"
+end

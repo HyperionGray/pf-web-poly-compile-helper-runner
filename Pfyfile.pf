@@ -8,6 +8,9 @@ include Pfyfile.injection.pf
 # Include debugging and reverse engineering tasks
 include Pfyfile.debugging.pf
 
+# Include security testing tasks
+include Pfyfile.security.pf
+
 task web-dev
   describe Start development server with REST API support
   shell_lang bash
