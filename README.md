@@ -731,8 +731,14 @@ npx playwright show-report
 - **Binary Injection Guide**: See [`docs/BINARY-INJECTION.md`](docs/BINARY-INJECTION.md) for injection and hooking documentation
 - **LLVM Lifting Guide**: See [`docs/LLVM-LIFTING.md`](docs/LLVM-LIFTING.md) for binary lifting documentation
 - **Kernel Debugging Guide**: See [`docs/KERNEL-DEBUGGING.md`](docs/KERNEL-DEBUGGING.md) for advanced debugging features
-- **Missing RE/Debug/Exploit Tools**: See [`docs/MISSING-RE-DEBUG-EXPLOIT-TOOLS.md`](docs/MISSING-RE-DEBUG-EXPLOIT-TOOLS.md) for comprehensive list of tools to integrate
-- **RE Tools Quick Reference**: See [`docs/RE-TOOLS-QUICK-REFERENCE.md`](docs/RE-TOOLS-QUICK-REFERENCE.md) for quick lookup of missing tools
+
+### 🆕 Reverse Engineering Tools Roadmap
+- **Executive Summary**: See [`docs/RE-TOOLS-EXECUTIVE-SUMMARY.md`](docs/RE-TOOLS-EXECUTIVE-SUMMARY.md) - Quick overview of missing tools (start here!)
+- **Comprehensive Tool List**: See [`docs/MISSING-RE-DEBUG-EXPLOIT-TOOLS.md`](docs/MISSING-RE-DEBUG-EXPLOIT-TOOLS.md) - Detailed descriptions of 40+ tools to integrate
+- **Quick Reference**: See [`docs/RE-TOOLS-QUICK-REFERENCE.md`](docs/RE-TOOLS-QUICK-REFERENCE.md) - Fast lookup table and comparison charts
+- **Implementation Roadmap**: See [`docs/IMPLEMENTATION-ROADMAP.md`](docs/IMPLEMENTATION-ROADMAP.md) - Detailed implementation plan with timelines
+
+### Examples and Demos
 - **Kernel Debugging Demo**: See [`demos/kernel-debugging/README.md`](demos/kernel-debugging/README.md) for examples
 - **Binary Lifting Examples**: See [`demos/binary-lifting/README.md`](demos/binary-lifting/README.md) for lifting tutorials
 - **Debugging Guide**: See [`demos/debugging/README.md`](demos/debugging/README.md) for debugging and reverse engineering
