@@ -1,4 +1,4 @@
-#!/home/punk/.venv/bin/python
+#!/usr/bin/env python3
 """
 pf.py — single-file, symbol-free Fabric runner with a tiny DSL.
 
