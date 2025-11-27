@@ -151,6 +151,29 @@ Interactive debugging and reverse engineering for ELF binaries (C/C++/Rust):
 
 See [Debugging Guide](demos/debugging/README.md) for complete documentation.
 
+### Git Repository Cleanup 🗑️
+Interactive tool for removing large files from git history with an intuitive TUI:
+- **Interactive TUI**: Beautiful terminal interface with checkbox selection
+- **Size Analysis**: Scan and visualize large files across entire git history
+- **Smart Filtering**: Set custom size thresholds (100KB - 50MB or custom)
+- **Automatic Backup**: Creates git bundle backup before any changes
+- **Safe Cleanup**: Uses git-filter-repo for efficient history rewriting
+- **Step-by-Step Guidance**: Clear instructions for post-cleanup actions
+
+**Quick Start:**
+```bash
+# Run interactive cleanup tool
+pf git-cleanup
+
+# Or analyze without removing
+pf git-analyze-large-files
+
+# Check repository size
+pf git-repo-size
+```
+
+See [Git Cleanup Guide](docs/GIT-CLEANUP.md) for complete documentation.
+
 ### Testing & Development
 - **Live dev server**: Static HTTP server with CORS headers for WASM
 - **Playwright tests**: Automated browser testing for WASM modules
@@ -734,6 +757,7 @@ npx playwright show-report
 - **Kernel Debugging Demo**: See [`demos/kernel-debugging/README.md`](demos/kernel-debugging/README.md) for examples
 - **Binary Lifting Examples**: See [`demos/binary-lifting/README.md`](demos/binary-lifting/README.md) for lifting tutorials
 - **Debugging Guide**: See [`demos/debugging/README.md`](demos/debugging/README.md) for debugging and reverse engineering
+- **Git Cleanup Guide**: See [`docs/GIT-CLEANUP.md`](docs/GIT-CLEANUP.md) for removing large files from git history
 - **Web Demo Documentation**: See [`demos/pf-web-polyglot-demo-plus-c/README.md`](demos/pf-web-polyglot-demo-plus-c/README.md)
 - **WIT Components**: See [`pf/wit/README.md`](pf/wit/README.md)
 
@@ -822,6 +846,12 @@ Additional documentation in `pf-runner/`:
 | `pf disassemble binary=<path>` | Disassemble binary |
 | `pf binary-info binary=<path>` | Show detailed binary info |
 | `pf debug-help` | Show debugging commands help |
+| **Git Repository Cleanup** | |
+| `pf git-cleanup` | **Interactive TUI for removing large files from git history** |
+| `pf git-analyze-large-files` | Analyze repository for large files without removal |
+| `pf git-repo-size` | Show current git repository size statistics |
+| `pf install-git-filter-repo` | Install git-filter-repo dependency |
+| `pf git-cleanup-help` | Show git cleanup commands help |
 | **Installation & Setup** | |
 | `pf install-base` | Install base pf runner and dependencies |
 | `pf install-web` | Install web/WASM development tools |

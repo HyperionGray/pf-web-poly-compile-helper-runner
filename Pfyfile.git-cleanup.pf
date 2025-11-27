@@ -1,0 +1,104 @@
+# Git Cleanup Tasks
+# Tasks for managing git repository size and removing large files from history
+
+task install-git-filter-repo
+  describe Install git-filter-repo for safe git history rewriting
+  shell_lang bash
+  shell pip3 install --user git-filter-repo || pip install --user git-filter-repo
+end
+
+task git-cleanup-interactive
+  describe Interactive TUI for removing large files from git history
+  shell_lang bash
+  shell node tools/git-cleanup.mjs
+end
+
+task git-cleanup
+  describe Alias for git-cleanup-interactive
+  shell_lang bash
+  shell node tools/git-cleanup.mjs
+end
+
+task git-analyze-large-files
+  describe Analyze repository for large files without removing them
+  shell_lang bash
+  shell |
+    echo "🔍 Analyzing git repository for large files..."
+    echo ""
+    echo "Top 20 largest files in git history:"
+    echo ""
+    git rev-list --all --objects | \
+      git cat-file --batch-check='%(objecttype) %(objectname) %(objectsize) %(rest)' | \
+      grep '^blob' | \
+      sort -k3 -n -r | \
+      head -20 | \
+      awk '{
+        size = $3;
+        if (size > 1024*1024*1024) printf "%8.2f GB  %s\n", size/(1024*1024*1024), substr($0, index($0,$4));
+        else if (size > 1024*1024) printf "%8.2f MB  %s\n", size/(1024*1024), substr($0, index($0,$4));
+        else if (size > 1024) printf "%8.2f KB  %s\n", size/1024, substr($0, index($0,$4));
+        else printf "%8d B   %s\n", size, substr($0, index($0,$4));
+      }'
+  end
+end
+
+task git-repo-size
+  describe Show current git repository size
+  shell_lang bash
+  shell |
+    echo "📊 Git Repository Size Analysis:"
+    echo ""
+    echo "Working directory size:"
+    du -sh . | awk '{print "  " $1 " total"}'
+    echo ""
+    echo ".git directory size:"
+    du -sh .git | awk '{print "  " $1 " (repository data)"}'
+    echo ""
+    echo "Object count:"
+    git count-objects -vH | grep -E "^(count|size|in-pack|size-pack):" | sed 's/^/  /'
+  end
+end
+
+task git-cleanup-help
+  describe Show help and documentation for git cleanup tools
+  shell_lang bash
+  shell |
+    echo "🗑️  Git Large File Cleanup Tool"
+    echo ""
+    echo "Available commands:"
+    echo ""
+    echo "  pf git-cleanup"
+    echo "    Interactive TUI for removing large files from git history"
+    echo "    Features:"
+    echo "    - Analyze repository for large files"
+    echo "    - Select files to remove with checkbox interface"
+    echo "    - Automatic backup before cleanup"
+    echo "    - Safe history rewriting with git-filter-repo"
+    echo ""
+    echo "  pf git-analyze-large-files"
+    echo "    Quick analysis of large files without removal"
+    echo ""
+    echo "  pf git-repo-size"
+    echo "    Show current repository size statistics"
+    echo ""
+    echo "  pf install-git-filter-repo"
+    echo "    Install the git-filter-repo dependency"
+    echo ""
+    echo "Prerequisites:"
+    echo "  - git-filter-repo (will be auto-installed if missing)"
+    echo "  - Python 3.x with pip"
+    echo ""
+    echo "Usage Example:"
+    echo "  cd your-repository"
+    echo "  pf git-cleanup"
+    echo ""
+    echo "⚠️  Important Notes:"
+    echo "  - This tool rewrites git history"
+    echo "  - A backup is created automatically"
+    echo "  - You will need to force-push after cleanup"
+    echo "  - Team members will need to re-clone the repository"
+    echo ""
+    echo "Documentation:"
+    echo "  See docs/GIT-CLEANUP.md for detailed guide"
+  end
+end
