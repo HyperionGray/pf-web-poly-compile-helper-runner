@@ -1,0 +1,250 @@
+# Practice Binaries Tasks
+# Tasks for building and running practice binaries for debugging, exploitation, and fuzzing
+
+task build-practice-binaries
+  describe Build all practice binaries for debugging, exploitation, and fuzzing
+  shell cd demos/practice-binaries && make all
+end
+
+task clean-practice-binaries
+  describe Clean all practice binary build artifacts
+  shell cd demos/practice-binaries && make clean
+end
+
+task test-practice-binaries
+  describe Test all practice binaries to ensure they work
+  shell cd demos/practice-binaries && make test
+end
+
+task info-practice-binaries
+  describe Show information about built practice binaries
+  shell cd demos/practice-binaries && make info
+end
+
+# Category-specific builds
+task build-buffer-overflow
+  describe Build buffer overflow practice binaries
+  shell cd demos/practice-binaries && make buffer-overflow
+end
+
+task build-format-string
+  describe Build format string vulnerability practice binaries
+  shell cd demos/practice-binaries && make format-string
+end
+
+task build-heap-exploits
+  describe Build heap exploitation practice binaries
+  shell cd demos/practice-binaries && make heap-exploits
+end
+
+task build-integer-overflow
+  describe Build integer overflow practice binaries
+  shell cd demos/practice-binaries && make integer-overflow
+end
+
+task build-race-condition
+  describe Build race condition practice binaries
+  shell cd demos/practice-binaries && make race-condition
+end
+
+task build-command-injection
+  describe Build command injection practice binaries
+  shell cd demos/practice-binaries && make command-injection
+end
+
+# Demo tasks
+task demo-stack-overflow
+  describe Run stack buffer overflow demonstration
+  shell cd demos/practice-binaries && ./demo_stack_overflow.sh
+end
+
+task demo-format-string
+  describe Run format string vulnerability demonstration
+  shell cd demos/practice-binaries && ./demo_format_string.sh
+end
+
+task demo-use-after-free
+  describe Run use-after-free exploitation demonstration
+  shell cd demos/practice-binaries && ./demo_uaf.sh
+end
+
+task demo-command-injection
+  describe Run command injection demonstration
+  shell cd demos/practice-binaries && ./demo_command_injection.sh
+end
+
+task demo-fuzzing
+  describe Run fuzzing techniques demonstration
+  shell cd demos/practice-binaries && ./demo_fuzzing.sh
+end
+
+task demo-all-practice
+  describe Run all practice binary demonstrations
+  shell cd demos/practice-binaries && ./demo_stack_overflow.sh
+  shell cd demos/practice-binaries && ./demo_format_string.sh
+  shell cd demos/practice-binaries && ./demo_uaf.sh
+  shell cd demos/practice-binaries && ./demo_command_injection.sh
+  shell cd demos/practice-binaries && ./demo_fuzzing.sh
+end
+
+# Quick start task
+task practice-binaries-quickstart
+  describe Quick start guide for practice binaries
+  shell cat demos/practice-binaries/README.md
+end
+
+# Individual binary execution helpers
+task run-stack-overflow
+  describe Run stack overflow binary with input (input=<string>)
+  shell cd demos/practice-binaries && ./buffer-overflow/stack_overflow "${input:-AAAA}"
+end
+
+task run-heap-overflow
+  describe Run heap overflow binary with input (input=<string>)
+  shell cd demos/practice-binaries && ./buffer-overflow/heap_overflow "${input:-AAAA}"
+end
+
+task run-format-vuln
+  describe Run format string vuln binary with format string (fmt=<string>)
+  shell cd demos/practice-binaries && ./format-string/format_vuln "${fmt:-%x.%x.%x.%x}"
+end
+
+task run-use-after-free
+  describe Run UAF binary with command (cmd=create/delete/use/evil, data=<string>)
+  shell cd demos/practice-binaries && ./heap-exploits/use_after_free "${cmd:-create}" "${data:-TEST}"
+end
+
+task run-double-free
+  describe Run double-free binary with command (cmd=create/free/edit/view, id=<num>, data=<string>)
+  shell cd demos/practice-binaries && ./heap-exploits/double_free "${cmd:-create}" "${id:-0}" "${data:-TEST}"
+end
+
+task run-int-overflow
+  describe Run integer overflow binary (cmd=alloc/copy, count=<num>, size=<num>, len=<num>)
+  shell cd demos/practice-binaries && ./integer-overflow/int_overflow "${cmd:-alloc}" "${count:-10}" "${size:-20}"
+end
+
+task run-race-condition
+  describe Run race condition binary (cmd=setup/access/exploit)
+  shell cd demos/practice-binaries && ./race-condition/toctou_race "${cmd:-setup}"
+end
+
+task run-cmd-injection
+  describe Run command injection binary (cmd=setup/ping/lookup/grep, arg1=<string>, arg2=<string>)
+  shell cd demos/practice-binaries && ./command-injection/cmd_injection "${cmd:-setup}" "${arg1:-localhost}" "${arg2:-}"
+end
+
+# Fuzzing integration tasks
+task fuzz-stack-overflow
+  describe Fuzz stack overflow binary with random inputs
+  shell_lang python
+  shell |
+    import subprocess
+    import random
+    import string
+    binary = "demos/practice-binaries/buffer-overflow/stack_overflow"
+    for i in range(10):
+        length = random.randint(10, 200)
+        input_str = ''.join(random.choices(string.ascii_letters, k=length))
+        print(f"\n=== Test {i+1}: Length {length} ===")
+        try:
+            result = subprocess.run([binary, input_str], 
+                                  capture_output=True, 
+                                  timeout=2,
+                                  text=True)
+            print(result.stdout[:200])
+        except subprocess.TimeoutExpired:
+            print("TIMEOUT")
+        except Exception as e:
+            print(f"CRASH: {e}")
+end
+
+task fuzz-format-string
+  describe Fuzz format string binary with format string mutations
+  shell_lang python
+  shell |
+    import subprocess
+    binary = "demos/practice-binaries/format-string/format_vuln"
+    mutations = [
+        "%x", "%s", "%p", "%n",
+        "%x.%x.%x.%x", "%p.%p.%p.%p",
+        "AAAA%x", "%1$x", "%10$x",
+        "%2147483647d%n"
+    ]
+    for mut in mutations:
+        print(f"\n=== Testing: {mut} ===")
+        try:
+            result = subprocess.run([binary, mut],
+                                  capture_output=True,
+                                  timeout=2,
+                                  text=True)
+            print(result.stdout[:200])
+        except Exception as e:
+            print(f"CRASH: {e}")
+end
+
+task fuzz-cmd-injection
+  describe Fuzz command injection binary with various payloads
+  shell_lang python
+  shell |
+    import subprocess
+    binary = "demos/practice-binaries/command-injection/cmd_injection"
+    payloads = [
+        "localhost",
+        "localhost;id",
+        "localhost&&id",
+        "localhost|id",
+        "localhost`id`",
+        "localhost$(id)",
+        "localhost;whoami",
+        "localhost;uname -a"
+    ]
+    for payload in payloads:
+        print(f"\n=== Payload: {payload} ===")
+        try:
+            result = subprocess.run([binary, "ping", payload],
+                                  capture_output=True,
+                                  timeout=2,
+                                  text=True)
+            print(result.stdout[-300:])
+        except Exception as e:
+            print(f"ERROR: {e}")
+end
+
+# Help task
+task practice-binaries-help
+  describe Show help for practice binaries tasks
+  shell echo "=============================================="
+  shell echo "  Practice Binaries - Task Reference"
+  shell echo "=============================================="
+  shell echo ""
+  shell echo "BUILD TASKS:"
+  shell echo "  build-practice-binaries      - Build all practice binaries"
+  shell echo "  build-buffer-overflow        - Build buffer overflow binaries"
+  shell echo "  build-format-string          - Build format string binaries"
+  shell echo "  build-heap-exploits          - Build heap exploit binaries"
+  shell echo "  clean-practice-binaries      - Clean build artifacts"
+  shell echo ""
+  shell echo "DEMO TASKS:"
+  shell echo "  demo-stack-overflow          - Stack buffer overflow demo"
+  shell echo "  demo-format-string           - Format string vuln demo"
+  shell echo "  demo-use-after-free          - UAF exploitation demo"
+  shell echo "  demo-command-injection       - Command injection demo"
+  shell echo "  demo-fuzzing                 - Fuzzing techniques demo"
+  shell echo "  demo-all-practice            - Run all demos"
+  shell echo ""
+  shell echo "RUN TASKS:"
+  shell echo "  run-stack-overflow           - Run stack overflow"
+  shell echo "  run-format-vuln              - Run format vuln"
+  shell echo "  run-use-after-free           - Run UAF"
+  shell echo "  run-cmd-injection            - Run cmd injection"
+  shell echo ""
+  shell echo "FUZZING TASKS:"
+  shell echo "  fuzz-stack-overflow          - Fuzz with random inputs"
+  shell echo "  fuzz-format-string           - Fuzz with format strings"
+  shell echo ""
+  shell echo "For detailed documentation, see:"
+  shell echo "  demos/practice-binaries/README.md"
+  shell echo ""
+  shell echo "=============================================="
+end

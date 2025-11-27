@@ -7,6 +7,8 @@ include Pfyfile.lifting.pf
 include Pfyfile.injection.pf
 # Include debugging and reverse engineering tasks
 include Pfyfile.debugging.pf
+# Include practice binaries tasks
+include Pfyfile.practice.pf
 
 task web-dev
   describe Start development server with REST API support
