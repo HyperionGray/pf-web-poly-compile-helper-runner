@@ -10,6 +10,9 @@ include Pfyfile.debugging.pf
 # Include practice binaries tasks
 include Pfyfile.practice.pf
 
+# Include security testing tasks
+include Pfyfile.security.pf
+
 task web-dev
   describe Start development server with REST API support
   shell_lang bash

@@ -130,6 +130,48 @@ pf kernel-fuzz-in-memory binary=/path/to/binary function=parse_input
 
 See [Kernel Debugging Guide](docs/KERNEL-DEBUGGING.md) for complete documentation.
 See [Automagic Demo](demos/kernel-debugging/AUTOMAGIC-DEMO.md) for hands-on examples.
+
+### Web Application Security Testing 🔒
+Comprehensive web application security scanning and fuzzing inspired by Burp Suite and massweb:
+- **Automated Vulnerability Detection**: Scan for SQL injection, XSS, CSRF, path traversal, command injection, XXE, SSRF
+- **Mass Fuzzing**: High-throughput fuzzing with multiple payload types and anomaly detection
+- **Security Headers**: Check for missing or misconfigured security headers
+- **Access Control Testing**: Identify broken authentication and authorization issues
+- **Multiple Output Formats**: Human-readable console output and JSON for CI/CD integration
+- **Extensible Framework**: Easy to add custom vulnerability checks and payloads
+
+**Quick Start:**
+```bash
+# Run comprehensive security scan
+pf security-scan url=http://localhost:8080
+
+# Run specific vulnerability checks
+pf security-scan url=http://localhost:8080 checks=sqli,xss
+
+# Fuzz an endpoint with all payloads
+pf security-fuzz url=http://localhost:8080/api
+
+# Fuzz with specific payload type
+pf security-fuzz url=http://localhost:8080/search type=sqli
+
+# Run complete security test suite
+pf security-test-all url=http://localhost:8080
+```
+
+**Vulnerability Types Detected:**
+- SQL Injection (error-based and blind)
+- Cross-Site Scripting (XSS)
+- Cross-Site Request Forgery (CSRF)
+- Path Traversal / Directory Traversal
+- OS Command Injection
+- XML External Entity (XXE)
+- Server-Side Request Forgery (SSRF)
+- Security Misconfigurations
+- Missing Security Headers
+- Broken Access Control
+
+See [Security Testing Guide](docs/SECURITY-TESTING.md) for complete documentation.
+
 ### Binary Injection 💉
 Inject compiled polyglot code into existing binaries and shared libraries:
 - **Multi-Language Payloads**: Create injectable libraries from Rust, C, Fortran, WASM, or LLVM IR
@@ -728,6 +770,7 @@ npx playwright show-report
 
 - **pf-runner Documentation**: See [`pf-runner/README.md`](pf-runner/README.md) for comprehensive pf runner documentation
 - **REST API Guide**: See [`docs/REST-API.md`](docs/REST-API.md) for complete API documentation and examples
+- **Security Testing Guide**: See [`docs/SECURITY-TESTING.md`](docs/SECURITY-TESTING.md) for web application security testing
 - **Binary Injection Guide**: See [`docs/BINARY-INJECTION.md`](docs/BINARY-INJECTION.md) for injection and hooking documentation
 - **LLVM Lifting Guide**: See [`docs/LLVM-LIFTING.md`](docs/LLVM-LIFTING.md) for binary lifting documentation
 - **Kernel Debugging Guide**: See [`docs/KERNEL-DEBUGGING.md`](docs/KERNEL-DEBUGGING.md) for advanced debugging features
@@ -830,6 +873,26 @@ Additional documentation in `pf-runner/`:
 | `pf disassemble binary=<path>` | Disassemble binary |
 | `pf binary-info binary=<path>` | Show detailed binary info |
 | `pf debug-help` | Show debugging commands help |
+| **Web Application Security Testing** | |
+| `pf security-scan [url=<url>]` | Run comprehensive security scan |
+| `pf security-scan-verbose [url=<url>]` | Security scan with verbose output |
+| `pf security-scan-json [url=<url>]` | Security scan with JSON output |
+| `pf security-scan-sqli [url=<url>]` | Scan for SQL injection only |
+| `pf security-scan-xss [url=<url>]` | Scan for XSS only |
+| `pf security-scan-critical [url=<url>]` | Scan for critical vulnerabilities |
+| `pf security-fuzz [url=<url>]` | Run web application fuzzer |
+| `pf security-fuzz-sqli [url=<url>]` | Fuzz with SQL injection payloads |
+| `pf security-fuzz-xss [url=<url>]` | Fuzz with XSS payloads |
+| `pf security-fuzz-traversal [url=<url>]` | Fuzz with path traversal payloads |
+| `pf security-fuzz-all [url=<url>]` | Fuzz with all payload types |
+| `pf security-test-all [url=<url>]` | Run complete security test suite |
+| `pf security-test-api [url=<url>]` | Test API security specifically |
+| `pf security-test-dev` | Test development server |
+| `pf security-check-headers [url=<url>]` | Check security headers |
+| `pf security-check-csrf [url=<url>]` | Check CSRF protection |
+| `pf security-check-auth [url=<url>]` | Check authentication/access control |
+| `pf security-report [url=<url>]` | Generate JSON security reports |
+| `pf security-help` | Show security testing help |
 | **Installation & Setup** | |
 | `pf install-base` | Install base pf runner and dependencies |
 | `pf install-web` | Install web/WASM development tools |
