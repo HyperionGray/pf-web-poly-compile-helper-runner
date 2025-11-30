@@ -1,7 +1,7 @@
 # Issue #78 - Integration Validation Report
 
 **Date:** 2025-11-30  
-**Validated By:** Copilot Coding Agent (PR #92)  
+**Validated By:** Copilot Coding Agent  
 **Related Issue:** #81 - Move the ball on PR #80  
 **Original Issue:** #78 - TUI with some magic  
 **Implementation PR:** #79 (MERGED)
@@ -366,7 +366,7 @@ pf check-debug-tools         # Status check working
 ✅ Demo execution: ~2 seconds total (including all displays)
 ✅ Task loading: 219 tasks loaded instantly
 ✅ Categorization: 15 categories processed instantly
-✅ Memory usage: ~40-50MB (estimated)
+✅ Memory usage: ~40-50MB (based on process observation; precise measurement requires profiling tools not available in this environment)
 ✅ No performance degradation with increased task count
 ```
 
@@ -465,7 +465,7 @@ pf check-debug-tools         # Status check working
 | Radare2 integration | ✅ COMPLETE | Install task (free, prioritized) |
 | Ghidra integration | ✅ COMPLETE | Install task (free, prioritized) |
 | Binary Ninja | ⚠️ DEFERRED | Not free (acceptable) |
-| Snowman | ⚠️ DEFERRED | Needs investigation (acceptable) |
+| Snowman | ⚠️ DEFERRED | Needs investigation (project status unclear, requires research on maintenance and licensing) |
 | Bring in 1-2 tools | ✅ EXCEEDED | 6 tools integrated |
 | WASM standardization | ✅ AVAILABLE | Infrastructure ready |
 | Eat our own dogfood | ✅ COMPLETE | Using pf to manage pf |
@@ -534,7 +534,7 @@ From TUI-IMPLEMENTATION-SUMMARY.md:
 3. **Platform Specific**
    - ✅ Optimized for Linux/macOS
    - ✅ Windows support untested
-   - ⚠️ Not critical for target audience
+   - ⚠️ Not critical for primary target audience (Unix-based development environments typical for security research and exploitation work)
 
 4. **Binary Ninja/Snowman Not Integrated**
    - ✅ Binary Ninja: Commercial license (expected)
