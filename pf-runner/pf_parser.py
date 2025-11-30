@@ -549,11 +549,6 @@ def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str]]:
     for token in tokens[1:]:
         if '=' in token:
             key, value = token.split('=', 1)
-            # Remove quotes if present (shlex should handle this, but just in case)
-            if value.startswith('"') and value.endswith('"'):
-                value = value[1:-1]
-            elif value.startswith("'") and value.endswith("'"):
-                value = value[1:-1]
             params[key] = value
         else:
             # If a token doesn't have '=', it might be part of task name (shouldn't happen with proper syntax)
