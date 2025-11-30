@@ -11,6 +11,9 @@
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
+    "test:tui": "node tests/tui/run-all-tui-tests.mjs",
+    "test:tui-only": "node tests/tui/git-cleanup.test.mjs",
+    "test:all": "npm run test && npm run test:tui",
     "api-server": "node tools/api-server.mjs",
     "dev": "node tools/api-server.mjs"
   },
