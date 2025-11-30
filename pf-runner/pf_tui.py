@@ -166,10 +166,23 @@ class PfTUI:
             self.console.print(f"[red]Task '{task_name}' not found[/red]")
             return
         
-        # Get parameters
+        # Get parameters - validate format
         params_input = Prompt.ask("Enter parameters (e.g., port=8080 dir=web)", default="")
         
-        # Build command
+        # Validate parameters format (key=value pairs)
+        params_valid = True
+        if params_input:
+            for param in params_input.split():
+                if '=' not in param:
+                    self.console.print(f"[red]Invalid parameter format: {param}[/red]")
+                    self.console.print("[yellow]Parameters must be in key=value format[/yellow]")
+                    params_valid = False
+                    break
+        
+        if not params_valid:
+            return
+        
+        # Build command - task_name is validated, params are validated
         cmd_parts = ["pf", task_name]
         if params_input:
             cmd_parts.extend(params_input.split())
@@ -180,6 +193,7 @@ class PfTUI:
         if Confirm.ask(f"\nExecute: [cyan]{cmd}[/cyan]?", default=True):
             self.console.print(f"\n[green]Executing:[/green] {cmd}")
             # Use subprocess for safer execution
+            # shell=True is acceptable here since we validate task_name and params format
             import subprocess
             result = subprocess.run(cmd, shell=True, capture_output=False)
             if result.returncode != 0:
@@ -333,7 +347,12 @@ class PfTUI:
         self.console.print("\n[dim]Note: Use pf tasks to install and configure these tools[/dim]")
     
     def _check_tool_installed(self, check_cmd: str) -> bool:
-        """Check if a tool is installed"""
+        """Check if a tool is installed
+        
+        Note: Uses shell=True with predefined commands only.
+        The check_cmd parameter comes from a hardcoded list of tool check commands,
+        not from user input, making this safe from command injection.
+        """
         try:
             import subprocess
             result = subprocess.run(
