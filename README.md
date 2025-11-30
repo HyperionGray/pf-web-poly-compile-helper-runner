@@ -2,6 +2,19 @@
 
 A comprehensive polyglot WebAssembly development environment featuring the **pf** task runner (Fabric-based DSL) and multi-language WASM compilation demos.
 
+## 🚀 Quick Start
+
+**New to pf?** Check out the [**QUICKSTART.md**](QUICKSTART.md) for a comprehensive guide with examples!
+
+The QUICKSTART covers:
+- All parameter passing formats (4 different ways!)
+- Task definitions with examples
+- Environment variables and defaults
+- Polyglot shell support
+- Build system helpers
+- Remote execution
+- And much more!
+
 ## Overview
 
 This repository provides:
@@ -801,6 +814,7 @@ npx playwright show-report
 
 ## Documentation
 
+- **🚀 QUICKSTART Guide**: See [`QUICKSTART.md`](QUICKSTART.md) - **Start here!** Comprehensive guide with examples of all features
 - **pf-runner Documentation**: See [`pf-runner/README.md`](pf-runner/README.md) for comprehensive pf runner documentation
 - **REST API Guide**: See [`docs/REST-API.md`](docs/REST-API.md) for complete API documentation and examples
 - **Security Testing Guide**: See [`docs/SECURITY-TESTING.md`](docs/SECURITY-TESTING.md) for web application security testing

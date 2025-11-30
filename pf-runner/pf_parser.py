@@ -1477,17 +1477,48 @@ def main(argv: List[str]) -> int:
                 return 1
         j += 1
         params = {}
-        while j < len(tasks) and ("=" in tasks[j]):
-            arg = tasks[j]
-            # Support both --param=value and param=value formats
-            if arg.startswith("--"):
-                k, v = arg[2:].split("=", 1)  # Strip -- prefix
-            else:
-                k, v = arg.split("=", 1)
-            params[k] = v
-            j += 1
         
-        # Merge default parameters from task definition with provided parameters
+        def _is_valid_parameter_value(idx: int) -> bool:
+            """Check if the argument at idx is a valid parameter value (not a task or another flag)."""
+            if idx >= len(tasks):
+                return False
+            next_arg = tasks[idx]
+            # Value shouldn't start with -- (another flag) or be a task name
+            return not next_arg.startswith("--") and next_arg not in valid_task_names
+        
+        while j < len(tasks):
+            arg = tasks[j]
+            # Check if this looks like the next task name
+            if not arg.startswith("--") and "=" not in arg and arg in valid_task_names:
+                break
+            
+            # Support multiple parameter formats:
+            # 1. --param=value
+            # 2. --param value
+            # 3. param=value
+            if arg.startswith("--"):
+                if "=" in arg:
+                    # Format: --param=value
+                    k, v = arg[2:].split("=", 1)  # Strip -- prefix
+                    params[k] = v
+                    j += 1
+                elif _is_valid_parameter_value(j + 1):
+                    # Format: --param value (next arg is the value)
+                    k = arg[2:]  # Strip -- prefix
+                    v = tasks[j + 1]
+                    params[k] = v
+                    j += 2
+                else:
+                    # --param without a value, or next arg is a task
+                    break
+            elif "=" in arg:
+                # Format: param=value
+                k, v = arg.split("=", 1)
+                params[k] = v
+                j += 1
+            else:
+                # Not a parameter, stop parsing params
+                break
         if tname in BUILTINS:
             lines = BUILTINS[tname]
             # Builtins don't have default parameters
