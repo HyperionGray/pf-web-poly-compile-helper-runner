@@ -1,0 +1,59 @@
+# TUI (Text User Interface) Tasks
+# Interactive terminal interface for pf runner with rich library
+
+task tui
+  describe Launch interactive TUI for task management and debugging
+  shell cd pf-runner && python3 pf_tui.py
+end
+
+task tui-with-file
+  describe Launch TUI with a specific Pfyfile
+  shell cd pf-runner && python3 pf_tui.py ${file}
+end
+
+task install-tui-deps
+  describe Install TUI dependencies (rich library)
+  shell pip3 install --user rich || pip install --user rich
+  shell echo "✓ TUI dependencies installed"
+end
+
+task tui-help
+  describe Show TUI usage and features
+  shell echo "🎨 pf Interactive TUI"
+  shell echo ""
+  shell echo "A comprehensive Text User Interface for managing pf tasks with rich library"
+  shell echo ""
+  shell echo "Features:"
+  shell echo "  ✓ Task browsing organized by categories"
+  shell echo "  ✓ Interactive task execution with parameter input"
+  shell echo "  ✓ Syntax checking for task definitions"
+  shell echo "  ✓ Debugging tools status and information"
+  shell echo "  ✓ Task search functionality"
+  shell echo "  ✓ Beautiful terminal UI with colors and tables"
+  shell echo ""
+  shell echo "Usage:"
+  shell echo "  pf tui                    # Launch TUI with default Pfyfile"
+  shell echo "  pf tui-with-file file=custom.pf  # Launch with specific file"
+  shell echo ""
+  shell echo "Navigation:"
+  shell echo "  [1] List all tasks by category"
+  shell echo "  [2] Run a task interactively"
+  shell echo "  [3] Check task syntax"
+  shell echo "  [4] View debugging tools"
+  shell echo "  [5] Search tasks"
+  shell echo "  [q] Quit"
+  shell echo ""
+  shell echo "Requirements:"
+  shell echo "  - Python 3.8+"
+  shell echo "  - rich library (install with: pf install-tui-deps)"
+  shell echo ""
+  shell echo "Examples:"
+  shell echo "  # Basic TUI launch"
+  shell echo "  pf tui"
+  shell echo ""
+  shell echo "  # Check syntax of all tasks"
+  shell echo "  pf tui → Option 3 → Press Enter"
+  shell echo ""
+  shell echo "  # Run a web development server"
+  shell echo "  pf tui → Option 2 → Enter 'web-dev' → Enter parameters"
+end

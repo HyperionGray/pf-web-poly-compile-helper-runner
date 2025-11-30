@@ -239,6 +239,34 @@ pf git-repo-size
 
 See [Git Cleanup Guide](docs/GIT-CLEANUP.md) for complete documentation.
 
+### Interactive TUI 🎨
+Beautiful text-based user interface for managing tasks and debugging:
+- **Task Organization**: Browse tasks by category with rich formatting
+- **Interactive Execution**: Run tasks with parameter input
+- **Syntax Checking**: Validate task definitions before execution
+- **Debugging Tools**: View and manage reverse engineering tools
+- **Search Functionality**: Find tasks quickly by name or description
+
+**Quick Start:**
+```bash
+# Launch the interactive TUI
+pf tui
+
+# Install TUI dependencies (if needed)
+pf install-tui-deps
+
+# View TUI help
+pf tui-help
+```
+
+**Features:**
+- **11 Task Categories**: Web, Build, Security, Debugging, Kernel, and more
+- **165+ Tasks**: Full access to all pf tasks in an organized interface
+- **Tool Status**: Check installation status of debugging tools
+- **Rich Formatting**: Color-coded categories, tables, and progress bars
+
+See [TUI Documentation](docs/TUI.md) for complete guide.
+
 ### Testing & Development
 - **Live dev server**: Static HTTP server with CORS headers for WASM
 - **Playwright tests**: Automated browser testing for WASM modules
@@ -821,6 +849,7 @@ npx playwright show-report
 - **Binary Injection Guide**: See [`docs/BINARY-INJECTION.md`](docs/BINARY-INJECTION.md) for injection and hooking documentation
 - **LLVM Lifting Guide**: See [`docs/LLVM-LIFTING.md`](docs/LLVM-LIFTING.md) for binary lifting documentation
 - **Kernel Debugging Guide**: See [`docs/KERNEL-DEBUGGING.md`](docs/KERNEL-DEBUGGING.md) for advanced debugging features
+- **Interactive TUI Guide**: See [`docs/TUI.md`](docs/TUI.md) for text user interface documentation
 
 ### 🆕 Reverse Engineering Tools Roadmap
 - **Executive Summary**: See [`docs/RE-TOOLS-EXECUTIVE-SUMMARY.md`](docs/RE-TOOLS-EXECUTIVE-SUMMARY.md) - Quick overview of missing tools (start here!)
@@ -942,6 +971,27 @@ Additional documentation in `pf-runner/`:
 | `pf git-repo-size` | Show current git repository size statistics |
 | `pf install-git-filter-repo` | Install git-filter-repo dependency |
 | `pf git-cleanup-help` | Show git cleanup commands help |
+
+| **Interactive TUI** | |
+| `pf tui` | **Launch interactive TUI for task management and debugging** |
+| `pf tui-with-file file=<path>` | Launch TUI with specific Pfyfile |
+| `pf install-tui-deps` | Install TUI dependencies (rich library) |
+| `pf tui-help` | Show TUI usage and features |
+
+| **Debugging Tools Installation** | |
+| `pf install-oryx` | Install oryx - TUI for exploring binaries |
+| `pf install-binsider` | Install binsider - Binary analyzer with TUI |
+| `pf install-rustnet` | Install rustnet - Network monitoring tool |
+| `pf install-sysz` | Install sysz - Systemd unit file viewer |
+| `pf install-radare2` | Install Radare2 - Reverse engineering framework |
+| `pf install-ghidra` | Install Ghidra - NSA's reverse engineering suite |
+| `pf install-all-debug-tools` | Install all debugging and RE tools |
+| `pf check-debug-tools` | Check installation status of debugging tools |
+| `pf run-oryx binary=<path>` | Run oryx binary explorer on a file |
+| `pf run-binsider binary=<path>` | Run binsider binary analyzer on a file |
+| `pf run-rustnet` | Run rustnet network monitor |
+| `pf run-sysz` | Run sysz systemd unit viewer |
+| `pf debug-tools-help` | Show help for debugging tools |
 
 | **Web Application Security Testing** | |
 | `pf security-scan [url=<url>]` | Run comprehensive security scan |
