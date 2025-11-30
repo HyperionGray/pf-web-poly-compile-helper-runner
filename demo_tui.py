@@ -50,11 +50,25 @@ def demo_tui():
     console.print("\n[bold]5. Debugging Tools View:[/bold]")
     tui.show_debugging_tools()
     
+    # Show exploit development categories
+    console.print("\n[bold]6. Exploit Development Categories:[/bold]")
+    exploit_categories = [cat for cat in tui.categories 
+                         if 'exploit' in cat.name.lower() or 'pwn' in cat.name.lower() 
+                         or 'rop' in cat.name.lower() or 'heap' in cat.name.lower()]
+    
+    for category in exploit_categories:
+        console.print(f"\n[bold {category.color}]{category.name}[/bold {category.color}] ({len(category.tasks)} tasks)")
+        for task_name, _ in category.tasks[:3]:  # Show first 3 tasks
+            console.print(f"  • [cyan]{task_name}[/cyan]")
+        if len(category.tasks) > 3:
+            console.print(f"  ... and {len(category.tasks) - 3} more")
+    
     console.print("\n[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]")
     console.print("[bold green]✓ Demo completed successfully![/bold green]")
     console.print("[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]\n")
     
-    console.print("[dim]To run the full interactive TUI, use: pf tui[/dim]\n")
+    console.print("[dim]To run the full interactive TUI, use: pf tui[/dim]")
+    console.print("[dim]To access exploit dev tools, select option 6 in the TUI[/dim]\n")
 
 if __name__ == "__main__":
     demo_tui()

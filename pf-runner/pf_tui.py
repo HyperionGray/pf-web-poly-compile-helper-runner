@@ -71,12 +71,16 @@ class PfTUI:
             "install": TaskCategory("Installation", [], "yellow"),
             "test": TaskCategory("Testing", [], "magenta"),
             "debug": TaskCategory("Debugging & RE", [], "red"),
+            "exploit": TaskCategory("Exploit Development", [], "bright_red"),
             "security": TaskCategory("Security Testing", [], "bright_red"),
             "kernel": TaskCategory("Kernel Debugging", [], "bright_yellow"),
             "injection": TaskCategory("Binary Injection", [], "bright_magenta"),
             "lifting": TaskCategory("Binary Lifting", [], "bright_cyan"),
             "rop": TaskCategory("ROP Exploitation", [], "bright_blue"),
             "git": TaskCategory("Git Tools", [], "bright_green"),
+            "pwn": TaskCategory("Pwntools & Shellcode", [], "bright_red"),
+            "heap": TaskCategory("Heap Exploitation", [], "bright_magenta"),
+            "practice": TaskCategory("Practice Binaries", [], "yellow"),
             "core": TaskCategory("Core Tasks", [], "white"),
         }
         
@@ -89,6 +93,18 @@ class PfTUI:
                     category.tasks.append((task_name, description or ""))
                     categorized = True
                     break
+            
+            # Special handling for tasks without prefix but with known patterns
+            if not categorized:
+                if any(keyword in task_name.lower() for keyword in ['exploit', 'pwn', 'rop', 'shellcode', 'gadget']):
+                    categories["exploit"].tasks.append((task_name, description or ""))
+                    categorized = True
+                elif any(keyword in task_name.lower() for keyword in ['heap', 'spray']):
+                    categories["heap"].tasks.append((task_name, description or ""))
+                    categorized = True
+                elif any(keyword in task_name.lower() for keyword in ['practice', 'demo', 'vulnerable']):
+                    categories["practice"].tasks.append((task_name, description or ""))
+                    categorized = True
             
             if not categorized:
                 categories["core"].tasks.append((task_name, description or ""))
@@ -116,9 +132,10 @@ class PfTUI:
         self.console.print("  [3] Check task syntax")
         self.console.print("  [4] View debugging tools")
         self.console.print("  [5] Search tasks")
+        self.console.print("  [6] Exploit Development Tools")
         self.console.print("  [q] Quit")
         
-        choice = Prompt.ask("\nSelect an option", choices=["1", "2", "3", "4", "5", "q"], default="1")
+        choice = Prompt.ask("\nSelect an option", choices=["1", "2", "3", "4", "5", "6", "q"], default="1")
         return choice
     
     def list_tasks_by_category(self) -> None:
@@ -378,6 +395,91 @@ class PfTUI:
         else:
             self.console.print(f"[yellow]No tasks found matching '{query}'[/yellow]")
     
+    def show_exploit_tools(self) -> None:
+        """Display exploit development tools menu"""
+        self.console.clear()
+        self.show_header()
+        
+        self.console.print("\n[bold bright_red]Exploit Development Tools[/bold bright_red]\n")
+        
+        # Create categories of exploit tools
+        exploit_categories = {
+            "Analysis & Info Gathering": [
+                ("exploit-info", "Comprehensive binary analysis"),
+                ("checksec", "Check binary security features"),
+                ("exploit-test-tools", "Test all exploit tools installation"),
+            ],
+            "Exploit Generation": [
+                ("pwn-template", "Generate exploit template"),
+                ("exploit-workflow", "Complete exploit development workflow"),
+                ("buffer-overflow-exploit", "Generate buffer overflow exploit"),
+                ("format-string-exploit", "Generate format string exploit"),
+            ],
+            "ROP Chain Building": [
+                ("rop-find-gadgets", "Find ROP gadgets in binary"),
+                ("rop-chain-build", "Build ROP chain automatically"),
+                ("rop-search-gadgets", "Search for specific gadgets"),
+                ("ropper-gadgets", "Find gadgets using ropper"),
+            ],
+            "Shellcode & Patterns": [
+                ("pwn-shellcode", "Generate shellcode"),
+                ("pwn-cyclic", "Generate cyclic pattern"),
+                ("pwn-cyclic-find", "Find offset in pattern"),
+                ("buffer-overflow-pattern", "Generate overflow pattern"),
+            ],
+            "Installation": [
+                ("install-exploit-tools", "Install all exploit tools"),
+                ("install-pwntools", "Install pwntools"),
+                ("install-ropgadget", "Install ROPgadget"),
+                ("install-checksec", "Install checksec"),
+            ],
+        }
+        
+        # Display in a tree structure
+        tree = Tree("[bold]Exploit Development Tools[/bold]", guide_style="bright_red")
+        
+        for category, tools in exploit_categories.items():
+            category_branch = tree.add(f"[bright_red]{category}[/bright_red]")
+            for task_name, description in tools:
+                category_branch.add(f"[cyan]{task_name}[/cyan] - [dim]{description}[/dim]")
+        
+        self.console.print(tree)
+        
+        # Quick actions
+        self.console.print("\n[bold]Quick Actions:[/bold]")
+        self.console.print("  [1] Install all exploit tools")
+        self.console.print("  [2] Run exploit workflow on a binary")
+        self.console.print("  [3] Generate exploit template")
+        self.console.print("  [4] Find ROP gadgets")
+        self.console.print("  [5] View exploit help")
+        self.console.print("  [b] Back to main menu")
+        
+        action = Prompt.ask("\nSelect action", choices=["1", "2", "3", "4", "5", "b"], default="b")
+        
+        if action == "1":
+            self._run_exploit_action("install-exploit-tools")
+        elif action == "2":
+            binary = Prompt.ask("Enter binary path")
+            self._run_exploit_action(f"exploit-workflow binary={binary}")
+        elif action == "3":
+            binary = Prompt.ask("Enter binary path")
+            output = Prompt.ask("Enter output file name", default="exploit.py")
+            self._run_exploit_action(f"pwn-template binary={binary} output={output}")
+        elif action == "4":
+            binary = Prompt.ask("Enter binary path")
+            self._run_exploit_action(f"rop-find-gadgets binary={binary}")
+        elif action == "5":
+            self._run_exploit_action("exploit-help")
+    
+    def _run_exploit_action(self, command: str) -> None:
+        """Run an exploit development command"""
+        import subprocess
+        self.console.print(f"\n[green]Executing:[/green] pf {command}")
+        result = subprocess.run(f"pf {command}", shell=True, capture_output=False)
+        if result.returncode != 0:
+            self.console.print(f"[red]Command failed with exit code {result.returncode}[/red]")
+        Prompt.ask("\nPress Enter to continue")
+    
     def run(self) -> int:
         """Main TUI loop"""
         try:
@@ -410,6 +512,8 @@ class PfTUI:
                 elif choice == "5":
                     self.search_tasks()
                     Prompt.ask("\nPress Enter to continue")
+                elif choice == "6":
+                    self.show_exploit_tools()
                 elif choice == "q":
                     self.console.print("\n[cyan]Goodbye![/cyan]")
                     return 0
