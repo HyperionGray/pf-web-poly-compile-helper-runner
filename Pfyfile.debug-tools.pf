@@ -70,7 +70,27 @@ task check-debug-tools
   describe Check installation status of debugging tools
   shell echo "🔍 Checking debugging tool installation status..."
   shell echo ""
-  shell bash -c 'check_tool() { if command -v "$1" &> /dev/null; then echo "  ✓ $2 - installed"; else echo "  ✗ $2 - not installed"; fi; }; echo "Binary Analysis:"; check_tool oryx "oryx"; check_tool binsider "binsider"; check_tool r2 "radare2"; check_tool ghidra "Ghidra"; echo ""; echo "Network Analysis:"; check_tool rustnet "rustnet"; echo ""; echo "System Analysis:"; check_tool sysz "sysz"; check_tool strace "strace"; check_tool ltrace "ltrace"; echo ""; echo "Debuggers:"; check_tool gdb "GDB"; check_tool lldb "LLDB"; check_tool pwndbg "pwndbg"; echo ""; echo "Binary Manipulation:"; check_tool patchelf "patchelf"'
+  shell echo "Binary Analysis:"
+  shell command -v oryx >/dev/null 2>&1 && echo "  ✓ oryx - installed" || echo "  ✗ oryx - not installed"
+  shell command -v binsider >/dev/null 2>&1 && echo "  ✓ binsider - installed" || echo "  ✗ binsider - not installed"
+  shell command -v r2 >/dev/null 2>&1 && echo "  ✓ radare2 - installed" || echo "  ✗ radare2 - not installed"
+  shell command -v ghidra >/dev/null 2>&1 && echo "  ✓ Ghidra - installed" || echo "  ✗ Ghidra - not installed"
+  shell echo ""
+  shell echo "Network Analysis:"
+  shell command -v rustnet >/dev/null 2>&1 && echo "  ✓ rustnet - installed" || echo "  ✗ rustnet - not installed"
+  shell echo ""
+  shell echo "System Analysis:"
+  shell command -v sysz >/dev/null 2>&1 && echo "  ✓ sysz - installed" || echo "  ✗ sysz - not installed"
+  shell command -v strace >/dev/null 2>&1 && echo "  ✓ strace - installed" || echo "  ✗ strace - not installed"
+  shell command -v ltrace >/dev/null 2>&1 && echo "  ✓ ltrace - installed" || echo "  ✗ ltrace - not installed"
+  shell echo ""
+  shell echo "Debuggers:"
+  shell command -v gdb >/dev/null 2>&1 && echo "  ✓ GDB - installed" || echo "  ✗ GDB - not installed"
+  shell command -v lldb >/dev/null 2>&1 && echo "  ✓ LLDB - installed" || echo "  ✗ LLDB - not installed"
+  shell command -v pwndbg >/dev/null 2>&1 && echo "  ✓ pwndbg - installed" || echo "  ✗ pwndbg - not installed"
+  shell echo ""
+  shell echo "Binary Manipulation:"
+  shell command -v patchelf >/dev/null 2>&1 && echo "  ✓ patchelf - installed" || echo "  ✗ patchelf - not installed"
 end
 
 task run-oryx

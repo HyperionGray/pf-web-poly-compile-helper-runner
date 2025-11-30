@@ -179,7 +179,11 @@ class PfTUI:
         # Confirm execution
         if Confirm.ask(f"\nExecute: [cyan]{cmd}[/cyan]?", default=True):
             self.console.print(f"\n[green]Executing:[/green] {cmd}")
-            os.system(cmd)
+            # Use subprocess for safer execution
+            import subprocess
+            result = subprocess.run(cmd, shell=True, capture_output=False)
+            if result.returncode != 0:
+                self.console.print(f"[red]Command failed with exit code {result.returncode}[/red]")
         else:
             self.console.print("[yellow]Execution cancelled[/yellow]")
     
@@ -340,7 +344,10 @@ class PfTUI:
                 timeout=2
             )
             return result.returncode == 0
-        except:
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+            return False
+        except Exception:
+            # Catch any other unexpected errors
             return False
     
     def search_tasks(self) -> None:

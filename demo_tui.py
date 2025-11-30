@@ -6,8 +6,10 @@ Demo script to showcase TUI features non-interactively
 import sys
 import os
 
-# Add pf-runner to path
-sys.path.insert(0, '/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/pf-runner')
+# Add pf-runner to path (relative to this script's location)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+pf_runner_path = os.path.join(script_dir, 'pf-runner')
+sys.path.insert(0, pf_runner_path)
 
 from pf_tui import PfTUI
 from rich.console import Console
