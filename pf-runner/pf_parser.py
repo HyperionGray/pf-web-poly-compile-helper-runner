@@ -1426,6 +1426,15 @@ def main(argv: List[str]) -> int:
                 return 1
         j += 1
         params = {}
+        
+        def _is_valid_parameter_value(idx: int) -> bool:
+            """Check if the argument at idx is a valid parameter value (not a task or another flag)."""
+            if idx >= len(tasks):
+                return False
+            next_arg = tasks[idx]
+            # Value shouldn't start with -- (another flag) or be a task name
+            return not next_arg.startswith("--") and next_arg not in valid_task_names
+        
         while j < len(tasks):
             arg = tasks[j]
             # Check if this looks like the next task name
@@ -1442,7 +1451,7 @@ def main(argv: List[str]) -> int:
                     k, v = arg[2:].split("=", 1)  # Strip -- prefix
                     params[k] = v
                     j += 1
-                elif j + 1 < len(tasks) and not tasks[j + 1].startswith("--") and tasks[j + 1] not in valid_task_names:
+                elif _is_valid_parameter_value(j + 1):
                     # Format: --param value (next arg is the value)
                     k = arg[2:]  # Strip -- prefix
                     v = tasks[j + 1]
