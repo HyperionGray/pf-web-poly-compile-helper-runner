@@ -300,6 +300,14 @@ class PfTUI:
         binary_branch.add("🔍 binsider - Binary analyzer with TUI")
         binary_branch.add("🔍 Radare2 - Reverse engineering framework")
         binary_branch.add("🔍 Ghidra - NSA's reverse engineering suite")
+        binary_branch.add("🔍 Snowman - C++ decompiler (open source)")
+        
+        # Exploit Development
+        exploit_branch = tree.add("[bright_red]Exploit Development[/bright_red]")
+        exploit_branch.add("💥 pwntools - Exploit development framework")
+        exploit_branch.add("💥 checksec - Binary protection checker")
+        exploit_branch.add("💥 ROPgadget - ROP chain automation")
+        exploit_branch.add("💥 ropper - Alternative ROP tool")
         
         # Network Analysis
         network_branch = tree.add("[green]Network Analysis[/green]")
@@ -332,6 +340,13 @@ class PfTUI:
             ("gdb", "gdb --version", "GDB"),
             ("lldb", "lldb --version", "LLDB"),
             ("radare2", "r2 -version", "Radare2"),
+            ("ghidra", "ghidra --version", "Ghidra"),
+            ("snowman", "snowman --help", "Snowman"),
+            ("oryx", "oryx --version", "oryx"),
+            ("binsider", "binsider --version", "binsider"),
+            ("pwntools", "python3 -c 'import pwn'", "pwntools"),
+            ("checksec", "checksec --version", "checksec"),
+            ("ROPgadget", "ROPgadget --version", "ROPgadget"),
             ("strace", "strace -V", "strace"),
             ("patchelf", "patchelf --version", "patchelf"),
         ]

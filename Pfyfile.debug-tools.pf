@@ -50,8 +50,44 @@ task install-ghidra
   shell echo "Or run the automated installer with internet connection"
 end
 
+task install-snowman
+  describe Install Snowman decompiler - C++ decompiler (free/open source)
+  shell echo "📦 Installing Snowman decompiler..."
+  shell echo "Checking for build dependencies..."
+  shell [ -f /etc/debian_version ] && (sudo apt-get update && sudo apt-get install -y cmake g++ libboost-dev qt5-qmake qtbase5-dev) || [ -f /etc/redhat-release ] && (sudo yum groupinstall -y "Development Tools" && sudo yum install -y cmake boost-devel qt5-qtbase-devel) || [ "$(uname)" = "Darwin" ] && (brew install cmake boost qt@5)
+  shell echo "Cloning Snowman repository..."
+  shell cd /tmp && git clone https://github.com/x64dbg/snowman.git snowman-install
+  shell cd /tmp/snowman-install && mkdir -p build && cd build
+  shell echo "Building Snowman (this may take a few minutes)..."
+  shell cd /tmp/snowman-install/build && cmake .. && make -j$(nproc 2>/dev/null || echo 4)
+  shell echo "Installing to ~/.local/bin..."
+  shell mkdir -p ~/.local/bin
+  shell cp /tmp/snowman-install/build/nocode/nocode ~/.local/bin/snowman 2>/dev/null || cp /tmp/snowman-install/build/src/nocode/nocode ~/.local/bin/snowman
+  shell rm -rf /tmp/snowman-install
+  shell echo "✓ Snowman installed to ~/.local/bin/snowman"
+  shell echo "Note: Make sure ~/.local/bin is in your PATH"
+end
+
+task install-binaryninja-info
+  describe Show information about Binary Ninja (commercial license required)
+  shell echo "📦 Binary Ninja Information"
+  shell echo ""
+  shell echo "Binary Ninja is a commercial reverse engineering platform."
+  shell echo "It requires a paid license to use."
+  shell echo ""
+  shell echo "Pricing:"
+  shell echo "  • Personal License: $299 USD"
+  shell echo "  • Commercial License: $1,299 USD"
+  shell echo "  • Enterprise License: $2,999 USD"
+  shell echo ""
+  shell echo "Website: https://binary.ninja/"
+  shell echo "Free alternative: Use Radare2 or Ghidra (run 'pf install-radare2' or 'pf install-ghidra')"
+  shell echo ""
+  shell echo "Note: This project prioritizes free and open-source tools."
+end
+
 task install-all-debug-tools
-  describe Install all debugging and RE tools
+  describe Install all debugging and RE tools (including Snowman)
   shell echo "🚀 Installing all debugging tools..."
   shell echo "This may take several minutes..."
   shell echo ""
@@ -60,10 +96,12 @@ task install-all-debug-tools
   shell pf install-rustnet
   shell pf install-sysz
   shell pf install-radare2
+  shell pf install-snowman
   shell echo ""
   shell echo "✓ All debugging tools installed!"
   shell echo ""
   shell echo "Note: Ghidra requires manual installation. Run: pf install-ghidra"
+  shell echo "Note: Binary Ninja is commercial software. Run: pf install-binaryninja-info"
 end
 
 task check-debug-tools
@@ -75,6 +113,7 @@ task check-debug-tools
   shell command -v binsider >/dev/null 2>&1 && echo "  ✓ binsider - installed" || echo "  ✗ binsider - not installed"
   shell command -v r2 >/dev/null 2>&1 && echo "  ✓ radare2 - installed" || echo "  ✗ radare2 - not installed"
   shell command -v ghidra >/dev/null 2>&1 && echo "  ✓ Ghidra - installed" || echo "  ✗ Ghidra - not installed"
+  shell command -v snowman >/dev/null 2>&1 && echo "  ✓ Snowman - installed" || echo "  ✗ Snowman - not installed"
   shell echo ""
   shell echo "Network Analysis:"
   shell command -v rustnet >/dev/null 2>&1 && echo "  ✓ rustnet - installed" || echo "  ✗ rustnet - not installed"
@@ -91,6 +130,12 @@ task check-debug-tools
   shell echo ""
   shell echo "Binary Manipulation:"
   shell command -v patchelf >/dev/null 2>&1 && echo "  ✓ patchelf - installed" || echo "  ✗ patchelf - not installed"
+  shell echo ""
+  shell echo "Exploit Development:"
+  shell python3 -c "import pwn" >/dev/null 2>&1 && echo "  ✓ pwntools - installed" || echo "  ✗ pwntools - not installed"
+  shell command -v checksec >/dev/null 2>&1 && echo "  ✓ checksec - installed" || echo "  ✗ checksec - not installed"
+  shell command -v ROPgadget >/dev/null 2>&1 && echo "  ✓ ROPgadget - installed" || echo "  ✗ ROPgadget - not installed"
+  shell command -v ropper >/dev/null 2>&1 && echo "  ✓ ropper - installed" || echo "  ✗ ropper - not installed"
 end
 
 task run-oryx
@@ -117,6 +162,12 @@ task run-sysz
   shell sysz
 end
 
+task run-snowman
+  describe Run Snowman decompiler on a binary file
+  shell echo "🔍 Running Snowman decompiler..."
+  shell snowman ${binary}
+end
+
 task debug-tools-help
   describe Show help for debugging tools
   shell echo "🛠️  Debugging Tools - Installation and Usage"
@@ -128,6 +179,8 @@ task debug-tools-help
   shell echo "  pf install-sysz              - Install sysz (systemd viewer)"
   shell echo "  pf install-radare2           - Install radare2 (RE framework)"
   shell echo "  pf install-ghidra            - Install Ghidra (NSA RE suite)"
+  shell echo "  pf install-snowman           - Install Snowman (C++ decompiler)"
+  shell echo "  pf install-binaryninja-info  - Show Binary Ninja info (commercial)"
   shell echo "  pf install-all-debug-tools   - Install all tools at once"
   shell echo ""
   shell echo "Status Check:"
@@ -136,6 +189,7 @@ task debug-tools-help
   shell echo "Usage:"
   shell echo "  pf run-oryx binary=/path/to/file    - Explore binary with oryx"
   shell echo "  pf run-binsider binary=/path/to/file - Analyze binary with binsider"
+  shell echo "  pf run-snowman binary=/path/to/file  - Decompile binary with Snowman"
   shell echo "  pf run-rustnet                      - Monitor network with rustnet"
   shell echo "  pf run-sysz                         - View systemd units with sysz"
   shell echo ""
@@ -146,6 +200,7 @@ task debug-tools-help
   shell echo "  • sysz      - https://github.com/joehillen/sysz"
   shell echo "  • radare2   - https://rada.re/"
   shell echo "  • Ghidra    - https://ghidra-sre.org/"
+  shell echo "  • Snowman   - https://github.com/x64dbg/snowman"
   shell echo ""
   shell echo "TUI Integration:"
   shell echo "  Launch the pf TUI to view all debugging tools:"
