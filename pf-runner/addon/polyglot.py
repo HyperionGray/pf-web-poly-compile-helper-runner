@@ -5,8 +5,6 @@ This addon handles execution of code in multiple programming languages,
 extracting the polyglot functionality from the core parser.
 """
 
-import os
-import re
 import shlex
 from typing import Any, Dict, List, Tuple, Optional, Callable
 

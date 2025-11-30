@@ -5,7 +5,6 @@ This module provides a robust, grammar-based parser using Lark,
 replacing the simple string-based parsing in pf_parser.py.
 """
 
-import os
 from typing import Dict, List, Optional, Any
 from lark import Lark, Transformer, Tree, Token
 from pathlib import Path
@@ -28,6 +27,13 @@ class PfTransformer(Transformer):
         super().__init__()
         self.tasks = {}
         self.current_task = None
+    
+    @staticmethod
+    def _strip_quotes(value: str) -> str:
+        """Helper to strip quotes from string values."""
+        if isinstance(value, str):
+            return value.strip('"')
+        return value
     
     def start(self, items):
         """Top-level rule: returns all parsed tasks."""
@@ -81,7 +87,7 @@ class PfTransformer(Transformer):
     def param(self, items):
         """Process a parameter: name="value"."""
         key = str(items[0])
-        value = str(items[1]).strip('"')  # Remove quotes
+        value = self._strip_quotes(str(items[1]))
         return {key: value}
     
     def task_body(self, items):
@@ -199,7 +205,7 @@ class PfTransformer(Transformer):
             key = str(items[0])
             value = items[1]
             if isinstance(value, str):
-                return {key: value.strip('"')}
+                return {key: self._strip_quotes(value)}
             else:
                 # Array value
                 return {key: value}
@@ -233,7 +239,7 @@ class PfTransformer(Transformer):
         """Process variable equality check."""
         var = items[0]
         op = str(items[1])
-        value = str(items[2]).strip('"')
+        value = self._strip_quotes(str(items[2]))
         return {'type': 'var_equals', 'var': var, 'op': op, 'value': value}
     
     def var_exists(self, items):
@@ -264,7 +270,7 @@ class PfTransformer(Transformer):
     
     def array(self, items):
         """Process array literal."""
-        values = [str(item).strip('"') for item in items if not isinstance(item, Token)]
+        values = [self._strip_quotes(str(item)) for item in items if not isinstance(item, Token)]
         return {'type': 'array', 'values': values}
     
     def variable(self, items):
@@ -277,12 +283,12 @@ class PfTransformer(Transformer):
         if len(items) == 1:
             # Simple identifier or string
             val = str(items[0])
-            return val.strip('"') if val.startswith('"') else val
+            return self._strip_quotes(val) if val.startswith('"') else val
         elif len(items) == 2:
             # key=value
             key = str(items[0])
             value = str(items[1])
-            return {key: value.strip('"') if value.startswith('"') else value}
+            return {key: self._strip_quotes(value) if value.startswith('"') else value}
         return None
     
     def comment(self, items):
@@ -338,13 +344,18 @@ class PfLarkParser:
             
         Returns:
             Dictionary mapping task names to task data
+            
+        Raises:
+            ValueError: If parsing fails with details from Lark
         """
         try:
             tree = self.parser.parse(text)
             tasks = self.transformer.transform(tree)
             return tasks
         except Exception as e:
-            raise ValueError(f"Failed to parse pf file: {e}")
+            # Preserve the original exception type and message for debugging
+            error_type = type(e).__name__
+            raise ValueError(f"Failed to parse pf file ({error_type}): {str(e)}") from e
     
     def parse_file(self, filepath: str) -> Dict[str, Any]:
         """

@@ -136,7 +136,7 @@ copy_stmt: "copy" TEXT_LINE
 makefile_stmt: ("makefile" | "make") TEXT_LINE?
 cmake_stmt: "cmake" TEXT_LINE?
 meson_stmt: ("meson" | "ninja") TEXT_LINE?
-cargo_stmt: "cargo" TEXT_LINE
+cargo_stmt: "cargo" TEXT_LINE?  // Made optional for consistency
 go_build_stmt: ("go_build" | "gobuild") TEXT_LINE?
 configure_stmt: "configure" TEXT_LINE?
 justfile_stmt: ("justfile" | "just") TEXT_LINE?
