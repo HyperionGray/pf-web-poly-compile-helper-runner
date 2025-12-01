@@ -37,6 +37,8 @@ log_info() {
 # Print test summary
 print_test_summary() {
     local test_type="${1:-Test}"
+    local test_type_lower
+    test_type_lower=$(echo "$test_type" | tr '[:upper:]' '[:lower:]')
     
     echo
     echo "=== ${test_type} Results ==="
@@ -45,10 +47,10 @@ print_test_summary() {
     echo "Failed: $FAILED_TESTS"
     
     if [ $FAILED_TESTS -eq 0 ]; then
-        echo -e "${GREEN}All ${test_type,,} tests passed!${NC}"
+        echo -e "${GREEN}All ${test_type_lower} tests passed!${NC}"
         return 0
     else
-        echo -e "${RED}Some ${test_type,,} tests failed!${NC}"
+        echo -e "${RED}Some ${test_type_lower} tests failed!${NC}"
         return 1
     fi
 }
