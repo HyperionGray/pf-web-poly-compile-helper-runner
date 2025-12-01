@@ -479,6 +479,9 @@ def _render_polyglot_command(lang_hint: Optional[str], cmd: str, working_dir: Op
     if not lang_hint:
         return None, None
     lang_key = _canonical_lang(lang_hint)
+    # _canonical_lang validates that the language exists, but let's be extra safe
+    if lang_key not in POLYGLOT_LANGS:
+        raise ValueError(f"Language '{lang_key}' (from '{lang_hint}') has no builder registered")
     builder = POLYGLOT_LANGS[lang_key]
     snippet, lang_args, _ = _extract_polyglot_source(cmd, working_dir)
     rendered = builder(snippet, lang_args)
@@ -766,10 +769,14 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
         if lang_hint:
             # This is a polyglot shell command - render it with the appropriate language
             try:
-                rendered_cmd, _ = _render_polyglot_command(lang_hint, remaining_cmd, None)
+                # Use current working directory for file resolution in polyglot commands
+                working_dir = os.getcwd()
+                rendered_cmd, resolved_lang = _render_polyglot_command(lang_hint, remaining_cmd, working_dir)
                 if rendered_cmd:
                     return run(rendered_cmd)
-                # If rendering returned None, fall through to regular execution
+                # This shouldn't happen since _render_polyglot_command always returns a command
+                # when lang_hint is provided, but let's be defensive
+                print(f"{prefix}[warn] Polyglot rendering returned empty command for [lang:{lang_hint}], falling back to regular shell", file=sys.stderr)
             except (ValueError, KeyError) as e:
                 raise ValueError(f"Error processing polyglot command [lang:{lang_hint}]: {e}")
         
