@@ -258,17 +258,32 @@ cd "$ROOT_DIR/pf-runner"
 # Generate a very large file for memory testing
 generate_large_pfyfile "$TEMP_DIR/memory_test.pf" 1000
 
-if command -v /usr/bin/time >/dev/null 2>&1; then
-    memory_output=$(/usr/bin/time -v python3 pf_parser.py list --file="$TEMP_DIR/memory_test.pf" 2>&1 >/dev/null)
-    max_memory=$(echo "$memory_output" | grep "Maximum resident set size" | awk '{print $6}')
-    
-    if [ -n "$max_memory" ] && [ "$max_memory" -lt 100000 ]; then # Less than 100MB
-        log_pass "Memory usage benchmark - Peak memory: ${max_memory}KB (< 100MB)"
+# Detect OS for platform-specific time command handling
+OS_TYPE="$(uname -s)"
+
+if [ "$OS_TYPE" = "Linux" ]; then
+    # GNU time with -v flag for verbose output
+    if command -v /usr/bin/time >/dev/null 2>&1; then
+        memory_output=$(/usr/bin/time -v python3 pf_parser.py list --file="$TEMP_DIR/memory_test.pf" 2>&1 >/dev/null)
+        max_memory=$(echo "$memory_output" | grep "Maximum resident set size" | awk '{print $6}')
+        
+        if [ -n "$max_memory" ] && [ "$max_memory" -lt 100000 ]; then # Less than 100MB
+            log_pass "Memory usage benchmark - Peak memory: ${max_memory}KB (< 100MB)"
+        elif [ -n "$max_memory" ]; then
+            log_fail "Memory usage benchmark - Peak memory: ${max_memory}KB (> 100MB)"
+        else
+            log_info "Memory usage benchmark - Could not parse GNU time output"
+        fi
     else
-        log_fail "Memory usage benchmark - Peak memory: ${max_memory}KB (> 100MB)"
+        log_info "Memory usage benchmark - /usr/bin/time not available"
     fi
+elif [ "$OS_TYPE" = "Darwin" ]; then
+    # macOS/BSD: time command output differs from GNU time
+    # BSD time doesn't support -v flag the same way; skip gracefully
+    log_info "Memory usage benchmark - Skipped on macOS (BSD time format not supported)"
 else
-    log_info "Memory usage benchmark - /usr/bin/time not available"
+    # Other Unix-like systems: skip with informative message
+    log_info "Memory usage benchmark - Skipped on unsupported platform: $OS_TYPE"
 fi
 
 # Benchmark 8: Concurrent parsing
