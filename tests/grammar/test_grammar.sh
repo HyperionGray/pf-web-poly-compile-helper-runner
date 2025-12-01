@@ -28,7 +28,7 @@ echo "Repo root: $REPO_ROOT"
 echo ""
 
 # Cleanup on exit
-trap "rm -rf $TEST_DIR" EXIT
+trap 'rm -rf "$TEST_DIR"' EXIT
 
 # Helper functions
 pass() {

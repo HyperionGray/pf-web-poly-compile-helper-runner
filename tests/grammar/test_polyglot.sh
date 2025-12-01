@@ -25,7 +25,7 @@ echo "Testing polyglot language documentation and configuration"
 echo "Test directory: $TEST_DIR"
 echo ""
 
-trap "rm -rf $TEST_DIR" EXIT
+trap 'rm -rf "$TEST_DIR"' EXIT
 
 pass() {
     PASSED=$((PASSED + 1))

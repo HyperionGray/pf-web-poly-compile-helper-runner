@@ -28,7 +28,7 @@ PASSED_SUITES=0
 FAILED_SUITES=0
 
 # Array to store results
-declare -a SUITE_RESULTS
+SUITE_RESULTS=()
 
 run_suite() {
     local name=$1

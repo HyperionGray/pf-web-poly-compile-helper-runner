@@ -90,7 +90,7 @@ section "3. Interactive Debugging Tasks"
 # ==============================================================================
 
 # Test 3.1: debug task exists
-if echo "$TASK_LIST" | grep -q "^  debug "; then
+if echo "$TASK_LIST" | grep -qE "^\s+debug\s"; then
     pass "debug task exists"
 else
     fail "debug task exists" "Task not found"
