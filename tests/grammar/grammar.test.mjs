@@ -60,17 +60,19 @@ class GrammarTester {
     }
 
     async test(name, testFn) {
+        let testPassed = false;
         try {
             console.log(`\n🧪 Testing: ${name}`);
             await testFn();
             console.log(`✅ PASS: ${name}`);
             this.passed++;
+            testPassed = true;
         } catch (error) {
             console.log(`❌ FAIL: ${name}`);
             console.log(`   Error: ${error.message}`);
             this.failed++;
         }
-        this.tests.push({ name, passed: this.failed === 0 });
+        this.tests.push({ name, passed: testPassed });
     }
 
     async testValidSyntax(name, pfContent) {
