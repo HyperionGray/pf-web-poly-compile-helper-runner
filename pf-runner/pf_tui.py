@@ -234,9 +234,9 @@ class PfTUI:
             stripped = line.strip()
             if stripped.startswith('shell '):
                 shell_cmd = stripped[6:].strip()
-                result = validate_shell_syntax(shell_cmd)
-                if not result["valid"]:
-                    errors.append((i, line, result["error"]))
+                is_valid, error_msg = validate_shell_syntax(shell_cmd)
+                if not is_valid:
+                    errors.append((i, line, error_msg))
         
         if errors:
             self.console.print(f"[red]Found {len(errors)} syntax error(s):[/red]")
@@ -267,9 +267,9 @@ class PfTUI:
                     stripped = line.strip()
                     if stripped.startswith('shell '):
                         shell_cmd = stripped[6:].strip()
-                        result = validate_shell_syntax(shell_cmd)
-                        if not result["valid"]:
-                            task_errors.append((i, line, result["error"]))
+                        is_valid, error_msg = validate_shell_syntax(shell_cmd)
+                        if not is_valid:
+                            task_errors.append((i, line, error_msg))
                 
                 if task_errors:
                     errors_by_task[task_name] = task_errors
