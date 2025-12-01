@@ -14,6 +14,10 @@ import sys
 import os
 import glob
 import subprocess
+import traceback
+import tty
+import termios
+import shutil
 from typing import List, Dict, Optional, Tuple, Any
 from dataclasses import dataclass, field
 
@@ -226,10 +230,6 @@ class PfTUI:
     
     def _get_key(self) -> str:
         """Get a single keypress from the user"""
-        import sys
-        import tty
-        import termios
-        
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
@@ -255,19 +255,41 @@ class PfTUI:
     
     def _open_in_editor(self, filepath: str) -> None:
         """Open a file in the user's default editor"""
-        editor = os.environ.get("EDITOR", os.environ.get("VISUAL", "nano"))
-        try:
-            subprocess.run([editor, filepath])
-        except FileNotFoundError:
-            # Fallback to common editors
-            for fallback in ["nano", "vim", "vi"]:
+        # Get editor from environment, with safe fallbacks
+        editor = os.environ.get("EDITOR", os.environ.get("VISUAL", ""))
+        
+        # Define safe list of common editors
+        safe_editors = ["nano", "vim", "vi", "emacs", "code", "gedit", "kate", "notepad"]
+        
+        # Validate editor is a known safe editor or exists in PATH
+        if editor:
+            # Extract just the command name (in case of paths)
+            editor_name = os.path.basename(editor)
+            # Check if it's in the safe list or is an absolute path that exists
+            if editor_name not in safe_editors and not (os.path.isabs(editor) and os.path.isfile(editor)):
+                # Verify it exists in PATH
+                if not shutil.which(editor):
+                    editor = ""
+        
+        # Try the configured editor first
+        if editor:
+            try:
+                subprocess.run([editor, filepath], check=False)
+                return
+            except FileNotFoundError:
+                pass
+        
+        # Fallback to common editors
+        for fallback in safe_editors[:3]:  # Try nano, vim, vi
+            if shutil.which(fallback):
                 try:
-                    subprocess.run([fallback, filepath])
+                    subprocess.run([fallback, filepath], check=False)
                     return
                 except FileNotFoundError:
                     continue
-            self.console.print(f"[red]No editor found. Set EDITOR environment variable.[/red]")
-            Prompt.ask("Press Enter to continue")
+        
+        self.console.print("[red]No editor found. Set EDITOR environment variable.[/red]")
+        Prompt.ask("Press Enter to continue")
     
     def show_files_view(self) -> Optional[str]:
         """Display Pfyfiles in a navigable list. Returns action to take."""
@@ -1072,7 +1094,6 @@ class PfTUI:
             return 130
         except Exception as e:
             self.console.print(f"\n[red]Error: {e}[/red]")
-            import traceback
             traceback.print_exc()
             return 1
 
