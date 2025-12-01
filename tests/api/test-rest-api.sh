@@ -50,6 +50,11 @@ log_pass() {
 log_fail() {
     echo -e "${RED}[FAIL]${NC} $1"
     FAILED_TESTS=$((FAILED_TESTS + 1))
+    # Display last few lines of server log to aid debugging
+    if [ -f "$TEMP_DIR/server.log" ]; then
+        echo -e "${YELLOW}[DEBUG]${NC} Last 10 lines of server log:"
+        tail -n 10 "$TEMP_DIR/server.log" 2>/dev/null || true
+    fi
 }
 
 log_info() {
