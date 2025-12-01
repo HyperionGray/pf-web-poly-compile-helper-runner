@@ -261,8 +261,9 @@ pf tui-help
 
 **Features:**
 - **11 Task Categories**: Web, Build, Security, Debugging, Kernel, and more
-- **165+ Tasks**: Full access to all pf tasks in an organized interface
-- **Tool Status**: Check installation status of debugging tools
+- **178+ Tasks**: Full access to all pf tasks in an organized interface
+- **Tool Status**: Check installation status of debugging tools (including Snowman decompiler)
+- **Exploit Development**: Integration with pwntools, checksec, ROPgadget
 - **Rich Formatting**: Color-coded categories, tables, and progress bars
 
 See [TUI Documentation](docs/TUI.md) for complete guide.
@@ -985,10 +986,13 @@ Additional documentation in `pf-runner/`:
 | `pf install-sysz` | Install sysz - Systemd unit file viewer |
 | `pf install-radare2` | Install Radare2 - Reverse engineering framework |
 | `pf install-ghidra` | Install Ghidra - NSA's reverse engineering suite |
+| `pf install-snowman` | Install Snowman - C++ decompiler (open source) |
+| `pf install-binaryninja-info` | Show Binary Ninja information (commercial) |
 | `pf install-all-debug-tools` | Install all debugging and RE tools |
 | `pf check-debug-tools` | Check installation status of debugging tools |
 | `pf run-oryx binary=<path>` | Run oryx binary explorer on a file |
 | `pf run-binsider binary=<path>` | Run binsider binary analyzer on a file |
+| `pf run-snowman binary=<path>` | Run Snowman decompiler on a file |
 | `pf run-rustnet` | Run rustnet network monitor |
 | `pf run-sysz` | Run sysz systemd unit viewer |
 | `pf debug-tools-help` | Show help for debugging tools |
