@@ -117,9 +117,7 @@ end
     echo "$pf_content" > "$test_file"
     
     cd "$PF_RUNNER_DIR"
-    local cmd="python3 pf_parser.py --file=\"$test_file\" test-$language"
-    
-    if output=$(eval "$cmd" 2>&1); then
+    if output=$(python3 pf_parser.py --file="$test_file" "test-$language" 2>&1); then
         if [[ "$output" == *"$expected_output"* ]]; then
             log_pass "$test_name ($language) - Output contains expected text"
         else
