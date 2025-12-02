@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 pf.py — single-file, symbol-free Fabric runner with a tiny DSL.
 
@@ -36,8 +35,11 @@ ENV_MAP: Dict[str, List[str] | str] = {
     "staging": "staging@10.1.2.3:22,staging@10.1.2.4:22",
 }
 
+
 # ---------- Pfyfile discovery ----------
-def _find_pfyfile(start_dir: Optional[str] = None, file_arg: Optional[str] = None) -> str:
+def _find_pfyfile(
+    start_dir: Optional[str] = None, file_arg: Optional[str] = None
+) -> str:
     if file_arg:
         if os.path.isabs(file_arg):
             return file_arg
@@ -56,17 +58,23 @@ def _find_pfyfile(start_dir: Optional[str] = None, file_arg: Optional[str] = Non
             return os.path.join(os.getcwd(), pf_hint)
         cur = parent
 
+
 # ---------- Interpolation ----------
 _VAR_RE = re.compile(r"\$([a-zA-Z_][\w-]*)|\$\{([a-zA-Z_][\w-]*)\}")
+
+
 def _interpolate(text: str, params: dict, extra_env: dict | None = None) -> str:
     merged = dict(os.environ)
     if extra_env:
         merged.update(extra_env)
     merged.update(params or {})
+
     def repl(m):
         key = m.group(1) or m.group(2)
         return str(merged.get(key, m.group(0)))
+
     return _VAR_RE.sub(repl, text)
+
 
 # ---------- Polyglot shell helpers ----------
 _POLY_DELIM = "__PFY_LANG__"
@@ -85,21 +93,25 @@ def _ensure_newline(src: str) -> str:
     return src if src.endswith("\n") else f"{src}\n"
 
 
-def _build_script_command(interpreter_cmd: str, ext: str, code: str, args: List[str], basename: str = "pf_poly") -> str:
+def _build_script_command(
+    interpreter_cmd: str,
+    ext: str,
+    code: str,
+    args: List[str],
+    basename: str = "pf_poly",
+) -> str:
     code = _ensure_newline(code)
     arg_str = _poly_args(args)
     return (
         "tmpdir=$(mktemp -d)\n"
         f'src="$tmpdir/{basename}{ext}"\n'
-        "cat <<'"
-        + _POLY_DELIM
-        + "' > \"$src\"\n"
+        "cat <<'" + _POLY_DELIM + '\' > "$src"\n'
         f"{code}"
         + _POLY_DELIM
-        + "\nchmod +x \"$src\" 2>/dev/null || true\n"
-        + f"{interpreter_cmd} \"$src\""
+        + '\nchmod +x "$src" 2>/dev/null || true\n'
+        + f'{interpreter_cmd} "$src"'
         + (f" {arg_str}" if arg_str else "")
-        + "\nrc=$?\nrm -rf \"$tmpdir\"\nexit $rc\n"
+        + '\nrc=$?\nrm -rf "$tmpdir"\nexit $rc\n'
     )
 
 
@@ -138,7 +150,7 @@ def _build_compile_command(
         + setup
         + "cat <<'"
         + _POLY_DELIM
-        + "' > \"$src\"\n"
+        + '\' > "$src"\n'
         f"{code}"
         + _POLY_DELIM
         + "\n"
@@ -148,7 +160,7 @@ def _build_compile_command(
         + f"  {runner}\n"
         + "  rc=$?\n"
         + "fi\n"
-        + "rm -rf \"$tmpdir\"\nexit $rc\n"
+        + 'rm -rf "$tmpdir"\nexit $rc\n'
     )
 
 
@@ -173,16 +185,18 @@ def _build_browser_js_command(code: str, args: List[str]) -> str:
         'src="$tmpdir/pf_poly_browser.mjs"\n'
         "cat <<'"
         + _POLY_DELIM
-        + "' > \"$src\"\n"
+        + '\' > "$src"\n'
         + body
         + _POLY_DELIM
-        + "\nnode \"$src\""
+        + '\nnode "$src"'
         + (f" {arg_str}" if arg_str else "")
-        + "\nrc=$?\nrm -rf \"$tmpdir\"\nexit $rc\n"
+        + '\nrc=$?\nrm -rf "$tmpdir"\nexit $rc\n'
     )
 
 
-def _script_profile(parts: List[str] | Tuple[str, ...], ext: str, basename: str = "pf_poly"):
+def _script_profile(
+    parts: List[str] | Tuple[str, ...], ext: str, basename: str = "pf_poly"
+):
     cmd = _cmd_str(parts)
 
     def builder(code: str, args: List[str]) -> str:
@@ -295,7 +309,6 @@ POLYGLOT_LANGS: Dict[str, Callable[[str, List[str]], str]] = {
     "ksh": _script_profile(["ksh"], ".sh"),
     "tcsh": _script_profile(["tcsh"], ".csh"),
     "pwsh": _script_profile(["pwsh", "-NoLogo", "-NonInteractive", "-File"], ".ps1"),
-
     # Scripting / Interpreted
     "python": _script_profile(["python3"], ".py"),
     "node": _script_profile(["node"], ".js"),
@@ -311,25 +324,45 @@ POLYGLOT_LANGS: Dict[str, Callable[[str, List[str]], str]] = {
     "elixir": _script_profile(["elixir"], ".exs"),
     "dart": _script_profile(["dart", "run"], ".dart"),
     "lua": _script_profile(["lua"], ".lua"),
-
     # Compiled / AOT
     "go": _script_profile(["go", "run"], ".go"),
     "rust": _compile_profile(".rs", "rustc {src} -o {bin}", "{bin}"),
     "c": _compile_profile(".c", "clang -x c {src} -o {bin}", "{bin}"),
     "cpp": _compile_profile(".cc", "clang++ {src} -o {bin}", "{bin}"),
-    "c-llvm": _compile_profile(".c", "clang -x c -O3 -S -emit-llvm {src} -o {bin}.ll && cat {bin}.ll", "echo '(LLVM IR generated with O3 optimization)'"),
-    "cpp-llvm": _compile_profile(".cc", "clang++ -O3 -S -emit-llvm {src} -o {bin}.ll && cat {bin}.ll", "echo '(LLVM IR generated with O3 optimization)'"),
-    "c-llvm-bc": _compile_profile(".c", "clang -x c -O3 -c -emit-llvm {src} -o {bin}.bc && llvm-dis {bin}.bc -o {bin}.ll && cat {bin}.ll", "echo '(LLVM bitcode generated with O3 optimization)'"),
-    "cpp-llvm-bc": _compile_profile(".cc", "clang++ -O3 -c -emit-llvm {src} -o {bin}.bc && llvm-dis {bin}.bc -o {bin}.ll && cat {bin}.ll", "echo '(LLVM bitcode generated with O3 optimization)'"),
+    "c-llvm": _compile_profile(
+        ".c",
+        "clang -x c -O3 -S -emit-llvm {src} -o {bin}.ll && cat {bin}.ll",
+        "echo '(LLVM IR generated with O3 optimization)'",
+    ),
+    "cpp-llvm": _compile_profile(
+        ".cc",
+        "clang++ -O3 -S -emit-llvm {src} -o {bin}.ll && cat {bin}.ll",
+        "echo '(LLVM IR generated with O3 optimization)'",
+    ),
+    "c-llvm-bc": _compile_profile(
+        ".c",
+        "clang -x c -O3 -c -emit-llvm {src} -o {bin}.bc && llvm-dis {bin}.bc -o {bin}.ll && cat {bin}.ll",
+        "echo '(LLVM bitcode generated with O3 optimization)'",
+    ),
+    "cpp-llvm-bc": _compile_profile(
+        ".cc",
+        "clang++ -O3 -c -emit-llvm {src} -o {bin}.bc && llvm-dis {bin}.bc -o {bin}.ll && cat {bin}.ll",
+        "echo '(LLVM bitcode generated with O3 optimization)'",
+    ),
     "fortran": _compile_profile(".f90", "gfortran {src} -o {bin}", "{bin}"),
-    "fortran-llvm": _compile_profile(".f90", "flang -O3 {src} -S -emit-llvm -o {bin}.ll && cat {bin}.ll", "echo '(LLVM IR generated with O3 optimization)'"),
+    "fortran-llvm": _compile_profile(
+        ".f90",
+        "flang -O3 {src} -S -emit-llvm -o {bin}.ll && cat {bin}.ll",
+        "echo '(LLVM IR generated with O3 optimization)'",
+    ),
     "asm": _compile_profile(".s", "clang -x assembler {src} -o {bin}", "{bin}"),
-    "zig": _compile_profile(".zig", "zig build-exe -O Debug -femit-bin={bin} {src}", "{bin}"),
+    "zig": _compile_profile(
+        ".zig", "zig build-exe -O Debug -femit-bin={bin} {src}", "{bin}"
+    ),
     "nim": _compile_profile(".nim", "nim c -o:{bin} {src}", "{bin}"),
     "crystal": _compile_profile(".cr", "crystal build -o {bin} {src}", "{bin}"),
     "haskell-compile": _compile_profile(".hs", "ghc -o {bin} {src}", "{bin}"),
     "ocamlc": _compile_profile(".ml", "ocamlc -o {bin} {src}", "{bin}"),
-
     # Java / JVM
     "java-openjdk": _java_openjdk_builder(),
     "java-android": _java_android_builder(),
@@ -342,12 +375,10 @@ POLYGLOT_ALIASES = {
     "zshell": "zsh",
     "powershell": "pwsh",
     "ps1": "pwsh",
-
     # Python
     "py": "python",
     "python3": "python",
     "ipython": "python",
-
     # JavaScript / TypeScript
     "javascript": "node",
     "js": "node",
@@ -355,7 +386,6 @@ POLYGLOT_ALIASES = {
     "ts": "deno",
     "typescript": "deno",
     "tsnode": "ts-node",
-
     # C-family
     "c++": "cpp",
     "cxx": "cpp",
@@ -371,7 +401,6 @@ POLYGLOT_ALIASES = {
     "cpp-bc": "cpp-llvm-bc",
     "fortran-ll": "fortran-llvm",
     "fortran-ir": "fortran-llvm",
-
     # Others common
     "golang": "go",
     "rb": "ruby",
@@ -394,7 +423,9 @@ POLYGLOT_ALIASES = {
 
 def _parse_polyglot_template(template: str) -> Optional[str]:
     stripped = template.strip()
-    m = re.match(r"^(?:lang|language|polyglot)\s*(?:[:=]|\s+)\s*(.+)$", stripped, re.IGNORECASE)
+    m = re.match(
+        r"^(?:lang|language|polyglot)\s*(?:[:=]|\s+)\s*(.+)$", stripped, re.IGNORECASE
+    )
     if not m:
         return None
     return m.group(1).strip().lower()
@@ -404,13 +435,13 @@ def _canonical_lang(lang_hint: str) -> str:
     """
     Resolve a language hint to a canonical language key.
     Uses POLYGLOT_ALIASES to resolve aliases to their canonical form.
-    
+
     Args:
         lang_hint: The language name or alias (e.g., 'py', 'python3', 'js')
-        
+
     Returns:
         The canonical language key (e.g., 'python', 'node')
-        
+
     Raises:
         ValueError: If the language is not recognized
     """
@@ -431,13 +462,13 @@ _LANG_BRACKET_RE = re.compile(r"^\s*\[lang:([^\]]+)\]\s*(.*)$", re.IGNORECASE)
 def _parse_lang_bracket(cmd: str) -> Tuple[Optional[str], str]:
     """
     Parse [lang:xxx] syntax from the beginning of a shell command.
-    
+
     Args:
         cmd: The command string that may start with [lang:xxx]
-        
+
     Returns:
         Tuple of (language_name or None, remaining_command)
-        
+
     Examples:
         "[lang:python] print('hello')" -> ("python", "print('hello')")
         "echo hello" -> (None, "echo hello")
@@ -450,7 +481,9 @@ def _parse_lang_bracket(cmd: str) -> Tuple[Optional[str], str]:
     return None, cmd
 
 
-def _extract_polyglot_source(cmd: str, working_dir: Optional[str] = None) -> Tuple[str, List[str], Optional[str]]:
+def _extract_polyglot_source(
+    cmd: str, working_dir: Optional[str] = None
+) -> Tuple[str, List[str], Optional[str]]:
     raw = cmd.strip()
     base_dir = working_dir or PFY_ROOT or os.getcwd()
     if not raw:
@@ -464,7 +497,9 @@ def _extract_polyglot_source(cmd: str, working_dir: Optional[str] = None) -> Tup
             rel_path = source_token[1:]
         else:
             rel_path = source_token[5:]
-        full_path = rel_path if os.path.isabs(rel_path) else os.path.join(base_dir, rel_path)
+        full_path = (
+            rel_path if os.path.isabs(rel_path) else os.path.join(base_dir, rel_path)
+        )
         if not os.path.exists(full_path):
             raise FileNotFoundError(f"polyglot source file not found: {full_path}")
         with open(full_path, "r", encoding="utf-8") as poly_file:
@@ -475,33 +510,49 @@ def _extract_polyglot_source(cmd: str, working_dir: Optional[str] = None) -> Tup
     return cmd, [], None
 
 
-def _render_polyglot_command(lang_hint: Optional[str], cmd: str, working_dir: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+def _render_polyglot_command(
+    lang_hint: Optional[str], cmd: str, working_dir: Optional[str]
+) -> Tuple[Optional[str], Optional[str]]:
     if not lang_hint:
         return None, None
     lang_key = _canonical_lang(lang_hint)
     # _canonical_lang validates that the language exists, but let's be extra safe
     if lang_key not in POLYGLOT_LANGS:
-        raise ValueError(f"Language '{lang_key}' (from '{lang_hint}') has no builder registered")
+        raise ValueError(
+            f"Language '{lang_key}' (from '{lang_hint}') has no builder registered"
+        )
     builder = POLYGLOT_LANGS[lang_key]
     snippet, lang_args, _ = _extract_polyglot_source(cmd, working_dir)
     rendered = builder(snippet, lang_args)
     return rendered, lang_key
 
+
 # ---------- DSL (include + describe) ----------
 class Task:
-    def __init__(self, name: str, source_file: Optional[str] = None, params: Optional[Dict[str, str]] = None):
+    def __init__(
+        self,
+        name: str,
+        source_file: Optional[str] = None,
+        params: Optional[Dict[str, str]] = None,
+    ):
         self.name = name
         self.lines: List[str] = []
         self.description: Optional[str] = None
         self.source_file = source_file  # Track which file this task came from
         self.params: Dict[str, str] = params or {}  # Default parameter values
-    def add(self, line: str): self.lines.append(line)
+
+    def add(self, line: str):
+        self.lines.append(line)
+
 
 def _read_text_file(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-def _expand_includes_from_text(text: str, base_dir: str, visited: set[str], current_file: Optional[str] = None) -> Tuple[str, Dict[str, str]]:
+
+def _expand_includes_from_text(
+    text: str, base_dir: str, visited: set[str], current_file: Optional[str] = None
+) -> Tuple[str, Dict[str, str]]:
     """Expand includes and track which file each task came from.
     Returns: (expanded_text, task_name_to_source_file_map)
     """
@@ -509,7 +560,7 @@ def _expand_includes_from_text(text: str, base_dir: str, visited: set[str], curr
     task_sources: Dict[str, str] = {}
     inside_task = False
     current_task_name = None
-    
+
     for raw in text.splitlines():
         line = raw.rstrip("\n")
         stripped = line.strip()
@@ -519,16 +570,22 @@ def _expand_includes_from_text(text: str, base_dir: str, visited: set[str], curr
             try:
                 task_name, _ = _parse_task_definition(stripped)
             except ValueError:
-                task_name = stripped.split(None, 1)[1].strip() if len(stripped.split()) > 1 else ""
+                task_name = (
+                    stripped.split(None, 1)[1].strip()
+                    if len(stripped.split()) > 1
+                    else ""
+                )
             current_task_name = task_name
             # Track the source file for this task (use current_file if in an include)
             if current_file:
                 task_sources[task_name] = current_file
-            out_lines.append(line); continue
+            out_lines.append(line)
+            continue
         if stripped == "end":
             inside_task = False
             current_task_name = None
-            out_lines.append(line); continue
+            out_lines.append(line)
+            continue
         if not inside_task and stripped.startswith("include "):
             try:
                 toks = shlex.split(stripped)
@@ -536,7 +593,11 @@ def _expand_includes_from_text(text: str, base_dir: str, visited: set[str], curr
                 toks = stripped.split()
             if len(toks) >= 2:
                 inc_path = toks[1]
-                inc_full = inc_path if os.path.isabs(inc_path) else os.path.join(base_dir, inc_path)
+                inc_full = (
+                    inc_path
+                    if os.path.isabs(inc_path)
+                    else os.path.join(base_dir, inc_path)
+                )
                 inc_full = os.path.normpath(inc_full)
                 if inc_full in visited:
                     continue
@@ -545,21 +606,30 @@ def _expand_includes_from_text(text: str, base_dir: str, visited: set[str], curr
                     continue
                 visited.add(inc_full)
                 inc_text = _read_text_file(inc_full)
-                
+
                 # Process included file with its path as current_file
-                inc_expanded, inc_sources = _expand_includes_from_text(inc_text, os.path.dirname(inc_full), visited, inc_full)
-                
+                inc_expanded, inc_sources = _expand_includes_from_text(
+                    inc_text, os.path.dirname(inc_full), visited, inc_full
+                )
+
                 # Merge task sources
                 task_sources.update(inc_sources)
-                
+
                 out_lines.append(f"# --- begin include: {inc_full} ---")
                 out_lines.append(inc_expanded)
                 out_lines.append(f"# --- end include: {inc_full} ---")
                 continue
         out_lines.append(line)
-    return "\n".join(out_lines) + ("\n" if out_lines and not out_lines[-1].endswith("\n") else ""), task_sources
+    return (
+        "\n".join(out_lines)
+        + ("\n" if out_lines and not out_lines[-1].endswith("\n") else ""),
+        task_sources,
+    )
 
-def _load_pfy_source_with_includes(file_arg: Optional[str] = None) -> Tuple[str, Dict[str, str]]:
+
+def _load_pfy_source_with_includes(
+    file_arg: Optional[str] = None,
+) -> Tuple[str, Dict[str, str]]:
     """Load Pfyfile with includes expanded, return (text, task_sources)"""
     pfy_resolved = _find_pfyfile(file_arg=file_arg)
     if os.path.exists(pfy_resolved):
@@ -569,15 +639,16 @@ def _load_pfy_source_with_includes(file_arg: Optional[str] = None) -> Tuple[str,
         return _expand_includes_from_text(main_text, base_dir, visited)
     return PFY_EMBED, {}
 
+
 def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str]]:
     """
     Parse a task definition line to extract task name and parameters.
-    
+
     Examples:
         "task my-task" -> ("my-task", {})
         "task my-task param1=value1" -> ("my-task", {"param1": "value1"})
         "task my-task param1=\"\" param2=default" -> ("my-task", {"param1": "", "param2": "default"})
-    
+
     Returns:
         Tuple of (task_name, parameters_dict)
     """
@@ -585,39 +656,43 @@ def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str]]:
     rest = line[5:].strip()
     if not rest:
         raise ValueError("Task name missing.")
-    
+
     # Use shlex to properly handle quoted values
     try:
         tokens = shlex.split(rest)
     except ValueError:
         # If shlex fails, fall back to simple split
         tokens = rest.split()
-    
+
     if not tokens:
         raise ValueError("Task name missing.")
-    
+
     task_name = tokens[0]
     params: Dict[str, str] = {}
-    
+
     # Parse parameter definitions (key=value pairs)
     for token in tokens[1:]:
-        if '=' in token:
-            key, value = token.split('=', 1)
+        if "=" in token:
+            key, value = token.split("=", 1)
             params[key] = value
         else:
             # If a token doesn't have '=', it might be part of task name (shouldn't happen with proper syntax)
             # For now, we'll just skip it to be lenient
             pass
-    
+
     return task_name, params
 
-def parse_pfyfile_text(text: str, task_sources: Optional[Dict[str, str]] = None) -> Dict[str, Task]:
+
+def parse_pfyfile_text(
+    text: str, task_sources: Optional[Dict[str, str]] = None
+) -> Dict[str, Task]:
     """Parse Pfyfile text into Task objects with optional source tracking"""
     tasks: Dict[str, Task] = {}
     cur: Optional[Task] = None
     for raw in text.splitlines():
         line = raw.strip()
-        if not line or line.startswith("#"): continue
+        if not line or line.startswith("#"):
+            continue
         if line.startswith("task "):
             task_name, params = _parse_task_definition(line)
             # For task_sources lookup, we need to check both the full line and just the task name
@@ -630,8 +705,10 @@ def parse_pfyfile_text(text: str, task_sources: Optional[Dict[str, str]] = None)
             tasks[task_name] = cur
             continue
         if line == "end":
-            cur = None; continue
-        if cur is None: continue
+            cur = None
+            continue
+        if cur is None:
+            continue
         if line.startswith("describe "):
             if cur.description is None:
                 cur.description = line.split(None, 1)[1].strip()
@@ -639,10 +716,14 @@ def parse_pfyfile_text(text: str, task_sources: Optional[Dict[str, str]] = None)
         cur.add(line)
     return tasks
 
-def list_dsl_tasks_with_desc(file_arg: Optional[str] = None) -> List[Tuple[str, Optional[str]]]:
+
+def list_dsl_tasks_with_desc(
+    file_arg: Optional[str] = None,
+) -> List[Tuple[str, Optional[str]]]:
     src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
     tasks = parse_pfyfile_text(src, task_sources)
     return [(t.name, t.description) for t in tasks.values()]
+
 
 # ---------- Embedded sample ----------
 PFY_EMBED = r"""
@@ -652,9 +733,11 @@ task include_demo
 end
 """
 
+
 # ---------- Hosts parsing ----------
 def _normalize_hosts(spec) -> List[str]:
-    if spec is None: return []
+    if spec is None:
+        return []
     if isinstance(spec, list):
         out: List[str] = []
         for s in spec:
@@ -665,6 +748,7 @@ def _normalize_hosts(spec) -> List[str]:
         return out
     return [t.strip() for t in str(spec).split(",") if t.strip()]
 
+
 def _merge_env_hosts(env_names: List[str]) -> List[str]:
     merged: List[str] = []
     for name in env_names:
@@ -674,11 +758,16 @@ def _merge_env_hosts(env_names: List[str]) -> List[str]:
         merged.extend(_normalize_hosts(ENV_MAP[name]))
     return merged
 
+
 def _dedupe_preserve_order(items: List[str]) -> List[str]:
-    seen = set(); out = []
+    seen = set()
+    out = []
     for it in items:
-        if it not in seen: seen.add(it); out.append(it)
+        if it not in seen:
+            seen.add(it)
+            out.append(it)
     return out
+
 
 # ---------- Executors (Fabric) ----------
 def _split_kv(args: List[str]):
@@ -691,63 +780,105 @@ def _split_kv(args: List[str]):
             pos.append(a)
     return pos, kv
 
+
 def _parse_host(h: str, default_user: Optional[str], default_port: Optional[str]):
-    if h == "@local": return {"local": True}
-    user = default_user; port = default_port; host = h
-    if "@" in host: user, host = host.split("@", 1)
-    if ":" in host: host, port = host.split(":", 1)
-    return {"local": False, "user": user, "host": host, "port": int(port) if port else None}
+    if h == "@local":
+        return {"local": True}
+    user = default_user
+    port = default_port
+    host = h
+    if "@" in host:
+        user, host = host.split("@", 1)
+    if ":" in host:
+        host, port = host.split(":", 1)
+    return {
+        "local": False,
+        "user": user,
+        "host": host,
+        "port": int(port) if port else None,
+    }
+
 
 def _c_for(spec, sudo: bool, sudo_user: Optional[str]):
-    if spec.get("local"): return None
-    return Connection(host=spec["host"], user=spec["user"],
-                      port=spec["port"] if spec["port"] else 22), sudo, sudo_user
+    if spec.get("local"):
+        return None
+    return (
+        Connection(
+            host=spec["host"],
+            user=spec["user"],
+            port=spec["port"] if spec["port"] else 22,
+        ),
+        sudo,
+        sudo_user,
+    )
+
 
 def _run_local(cmd: str, env=None):
     import subprocess
+
     # Use bash explicitly for better bash syntax support (arrays, [[, etc.)
     # Wrap command to execute via bash -c
     bash_cmd = ["bash", "-c", cmd]
     p = subprocess.Popen(bash_cmd, env=env)
     return p.wait()
 
+
 def _sudo_wrap(cmd: str, sudo_user: Optional[str]) -> str:
     if sudo_user:
         return f"sudo -u {shlex.quote(sudo_user)} -H bash -lc {shlex.quote(cmd)}"
     return f"sudo bash -lc {shlex.quote(cmd)}"
 
-def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user: Optional[str], prefix: str, params: dict, task_env: dict):
+
+def _exec_line_fabric(
+    c: Optional[Connection],
+    line: str,
+    sudo: bool,
+    sudo_user: Optional[str],
+    prefix: str,
+    params: dict,
+    task_env: dict,
+):
     # interpolate & parse
     line = _interpolate(line, params, task_env)
-    
+
     # Extract the verb (first word) to determine the operation
     # For 'shell' commands, we preserve the rest of the line as-is to maintain bash syntax
     stripped = line.strip()
-    if not stripped: return 0
-    
+    if not stripped:
+        return 0
+
     # Split at most once to get the verb and the rest
     parts_split = stripped.split(maxsplit=1)
     verb = parts_split[0]
     rest_of_line = parts_split[1] if len(parts_split) > 1 else ""
-    
+
     def run(cmd: str):
         # Build environment for this command
         merged_env = dict(os.environ)
         if task_env:
-            merged_env.update({k: _interpolate(str(v), params, task_env) for k, v in task_env.items()})
+            merged_env.update(
+                {k: _interpolate(str(v), params, task_env) for k, v in task_env.items()}
+            )
         # For remote, prefix with export; for local, pass env to subprocess
         if c is None:
             full = cmd if not sudo else _sudo_wrap(cmd, sudo_user)
             # Prepend exports for display only
             if task_env:
-                exports = " ".join([f"{k}={shlex.quote(str(v))}" for k,v in task_env.items()])
+                exports = " ".join(
+                    [f"{k}={shlex.quote(str(v))}" for k, v in task_env.items()]
+                )
                 display = f"{exports} {full}" if exports else full
             else:
                 display = full
             print(f"{prefix}$ {display}")
             return _run_local(full, env=merged_env)
         else:
-            exports = " ".join([f"export {k}={shlex.quote(str(v))};" for k,v in (task_env or {}).items()])
+            exports = " ".join(
+                [
+                    f"export {k}={shlex.quote(str(v))};"
+                    for k, v in (task_env or {}).items()
+                ]
+            )
             shown = f"{exports} {cmd}".strip()
             print(f"{prefix}$ {(('(sudo) ' + shown) if sudo else shown)}")
             full_cmd = f"{exports} {cmd}" if exports else cmd
@@ -761,35 +892,46 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
 
     # Handle 'shell' command specially - preserve bash syntax
     if verb == "shell":
-        if not rest_of_line: raise ValueError("shell needs a command")
-        
+        if not rest_of_line:
+            raise ValueError("shell needs a command")
+
         # Check for [lang:xxx] syntax to enable polyglot execution
         lang_hint, remaining_cmd = _parse_lang_bracket(rest_of_line)
-        
+
         if lang_hint:
             # This is a polyglot shell command - render it with the appropriate language
             try:
                 # Use current working directory for file resolution in polyglot commands
                 working_dir = os.getcwd()
-                rendered_cmd, resolved_lang = _render_polyglot_command(lang_hint, remaining_cmd, working_dir)
+                rendered_cmd, resolved_lang = _render_polyglot_command(
+                    lang_hint, remaining_cmd, working_dir
+                )
                 if rendered_cmd:
                     return run(rendered_cmd)
                 # This shouldn't happen since _render_polyglot_command always returns a command
                 # when lang_hint is provided, but let's be defensive
-                print(f"{prefix}[warn] Polyglot rendering returned empty command for [lang:{lang_hint}], falling back to regular shell", file=sys.stderr)
+                print(
+                    f"{prefix}[warn] Polyglot rendering returned empty command for [lang:{lang_hint}], falling back to regular shell",
+                    file=sys.stderr,
+                )
             except (ValueError, KeyError) as e:
-                raise ValueError(f"Error processing polyglot command [lang:{lang_hint}]: {e}")
-        
+                raise ValueError(
+                    f"Error processing polyglot command [lang:{lang_hint}]: {e}"
+                )
+
         # Regular shell command (no [lang:xxx])
         return run(rest_of_line)
-    
+
     # For other commands, parse with shlex to handle quoted arguments
     parts = shlex.split(line)
-    if not parts: return 0
-    op = parts[0]; args = parts[1:]
+    if not parts:
+        return 0
+    op = parts[0]
+    args = parts[1:]
 
     if op == "packages":
-        if len(args) < 2: raise ValueError("packages install/remove <names...>")
+        if len(args) < 2:
+            raise ValueError("packages install/remove <names...>")
         action, names = args[0], args[1:]
         if action == "install":
             return run(" ".join(["apt -y install"] + names))
@@ -798,43 +940,54 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
         raise ValueError(f"Unknown packages action: {action}")
 
     if op == "service":
-        if len(args) < 2: raise ValueError("service <start|stop|enable|disable|restart> <name>")
+        if len(args) < 2:
+            raise ValueError("service <start|stop|enable|disable|restart> <name>")
         action, name = args[0], args[1]
         map_cmd = {
-            "start":   f"systemctl start {shlex.quote(name)}",
-            "stop":    f"systemctl stop {shlex.quote(name)}",
-            "enable":  f"systemctl enable {shlex.quote(name)}",
+            "start": f"systemctl start {shlex.quote(name)}",
+            "stop": f"systemctl stop {shlex.quote(name)}",
+            "enable": f"systemctl enable {shlex.quote(name)}",
             "disable": f"systemctl disable {shlex.quote(name)}",
             "restart": f"systemctl restart {shlex.quote(name)}",
         }
-        if action not in map_cmd: raise ValueError(f"Unknown service action: {action}")
+        if action not in map_cmd:
+            raise ValueError(f"Unknown service action: {action}")
         return run(map_cmd[action])
 
     if op == "directory":
         pos, kv = _split_kv(args)
-        if not pos: raise ValueError("directory <path> [mode=0755]")
-        path = pos[0]; mode = kv.get("mode")
+        if not pos:
+            raise ValueError("directory <path> [mode=0755]")
+        path = pos[0]
+        mode = kv.get("mode")
         rc = run(f"mkdir -p {shlex.quote(path)}")
-        if rc == 0 and mode: rc = run(f"chmod {shlex.quote(mode)} {shlex.quote(path)}")
+        if rc == 0 and mode:
+            rc = run(f"chmod {shlex.quote(mode)} {shlex.quote(path)}")
         return rc
 
     if op == "copy":
         pos, kv = _split_kv(args)
-        if len(pos) < 2: raise ValueError("copy <local> <remote> [mode=0644] [user=...] [group=...]")
+        if len(pos) < 2:
+            raise ValueError("copy <local> <remote> [mode=0644] [user=...] [group=...]")
         local, remote = pos[0], pos[1]
-        mode = kv.get("mode"); owner = kv.get("user"); group = kv.get("group")
+        mode = kv.get("mode")
+        owner = kv.get("user")
+        group = kv.get("group")
         if c is None:
             import shutil
+
             os.makedirs(os.path.dirname(remote), exist_ok=True)
             shutil.copyfile(local, remote)
-            if mode: run(f"chmod {shlex.quote(mode)} {shlex.quote(remote)}")
+            if mode:
+                run(f"chmod {shlex.quote(mode)} {shlex.quote(remote)}")
             if owner or group:
                 og = f"{owner or ''}:{group or ''}"
                 run(f"chown {og} {shlex.quote(remote)}")
             return 0
         else:
             c.put(local, remote=remote)
-            if mode: run(f"chmod {shlex.quote(mode)} {shlex.quote(remote)}")
+            if mode:
+                run(f"chmod {shlex.quote(mode)} {shlex.quote(remote)}")
             if owner or group:
                 og = f"{owner or ''}:{group or ''}"
                 run(f"chown {og} {shlex.quote(remote)}")
@@ -872,9 +1025,15 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
         pos, kv = _split_kv(args)
         source_dir = pos[0] if pos else "."
         build_dir = kv.get("build_dir", "build")
-        
+
         # Configure step
-        configure_args = ["cmake", "-S", shlex.quote(source_dir), "-B", shlex.quote(build_dir)]
+        configure_args = [
+            "cmake",
+            "-S",
+            shlex.quote(source_dir),
+            "-B",
+            shlex.quote(build_dir),
+        ]
         if kv.get("generator"):
             configure_args.extend(["-G", shlex.quote(kv["generator"])])
         if kv.get("build_type"):
@@ -883,18 +1042,18 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
         for k, v in kv.items():
             if k not in {"build_dir", "generator", "build_type", "target", "jobs"}:
                 configure_args.append(f"-D{k}={shlex.quote(v)}")
-        
+
         rc = run(" ".join(configure_args))
         if rc != 0:
             return rc
-        
+
         # Build step
         build_args = ["cmake", "--build", shlex.quote(build_dir)]
         if kv.get("jobs"):
             build_args.extend(["-j", kv["jobs"]])
         if kv.get("target"):
             build_args.extend(["--target", shlex.quote(kv["target"])])
-        
+
         return run(" ".join(build_args))
 
     if op == "meson" or op == "ninja":
@@ -902,14 +1061,19 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
         pos, kv = _split_kv(args)
         source_dir = pos[0] if pos else "."
         build_dir = kv.get("build_dir", "builddir")
-        
+
         # Check if build directory already exists (reconfigure vs initial setup)
         check_cmd = f"test -f {shlex.quote(build_dir)}/build.ninja"
         rc_check = run(check_cmd)
-        
+
         if rc_check != 0:
             # Initial setup
-            setup_args = ["meson", "setup", shlex.quote(build_dir), shlex.quote(source_dir)]
+            setup_args = [
+                "meson",
+                "setup",
+                shlex.quote(build_dir),
+                shlex.quote(source_dir),
+            ]
             if kv.get("buildtype"):
                 setup_args.append(f"--buildtype={shlex.quote(kv['buildtype'])}")
             for k, v in kv.items():
@@ -918,12 +1082,12 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
             rc = run(" ".join(setup_args))
             if rc != 0:
                 return rc
-        
+
         # Compile
         compile_args = ["meson", "compile", "-C", shlex.quote(build_dir)]
         if kv.get("target"):
             compile_args.append(shlex.quote(kv["target"]))
-        
+
         return run(" ".join(compile_args))
 
     if op == "cargo":
@@ -933,7 +1097,7 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
         pos, kv = _split_kv(args)
         subcommand = pos[0]
         cargo_args = ["cargo", subcommand]
-        
+
         if kv.get("release") == "true":
             cargo_args.append("--release")
         if kv.get("features"):
@@ -942,10 +1106,10 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
             cargo_args.extend(["--target", shlex.quote(kv["target"])])
         if kv.get("manifest_path"):
             cargo_args.extend(["--manifest-path", shlex.quote(kv["manifest_path"])])
-        
+
         # Add remaining positional args
         cargo_args.extend([shlex.quote(a) for a in pos[1:]])
-        
+
         # Add remaining kv pairs as flags
         for k, v in kv.items():
             if k not in {"release", "features", "target", "manifest_path"}:
@@ -953,7 +1117,7 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
                     cargo_args.append(f"--{k}")
                 else:
                     cargo_args.extend([f"--{k}", shlex.quote(v)])
-        
+
         return run(" ".join(cargo_args))
 
     if op == "go_build" or op == "gobuild":
@@ -961,7 +1125,7 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
         pos, kv = _split_kv(args)
         subcommand = kv.get("subcommand", "build")
         go_args = ["go", subcommand]
-        
+
         if kv.get("output"):
             go_args.extend(["-o", shlex.quote(kv["output"])])
         if kv.get("tags"):
@@ -970,10 +1134,10 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
             go_args.append("-race")
         if kv.get("ldflags"):
             go_args.extend(["-ldflags", shlex.quote(kv["ldflags"])])
-        
+
         # Add package path if provided
         go_args.extend([shlex.quote(p) for p in pos])
-        
+
         return run(" ".join(go_args))
 
     if op == "configure":
@@ -981,10 +1145,10 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
         pos, kv = _split_kv(args)
         configure_script = pos[0] if pos else "./configure"
         configure_args = [configure_script]
-        
+
         if kv.get("prefix"):
             configure_args.append(f"--prefix={shlex.quote(kv['prefix'])}")
-        
+
         # Add boolean flags
         for k, v in kv.items():
             if k == "prefix":
@@ -995,7 +1159,7 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
                 configure_args.append(f"--disable-{k}")
             else:
                 configure_args.append(f"--{k}={shlex.quote(v)}")
-        
+
         return run(" ".join(configure_args))
 
     if op == "justfile" or op == "just":
@@ -1048,13 +1212,13 @@ fi
         # Automagic builder - detects build system and runs appropriate build command
         # Supports: Cargo, Go, CMake, Meson, Make, npm, Python, Maven/Gradle, Just, Autotools
         # Optional parameters: target=<target>, jobs=<N>, release=<true/false>, dir=<path>
-        
+
         pos, kv = _split_kv(args)
         target_dir = kv.get("dir", ".")
         jobs = kv.get("jobs", "4")
         is_release = kv.get("release", "").lower() in ("true", "yes", "1")
         custom_target = kv.get("target", "")
-        
+
         autobuild_script = f"""
 set -e
 cd {shlex.quote(target_dir)}
@@ -1262,20 +1426,20 @@ echo "==> Build completed successfully with $BUILD_SYSTEM"
         #      [excludes=["pattern1","pattern2"]] [exclude_file=<path>]
         #      [delete] [dry] [verbose]
         # Supports both local and remote (SSH) sync using rsync
-        
+
         pos, kv = _split_kv(args)
-        
+
         # Required parameters
         src = kv.get("src")
         dest = kv.get("dest")
         if not src or not dest:
             raise ValueError("sync requires src=<path> and dest=<path>")
-        
+
         # Optional parameters
         host = kv.get("host")
         user = kv.get("user")
         port = kv.get("port")
-        
+
         # Parse excludes array
         excludes_raw = kv.get("excludes", "")
         excludes = []
@@ -1286,41 +1450,41 @@ echo "==> Build completed successfully with $BUILD_SYSTEM"
                 excludes_str = excludes_raw[1:-1]
                 if excludes_str:
                     excludes = [p.strip() for p in excludes_str.split(",")]
-        
+
         exclude_file = kv.get("exclude_file")
         delete = "delete" in pos or kv.get("delete") == "true"
         dry = "dry" in pos or kv.get("dry") == "true"
         verbose = "verbose" in pos or kv.get("verbose") == "true"
-        
+
         # Build rsync command parts
         rsync_parts = ["rsync", "-az"]
-        
+
         # Add verbose flag
         if verbose:
             rsync_parts.append("-v")
-        
+
         # Add dry-run flag
         if dry:
             rsync_parts.append("--dry-run")
-        
+
         # Add delete flag (mirror destination)
         if delete:
             rsync_parts.append("--delete")
-        
+
         # Add excludes with proper quoting
         for pattern in excludes:
             rsync_parts.append("--exclude")
             rsync_parts.append(shlex.quote(pattern))
-        
+
         # Add exclude-from file
         if exclude_file:
             rsync_parts.append("--exclude-from")
             rsync_parts.append(shlex.quote(exclude_file))
-        
+
         # Build source and destination paths
         # Source is always local
         src_path = shlex.quote(src)
-        
+
         # Destination can be remote (SSH) or local
         if host:
             # Remote sync via SSH
@@ -1337,15 +1501,16 @@ echo "==> Build completed successfully with $BUILD_SYSTEM"
         else:
             # Local sync
             dest_path = shlex.quote(dest)
-        
+
         # Complete command
         rsync_parts.extend([src_path, dest_path])
-        
+
         # Execute rsync
         cmd = " ".join(rsync_parts)
         return run(cmd)
 
     raise ValueError(f"Unknown verb: {op}")
+
 
 # ---------- Built-ins ----------
 BUILTINS: Dict[str, List[str]] = {
@@ -1365,31 +1530,33 @@ BUILTINS: Dict[str, List[str]] = {
     ],
 }
 
+
 # ---------- CLI ----------
 def _print_list(file_arg: Optional[str] = None):
     """Print available tasks grouped by source"""
     print("Built-ins:")
     print("  " + "  ".join(BUILTINS.keys()))
-    
+
     # Load tasks with source tracking
     src_text, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
     tasks = parse_pfyfile_text(src_text, task_sources)
-    
+
     if tasks:
         resolved = _find_pfyfile(file_arg=file_arg)
         source = resolved if os.path.exists(resolved) else "embedded PFY_EMBED"
-        
+
         # Group tasks by their source file
         from collections import defaultdict
+
         tasks_by_source = defaultdict(list)
         main_tasks = []
-        
+
         for task in tasks.values():
             if task.source_file:
                 tasks_by_source[task.source_file].append(task)
             else:
                 main_tasks.append(task)
-        
+
         # Print main tasks first
         if main_tasks:
             print(f"\nFrom {source}:")
@@ -1398,7 +1565,7 @@ def _print_list(file_arg: Optional[str] = None):
                     print(f"  {task.name}  —  {task.description}")
                 else:
                     print(f"  {task.name}")
-        
+
         # Print tasks grouped by include file
         for source_file in sorted(tasks_by_source.keys()):
             # Generate subcommand name from filename
@@ -1411,29 +1578,32 @@ def _print_list(file_arg: Optional[str] = None):
                 subcommand_name = subcommand_name[:-3]  # Remove ".pf"
             # Convert underscores to hyphens
             subcommand_name = subcommand_name.replace("_", "-")
-            
+
             print(f"\n[{subcommand_name}] From {source_file}:")
             for task in sorted(tasks_by_source[source_file], key=lambda t: t.name):
                 if task.description:
                     print(f"  {task.name}  —  {task.description}")
                 else:
                     print(f"  {task.name}")
-    
+
     if ENV_MAP:
         print("\nEnvironments:")
         for k, v in ENV_MAP.items():
             vs = _normalize_hosts(v)
             print(f"  {k}: {', '.join(vs) if vs else '(empty)'}")
 
+
 def _alias_map(names: List[str]) -> Dict[str, str]:
     # Provide short aliases: hyphen/underscore stripped, only alnum kept
     def norm(s: str) -> str:
         return re.sub(r"[^a-z0-9]", "", s.lower())
+
     m = {}
     for n in names:
         m[n] = n
         m[norm(n)] = n
     return m
+
 
 def main(argv: List[str]) -> int:
     env_names: List[str] = []
@@ -1444,7 +1614,11 @@ def main(argv: List[str]) -> int:
     sudo_user = None
     pfy_file_arg = None
 
-    if argv and not "=" in argv[0] and (os.path.exists(argv[0]) or argv[0].endswith('.pf')):
+    if (
+        argv
+        and not "=" in argv[0]
+        and (os.path.exists(argv[0]) or argv[0].endswith(".pf"))
+    ):
         pfy_file_arg = argv[0]
         argv = argv[1:]
 
@@ -1452,75 +1626,118 @@ def main(argv: List[str]) -> int:
     i = 0
     while i < len(argv):
         a = argv[i]
-        
+
         # Handle --arg=value format
         if a.startswith("--") and "=" in a:
             k, v = a[2:].split("=", 1)  # Strip -- prefix and split
-            if k == "hosts": host_specs.extend(_normalize_hosts(v))
-            elif k == "host": host_specs.append(v.strip())
-            elif k == "env": env_names.append(v.strip())
-            elif k == "user": user = v
-            elif k == "port": port = v
-            elif k in ("sudo", "become"): sudo = v.lower() in ("1","true","yes","on")
-            elif k in ("sudo_user", "become_user", "sudo-user", "become-user"): sudo_user = v
+            if k == "hosts":
+                host_specs.extend(_normalize_hosts(v))
+            elif k == "host":
+                host_specs.append(v.strip())
+            elif k == "env":
+                env_names.append(v.strip())
+            elif k == "user":
+                user = v
+            elif k == "port":
+                port = v
+            elif k in ("sudo", "become"):
+                sudo = v.lower() in ("1", "true", "yes", "on")
+            elif k in ("sudo_user", "become_user", "sudo-user", "become-user"):
+                sudo_user = v
             else:
-                tasks = argv[i:]; break
-            i += 1; continue
-        
+                tasks = argv[i:]
+                break
+            i += 1
+            continue
+
         # Handle --arg value format
         if a.startswith("--") and i + 1 < len(argv):
             k = a[2:]  # Strip -- prefix
             # Special handling for --list and --help (treat as tasks)
             if k in ("list", "help"):
-                tasks = argv[i:]; break
+                tasks = argv[i:]
+                break
             # Check if next arg is a value (doesn't start with --)
             next_arg = argv[i + 1]
-            if k in ("hosts", "host", "env", "user", "port", "sudo-user", "sudo_user", "become-user", "become_user") and not next_arg.startswith("--"):
+            if k in (
+                "hosts",
+                "host",
+                "env",
+                "user",
+                "port",
+                "sudo-user",
+                "sudo_user",
+                "become-user",
+                "become_user",
+            ) and not next_arg.startswith("--"):
                 v = next_arg
-                if k == "hosts": host_specs.extend(_normalize_hosts(v))
-                elif k == "host": host_specs.append(v.strip())
-                elif k == "env": env_names.append(v.strip())
-                elif k == "user": user = v
-                elif k == "port": port = v
-                elif k in ("sudo_user", "become_user", "sudo-user", "become-user"): sudo_user = v
-                i += 2; continue
+                if k == "hosts":
+                    host_specs.extend(_normalize_hosts(v))
+                elif k == "host":
+                    host_specs.append(v.strip())
+                elif k == "env":
+                    env_names.append(v.strip())
+                elif k == "user":
+                    user = v
+                elif k == "port":
+                    port = v
+                elif k in ("sudo_user", "become_user", "sudo-user", "become-user"):
+                    sudo_user = v
+                i += 2
+                continue
             # Handle boolean flags like --sudo, --become
             elif k in ("sudo", "become"):
                 sudo = True
-                i += 1; continue
-        
+                i += 1
+                continue
+
         # Handle --list and --help as standalone flags
         if a in ("--list", "--help", "-h"):
-            tasks = argv[i:]; break
-        
+            tasks = argv[i:]
+            break
+
         # Handle legacy arg=value format (without --)
         if "=" in a and not a.startswith("--"):
             k, v = a.split("=", 1)
-            if k == "hosts": host_specs.extend(_normalize_hosts(v))
-            elif k == "host": host_specs.append(v.strip())
-            elif k == "env": env_names.append(v.strip())
-            elif k == "user": user = v
-            elif k == "port": port = v
-            elif k in ("sudo", "become"): sudo = v.lower() in ("1","true","yes","on")
-            elif k in ("sudo_user", "become_user"): sudo_user = v
+            if k == "hosts":
+                host_specs.extend(_normalize_hosts(v))
+            elif k == "host":
+                host_specs.append(v.strip())
+            elif k == "env":
+                env_names.append(v.strip())
+            elif k == "user":
+                user = v
+            elif k == "port":
+                port = v
+            elif k in ("sudo", "become"):
+                sudo = v.lower() in ("1", "true", "yes", "on")
+            elif k in ("sudo_user", "become_user"):
+                sudo_user = v
             else:
-                tasks = argv[i:]; break
-            i += 1; continue
-        
+                tasks = argv[i:]
+                break
+            i += 1
+            continue
+
         if a == "--":
-            tasks = argv[i+1:]; break
-        tasks = argv[i:]; break
+            tasks = argv[i + 1 :]
+            break
+        tasks = argv[i:]
+        break
 
     if not tasks or tasks[0] in {"help", "--help", "-h"}:
         if len(tasks) > 1:
             _print_task_help(tasks[1], file_arg=pfy_file_arg)
         else:
-            print("Usage: pf [<pfy_file>] [env=NAME|--env=NAME|--env NAME]* [hosts=..|--hosts=..|--hosts ..] [user=..|--user=..|--user ..] [port=..|--port=..|--port ..] [sudo=true|--sudo] [sudo_user=..|--sudo-user=..|--sudo-user ..] <task|list|help> [more_tasks...]")
+            print(
+                "Usage: pf [<pfy_file>] [env=NAME|--env=NAME|--env NAME]* [hosts=..|--hosts=..|--hosts ..] [user=..|--user=..|--user ..] [port=..|--port=..|--port ..] [sudo=true|--sudo] [sudo_user=..|--sudo-user=..|--sudo-user ..] <task|list|help> [more_tasks...]"
+            )
             print("\nAvailable tasks:")
             _print_list(file_arg=pfy_file_arg)
         return 0
     if tasks[0] in ("list", "--list"):
-        _print_list(file_arg=pfy_file_arg); return 0
+        _print_list(file_arg=pfy_file_arg)
+        return 0
 
     # Resolve hosts
     env_hosts = _merge_env_hosts(env_names)
@@ -1531,12 +1748,20 @@ def main(argv: List[str]) -> int:
     # Load tasks once
     dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=pfy_file_arg)
     dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
-    valid_task_names = set(BUILTINS.keys()) | set(dsl_tasks.keys()) | {"list", "help", "--help", "--list"}
+    valid_task_names = (
+        set(BUILTINS.keys())
+        | set(dsl_tasks.keys())
+        | {"list", "help", "--help", "--list"}
+    )
 
     # Parse multi-task + params: <task> [k=v ...] <task2> [k=v ...] ...
     selected = []
     j = 0
-    all_names_for_alias = list(BUILTINS.keys()) + list(dsl_tasks.keys()) + ["list","help","--help","--list"]
+    all_names_for_alias = (
+        list(BUILTINS.keys())
+        + list(dsl_tasks.keys())
+        + ["list", "help", "--help", "--list"]
+    )
     aliasmap_all = _alias_map(all_names_for_alias)
     while j < len(tasks):
         tname = tasks[j]
@@ -1545,12 +1770,19 @@ def main(argv: List[str]) -> int:
                 tname = aliasmap_all[tname]
             else:
                 import difflib as _difflib
-                close = _difflib.get_close_matches(tname, list(valid_task_names), n=3, cutoff=0.5)
-                print(f"[error] no such task: {tname}" + (f" — did you mean: {', '.join(close)}?" if close else ""), file=sys.stderr)
+
+                close = _difflib.get_close_matches(
+                    tname, list(valid_task_names), n=3, cutoff=0.5
+                )
+                print(
+                    f"[error] no such task: {tname}"
+                    + (f" — did you mean: {', '.join(close)}?" if close else ""),
+                    file=sys.stderr,
+                )
                 return 1
         j += 1
         params = {}
-        
+
         def _is_valid_parameter_value(idx: int) -> bool:
             """Check if the argument at idx is a valid parameter value (not a task or another flag)."""
             if idx >= len(tasks):
@@ -1558,13 +1790,13 @@ def main(argv: List[str]) -> int:
             next_arg = tasks[idx]
             # Value shouldn't start with -- (another flag) or be a task name
             return not next_arg.startswith("--") and next_arg not in valid_task_names
-        
+
         while j < len(tasks):
             arg = tasks[j]
             # Check if this looks like the next task name
             if not arg.startswith("--") and "=" not in arg and arg in valid_task_names:
                 break
-            
+
             # Support multiple parameter formats:
             # 1. --param=value
             # 2. --param value
@@ -1603,7 +1835,7 @@ def main(argv: List[str]) -> int:
             # Override with provided parameters
             merged_params.update(params)
             params = merged_params
-        
+
         selected.append((tname, lines, params))
 
     # Execute in parallel across hosts
@@ -1614,7 +1846,9 @@ def main(argv: List[str]) -> int:
             ctuple = (None, sudo, sudo_user)
         else:
             ctuple = _c_for(spec, sudo, sudo_user)
-        connection, sflag, suser = ctuple if isinstance(ctuple, tuple) else (None, sudo, sudo_user)
+        connection, sflag, suser = (
+            ctuple if isinstance(ctuple, tuple) else (None, sudo, sudo_user)
+        )
         if connection is not None:
             try:
                 connection.open()
@@ -1627,16 +1861,21 @@ def main(argv: List[str]) -> int:
             task_env = {}
             for ln in lines:
                 stripped = ln.strip()
-                if stripped.startswith('env '):
+                if stripped.startswith("env "):
                     for tok in shlex.split(stripped)[1:]:
-                        if '=' in tok:
-                            k,v = tok.split('=',1)
+                        if "=" in tok:
+                            k, v = tok.split("=", 1)
                             task_env[k] = _interpolate(v, params, task_env)
                     continue
                 try:
-                    rc = _exec_line_fabric(connection, ln, sflag, suser, prefix, params, task_env)
+                    rc = _exec_line_fabric(
+                        connection, ln, sflag, suser, prefix, params, task_env
+                    )
                     if rc != 0:
-                        print(f"{prefix} !! command failed (rc={rc}): {ln}", file=sys.stderr)
+                        print(
+                            f"{prefix} !! command failed (rc={rc}): {ln}",
+                            file=sys.stderr,
+                        )
                         return rc
                 except Exception as e:
                     print(f"{prefix} !! error: {e}", file=sys.stderr)
@@ -1658,6 +1897,7 @@ def main(argv: List[str]) -> int:
             rc_total = rc_total or rc
 
     return rc_total
+
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
