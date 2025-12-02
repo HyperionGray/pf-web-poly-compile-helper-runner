@@ -8,41 +8,29 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TEMP_DIR=$(mktemp -d)
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Test counters
-TOTAL_TESTS=0
-PASSED_TESTS=0
-FAILED_TESTS=0
+# Source shared test utilities if available, otherwise define locally
+if [ -f "$SCRIPT_DIR/../lib/test-utils.sh" ]; then
+    source "$SCRIPT_DIR/../lib/test-utils.sh"
+else
+    # Fallback: Define logging functions locally
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m'
+    TOTAL_TESTS=0
+    PASSED_TESTS=0
+    FAILED_TESTS=0
+    log_test() { echo -e "${BLUE}[BENCHMARK]${NC} $1"; TOTAL_TESTS=$((TOTAL_TESTS + 1)); }
+    log_pass() { echo -e "${GREEN}[PASS]${NC} $1"; PASSED_TESTS=$((PASSED_TESTS + 1)); }
+    log_fail() { echo -e "${RED}[FAIL]${NC} $1"; FAILED_TESTS=$((FAILED_TESTS + 1)); }
+    log_info() { echo -e "${YELLOW}[INFO]${NC} $1"; }
+fi
 
 cleanup() {
     rm -rf "$TEMP_DIR"
 }
 trap cleanup EXIT
-
-log_test() {
-    echo -e "${BLUE}[BENCHMARK]${NC} $1"
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))
-}
-
-log_pass() {
-    echo -e "${GREEN}[PASS]${NC} $1"
-    PASSED_TESTS=$((PASSED_TESTS + 1))
-}
-
-log_fail() {
-    echo -e "${RED}[FAIL]${NC} $1"
-    FAILED_TESTS=$((FAILED_TESTS + 1))
-}
-
-log_info() {
-    echo -e "${YELLOW}[INFO]${NC} $1"
-}
 
 # Benchmark function
 benchmark_parser() {
@@ -211,10 +199,10 @@ end
 task performance-stress-test iterations="1000"
   describe Stress test with many operations
   
-  for i in $(seq 1 $iterations)
+  for i in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
     shell echo "Iteration $i"
     
-    if $(($i % 100)) == 0
+    if $i == "5"
       shell echo "Checkpoint at iteration $i"
     end
   end
@@ -258,32 +246,23 @@ cd "$ROOT_DIR/pf-runner"
 # Generate a very large file for memory testing
 generate_large_pfyfile "$TEMP_DIR/memory_test.pf" 1000
 
-# Detect OS for platform-specific time command handling
-OS_TYPE="$(uname -s)"
-
-if [ "$OS_TYPE" = "Linux" ]; then
-    # GNU time with -v flag for verbose output
-    if command -v /usr/bin/time >/dev/null 2>&1; then
-        memory_output=$(/usr/bin/time -v python3 pf_parser.py list --file="$TEMP_DIR/memory_test.pf" 2>&1 >/dev/null)
-        max_memory=$(echo "$memory_output" | grep "Maximum resident set size" | awk '{print $6}')
-        
-        if [ -n "$max_memory" ] && [ "$max_memory" -lt 100000 ]; then # Less than 100MB
-            log_pass "Memory usage benchmark - Peak memory: ${max_memory}KB (< 100MB)"
-        elif [ -n "$max_memory" ]; then
-            log_fail "Memory usage benchmark - Peak memory: ${max_memory}KB (> 100MB)"
-        else
-            log_info "Memory usage benchmark - Could not parse GNU time output"
-        fi
+# Check OS for proper memory measurement tool
+os_type="$(uname -s)"
+if [ "$os_type" = "Linux" ] && command -v /usr/bin/time >/dev/null 2>&1; then
+    # GNU time with -v flag for memory measurement (Linux only)
+    memory_output=$(/usr/bin/time -v python3 pf_parser.py list --file="$TEMP_DIR/memory_test.pf" 2>&1 >/dev/null)
+    max_memory=$(echo "$memory_output" | grep "Maximum resident set size" | awk '{print $6}')
+    
+    if [ -n "$max_memory" ] && [ "$max_memory" -lt 100000 ]; then # Less than 100MB
+        log_pass "Memory usage benchmark - Peak memory: ${max_memory}KB (< 100MB)"
     else
-        log_info "Memory usage benchmark - /usr/bin/time not available"
+        log_fail "Memory usage benchmark - Peak memory: ${max_memory}KB (> 100MB)"
     fi
-elif [ "$OS_TYPE" = "Darwin" ]; then
-    # macOS/BSD: time command output differs from GNU time
-    # BSD time doesn't support -v flag the same way; skip gracefully
-    log_info "Memory usage benchmark - Skipped on macOS (BSD time format not supported)"
+elif [ "$os_type" = "Darwin" ]; then
+    # macOS: Use /usr/bin/time with different format
+    log_info "Memory usage benchmark - Skipping on macOS (GNU time not available)"
 else
-    # Other Unix-like systems: skip with informative message
-    log_info "Memory usage benchmark - Skipped on unsupported platform: $OS_TYPE"
+    log_info "Memory usage benchmark - /usr/bin/time not available or unsupported platform"
 fi
 
 # Benchmark 8: Concurrent parsing

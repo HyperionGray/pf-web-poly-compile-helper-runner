@@ -9,43 +9,34 @@ TEST_DIR="$SCRIPT_DIR"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TEMP_DIR=$(mktemp -d)
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Test counters
-TOTAL_TESTS=0
-PASSED_TESTS=0
-FAILED_TESTS=0
+# Source shared test utilities if available, otherwise define locally
+if [ -f "$SCRIPT_DIR/../lib/test-utils.sh" ]; then
+    source "$SCRIPT_DIR/../lib/test-utils.sh"
+else
+    # Fallback: Define logging functions locally
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m'
+    TOTAL_TESTS=0
+    PASSED_TESTS=0
+    FAILED_TESTS=0
+    log_test() { echo -e "${BLUE}[TEST]${NC} $1"; TOTAL_TESTS=$((TOTAL_TESTS + 1)); }
+    log_pass() { echo -e "${GREEN}[PASS]${NC} $1"; PASSED_TESTS=$((PASSED_TESTS + 1)); }
+    log_fail() { echo -e "${RED}[FAIL]${NC} $1"; FAILED_TESTS=$((FAILED_TESTS + 1)); }
+    log_info() { echo -e "${YELLOW}[INFO]${NC} $1"; }
+fi
 
 cleanup() {
     rm -rf "$TEMP_DIR"
 }
 trap cleanup EXIT
 
-log_test() {
-    echo -e "${BLUE}[TEST]${NC} $1"
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))
-}
-
-log_pass() {
-    echo -e "${GREEN}[PASS]${NC} $1"
-    PASSED_TESTS=$((PASSED_TESTS + 1))
-}
-
-log_fail() {
-    echo -e "${RED}[FAIL]${NC} $1"
-    FAILED_TESTS=$((FAILED_TESTS + 1))
-}
-
-log_info() {
-    echo -e "${YELLOW}[INFO]${NC} $1"
-}
-
 # Check if a debugging tool is available
+# NOTE: This function checks for user-installed debugging tools including those
+# configured in the user's home directory (e.g., pwndbg). These checks only read
+# configuration files to verify installation and do not execute any code from them.
 check_debug_tool_available() {
     local tool="$1"
     case "$tool" in
@@ -56,7 +47,13 @@ check_debug_tool_available() {
             command -v lldb >/dev/null 2>&1
             ;;
         "pwndbg")
-            test -d "$HOME/.pwndbg" && test -f "$HOME/.gdbinit" && grep -q pwndbg "$HOME/.gdbinit"
+            # Check for pwndbg installation by looking for the directory and gdbinit reference
+            # This only reads file contents to check for the pwndbg string, does not execute anything
+            if [ -n "$HOME" ] && [ -d "$HOME" ]; then
+                test -d "$HOME/.pwndbg" && test -f "$HOME/.gdbinit" && grep -q pwndbg "$HOME/.gdbinit" 2>/dev/null
+            else
+                return 1
+            fi
             ;;
         "objdump")
             command -v objdump >/dev/null 2>&1
