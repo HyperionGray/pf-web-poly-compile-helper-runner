@@ -270,8 +270,6 @@ services:
     image: localhost/pf-base:latest
     container_name: pf-build-all
     hostname: build-all
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     command: >
       /bin/bash -c "
         echo 'Build all WASM targets - run individual build containers instead'

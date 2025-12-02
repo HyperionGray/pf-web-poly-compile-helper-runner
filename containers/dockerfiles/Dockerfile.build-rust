@@ -5,6 +5,8 @@ LABEL maintainer="pf-web-poly-compile-helper-runner"
 LABEL description="Rust toolchain with wasm-pack for WebAssembly compilation"
 
 # Install Rust toolchain
+# NOTE: Using official rustup installer. For enhanced security in production,
+# consider using distro packages or verifying checksums against https://rust-lang.org
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     sh -s -- -y --default-toolchain stable && \
     . /root/.cargo/env && \
