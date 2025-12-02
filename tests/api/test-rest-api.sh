@@ -9,23 +9,40 @@ TEST_DIR="$SCRIPT_DIR"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TEMP_DIR=$(mktemp -d)
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
 # Test configuration
 API_PORT=8081
 API_URL="http://localhost:$API_PORT"
 API_BASE="$API_URL/api"
 SERVER_PID=""
 
-# Test counters
-TOTAL_TESTS=0
-PASSED_TESTS=0
-FAILED_TESTS=0
+# Source shared test utilities if available, otherwise define locally
+if [ -f "$SCRIPT_DIR/../lib/test-utils.sh" ]; then
+    source "$SCRIPT_DIR/../lib/test-utils.sh"
+else
+    # Fallback: Define logging functions locally
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m'
+    TOTAL_TESTS=0
+    PASSED_TESTS=0
+    FAILED_TESTS=0
+    log_test() { echo -e "${BLUE}[TEST]${NC} $1"; TOTAL_TESTS=$((TOTAL_TESTS + 1)); }
+    log_pass() { echo -e "${GREEN}[PASS]${NC} $1"; PASSED_TESTS=$((PASSED_TESTS + 1)); }
+    log_info() { echo -e "${YELLOW}[INFO]${NC} $1"; }
+fi
+
+# Override log_fail to display server logs on failure
+log_fail() {
+    echo -e "${RED}[FAIL]${NC} $1"
+    FAILED_TESTS=$((FAILED_TESTS + 1))
+    # Display server logs on failure to aid debugging
+    if [ -f "$TEMP_DIR/server.log" ]; then
+        echo -e "${YELLOW}[DEBUG]${NC} Last 20 lines of server.log:"
+        tail -n 20 "$TEMP_DIR/server.log" 2>/dev/null || true
+    fi
+}
 
 cleanup() {
     if [ -n "$SERVER_PID" ]; then
@@ -36,25 +53,6 @@ cleanup() {
     rm -rf "$TEMP_DIR"
 }
 trap cleanup EXIT
-
-log_test() {
-    echo -e "${BLUE}[TEST]${NC} $1"
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))
-}
-
-log_pass() {
-    echo -e "${GREEN}[PASS]${NC} $1"
-    PASSED_TESTS=$((PASSED_TESTS + 1))
-}
-
-log_fail() {
-    echo -e "${RED}[FAIL]${NC} $1"
-    FAILED_TESTS=$((FAILED_TESTS + 1))
-}
-
-log_info() {
-    echo -e "${YELLOW}[INFO]${NC} $1"
-}
 
 # Check if required tools are available
 check_dependencies() {
