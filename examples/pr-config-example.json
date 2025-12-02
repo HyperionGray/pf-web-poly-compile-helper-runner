@@ -1,0 +1,41 @@
+{
+  "repositories": [
+    {
+      "repo": "myorg/frontend",
+      "platform": "github"
+    },
+    {
+      "repo": "myorg/backend",
+      "platform": "github"
+    },
+    {
+      "repo": "myorg/mobile-app",
+      "platform": "gitlab"
+    }
+  ],
+  "platforms": {
+    "github": {
+      "enabled": true
+    },
+    "gitlab": {
+      "enabled": true
+    }
+  },
+  "filters": {
+    "states": ["open"],
+    "labels": ["ready-for-review", "needs-review"],
+    "authors": []
+  },
+  "merging": {
+    "defaultStrategy": "squash",
+    "requireReviews": true,
+    "requireAiApproval": true,
+    "autoDeleteBranch": true,
+    "maxConcurrentMerges": 3
+  },
+  "notifications": {
+    "enabled": true,
+    "channels": ["console", "file"],
+    "webhookUrl": ""
+  }
+}

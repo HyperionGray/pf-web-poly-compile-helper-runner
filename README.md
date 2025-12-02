@@ -90,6 +90,17 @@ pf build_detect
 - **Fortran**: Experimental WASM support via LFortran
 - **WAT**: Assemble WebAssembly text format with WABT
 
+### Container Infrastructure 🐳
+Run the entire development environment in containers using Podman:
+- **Podman Quadlets**: Systemd-integrated container management for production
+- **Podman Compose**: Development workflow with podman-compose.yml
+- **GPU Support**: Optional GPU-accelerated containers with CUDA
+- **Build Containers**: Pre-configured containers for Rust, C, Fortran compilation
+- **Debugger Container**: Full debugging suite with GDB, LLDB, pwndbg, radare2
+- **Ubuntu 24.04 Base**: All containers based on Ubuntu 24.04 with debugging tools
+
+See [Container Documentation](containers/README.md) for complete guide.
+
 ### Binary Injection & Advanced Debugging 🔧
 Compile code to shared libraries and inject into binaries for advanced debugging and analysis:
 - **Shared Library Compilation**: Build .so/.dylib from C, C++, Rust, Fortran
@@ -1023,6 +1034,23 @@ Additional documentation in `pf-runner/`:
 | `pf install-web` | Install web/WASM development tools |
 | `pf install` | Install everything (base + web) |
 | `pf list` | List all available tasks |
+
+| **Container & Quadlet Commands** | |
+| `pf container-build-all` | Build all container images |
+| `pf container-build-base` | Build base Ubuntu 24.04 image |
+| `pf container-build-api` | Build API server images |
+| `pf container-build-compilers` | Build compiler images (Rust, C, Fortran) |
+| `pf container-build-debugger` | Build debugger images |
+| `pf compose-up` | Start API server using podman-compose |
+| `pf compose-down` | Stop all containers |
+| `pf compose-build-wasm` | Build all WASM modules using containers |
+| `pf compose-debugger` | Start debugging container interactively |
+| `pf compose-debugger-gpu` | Start GPU-enabled debugger |
+| `pf quadlet-install` | Install Podman quadlet files for systemd |
+| `pf quadlet-status` | Show status of quadlet services |
+| `pf dev-container` | Start development environment using containers |
+| `pf container-test` | Run container infrastructure tests |
+| `pf container-help` | Show help for container and quadlet commands |
 
 ## Troubleshooting
 

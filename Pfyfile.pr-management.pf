@@ -1,0 +1,191 @@
+# PR Management Tasks
+# AI-assisted pull request discovery, review, and merging functionality
+
+task install-pr-tools
+  describe Install dependencies for PR management (GitHub CLI, GitLab CLI, etc.)
+  shell echo "🔧 Installing PR management tools..."
+  shell_lang bash
+  shell |
+    # Install GitHub CLI if not present
+    if ! command -v gh &> /dev/null; then
+      echo "Installing GitHub CLI..."
+      if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+        sudo apt update && sudo apt install gh -y
+      elif [[ "$OSTYPE" == "darwin"* ]]; then
+        brew install gh
+      fi
+    else
+      echo "✓ GitHub CLI already installed"
+    fi
+    
+    # Install GitLab CLI if not present
+    if ! command -v glab &> /dev/null; then
+      echo "Installing GitLab CLI..."
+      if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        curl -s https://api.github.com/repos/profclems/glab/releases/latest | grep "browser_download_url.*linux_amd64.tar.gz" | cut -d '"' -f 4 | wget -qi -
+        tar -xzf glab_*_linux_amd64.tar.gz
+        sudo mv bin/glab /usr/local/bin/
+        rm -rf bin glab_*_linux_amd64.tar.gz
+      elif [[ "$OSTYPE" == "darwin"* ]]; then
+        brew install glab
+      fi
+    else
+      echo "✓ GitLab CLI already installed"
+    fi
+    
+    # Install jq for JSON processing
+    if ! command -v jq &> /dev/null; then
+      echo "Installing jq..."
+      if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        sudo apt install jq -y
+      elif [[ "$OSTYPE" == "darwin"* ]]; then
+        brew install jq
+      fi
+    else
+      echo "✓ jq already installed"
+    fi
+    
+    echo "✅ PR management tools installation complete"
+  |
+end
+
+task pr-discover
+  describe Discover all open pull requests across configured repositories
+  shell echo "🔍 Discovering open pull requests..."
+  shell node tools/pr-discovery.mjs ${repo:-} ${platform:-auto}
+end
+
+task pr-list
+  describe List all discovered pull requests with status
+  shell echo "📋 Listing pull requests..."
+  shell node tools/pr-list.mjs ${filter:-all} ${format:-table}
+end
+
+task pr-review-ai
+  describe AI-powered code review of specified pull request
+  shell echo "🤖 Starting AI code review..."
+  shell node tools/pr-ai-review.mjs ${pr_id} ${provider:-openai} ${model:-gpt-4}
+end
+
+task pr-review-all-ai
+  describe Run AI review on all open pull requests
+  shell echo "🤖 Running AI review on all open PRs..."
+  shell node tools/pr-ai-review-batch.mjs ${provider:-openai} ${model:-gpt-4} ${max_concurrent:-3}
+end
+
+task pr-merge-safe
+  describe Safely merge a pull request with pre-merge checks
+  shell echo "🔀 Performing safe PR merge..."
+  shell node tools/pr-merge-safe.mjs ${pr_id} ${strategy:-squash} ${auto_delete_branch:-true}
+end
+
+task pr-merge-all
+  describe Merge all approved pull requests automatically
+  shell echo "🔀 Merging all approved PRs..."
+  shell node tools/pr-merge-batch.mjs ${strategy:-squash} ${require_reviews:-true} ${require_ai_approval:-true}
+end
+
+task pr-conflict-detect
+  describe Detect potential merge conflicts across PRs
+  shell echo "⚠️  Detecting merge conflicts..."
+  shell node tools/pr-conflict-detector.mjs ${check_all:-true}
+end
+
+task pr-conflict-resolve
+  describe AI-assisted conflict resolution for specified PR
+  shell echo "🔧 Resolving conflicts with AI assistance..."
+  shell node tools/pr-conflict-resolver.mjs ${pr_id} ${provider:-openai} ${auto_apply:-false}
+end
+
+task pr-status-dashboard
+  describe Show comprehensive PR status dashboard
+  shell echo "📊 PR Status Dashboard"
+  shell node tools/pr-dashboard.mjs ${refresh_interval:-30}
+end
+
+task pr-setup-webhooks
+  describe Setup webhooks for automated PR processing
+  shell echo "🔗 Setting up PR webhooks..."
+  shell node tools/pr-webhook-setup.mjs ${endpoint_url} ${secret}
+end
+
+task pr-ai-config
+  describe Configure AI providers and models for PR review
+  shell echo "⚙️  Configuring AI settings..."
+  shell node tools/pr-ai-config.mjs ${provider} ${api_key} ${model} ${review_criteria}
+end
+
+task pr-batch-process
+  describe Process multiple PRs with AI review and auto-merge
+  shell echo "⚡ Batch processing PRs..."
+  shell node tools/pr-batch-processor.mjs ${filter:-ready} ${max_concurrent:-5} ${dry_run:-false}
+end
+
+task pr-analytics
+  describe Generate analytics and reports on PR activity
+  shell echo "📈 Generating PR analytics..."
+  shell node tools/pr-analytics.mjs ${period:-30d} ${format:-html} ${output:-pr-report.html}
+end
+
+task pr-cleanup
+  describe Clean up merged branches and stale PRs
+  shell echo "🧹 Cleaning up merged PRs and branches..."
+  shell node tools/pr-cleanup.mjs ${days_old:-30} ${dry_run:-false}
+end
+
+task pr-help
+  describe Show comprehensive help for PR management commands
+  shell echo "🆘 PR Management Help"
+  shell echo ""
+  shell echo "Available PR Management Commands:"
+  shell echo ""
+  shell echo "Setup & Configuration:"
+  shell echo "  pf install-pr-tools              Install GitHub CLI, GitLab CLI, and dependencies"
+  shell echo "  pf pr-ai-config                  Configure AI providers and review settings"
+  shell echo "  pf pr-setup-webhooks             Setup automated webhook processing"
+  shell echo ""
+  shell echo "Discovery & Listing:"
+  shell echo "  pf pr-discover                   Discover PRs across repositories"
+  shell echo "  pf pr-list                       List all discovered PRs with status"
+  shell echo "  pf pr-status-dashboard           Show comprehensive PR dashboard"
+  shell echo ""
+  shell echo "AI-Powered Review:"
+  shell echo "  pf pr-review-ai pr_id=123        Review specific PR with AI"
+  shell echo "  pf pr-review-all-ai              Review all open PRs with AI"
+  shell echo "  pf pr-review-ai provider=claude  Use specific AI provider"
+  shell echo ""
+  shell echo "Merging Operations:"
+  shell echo "  pf pr-merge-safe pr_id=123       Safely merge specific PR"
+  shell echo "  pf pr-merge-all                  Merge all approved PRs"
+  shell echo "  pf pr-batch-process              Batch process PRs (review + merge)"
+  shell echo ""
+  shell echo "Conflict Management:"
+  shell echo "  pf pr-conflict-detect            Detect potential merge conflicts"
+  shell echo "  pf pr-conflict-resolve pr_id=123 AI-assisted conflict resolution"
+  shell echo ""
+  shell echo "Maintenance & Analytics:"
+  shell echo "  pf pr-cleanup                    Clean up merged branches"
+  shell echo "  pf pr-analytics                  Generate PR activity reports"
+  shell echo ""
+  shell echo "Parameters:"
+  shell echo "  repo=owner/name                  Target specific repository"
+  shell echo "  platform=github|gitlab|auto     Specify Git platform"
+  shell echo "  provider=openai|anthropic|local  AI provider selection"
+  shell echo "  model=gpt-4|claude-3|custom     AI model selection"
+  shell echo "  strategy=merge|squash|rebase     Merge strategy"
+  shell echo "  dry_run=true                     Preview actions without executing"
+  shell echo ""
+  shell echo "Examples:"
+  shell echo "  pf pr-discover repo=myorg/myrepo"
+  shell echo "  pf pr-review-ai pr_id=42 provider=anthropic model=claude-3"
+  shell echo "  pf pr-merge-all strategy=squash require_ai_approval=true"
+  shell echo "  pf pr-batch-process filter=ready max_concurrent=3 dry_run=true"
+  shell echo ""
+  shell echo "Configuration Files:"
+  shell echo "  ~/.config/pf/pr-config.json     Main PR management configuration"
+  shell echo "  ~/.config/pf/ai-providers.json  AI provider credentials and settings"
+  shell echo ""
+  shell echo "For detailed documentation, see: docs/PR-MANAGEMENT.md"
+end

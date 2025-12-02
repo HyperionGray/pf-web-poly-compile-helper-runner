@@ -1,0 +1,15 @@
+# Podman Volume for shared WASM output
+[Unit]
+Description=pf-web WASM Output Volume
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+
+[Volume]
+VolumeName=pf-wasm-output
+Driver=local
+
+# Labels for identification
+Label=app=pf-web
+Label=type=output
+
+[Install]
+WantedBy=default.target

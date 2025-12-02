@@ -1,0 +1,16 @@
+# Podman Pod definition for debugging services
+# This pod groups debugging and reverse engineering containers
+[Unit]
+Description=pf-web Debugging Services Pod
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+
+[Pod]
+PodName=pf-debugger
+Network=pf-web.network
+
+# Debugging needs more resources
+CPUWeight=200
+MemoryMax=8G
+
+[Install]
+WantedBy=default.target

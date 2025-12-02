@@ -1,0 +1,28 @@
+[Unit]
+Description=pf Development Environment Network
+Documentation=https://github.com/containers/podman/blob/main/docs/source/markdown/podman-systemd.unit.5.md
+
+[Network]
+# Network name
+NetworkName=pf-network
+
+# Use bridge driver for container communication
+Driver=bridge
+
+# Enable DNS resolution between containers
+DisableDNS=false
+
+# Subnet for the network
+Subnet=10.89.0.0/24
+
+# Gateway
+Gateway=10.89.0.1
+
+# Enable IPv6
+IPv6=false
+
+# Network options
+Options=com.docker.network.bridge.name=pf-br0
+
+[Install]
+WantedBy=default.target

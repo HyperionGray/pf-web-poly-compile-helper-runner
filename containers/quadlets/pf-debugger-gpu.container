@@ -1,0 +1,44 @@
+# Debugger GPU Container Quadlet
+# GPU-enabled debugging and analysis container
+[Unit]
+Description=pf-web GPU Debugger
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+After=pf-web.network
+
+[Container]
+ContainerName=pf-debugger-gpu
+Image=localhost/pf-debugger-gpu:latest
+Pod=pf-debugger.pod
+
+# Mount volumes
+Volume=pf-project-src.volume:/app/src:rw
+Volume=pf-wasm-output.volume:/app/output:rw
+
+# Environment configuration
+Environment=TERM=xterm-256color
+Environment=NVIDIA_VISIBLE_DEVICES=all
+Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+# GPU device passthrough
+# Requires nvidia-container-toolkit on host
+Device=nvidia.com/gpu=all
+
+# Security settings - debugging requires more privileges
+SecurityLabelDisable=true
+AddCapability=SYS_PTRACE
+
+# Enable ptrace for debugging
+PodmanArgs=--security-opt seccomp=unconfined
+
+# Resource limits
+MemoryMax=16G
+
+# Interactive debugging shell
+Exec=sleep infinity
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

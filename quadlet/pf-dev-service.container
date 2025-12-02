@@ -1,0 +1,59 @@
+[Unit]
+Description=pf Development Service Container
+Documentation=https://github.com/containers/podman/blob/main/docs/source/markdown/podman-systemd.unit.5.md
+Requires=pf-main-pod.service
+After=pf-main-pod.service
+BindsTo=pf-main-pod.service
+
+[Container]
+# Container name
+ContainerName=pf-dev-service
+
+# Image to use
+Image=localhost/pf-development:latest
+
+# Pod assignment
+Pod=pf-main-pod
+
+# Volume mounts
+Volume=pf-workspace:/workspace:rw,z
+Volume=pf-builds:/builds:rw,z
+Volume=pf-cache:/cache:rw,z
+
+# Environment variables
+Environment=PYTHONPATH=/workspace/pf-runner:${PYTHONPATH}
+Environment=PATH=/home/pf/.local/bin:${PATH}
+
+# Working directory
+WorkingDir=/workspace
+
+# User
+User=1000:1000
+
+# Security options
+SecurityLabelDisable=false
+NoNewPrivileges=false
+
+# Resource limits
+Memory=1g
+CPUQuota=100%
+
+# Health check
+HealthCmd=pf --version || exit 1
+HealthInterval=60s
+HealthTimeout=30s
+HealthRetries=3
+HealthStartPeriod=30s
+
+# Labels
+Label=app=pf-development
+Label=component=dev-service
+
+# Restart policy
+Restart=always
+
+# Command (keep container running)
+Exec=sleep infinity
+
+[Install]
+WantedBy=default.target
