@@ -246,10 +246,11 @@ cd "$ROOT_DIR/pf-runner"
 # Generate a very large file for memory testing
 generate_large_pfyfile "$TEMP_DIR/memory_test.pf" 1000
 
-# Check OS for proper memory measurement tool
-os_type="$(uname -s)"
-if [ "$os_type" = "Linux" ] && command -v /usr/bin/time >/dev/null 2>&1; then
-    # GNU time with -v flag for memory measurement (Linux only)
+# Detect OS - GNU time's -v flag output format differs between Linux and BSD/macOS
+OS_TYPE=$(uname -s)
+if [ "$OS_TYPE" != "Linux" ]; then
+    log_info "Memory usage benchmark - Skipped (GNU time -v format not supported on $OS_TYPE)"
+elif command -v /usr/bin/time >/dev/null 2>&1; then
     memory_output=$(/usr/bin/time -v python3 pf_parser.py list --file="$TEMP_DIR/memory_test.pf" 2>&1 >/dev/null)
     max_memory=$(echo "$memory_output" | grep "Maximum resident set size" | awk '{print $6}')
     

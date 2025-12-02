@@ -195,17 +195,12 @@ if check_language_available "rust"; then
 fi
 
 # Test 15: Java (if available)
-# NOTE: Java requires compilation before execution. The pf runner handles this by
-# creating a temporary directory, writing the code to a properly named .java file,
-# compiling it with javac, and then running it with java. If the pf runner doesn't
-# support this workflow for Java, this test will fail and should be skipped.
+# Note: pf runner handles Java compilation automatically via java-openjdk builder.
+# The class must be named 'Main' to match pf's expected entry point.
 if check_language_available "java"; then
-    log_test "Basic Java execution"
-    log_info "Java test skipped - Java requires compilation which may not be supported by pf shell_lang"
-    # Note: Uncomment the following if pf runner supports Java compilation:
-    # test_polyglot_execution "Basic Java execution" "java" \
-    #     "public class Test { public static void main(String[] args) { System.out.println(\"Hello from Java\"); } }" \
-    #     "Hello from Java"
+    test_polyglot_execution "Basic Java execution" "java" \
+        "public class Main { public static void main(String[] args) { System.out.println(\"Hello from Java\"); } }" \
+        "Hello from Java"
 fi
 
 # Test 16: Multi-language task

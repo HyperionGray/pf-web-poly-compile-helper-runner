@@ -252,7 +252,14 @@ fi
 test_http_endpoint "Non-existent build logs" "GET" "/logs/non-existent-build" "404" "" "not found"
 
 # Test 21: Static file serving (backward compatibility)
-test_http_endpoint "Static file serving" "GET" "/../index.html" "200" "" ""
+# Validate by checking for known content instead of relying on status codes
+log_test "Static file serving"
+static_response=$(curl -s "$API_BASE/../index.html")
+if [[ "$static_response" == *"Polyglot WebAssembly Demo"* ]]; then
+    log_pass "Static file serving - Response contains expected content 'Polyglot WebAssembly Demo'"
+else
+    log_fail "Static file serving - Response does not contain expected content 'Polyglot WebAssembly Demo'"
+fi
 
 # Test 22: CORS headers check
 log_test "CORS headers check"
