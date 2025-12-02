@@ -54,6 +54,30 @@ cleanup() {
 }
 trap cleanup EXIT
 
+log_test() {
+    echo -e "${BLUE}[TEST]${NC} $1"
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+}
+
+log_pass() {
+    echo -e "${GREEN}[PASS]${NC} $1"
+    PASSED_TESTS=$((PASSED_TESTS + 1))
+}
+
+log_fail() {
+    echo -e "${RED}[FAIL]${NC} $1"
+    FAILED_TESTS=$((FAILED_TESTS + 1))
+    # Display last few lines of server logs to aid debugging
+    if [ -f "$TEMP_DIR/server.log" ]; then
+        echo -e "${YELLOW}[DEBUG]${NC} Last 10 lines of server log:"
+        tail -n 10 "$TEMP_DIR/server.log" 2>/dev/null || true
+    fi
+}
+
+log_info() {
+    echo -e "${YELLOW}[INFO]${NC} $1"
+}
+
 # Check if required tools are available
 check_dependencies() {
     local missing_deps=()
