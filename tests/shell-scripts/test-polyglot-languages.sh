@@ -207,9 +207,11 @@ if check_language_available "rust"; then
 fi
 
 # Test 15: Java (if available)
+# Note: pf runner handles Java compilation automatically via java-openjdk builder.
+# The class must be named 'Main' to match pf's expected entry point.
 if check_language_available "java"; then
     test_polyglot_execution "Basic Java execution" "java" \
-        "public class Test { public static void main(String[] args) { System.out.println(\"Hello from Java\"); } }" \
+        "public class Main { public static void main(String[] args) { System.out.println(\"Hello from Java\"); } }" \
         "Hello from Java"
 fi
 
