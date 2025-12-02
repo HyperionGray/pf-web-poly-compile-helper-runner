@@ -78,6 +78,16 @@ log_info() {
     echo -e "${YELLOW}[INFO]${NC} $1"
 }
 
+# Display server logs (last N lines) to aid debugging
+show_server_logs() {
+    local lines="${1:-30}"
+    if [ -f "$TEMP_DIR/server.log" ]; then
+        echo -e "${YELLOW}=== Server Log (last $lines lines) ===${NC}"
+        tail -n "$lines" "$TEMP_DIR/server.log"
+        echo -e "${YELLOW}=== End Server Log ===${NC}"
+    fi
+}
+
 # Check if required tools are available
 check_dependencies() {
     local missing_deps=()
@@ -355,5 +365,7 @@ if [ $FAILED_TESTS -eq 0 ]; then
     exit 0
 else
     echo -e "${RED}Some REST API tests failed!${NC}"
+    # Display server logs to aid debugging when tests fail
+    show_server_logs 30
     exit 1
 fi
