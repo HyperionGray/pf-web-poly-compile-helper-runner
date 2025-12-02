@@ -1,0 +1,36 @@
+# pf-runner container - Python/Fabric task runner
+FROM localhost/pf-base:latest
+
+LABEL maintainer="pf-web-poly-compile-helper-runner"
+LABEL description="pf task runner with Python Fabric"
+
+# Install Python packages
+RUN python3 -m pip install --break-system-packages \
+    "fabric>=3.2,<4" \
+    invoke \
+    paramiko \
+    && python3 -m pip cache purge
+
+# Install lark parser for pf grammar
+RUN python3 -m pip install --break-system-packages lark
+
+# Copy pf-runner source
+COPY --chown=pfuser:pfuser pf-runner /app/pf-runner
+COPY --chown=pfuser:pfuser Pfyfile*.pf /app/
+
+# Make pf executable and create symlinks
+RUN chmod +x /app/pf-runner/pf_parser.py && \
+    ln -sf /app/pf-runner/pf_parser.py /home/pfuser/.local/bin/pf && \
+    ln -sf /app/pf-runner/pf_parser.py /usr/local/bin/pf
+
+# Set environment
+ENV PFY_FILE=/app/Pfyfile.pf
+
+USER pfuser
+WORKDIR /app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD pf list >/dev/null 2>&1 || exit 1
+
+CMD ["pf", "list"]

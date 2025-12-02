@@ -9,41 +9,29 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DOCS_DIR="$ROOT_DIR/docs"
 TEMP_DIR=$(mktemp -d)
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Test counters
-TOTAL_TESTS=0
-PASSED_TESTS=0
-FAILED_TESTS=0
+# Source shared test utilities if available, otherwise define locally
+if [ -f "$SCRIPT_DIR/../lib/test-utils.sh" ]; then
+    source "$SCRIPT_DIR/../lib/test-utils.sh"
+else
+    # Fallback: Define logging functions locally
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m'
+    TOTAL_TESTS=0
+    PASSED_TESTS=0
+    FAILED_TESTS=0
+    log_test() { echo -e "${BLUE}[TEST]${NC} $1"; TOTAL_TESTS=$((TOTAL_TESTS + 1)); }
+    log_pass() { echo -e "${GREEN}[PASS]${NC} $1"; PASSED_TESTS=$((PASSED_TESTS + 1)); }
+    log_fail() { echo -e "${RED}[FAIL]${NC} $1"; FAILED_TESTS=$((FAILED_TESTS + 1)); }
+    log_info() { echo -e "${YELLOW}[INFO]${NC} $1"; }
+fi
 
 cleanup() {
     rm -rf "$TEMP_DIR"
 }
 trap cleanup EXIT
-
-log_test() {
-    echo -e "${BLUE}[TEST]${NC} $1"
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))
-}
-
-log_pass() {
-    echo -e "${GREEN}[PASS]${NC} $1"
-    PASSED_TESTS=$((PASSED_TESTS + 1))
-}
-
-log_fail() {
-    echo -e "${RED}[FAIL]${NC} $1"
-    FAILED_TESTS=$((FAILED_TESTS + 1))
-}
-
-log_info() {
-    echo -e "${YELLOW}[INFO]${NC} $1"
-}
 
 # Extract tasks mentioned in documentation
 extract_doc_tasks() {
@@ -287,15 +275,13 @@ broken_refs=0
 # Check for references to non-existent files
 for doc_file in docs/*.md; do
     if [ -f "$doc_file" ]; then
-        # Check for file references
-        while IFS= read -r line; do
-            if [[ "$line" =~ \`[^`]*\.(pf|py|mjs|sh)\` ]]; then
-                file_ref=$(echo "$line" | grep -oE '\`[^`]*\.(pf|py|mjs|sh)\`' | tr -d '`')
-                if [ -n "$file_ref" ] && [ ! -f "$file_ref" ] && [ ! -f "$ROOT_DIR/$file_ref" ]; then
-                    broken_refs=$((broken_refs + 1))
-                fi
+        # Check for file references - look for code spans with file extensions
+        # Use grep instead of bash regex to avoid backtick escaping issues
+        while IFS= read -r file_ref; do
+            if [ -n "$file_ref" ] && [ ! -f "$file_ref" ] && [ ! -f "$ROOT_DIR/$file_ref" ]; then
+                broken_refs=$((broken_refs + 1))
             fi
-        done < "$doc_file"
+        done < <(grep -oE '[A-Za-z0-9_/-]+\.(pf|py|mjs|sh)' "$doc_file" 2>/dev/null | sort -u)
     fi
 done
 

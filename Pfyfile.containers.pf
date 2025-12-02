@@ -1,0 +1,251 @@
+# Container and Quadlet management tasks
+# Provides pf commands for building, running, and managing containers
+
+# ==========================================
+# Container Build Tasks
+# ==========================================
+
+task container-build-all
+  describe Build all container images using podman/docker
+  shell_lang bash
+  shell ./containers/scripts/build-containers.sh all
+end
+
+task container-build-base
+  describe Build base Ubuntu 24.04 container image
+  shell_lang bash
+  shell ./containers/scripts/build-containers.sh base
+end
+
+task container-build-api
+  describe Build API server container images
+  shell_lang bash
+  shell ./containers/scripts/build-containers.sh api
+end
+
+task container-build-compilers
+  describe Build WASM compiler container images (Rust, C, Fortran)
+  shell_lang bash
+  shell ./containers/scripts/build-containers.sh build
+end
+
+task container-build-debugger
+  describe Build debugger container images (standard and GPU)
+  shell_lang bash
+  shell ./containers/scripts/build-containers.sh debug
+end
+
+task container-build-no-cache
+  describe Build all container images without cache
+  shell_lang bash
+  shell ./containers/scripts/build-containers.sh --no-cache all
+end
+
+# ==========================================
+# Podman Compose Tasks
+# ==========================================
+
+task compose-up
+  describe Start API server using podman-compose
+  shell_lang bash
+  shell cd "${PWD}" && podman-compose -f podman-compose.yml up -d api-server pf-runner
+end
+
+task compose-down
+  describe Stop all containers using podman-compose
+  shell_lang bash
+  shell cd "${PWD}" && podman-compose -f podman-compose.yml down
+end
+
+task compose-build-wasm
+  describe Build all WASM modules using containers
+  shell_lang bash
+  shell cd "${PWD}" && podman-compose -f podman-compose.yml up build-rust build-c build-fortran build-wat
+end
+
+task compose-logs
+  describe View container logs
+  shell_lang bash
+  shell cd "${PWD}" && podman-compose -f podman-compose.yml logs -f ${service:-api-server}
+end
+
+task compose-status
+  describe Show container status
+  shell_lang bash
+  shell cd "${PWD}" && podman-compose -f podman-compose.yml ps -a
+end
+
+task compose-shell
+  describe Open shell in container (default: debugger)
+  shell_lang bash
+  shell cd "${PWD}" && podman-compose -f podman-compose.yml run --rm -it ${container:-debugger} /bin/bash
+end
+
+task compose-debugger
+  describe Start debugging container interactively
+  shell_lang bash
+  shell cd "${PWD}" && podman-compose -f podman-compose.yml run --rm -it debugger /bin/bash
+end
+
+task compose-debugger-gpu
+  describe Start GPU-enabled debugger (requires nvidia-container-toolkit)
+  shell_lang bash
+  shell cd "${PWD}" && podman-compose -f podman-compose.yml --profile gpu run --rm -it debugger-gpu /bin/bash
+end
+
+task compose-clean
+  describe Remove all containers, volumes, and networks
+  shell_lang bash
+  shell cd "${PWD}" && podman-compose -f podman-compose.yml down -v --remove-orphans
+end
+
+# ==========================================
+# Quadlet Management Tasks
+# ==========================================
+
+task quadlet-install
+  describe Install Podman quadlet files for systemd integration
+  shell_lang bash
+  shell ./containers/scripts/install-quadlets.sh --install
+end
+
+task quadlet-remove
+  describe Remove installed Podman quadlet files
+  shell_lang bash
+  shell ./containers/scripts/install-quadlets.sh --remove
+end
+
+task quadlet-status
+  describe Show status of quadlet services
+  shell_lang bash
+  shell ./containers/scripts/install-quadlets.sh --status
+end
+
+task quadlet-list
+  describe List installed quadlet files
+  shell_lang bash
+  shell ./containers/scripts/install-quadlets.sh --list
+end
+
+task quadlet-reload
+  describe Reload systemd after quadlet changes
+  shell_lang bash
+  shell systemctl --user daemon-reload && echo "Systemd reloaded"
+end
+
+task quadlet-start-api
+  describe Start API server via systemd quadlet
+  shell_lang bash
+  shell systemctl --user start pf-api-server && systemctl --user status pf-api-server
+end
+
+task quadlet-stop-api
+  describe Stop API server via systemd quadlet
+  shell_lang bash
+  shell systemctl --user stop pf-api-server
+end
+
+task quadlet-logs
+  describe View quadlet service logs
+  shell_lang bash
+  shell journalctl --user -u ${service:-pf-api-server} -f
+end
+
+# ==========================================
+# Development Workflow Tasks
+# ==========================================
+
+task dev-container
+  describe Start development environment using containers
+  shell_lang bash
+  shell ./containers/scripts/run-dev.sh
+end
+
+task dev-container-build
+  describe Build WASM modules using containers
+  shell_lang bash
+  shell ./containers/scripts/run-dev.sh build
+end
+
+task dev-container-debug
+  describe Start debugging container
+  shell_lang bash
+  shell ./containers/scripts/run-dev.sh debug
+end
+
+# ==========================================
+# Container Testing Tasks
+# ==========================================
+
+task container-test
+  describe Run container infrastructure tests
+  shell_lang bash
+  shell ./containers/scripts/test-containers.sh
+end
+
+task dev-container-gpu
+  describe Start GPU debugging container
+  shell_lang bash
+  shell ./containers/scripts/run-dev.sh gpu
+end
+
+task dev-container-status
+  describe Show container development status
+  shell_lang bash
+  shell ./containers/scripts/run-dev.sh status
+end
+
+# ==========================================
+# Help Task
+# ==========================================
+
+task container-help
+  describe Show help for container and quadlet commands
+  shell_lang bash
+  shell cat << 'EOF'
+
+Container and Quadlet Commands
+==============================
+
+BUILD COMMANDS:
+  pf container-build-all        Build all container images
+  pf container-build-base       Build base Ubuntu 24.04 image
+  pf container-build-api        Build API server images
+  pf container-build-compilers  Build compiler images (Rust, C, Fortran)
+  pf container-build-debugger   Build debugger images
+  pf container-build-no-cache   Rebuild all without cache
+
+PODMAN COMPOSE:
+  pf compose-up                 Start API server
+  pf compose-down               Stop all containers
+  pf compose-build-wasm         Build all WASM modules
+  pf compose-status             Show container status
+  pf compose-logs               View container logs
+  pf compose-shell              Open shell in container
+  pf compose-debugger           Start debugging container
+  pf compose-debugger-gpu       Start GPU debugger
+  pf compose-clean              Remove containers and volumes
+
+QUADLET (SYSTEMD):
+  pf quadlet-install            Install quadlet files
+  pf quadlet-remove             Remove quadlet files
+  pf quadlet-status             Show service status
+  pf quadlet-reload             Reload systemd daemon
+  pf quadlet-start-api          Start API via systemd
+  pf quadlet-stop-api           Stop API via systemd
+  pf quadlet-logs               View service logs
+
+DEVELOPMENT:
+  pf dev-container              Start dev environment
+  pf dev-container-build        Build WASM via containers
+  pf dev-container-debug        Start debugger
+  pf dev-container-gpu          Start GPU debugger
+
+TESTING:
+  pf container-test             Run container infrastructure tests
+
+DOCUMENTATION:
+  See containers/README.md for full documentation
+
+EOF
+end

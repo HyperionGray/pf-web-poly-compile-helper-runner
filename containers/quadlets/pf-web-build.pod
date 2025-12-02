@@ -1,0 +1,16 @@
+# Podman Pod definition for pf-web build services
+# This pod groups all compilation containers
+[Unit]
+Description=pf-web Build Services Pod
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+
+[Pod]
+PodName=pf-web-build
+Network=pf-web.network
+
+# Build pods may need more resources
+CPUWeight=200
+MemoryMax=8G
+
+[Install]
+WantedBy=default.target

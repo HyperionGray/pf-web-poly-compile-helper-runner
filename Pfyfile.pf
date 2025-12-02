@@ -18,6 +18,9 @@ include Pfyfile.security.pf
 # Include git cleanup tasks
 include Pfyfile.git-cleanup.pf
 
+# Include PR management tasks
+include Pfyfile.pr-management.pf
+
 # Include exploit development tasks
 include Pfyfile.exploit.pf
 # Include TUI tasks
@@ -25,6 +28,9 @@ include Pfyfile.tui.pf
 
 # Include debugging tools tasks
 include Pfyfile.debug-tools.pf
+
+# Include container and quadlet tasks
+include Pfyfile.containers.pf
 
 task web-dev
   describe Start development server with REST API support

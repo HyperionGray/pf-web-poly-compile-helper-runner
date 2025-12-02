@@ -29,6 +29,7 @@ from fabric import Connection
 
 # ---------- CONFIG ----------
 PFY_FILE = os.environ.get("PFY_FILE", "Pfyfile.pf")
+PFY_ROOT: Optional[str] = None  # Set by main() when loading the Pfyfile
 ENV_MAP: Dict[str, List[str] | str] = {
     "local": ["@local"],
     "prod": ["ubuntu@10.0.0.5:22", "punk@10.4.4.4:24"],
@@ -399,6 +400,56 @@ def _parse_polyglot_template(template: str) -> Optional[str]:
     return m.group(1).strip().lower()
 
 
+def _canonical_lang(lang_hint: str) -> str:
+    """
+    Resolve a language hint to a canonical language key.
+    Uses POLYGLOT_ALIASES to resolve aliases to their canonical form.
+    
+    Args:
+        lang_hint: The language name or alias (e.g., 'py', 'python3', 'js')
+        
+    Returns:
+        The canonical language key (e.g., 'python', 'node')
+        
+    Raises:
+        ValueError: If the language is not recognized
+    """
+    lang = lang_hint.strip().lower()
+    # Check if it's already a canonical language name
+    if lang in POLYGLOT_LANGS:
+        return lang
+    # Check if it's an alias
+    if lang in POLYGLOT_ALIASES:
+        return POLYGLOT_ALIASES[lang]
+    raise ValueError(f"Unsupported language: {lang_hint}")
+
+
+# Regex to parse [lang:xxx] syntax from shell command
+_LANG_BRACKET_RE = re.compile(r"^\s*\[lang:([^\]]+)\]\s*(.*)$", re.IGNORECASE)
+
+
+def _parse_lang_bracket(cmd: str) -> Tuple[Optional[str], str]:
+    """
+    Parse [lang:xxx] syntax from the beginning of a shell command.
+    
+    Args:
+        cmd: The command string that may start with [lang:xxx]
+        
+    Returns:
+        Tuple of (language_name or None, remaining_command)
+        
+    Examples:
+        "[lang:python] print('hello')" -> ("python", "print('hello')")
+        "echo hello" -> (None, "echo hello")
+    """
+    match = _LANG_BRACKET_RE.match(cmd)
+    if match:
+        lang = match.group(1).strip()
+        remaining = match.group(2)
+        return lang, remaining
+    return None, cmd
+
+
 def _extract_polyglot_source(cmd: str, working_dir: Optional[str] = None) -> Tuple[str, List[str], Optional[str]]:
     raw = cmd.strip()
     base_dir = working_dir or PFY_ROOT or os.getcwd()
@@ -428,6 +479,9 @@ def _render_polyglot_command(lang_hint: Optional[str], cmd: str, working_dir: Op
     if not lang_hint:
         return None, None
     lang_key = _canonical_lang(lang_hint)
+    # _canonical_lang validates that the language exists, but let's be extra safe
+    if lang_key not in POLYGLOT_LANGS:
+        raise ValueError(f"Language '{lang_key}' (from '{lang_hint}') has no builder registered")
     builder = POLYGLOT_LANGS[lang_key]
     snippet, lang_args, _ = _extract_polyglot_source(cmd, working_dir)
     rendered = builder(snippet, lang_args)
@@ -708,6 +762,25 @@ def _exec_line_fabric(c: Optional[Connection], line: str, sudo: bool, sudo_user:
     # Handle 'shell' command specially - preserve bash syntax
     if verb == "shell":
         if not rest_of_line: raise ValueError("shell needs a command")
+        
+        # Check for [lang:xxx] syntax to enable polyglot execution
+        lang_hint, remaining_cmd = _parse_lang_bracket(rest_of_line)
+        
+        if lang_hint:
+            # This is a polyglot shell command - render it with the appropriate language
+            try:
+                # Use current working directory for file resolution in polyglot commands
+                working_dir = os.getcwd()
+                rendered_cmd, resolved_lang = _render_polyglot_command(lang_hint, remaining_cmd, working_dir)
+                if rendered_cmd:
+                    return run(rendered_cmd)
+                # This shouldn't happen since _render_polyglot_command always returns a command
+                # when lang_hint is provided, but let's be defensive
+                print(f"{prefix}[warn] Polyglot rendering returned empty command for [lang:{lang_hint}], falling back to regular shell", file=sys.stderr)
+            except (ValueError, KeyError) as e:
+                raise ValueError(f"Error processing polyglot command [lang:{lang_hint}]: {e}")
+        
+        # Regular shell command (no [lang:xxx])
         return run(rest_of_line)
     
     # For other commands, parse with shlex to handle quoted arguments

@@ -1,0 +1,41 @@
+# C/Emscripten WASM build container
+FROM localhost/pf-base:latest
+
+LABEL maintainer="pf-web-poly-compile-helper-runner"
+LABEL description="Emscripten toolchain for C/C++ to WebAssembly compilation"
+
+# Install additional C/C++ tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    clang \
+    llvm \
+    lld \
+    libc++-dev \
+    libc++abi-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Emscripten
+ENV EMSDK=/opt/emsdk
+RUN git clone https://github.com/emscripten-core/emsdk.git ${EMSDK} && \
+    cd ${EMSDK} && \
+    ./emsdk install latest && \
+    ./emsdk activate latest && \
+    chown -R pfuser:pfuser ${EMSDK}
+
+# Set up Emscripten environment
+# Use dynamic node path lookup instead of hardcoded version
+ENV PATH="${EMSDK}:${EMSDK}/upstream/emscripten:${PATH}"
+RUN echo 'export EMSDK_NODE=$(find ${EMSDK}/node -name node -type f 2>/dev/null | head -1)' >> /etc/profile.d/emsdk.sh
+
+# Copy C source files
+COPY --chown=pfuser:pfuser demos/pf-web-polyglot-demo-plus-c/c /app/c
+
+# Create output directories
+RUN mkdir -p /app/output/wasm/c /app/output/asm/c /app/output/llvm/c && \
+    chown -R pfuser:pfuser /app/output
+
+USER pfuser
+WORKDIR /app/c
+
+# Build WASM by default - source emsdk_env.sh and compile
+CMD ["/bin/bash", "-c", "source ${EMSDK}/emsdk_env.sh && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o /app/output/wasm/c/c_trap.js"]

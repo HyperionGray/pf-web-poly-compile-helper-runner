@@ -1,0 +1,94 @@
+{
+  "providers": {
+    "openai": {
+      "apiKey": "sk-your-openai-api-key-here",
+      "model": "gpt-4",
+      "enabled": true,
+      "maxTokens": 2000,
+      "temperature": 0.1,
+      "rateLimitPerMinute": 60
+    },
+    "anthropic": {
+      "apiKey": "sk-ant-your-anthropic-api-key-here",
+      "model": "claude-3-sonnet-20240229",
+      "enabled": true,
+      "maxTokens": 2000,
+      "rateLimitPerMinute": 50
+    },
+    "local": {
+      "enabled": false,
+      "endpoint": "http://localhost:11434/v1/chat/completions",
+      "model": "codellama:7b",
+      "apiKey": "not-required-for-local"
+    }
+  },
+  "reviewCriteria": {
+    "security": {
+      "enabled": true,
+      "weight": 0.3,
+      "checks": [
+        "input_validation",
+        "authentication",
+        "authorization",
+        "sql_injection",
+        "xss_prevention",
+        "csrf_protection"
+      ]
+    },
+    "performance": {
+      "enabled": true,
+      "weight": 0.2,
+      "checks": [
+        "algorithm_efficiency",
+        "memory_usage",
+        "database_queries",
+        "caching_strategy",
+        "async_operations"
+      ]
+    },
+    "maintainability": {
+      "enabled": true,
+      "weight": 0.2,
+      "checks": [
+        "code_readability",
+        "documentation",
+        "naming_conventions",
+        "code_structure",
+        "design_patterns"
+      ]
+    },
+    "testCoverage": {
+      "enabled": true,
+      "weight": 0.15,
+      "checks": [
+        "unit_tests",
+        "integration_tests",
+        "edge_cases",
+        "error_handling",
+        "test_quality"
+      ]
+    },
+    "documentation": {
+      "enabled": true,
+      "weight": 0.15,
+      "checks": [
+        "code_comments",
+        "api_documentation",
+        "readme_updates",
+        "changelog_entries",
+        "inline_docs"
+      ]
+    }
+  },
+  "batchSettings": {
+    "maxConcurrent": 3,
+    "delayBetweenBatches": 5000,
+    "retryAttempts": 2,
+    "timeoutSeconds": 120
+  },
+  "scoring": {
+    "passingScore": 7,
+    "approvalThreshold": 8,
+    "changesRequestedThreshold": 5
+  }
+}

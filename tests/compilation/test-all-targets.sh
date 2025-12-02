@@ -10,41 +10,29 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PF_RUNNER_DIR="$ROOT_DIR/pf-runner"
 TEMP_DIR=$(mktemp -d)
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Test counters
-TOTAL_TESTS=0
-PASSED_TESTS=0
-FAILED_TESTS=0
+# Source shared test utilities if available, otherwise define locally
+if [ -f "$SCRIPT_DIR/../lib/test-utils.sh" ]; then
+    source "$SCRIPT_DIR/../lib/test-utils.sh"
+else
+    # Fallback: Define logging functions locally
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m'
+    TOTAL_TESTS=0
+    PASSED_TESTS=0
+    FAILED_TESTS=0
+    log_test() { echo -e "${BLUE}[TEST]${NC} $1"; TOTAL_TESTS=$((TOTAL_TESTS + 1)); }
+    log_pass() { echo -e "${GREEN}[PASS]${NC} $1"; PASSED_TESTS=$((PASSED_TESTS + 1)); }
+    log_fail() { echo -e "${RED}[FAIL]${NC} $1"; FAILED_TESTS=$((FAILED_TESTS + 1)); }
+    log_info() { echo -e "${YELLOW}[INFO]${NC} $1"; }
+fi
 
 cleanup() {
     rm -rf "$TEMP_DIR"
 }
 trap cleanup EXIT
-
-log_test() {
-    echo -e "${BLUE}[TEST]${NC} $1"
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))
-}
-
-log_pass() {
-    echo -e "${GREEN}[PASS]${NC} $1"
-    PASSED_TESTS=$((PASSED_TESTS + 1))
-}
-
-log_fail() {
-    echo -e "${RED}[FAIL]${NC} $1"
-    FAILED_TESTS=$((FAILED_TESTS + 1))
-}
-
-log_info() {
-    echo -e "${YELLOW}[INFO]${NC} $1"
-}
 
 # Check if a tool is available
 check_tool_available() {
@@ -301,6 +289,16 @@ fi
 log_test "Missing source files handling"
 # Temporarily rename source file
 if [ -f "demos/pf-web-polyglot-demo-plus-c/c/c_trap.c" ]; then
+    # Define cleanup function to restore the file
+    cleanup_restore_c_trap() {
+        if [ -f "demos/pf-web-polyglot-demo-plus-c/c/c_trap.c.bak" ]; then
+            mv "demos/pf-web-polyglot-demo-plus-c/c/c_trap.c.bak" "demos/pf-web-polyglot-demo-plus-c/c/c_trap.c"
+        fi
+    }
+    
+    # Set trap to ensure file is restored even on failure
+    trap cleanup_restore_c_trap EXIT
+    
     mv "demos/pf-web-polyglot-demo-plus-c/c/c_trap.c" "demos/pf-web-polyglot-demo-plus-c/c/c_trap.c.bak"
     
     if output=$(pf web-build-c-wasm 2>&1); then
@@ -309,8 +307,9 @@ if [ -f "demos/pf-web-polyglot-demo-plus-c/c/c_trap.c" ]; then
         log_pass "Missing source files - Correctly detected missing file"
     fi
     
-    # Restore source file
-    mv "demos/pf-web-polyglot-demo-plus-c/c/c_trap.c.bak" "demos/pf-web-polyglot-demo-plus-c/c/c_trap.c"
+    # Restore source file and remove trap
+    cleanup_restore_c_trap
+    trap - EXIT
 fi
 
 # CROSS-COMPILATION TESTS
