@@ -57,7 +57,7 @@ services:
       - ./pf-runner:/app/pf-runner:ro
     command: sleep infinity
     healthcheck:
-      test: ["CMD", "pf", "--version"]
+      test: ["CMD", "pf", "list"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -105,16 +105,19 @@ services:
     image: localhost/pf-build-rust:latest
     container_name: pf-build-rust
     hostname: build-rust
+    user: root
     environment:
       - CARGO_HOME=/home/pfuser/.cargo
       - RUSTUP_HOME=/home/pfuser/.rustup
       - CARGO_TARGET_DIR=/app/output/rust-target
     volumes:
       - pf-wasm-output:/app/output:rw
-      - ./demos/pf-web-polyglot-demo-plus-c/rust:/app/rust:ro
+      - ./demos/pf-web-polyglot-demo-plus-c/rust:/app/rust-src:ro
     command: >
       /bin/bash -c "
-        wasm-pack build --target web --out-dir /app/output/wasm/rust/pkg --out-name rust_demo /app/rust &&
+        cp -r /app/rust-src /app/rust &&
+        chown -R pfuser:pfuser /app/rust /app/output &&
+        su pfuser -c 'wasm-pack build --target web --out-dir /app/output/wasm/rust/pkg --out-name rust_demo /app/rust' &&
         echo 'Rust build complete!'
       "
     mem_limit: 4g
@@ -127,16 +130,19 @@ services:
     image: localhost/pf-build-c:latest
     container_name: pf-build-c
     hostname: build-c
+    user: root
     environment:
       - EMSDK=/opt/emsdk
     volumes:
       - pf-wasm-output:/app/output:rw
-      - ./demos/pf-web-polyglot-demo-plus-c/c:/app/c:ro
+      - ./demos/pf-web-polyglot-demo-plus-c/c:/app/c-src:ro
     command: >
       /bin/bash -c "
+        cp -r /app/c-src /app/c &&
+        chown -R pfuser:pfuser /app/c /app/output &&
         source /opt/emsdk/emsdk_env.sh &&
         mkdir -p /app/output/wasm/c &&
-        emcc /app/c/c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o /app/output/wasm/c/c_trap.js &&
+        su pfuser -c 'source /opt/emsdk/emsdk_env.sh && emcc /app/c/c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o /app/output/wasm/c/c_trap.js' &&
         echo 'C build complete!'
       "
     mem_limit: 4g
@@ -149,13 +155,16 @@ services:
     image: localhost/pf-build-fortran:latest
     container_name: pf-build-fortran
     hostname: build-fortran
+    user: root
     volumes:
       - pf-wasm-output:/app/output:rw
-      - ./demos/pf-web-polyglot-demo-plus-c/fortran:/app/fortran:ro
+      - ./demos/pf-web-polyglot-demo-plus-c/fortran:/app/fortran-src:ro
     command: >
       /bin/bash -c "
+        cp -r /app/fortran-src /app/fortran &&
+        chown -R pfuser:pfuser /app/fortran /app/output &&
         mkdir -p /app/output/wasm/fortran &&
-        lfortran /app/fortran/src/hello.f90 -o /app/output/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown 2>/dev/null ||
+        su pfuser -c 'lfortran /app/fortran/src/hello.f90 -o /app/output/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown' 2>/dev/null ||
         echo 'Fortran build skipped (lfortran WASM target may not be available)'
       "
     mem_limit: 2g
@@ -168,13 +177,15 @@ services:
     image: localhost/pf-base:latest
     container_name: pf-build-wat
     hostname: build-wat
+    user: root
     volumes:
       - pf-wasm-output:/app/output:rw
       - ./demos/pf-web-polyglot-demo-plus-c/asm:/app/asm:ro
     command: >
       /bin/bash -c "
-        apt-get update && apt-get install -y wabt &&
+        apt-get update && apt-get install -y -qq wabt &&
         mkdir -p /app/output/wasm/asm &&
+        chown -R pfuser:pfuser /app/output &&
         wat2wasm /app/asm/mini.wat -o /app/output/wasm/asm/mini.wasm &&
         echo 'WAT build complete!'
       "
