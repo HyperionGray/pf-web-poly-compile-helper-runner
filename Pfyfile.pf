@@ -35,6 +35,9 @@ include Pfyfile.containers.pf
 # Include package manager translation tasks
 include Pfyfile.package-manager.pf
 
+# Include distro container and OS switching tasks
+include Pfyfile.distro-switch.pf
+
 task web-dev
   describe Start development server with REST API support
   shell_lang bash
