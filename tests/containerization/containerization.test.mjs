@@ -166,6 +166,7 @@ clean:
     }
 
     async test(name, testFn) {
+        let testPassed = true;
         try {
             console.log(`\n🧪 Testing: ${name}`);
             await testFn();
@@ -175,8 +176,9 @@ clean:
             console.log(`❌ FAIL: ${name}`);
             console.log(`   Error: ${error.message}`);
             this.failed++;
+            testPassed = false;
         }
-        this.tests.push({ name, passed: this.failed === 0 });
+        this.tests.push({ name, passed: testPassed });
     }
 
     async testSyntaxValid(name, pfContent) {

@@ -90,6 +90,7 @@ class RetryConfig:
     initial_delay: float = 1.0
     max_delay: float = 30.0
     backoff_factor: float = 2.0
+    build_timeout: int = 600  # 10 minute default, can be overridden
     retry_on_patterns: List[str] = field(default_factory=list)
 
 
@@ -953,12 +954,13 @@ class ContainerBuilder:
             str(self.project_path)
         ]
 
+        timeout = self.retry_config.build_timeout
         try:
             proc = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=600  # 10 minute timeout
+                timeout=timeout
             )
 
             return (
@@ -967,7 +969,7 @@ class ContainerBuilder:
                 proc.stderr
             )
         except subprocess.TimeoutExpired:
-            return (False, "", "Build timed out after 10 minutes")
+            return (False, "", f"Build timed out after {timeout // 60} minutes")
         except FileNotFoundError:
             return (False, "", f"Container runtime '{runtime}' not found")
 
@@ -995,7 +997,8 @@ def containerize(
     port_hint: Optional[int] = None,
     base_image_hint: Optional[str] = None,
     build_commands_hint: Optional[List[str]] = None,
-    max_retries: int = 3
+    max_retries: int = 3,
+    build_timeout: int = 600
 ) -> ContainerBuildResult:
     """
     Main entry point for automatic containerization.
@@ -1010,6 +1013,7 @@ def containerize(
         base_image_hint: Hint for the base image to use
         build_commands_hint: Hint for custom build commands
         max_retries: Maximum number of build attempts
+        build_timeout: Build timeout in seconds (default: 600)
 
     Returns:
         ContainerBuildResult with build status and generated files
@@ -1031,7 +1035,7 @@ def containerize(
     if build_commands_hint:
         user_hints["build_commands"] = build_commands_hint
 
-    retry_config = RetryConfig(max_attempts=max_retries)
+    retry_config = RetryConfig(max_attempts=max_retries, build_timeout=build_timeout)
     builder = ContainerBuilder(project_path, retry_config)
 
     return builder.build(
