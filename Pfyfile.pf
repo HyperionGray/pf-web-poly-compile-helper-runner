@@ -171,15 +171,25 @@ task install
   shell bash install.sh
 end
 
+task install-full mode=container runtime=podman
+  describe Full setup (container-first): build images, install wrapper, install/enable quadlets, doctor
+  # Build images (container-first default). Users can override with mode=native to skip containers.
+  shell if [ "${mode:-container}" = "container" ]; then CONTAINER_RT=${runtime:-podman} ./containers/scripts/build-containers.sh all; else echo "[install-full] native mode: skipping container builds"; fi
+  # Install pf wrapper
+  shell if [ "${mode:-container}" = "container" ]; then pf install; else (cd pf-runner && make install) || { echo "native install failed"; exit 1; }; fi
+  # Quadlets (only meaningful in container mode)
+  shell if [ "${mode:-container}" = "container" ]; then pf quadlet-install; else true; fi
+  shell if [ "${mode:-container}" = "container" ]; then pf quadlet-reload; else true; fi
+  shell if [ "${mode:-container}" = "container" ]; then pf quadlet-enable-all; else true; fi
+  shell if [ "${mode:-container}" = "container" ]; then pf quadlet-status-all; else true; fi
+  # Doctor at the end
+  shell pf quadlet-doctor
+end
+
+# Back-compat alias
 task install-all
-  describe Install wrapper and quadlets; then attempt to build images (non-fatal); start services
-  shell pf install
-  shell pf quadlet-install
-  shell pf quadlet-reload
-  shell pf quadlet-enable
-  shell pf quadlet-start-api
-  shell echo "Attempting to build images with podman (optional)..."
-  shell ./containers/scripts/build-containers.sh all || echo "Note: container image build skipped/failed; you can build later with: ./containers/scripts/build-containers.sh all"
+  describe Alias for install-full (container-first)
+  shell pf install-full
 end
 
 task install-all-min
