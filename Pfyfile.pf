@@ -43,6 +43,9 @@ include Pfyfile.os-switching.pf
 # Include distro container and OS switching tasks
 include Pfyfile.distro-switch.pf
 
+# Include PE execution and cross-platform binary execution tasks
+include Pfyfile.pe-execution.pf
+
 task web-dev
   describe Start development server with REST API support
   shell_lang bash

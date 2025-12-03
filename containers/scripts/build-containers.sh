@@ -55,6 +55,7 @@ TARGETS:
     build     Build compilation images (Rust, C, Fortran)
     debug     Build debugger images (standard and GPU)
     os        Build OS distribution containers (CentOS, Fedora, Arch, openSUSE, macOS-like)
+    pe        Build PE execution containers (Windows Server Core, ReactOS, macOS QEMU)
 
 OPTIONS:
     --no-cache    Build without using cache
@@ -133,12 +134,31 @@ build_os_containers() {
     build_image "os-macos-like" "Dockerfile.os-macos-like"
 }
 
+build_pe_containers() {
+    log_info "=== Building PE Execution Containers ==="
+    log_info "Building Windows Server Core PE execution container..."
+    build_image "pe-windows-server" "Dockerfile.pe-windows-server"
+    
+    log_info "Building ReactOS PE execution container..."
+    build_image "pe-reactos" "Dockerfile.pe-reactos"
+    
+    log_info "Building macOS QEMU virtualization container..."
+    build_image "macos-qemu" "Dockerfile.os-macos-qemu"
+    
+    log_warn "PE execution containers require:"
+    log_warn "  - KVM support for hardware acceleration"
+    log_warn "  - Sufficient RAM (2GB+ for Windows, 8GB+ for macOS)"
+    log_warn "  - Proper licensing for Windows Server Core"
+    log_warn "  - Apple Software License Agreement compliance for macOS"
+}
+
 build_all() {
     build_base
     build_api
     build_builders
     build_debugger
     build_os_containers
+    build_pe_containers
 }
 
 # Main script
@@ -164,7 +184,7 @@ main() {
                 show_help
                 exit 0
                 ;;
-            all|base|api|build|debug|os)
+            all|base|api|build|debug|os|pe)
                 TARGETS+=("$1")
                 shift
                 ;;
@@ -207,6 +227,9 @@ main() {
                 ;;
             os)
                 build_os_containers
+                ;;
+            pe)
+                build_pe_containers
                 ;;
         esac
     done
