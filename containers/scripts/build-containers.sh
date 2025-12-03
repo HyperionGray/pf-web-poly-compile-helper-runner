@@ -54,6 +54,7 @@ TARGETS:
     api       Build API server and pf-runner images
     build     Build compilation images (Rust, C, Fortran)
     debug     Build debugger images (standard and GPU)
+    os        Build OS distribution containers (CentOS, Fedora, Arch, openSUSE, macOS-like)
 
 OPTIONS:
     --no-cache    Build without using cache
@@ -123,11 +124,21 @@ build_debugger() {
     build_image "debugger-gpu" "Dockerfile.debugger-gpu"
 }
 
+build_os_containers() {
+    log_info "=== Building OS Distribution Containers ==="
+    build_image "os-centos" "Dockerfile.os-centos"
+    build_image "os-fedora" "Dockerfile.os-fedora"
+    build_image "os-arch" "Dockerfile.os-arch"
+    build_image "os-opensuse" "Dockerfile.os-opensuse"
+    build_image "os-macos-like" "Dockerfile.os-macos-like"
+}
+
 build_all() {
     build_base
     build_api
     build_builders
     build_debugger
+    build_os_containers
 }
 
 # Main script
@@ -153,7 +164,7 @@ main() {
                 show_help
                 exit 0
                 ;;
-            all|base|api|build|debug)
+            all|base|api|build|debug|os)
                 TARGETS+=("$1")
                 shift
                 ;;
@@ -193,6 +204,9 @@ main() {
             debug)
                 build_base
                 build_debugger
+                ;;
+            os)
+                build_os_containers
                 ;;
         esac
     done

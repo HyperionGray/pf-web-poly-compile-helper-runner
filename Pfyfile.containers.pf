@@ -41,6 +41,12 @@ task container-build-no-cache
   shell ./containers/scripts/build-containers.sh --no-cache all
 end
 
+task container-build-os
+  describe Build OS distribution containers
+  shell_lang bash
+  shell ./containers/scripts/build-containers.sh os
+end
+
 # ==========================================
 # Podman Compose Tasks
 # ==========================================
@@ -301,6 +307,7 @@ BUILD COMMANDS:
   pf container-build-api        Build API server images
   pf container-build-compilers  Build compiler images (Rust, C, Fortran)
   pf container-build-debugger   Build debugger images
+  pf container-build-os         Build OS distribution containers
   pf container-build-no-cache   Rebuild all without cache
 
 AUTOMATIC CONTAINERIZATION:

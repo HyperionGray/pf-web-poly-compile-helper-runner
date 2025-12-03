@@ -1,0 +1,150 @@
+# Lightweight Arch Linux container for package management
+# Provides Arch environment with pacman package manager
+FROM archlinux:latest
+
+LABEL maintainer="pf-runner"
+LABEL description="Lightweight Arch Linux container for package management"
+LABEL os.type="arch"
+LABEL os.version="latest"
+LABEL package.manager="pacman"
+
+# Update system and install essential tools
+RUN pacman -Syu --noconfirm && \
+    pacman -S --noconfirm \
+        base-devel \
+        wget \
+        curl \
+        git \
+        tar \
+        gzip \
+        unzip \
+        which \
+        file \
+        findutils \
+        procps-ng \
+        util-linux \
+        coreutils \
+        binutils \
+        pacman-contrib \
+        reflector \
+        && \
+    pacman -Scc --noconfirm
+
+# Create directories for artifact management
+RUN mkdir -p /artifacts/bin /artifacts/lib /artifacts/share /artifacts/etc
+
+# Create package management scripts
+RUN cat > /usr/local/bin/pf-install-package << 'EOF'
+#!/bin/bash
+# Install package and copy artifacts to /artifacts
+set -e
+PACKAGE="$1"
+if [ -z "$PACKAGE" ]; then
+    echo "Usage: pf-install-package <package-name>"
+    exit 1
+fi
+
+echo "Installing package: $PACKAGE"
+pacman -S --noconfirm "$PACKAGE"
+
+echo "Extracting package files to /artifacts..."
+# Find package files and copy to artifacts
+pacman -Ql "$PACKAGE" 2>/dev/null | awk '{print $2}' | while read -r file; do
+    if [ -f "$file" ]; then
+        case "$file" in
+            /usr/bin/*|/bin/*|/usr/local/bin/*)
+                mkdir -p /artifacts/bin
+                cp "$file" /artifacts/bin/ 2>/dev/null || true
+                ;;
+            /usr/lib/*|/lib/*|/usr/local/lib/*)
+                mkdir -p /artifacts/lib
+                cp "$file" /artifacts/lib/ 2>/dev/null || true
+                ;;
+            /usr/share/*|/usr/local/share/*)
+                mkdir -p /artifacts/share
+                cp -r "$file" /artifacts/share/ 2>/dev/null || true
+                ;;
+            /etc/*)
+                mkdir -p /artifacts/etc
+                cp "$file" /artifacts/etc/ 2>/dev/null || true
+                ;;
+        esac
+    fi
+done
+
+echo "Package $PACKAGE installed and artifacts extracted"
+EOF
+
+RUN chmod +x /usr/local/bin/pf-install-package
+
+# Create AUR helper installation script
+RUN cat > /usr/local/bin/pf-install-aur << 'EOF'
+#!/bin/bash
+# Install AUR package (requires manual setup)
+set -e
+PACKAGE="$1"
+if [ -z "$PACKAGE" ]; then
+    echo "Usage: pf-install-aur <package-name>"
+    exit 1
+fi
+
+echo "AUR installation requires manual setup with yay or paru"
+echo "Package: $PACKAGE"
+echo "This container doesn't include AUR helpers for security reasons"
+exit 1
+EOF
+
+RUN chmod +x /usr/local/bin/pf-install-aur
+
+# Create package search script
+RUN cat > /usr/local/bin/pf-search-package << 'EOF'
+#!/bin/bash
+# Search for packages
+QUERY="$1"
+if [ -z "$QUERY" ]; then
+    echo "Usage: pf-search-package <search-term>"
+    exit 1
+fi
+
+pacman -Ss "$QUERY"
+EOF
+
+RUN chmod +x /usr/local/bin/pf-search-package
+
+# Create package info script
+RUN cat > /usr/local/bin/pf-package-info << 'EOF'
+#!/bin/bash
+# Get package information
+PACKAGE="$1"
+if [ -z "$PACKAGE" ]; then
+    echo "Usage: pf-package-info <package-name>"
+    exit 1
+fi
+
+pacman -Si "$PACKAGE"
+EOF
+
+RUN chmod +x /usr/local/bin/pf-package-info
+
+# Create mirror update script
+RUN cat > /usr/local/bin/pf-update-mirrors << 'EOF'
+#!/bin/bash
+# Update pacman mirrors
+echo "Updating pacman mirrors..."
+reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+echo "Mirrors updated"
+EOF
+
+RUN chmod +x /usr/local/bin/pf-update-mirrors
+
+# Set working directory
+WORKDIR /workspace
+
+# Default command
+CMD ["/bin/bash"]
+
+# Environment variables
+ENV OS_TYPE=arch
+ENV OS_VERSION=latest
+ENV PACKAGE_MANAGER=pacman
+ENV ARTIFACTS_DIR=/artifacts

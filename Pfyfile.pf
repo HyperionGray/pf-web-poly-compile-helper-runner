@@ -35,6 +35,12 @@ include Pfyfile.containers.pf
 # Include package manager translation tasks
 include Pfyfile.package-manager.pf
 
+# Include OS container management tasks
+include Pfyfile.os-containers.pf
+
+# Include OS switching tasks (DANGEROUS)
+include Pfyfile.os-switching.pf
+
 task web-dev
   describe Start development server with REST API support
   shell_lang bash
