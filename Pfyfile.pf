@@ -176,7 +176,7 @@ task install-full mode=container runtime=podman
   # Build images (container-first default). Users can override with mode=native to skip containers.
   shell if [ "${mode:-container}" = "container" ]; then CONTAINER_RT=${runtime:-podman} ./containers/scripts/build-containers.sh all; else echo "[install-full] native mode: skipping container builds"; fi
   # Install pf wrapper
-  shell if [ "${mode:-container}" = "container" ]; then pf install; else (cd pf-runner && make install) || { echo "native install failed"; exit 1; }; fi
+shell if [ "${mode:-container}" = "container" ]; then pf install; else ./containers/scripts/install-native.sh || { echo "native install failed"; exit 1; }; fi
   # Quadlets (only meaningful in container mode)
   shell if [ "${mode:-container}" = "container" ]; then pf quadlet-install; else true; fi
   shell if [ "${mode:-container}" = "container" ]; then pf quadlet-reload; else true; fi
