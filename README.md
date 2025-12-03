@@ -307,6 +307,56 @@ pf pkg-matrix
 
 See [Package Manager Guide](docs/PACKAGE-MANAGER.md) for complete documentation.
 
+### Multi-Distro Container Management 🐧
+Use lightweight containers for CentOS, Fedora, Arch, and openSUSE to install and manage packages without polluting your host system:
+- **Container Isolation**: Each distro runs in its own lightweight container
+- **Artifact Extraction**: Binaries are extracted to host directories using rshared mounts
+- **View Modes**: Unified (all distros in one PATH) or isolated (per-distro paths)
+- **Efficient**: Containers spin up only when needed, then clean up
+
+**Quick Start:**
+```bash
+# Install packages from Fedora
+pf distro-install-fedora packages="vim htop"
+
+# Install packages from Arch
+pf distro-install-arch packages="neovim tree"
+
+# Check status
+pf distro-status
+
+# Switch view mode
+pf distro-view-unified
+```
+
+See [Distro Container Management Guide](docs/DISTRO-CONTAINER-MANAGEMENT.md) for complete documentation.
+
+### OS Switching (Experimental) 🔄
+Switch between different Linux distributions using containers and kexec for rebootless kernel switching:
+- **MirrorOS Snapshots**: Automatic backups using btrfs/zfs/rsync
+- **Container-Based**: Target OS prepared in container, synced to partition
+- **kexec Integration**: Rebootless kernel switching for minimal downtime
+- **Safety First**: Dry-run mode and automatic backup before switch
+
+**Quick Start:**
+```bash
+# Check current OS and capabilities
+pf os-status
+
+# Create snapshot before changes
+pf os-snapshot name=before-upgrade
+
+# Test switching to Fedora (dry run)
+pf switch-os target=fedora dry_run=true
+
+# Full switch (requires partition)
+pf switch-os target=fedora partition=/dev/sda3
+```
+
+⚠️ **Warning**: OS switching is a powerful feature that modifies your system. Always have backups!
+
+See [Distro Container Management Guide](docs/DISTRO-CONTAINER-MANAGEMENT.md) for complete documentation.
+
 ### Testing & Development
 - **Live dev server**: Static HTTP server with CORS headers for WASM
 - **Playwright tests**: Automated browser testing for WASM modules
@@ -1047,6 +1097,34 @@ Additional documentation in `pf-runner/`:
 | `pf install-flatpak` | Install Flatpak package manager |
 | `pf install-snap` | Install Snapd package manager |
 | `pf pkg-help` | Show package manager help |
+
+| **Multi-Distro Container Management** | |
+| `pf distro-install distro=<d> packages=<p>` | Install packages from specific distro container |
+| `pf distro-install-fedora packages=<p>` | Install packages from Fedora container |
+| `pf distro-install-centos packages=<p>` | Install packages from CentOS container |
+| `pf distro-install-arch packages=<p>` | Install packages from Arch container |
+| `pf distro-install-opensuse packages=<p>` | Install packages from openSUSE container |
+| `pf distro-switch distro=<d>` | Switch active distro for PATH (isolated mode) |
+| `pf distro-view-unified` | Enable unified view (all distros in one directory) |
+| `pf distro-view-isolated` | Enable isolated view (per-distro directories) |
+| `pf distro-status` | Show status and installed packages |
+| `pf distro-build-all` | Build all distro container images |
+| `pf distro-cleanup` | Remove distro images (keep artifacts) |
+| `pf distro-cleanup-all` | Remove distro images and artifacts |
+| `pf distro-help` | Show distro container help |
+
+| **OS Switching (Experimental)** | |
+| `pf switch-os target=<t> partition=<p>` | Switch to different OS using containers + kexec |
+| `pf switch-os-fedora partition=<p>` | Switch to Fedora Linux |
+| `pf switch-os-arch partition=<p>` | Switch to Arch Linux |
+| `pf switch-os-ubuntu partition=<p>` | Switch to Ubuntu Linux |
+| `pf switch-os-debian partition=<p>` | Switch to Debian Linux |
+| `pf os-snapshot name=<n>` | Create OS snapshot for recovery |
+| `pf os-snapshots` | List available OS snapshots |
+| `pf os-status` | Show OS switching status and capabilities |
+| `pf os-prepare target=<t>` | Prepare target OS container (no switch) |
+| `pf install-kexec` | Install kexec-tools for rebootless switching |
+| `pf switch-os-help` | Show OS switching help |
 
 | **Installation & Setup** | |
 | `pf install-base` | Install base pf runner and dependencies |
