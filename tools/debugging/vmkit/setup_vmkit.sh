@@ -1,18 +1,29 @@
 #!/usr/bin/env bash
 # Setup VMKit for PE execution and microVM fuzzing swarm
 
+# Function to find VMKit binary - returns path to vmkit or empty string
+find_vmkit_binary() {
+    if [ -n "$VMKIT_PATH" ] && [ -f "$VMKIT_PATH/vmkit" ]; then
+        echo "$VMKIT_PATH/vmkit"
+    elif command -v vmkit >/dev/null 2>&1; then
+        command -v vmkit
+    else
+        echo ""
+    fi
+}
+
 echo "[*] VMKit Setup for PE Execution and MicroVM Swarm Fuzzing"
 echo ""
 
 # Check for VMKit - use environment variable or check if in PATH
-VMKIT_PATH="${VMKIT_PATH:-}"
-if [ -n "$VMKIT_PATH" ] && [ -d "$VMKIT_PATH" ]; then
-    echo "[*] VMKit repository found at: $VMKIT_PATH (via VMKIT_PATH)"
+VMKIT_BIN=$(find_vmkit_binary)
+if [ -n "$VMKIT_BIN" ]; then
+    if [ -n "$VMKIT_PATH" ]; then
+        echo "[*] VMKit found at: $VMKIT_PATH (via VMKIT_PATH)"
+    else
+        echo "[*] VMKit found in PATH: $VMKIT_BIN"
+    fi
     VMKIT_AVAILABLE=true
-elif command -v vmkit >/dev/null 2>&1; then
-    echo "[*] VMKit found in PATH"
-    VMKIT_AVAILABLE=true
-    VMKIT_PATH=""
 else
     echo "[!] VMKit not found"
     echo "[!] Set VMKIT_PATH environment variable to your VMKit installation"
@@ -68,26 +79,18 @@ EOF
     
     echo "[*] VMKit PE execution configuration created"
     
-    # Check VMKit installation - use command if in PATH, otherwise check VMKIT_PATH
-    if command -v vmkit >/dev/null 2>&1; then
-        echo "[*] VMKit binary found in PATH"
+    # Test VMKit functionality using the found binary
+    if [ -n "$VMKIT_BIN" ]; then
+        echo "[*] VMKit binary found: $VMKIT_BIN"
         
-        # Test VMKit functionality
         echo "[*] Testing VMKit functionality..."
-        if vmkit --version >/dev/null 2>&1; then
+        if "$VMKIT_BIN" --version >/dev/null 2>&1; then
             echo "[✓] VMKit is functional"
         else
-            echo "[!] VMKit test failed - may need setup"
-        fi
-    elif [ -n "$VMKIT_PATH" ] && [ -f "$VMKIT_PATH/vmkit" ]; then
-        echo "[*] VMKit binary found at $VMKIT_PATH"
-        
-        # Test VMKit functionality
-        echo "[*] Testing VMKit functionality..."
-        if "$VMKIT_PATH/vmkit" --version >/dev/null 2>&1; then
-            echo "[✓] VMKit is functional"
-        else
-            echo "[!] VMKit test failed - may need setup"
+            echo "[!] VMKit test failed"
+            echo "[!] Try running: $VMKIT_BIN --version"
+            echo "[!] Check that VMKit dependencies are installed"
+            echo "[!] See VMKit documentation for troubleshooting"
         fi
     else
         echo "[!] VMKit binary not found - installation may be incomplete"
