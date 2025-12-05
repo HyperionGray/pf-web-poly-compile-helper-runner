@@ -2055,8 +2055,14 @@ def _format_task_params(params: Dict[str, str], style: str = "modern") -> str:
                 parts.append(f"--{k}=<value>")
         return " ".join(parts)
     else:
-        # Legacy param=value style
-        return " ".join(f"{k}={v}" for k, v in params.items())
+        # Legacy param=value style - handle empty values consistently
+        parts = []
+        for k, v in params.items():
+            if v:
+                parts.append(f"{k}={v}")
+            else:
+                parts.append(f"{k}=<value>")
+        return " ".join(parts)
 
 
 def _print_task_help(task_name: str, file_arg: Optional[str] = None):
@@ -2095,9 +2101,9 @@ def _print_task_help(task_name: str, file_arg: Optional[str] = None):
         print("Arguments (use --arg=value or arg=value):")
         for param, default in task.params.items():
             if default:
-                print(f"  --{param}={default}  (default: {default})")
+                print(f"  --{param}  (default: {default})")
             else:
-                print(f"  --{param}=<value>  (required)")
+                print(f"  --{param}  (required)")
     
     # Show commands
     print()
@@ -2142,16 +2148,10 @@ def _print_list(file_arg: Optional[str] = None):
 
         def _format_task_line(task):
             """Format a single task line with name, args, and description."""
-            # Format args in modern --arg=value style
-            args_str = ""
-            if task.params:
-                args_parts = []
-                for k, v in task.params.items():
-                    if v:
-                        args_parts.append(f"--{k}={v}")
-                    else:
-                        args_parts.append(f"--{k}=<value>")
-                args_str = " " + " ".join(args_parts)
+            # Format args in modern --arg=value style using shared function
+            args_str = _format_task_params(task.params, style="modern")
+            if args_str:
+                args_str = " " + args_str
             
             if task.description:
                 return f"  {task.name}{args_str}  —  {task.description}"
