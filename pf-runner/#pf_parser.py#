@@ -2040,15 +2040,15 @@ BUILTINS: Dict[str, List[str]] = {
 def _group_tasks_by_prefix(tasks_list: List) -> Tuple[List, Dict[str, List]]:
     """
     Group tasks by their prefix (e.g., 'road-block' -> 'road' group).
-
+    
     Returns:
         Tuple of (ungrouped_tasks, grouped_tasks_dict)
     """
     from collections import defaultdict
-
+    
     prefix_counts = defaultdict(list)
     ungrouped = []
-
+    
     for task in tasks_list:
         name = task.name
         # Check if task name has a prefix (contains hyphen or underscore)
@@ -2060,7 +2060,7 @@ def _group_tasks_by_prefix(tasks_list: List) -> Tuple[List, Dict[str, List]]:
             prefix_counts[prefix].append(task)
         else:
             ungrouped.append(task)
-
+    
     # Only group if there are 2+ tasks with the same prefix
     grouped = {}
     for prefix, task_list in prefix_counts.items():
@@ -2069,7 +2069,7 @@ def _group_tasks_by_prefix(tasks_list: List) -> Tuple[List, Dict[str, List]]:
         else:
             # If only one task with this prefix, treat as ungrouped
             ungrouped.extend(task_list)
-
+    
     return ungrouped, grouped
 
 
@@ -2102,14 +2102,14 @@ def _print_list(file_arg: Optional[str] = None):
         if main_tasks:
             print(f"\nFrom {source}:")
             ungrouped, grouped = _group_tasks_by_prefix(main_tasks)
-
+            
             # Print ungrouped tasks first
             for task in sorted(ungrouped, key=lambda t: t.name):
                 if task.description:
                     print(f"  {task.name}  —  {task.description}")
                 else:
                     print(f"  {task.name}")
-
+            
             # Print grouped tasks by prefix
             for prefix in sorted(grouped.keys()):
                 print(f"\n  [{prefix}]")
@@ -2135,14 +2135,14 @@ def _print_list(file_arg: Optional[str] = None):
             print(f"\n[{subcommand_name}] From {source_file}:")
             source_tasks = tasks_by_source[source_file]
             ungrouped, grouped = _group_tasks_by_prefix(source_tasks)
-
+            
             # Print ungrouped tasks first
             for task in sorted(ungrouped, key=lambda t: t.name):
                 if task.description:
                     print(f"  {task.name}  —  {task.description}")
                 else:
                     print(f"  {task.name}")
-
+            
             # Print grouped tasks by prefix
             for prefix in sorted(grouped.keys()):
                 print(f"\n  [{prefix}]")
@@ -2161,14 +2161,14 @@ def _print_list(file_arg: Optional[str] = None):
 
 def _print_task_help(task_name: str, file_arg: Optional[str] = None) -> int:
     """Print detailed help for a specific task.
-
+    
     Returns:
         0 if task was found, 1 if task was not found.
     """
     # Load tasks
     dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
     dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
-
+    
     # Check builtins first
     if task_name in BUILTINS:
         print(f"Built-in task: {task_name}")
@@ -2176,7 +2176,7 @@ def _print_task_help(task_name: str, file_arg: Optional[str] = None) -> int:
         for line in BUILTINS[task_name]:
             print(f"  {line}")
         return 0
-
+    
     # Check DSL tasks
     if task_name in dsl_tasks:
         task = dsl_tasks[task_name]
@@ -2193,13 +2193,12 @@ def _print_task_help(task_name: str, file_arg: Optional[str] = None) -> int:
         for line in task.lines:
             print(f"  {line}")
         return 0
-
+    
     # Task not found - suggest similar tasks
     import difflib
-
     all_tasks = list(BUILTINS.keys()) + list(dsl_tasks.keys())
     suggestions = difflib.get_close_matches(task_name, all_tasks, n=5, cutoff=0.4)
-
+    
     print(f"Task '{task_name}' not found.", file=sys.stderr)
     if suggestions:
         print("Did you mean:", file=sys.stderr)
@@ -2354,11 +2353,10 @@ def main(argv: List[str]) -> int:
     if tasks[0] in ("list", "--list"):
         _print_list(file_arg=pfy_file_arg)
         return 0
-
+    
     # Handle prune command
     if tasks[0] == "prune":
         from pf_prune import prune_tasks
-
         # Parse prune-specific arguments
         dry_run = True
         verbose = False
@@ -2375,15 +2373,14 @@ def main(argv: List[str]) -> int:
             file_arg=pfy_file_arg,
             dry_run=dry_run,
             verbose=verbose,
-            output_file=output_file,
+            output_file=output_file
         )
         return 0 if failed == 0 else 1
-
+    
     # Handle debug-on command
     if tasks[0] == "debug-on":
         try:
             from pf_prune import set_debug_mode
-
             set_debug_mode(True)
             return 0
         except PermissionError as e:
@@ -2392,12 +2389,11 @@ def main(argv: List[str]) -> int:
         except Exception as e:
             print(f"Error enabling debug mode: {e}", file=sys.stderr)
             return 1
-
+    
     # Handle debug-off command
     if tasks[0] == "debug-off":
         try:
             from pf_prune import set_debug_mode
-
             set_debug_mode(False)
             return 0
         except PermissionError as e:
@@ -2419,9 +2415,11 @@ def main(argv: List[str]) -> int:
     valid_task_names = (
         set(BUILTINS.keys())
         | set(dsl_tasks.keys())
-        | {"list", "help", "--help", "--list", "prune", "debug-on", "debug-off"}
         | {"list", "--list"}
         | HELP_VARIATIONS
+        | {"list", "--list"}
+        | HELP_VARIATIONS
+>>>>>>> main
     )
 
     # Parse multi-task + params: <task> [k=v ...] <task2> [k=v ...] ...
@@ -2430,14 +2428,22 @@ def main(argv: List[str]) -> int:
     all_names_for_alias = (
         list(BUILTINS.keys())
         + list(dsl_tasks.keys())
+<<<<<<< HEAD
+<<<<<<< HEAD
         + ["list", "help", "--help", "--list", "prune", "debug-on", "debug-off"]
+=======
         + ["list", "--list"]
         + list(HELP_VARIATIONS)
+>>>>>>> 3d6f9eb (Add support for help variations (hlep, hepl, heelp, hlp), flexible parameters, and subcommand grouping)
+=======
+        + ["list", "--list"]
+        + list(HELP_VARIATIONS)
+>>>>>>> main
     )
     aliasmap_all = _alias_map(all_names_for_alias)
     while j < len(tasks):
         tname = tasks[j]
-
+        
         # If this is a help variation, show help for the previous task or general help
         if tname in HELP_VARIATIONS:
             if selected:
@@ -2451,7 +2457,7 @@ def main(argv: List[str]) -> int:
                 print("\nAvailable tasks:")
                 _print_list(file_arg=pfy_file_arg)
             return 0
-
+        
         if tname not in valid_task_names:
             if tname in aliasmap_all:
                 tname = aliasmap_all[tname]
