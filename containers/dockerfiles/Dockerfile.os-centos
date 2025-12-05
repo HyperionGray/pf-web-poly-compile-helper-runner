@@ -9,8 +9,10 @@ LABEL os.version="stream9"
 LABEL package.manager="dnf"
 
 # Install essential tools and package management utilities
+# Note: --allowerasing is required because CentOS Stream 9 base image ships with
+# curl-minimal and coreutils-single which conflict with full curl and coreutils packages
 RUN dnf update -y && \
-    dnf install -y \
+    dnf install -y --allowerasing \
         dnf-plugins-core \
         epel-release \
         wget \
