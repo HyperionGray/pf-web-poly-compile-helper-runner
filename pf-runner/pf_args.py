@@ -135,8 +135,7 @@ For more help on a specific subcommand:
         prune_parser.add_argument(
             '-d', '--dry-run',
             action='store_true',
-            default=True,
-            help='Only check syntax, do not execute (default)'
+            help='Only check syntax, do not execute (default behavior)'
         )
         prune_parser.add_argument(
             '-v', '--verbose',

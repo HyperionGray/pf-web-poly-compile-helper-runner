@@ -28,8 +28,7 @@ except ImportError:
 
 # Import from existing pf modules
 from pf_parser import (
-    _find_pfyfile, _load_pfy_source_with_includes, parse_pfyfile_text,
-    Task
+    _find_pfyfile, _load_pfy_source_with_includes, parse_pfyfile_text
 )
 
 
@@ -432,8 +431,14 @@ def is_debug_enabled() -> bool:
 
 
 def set_debug_mode(enabled: bool) -> None:
-    """Set the debug mode state."""
-    # Check if debug mode is locked
+    """
+    Set the debug mode state.
+    
+    The debug lock is a simple file-based mechanism to prevent accidental changes
+    to debug mode during CI/CD pipelines or automated testing. It's not intended
+    to be a security mechanism - users can remove the lock file manually if needed.
+    """
+    # Check if debug mode is locked (e.g., during CI/CD runs)
     if os.path.exists(DEBUG_LOCK_FILE):
         raise PermissionError(
             "Debug mode is locked! Cannot change debug mode while lock is active.\n"
@@ -552,8 +557,7 @@ def main(argv: List[str]) -> int:
     parser.add_argument(
         '-d', '--dry-run',
         action='store_true',
-        default=True,
-        help='Only check syntax, do not execute (default)'
+        help='Only check syntax, do not execute (default behavior)'
     )
     parser.add_argument(
         '-v', '--verbose',
@@ -568,9 +572,10 @@ def main(argv: List[str]) -> int:
     
     args = parser.parse_args(argv)
     
+    # dry_run is always true for prune command - it never executes tasks
     passed, failed, failed_tasks = prune_tasks(
         file_arg=args.file,
-        dry_run=args.dry_run,
+        dry_run=True,  # prune always runs in dry-run mode
         verbose=args.verbose,
         output_file=args.output
     )
