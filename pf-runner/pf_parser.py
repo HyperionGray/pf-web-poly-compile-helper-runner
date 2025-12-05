@@ -139,6 +139,9 @@ def _find_pfyfile(
 # ---------- Interpolation ----------
 _VAR_RE = re.compile(r"\$([a-zA-Z_][\w-]*)|\$\{([a-zA-Z_][\w-]*)\}")
 
+# Pattern for parsing [alias xxx] blocks in task definitions
+_ALIAS_BLOCK_RE = re.compile(r'\[([^\]]+)\]')
+
 
 def _interpolate(text: str, params: dict, extra_env: dict | None = None) -> str:
     merged = dict(os.environ)
@@ -611,12 +614,14 @@ class Task:
         name: str,
         source_file: Optional[str] = None,
         params: Optional[Dict[str, str]] = None,
+        aliases: Optional[List[str]] = None,
     ):
         self.name = name
         self.lines: List[str] = []
         self.description: Optional[str] = None
         self.source_file = source_file  # Track which file this task came from
         self.params: Dict[str, str] = params or {}  # Default parameter values
+        self.aliases: List[str] = aliases or []  # Short command aliases for this task
 
     def add(self, line: str):
         self.lines.append(line)
@@ -645,7 +650,7 @@ def _expand_includes_from_text(
             inside_task = True
             # Parse task name only (without parameters)
             try:
-                task_name, _ = _parse_task_definition(stripped)
+                task_name, _, _ = _parse_task_definition(stripped)
             except ValueError:
                 task_name = (
                     stripped.split(None, 1)[1].strip()
@@ -717,29 +722,55 @@ def _load_pfy_source_with_includes(
     return PFY_EMBED, {}
 
 
-def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str]]:
+def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str], List[str]]:
     """
-    Parse a task definition line to extract task name and parameters.
+    Parse a task definition line to extract task name, parameters, and aliases.
 
     Examples:
-        "task my-task" -> ("my-task", {})
-        "task my-task param1=value1" -> ("my-task", {"param1": "value1"})
-        "task my-task param1=\"\" param2=default" -> ("my-task", {"param1": "", "param2": "default"})
+        "task my-task" -> ("my-task", {}, [])
+        "task my-task param1=value1" -> ("my-task", {"param1": "value1"}, [])
+        "task my-task param1=\"\" param2=default" -> ("my-task", {"param1": "", "param2": "default"}, [])
+        "task long-command [alias cmd]" -> ("long-command", {}, ["cmd"])
+        "task long-command [alias=cmd]" -> ("long-command", {}, ["cmd"])
+        "task long-command [alias cmd|alias=c]" -> ("long-command", {}, ["cmd", "c"])
 
     Returns:
-        Tuple of (task_name, parameters_dict)
+        Tuple of (task_name, parameters_dict, aliases_list)
     """
     # Remove "task " prefix
     rest = line[5:].strip()
     if not rest:
         raise ValueError("Task name missing.")
 
+    # Extract aliases from [...] blocks first
+    aliases: List[str] = []
+    
+    # Find all [...] blocks and extract aliases
+    for match in _ALIAS_BLOCK_RE.finditer(rest):
+        block_content = match.group(1)
+        # Split by | for multiple aliases in one block
+        parts = block_content.split('|')
+        for part in parts:
+            part = part.strip()
+            # Handle both "alias cmd" and "alias=cmd" formats
+            if part.startswith('alias '):
+                alias_name = part[6:].strip()
+                if alias_name:
+                    aliases.append(alias_name)
+            elif part.startswith('alias='):
+                alias_name = part[6:].strip()
+                if alias_name:
+                    aliases.append(alias_name)
+    
+    # Remove [...] blocks from the line for further parsing
+    rest_without_aliases = _ALIAS_BLOCK_RE.sub('', rest).strip()
+
     # Use shlex to properly handle quoted values
     try:
-        tokens = shlex.split(rest)
+        tokens = shlex.split(rest_without_aliases)
     except ValueError:
         # If shlex fails, fall back to simple split
-        tokens = rest.split()
+        tokens = rest_without_aliases.split()
 
     if not tokens:
         raise ValueError("Task name missing.")
@@ -757,7 +788,7 @@ def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str]]:
             # For now, we'll just skip it to be lenient
             pass
 
-    return task_name, params
+    return task_name, params, aliases
 
 
 def _process_line_continuation(lines: List[str], start_idx: int) -> Tuple[str, int]:
@@ -826,14 +857,14 @@ def parse_pfyfile_text(
             continue
             
         if line.startswith("task "):
-            task_name, params = _parse_task_definition(line)
+            task_name, params, aliases = _parse_task_definition(line)
             # For task_sources lookup, we need to check both the full line and just the task name
             # Priority: exact match with full line, then just task name
             full_line = line.split(None, 1)[1].strip()
             source_file = None
             if task_sources:
                 source_file = task_sources.get(full_line) or task_sources.get(task_name)
-            cur = Task(task_name, source_file=source_file, params=params)
+            cur = Task(task_name, source_file=source_file, params=params, aliases=aliases)
             tasks[task_name] = cur
             line_idx += 1
             continue
@@ -874,12 +905,31 @@ def parse_pfyfile_text(
     return tasks
 
 
-def list_dsl_tasks_with_desc(
+def get_alias_map(
     file_arg: Optional[str] = None,
-) -> List[Tuple[str, Optional[str]]]:
+) -> Dict[str, str]:
+    """
+    Build a mapping of aliases to their canonical task names.
+    
+    Returns:
+        Dictionary mapping alias names to full task names
+    """
     src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
     tasks = parse_pfyfile_text(src, task_sources)
-    return [(t.name, t.description) for t in tasks.values()]
+    alias_map: Dict[str, str] = {}
+    for task_name, task in tasks.items():
+        for alias in task.aliases:
+            alias_map[alias] = task_name
+    return alias_map
+
+
+def list_dsl_tasks_with_desc(
+    file_arg: Optional[str] = None,
+) -> List[Tuple[str, Optional[str], List[str]]]:
+    """List all tasks with their descriptions and aliases."""
+    src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
+    tasks = parse_pfyfile_text(src, task_sources)
+    return [(t.name, t.description, t.aliases) for t in tasks.values()]
 
 
 # ---------- Embedded sample ----------
@@ -1259,7 +1309,6 @@ BUILTINS: Dict[str, List[str]] = {
 
 
 # ---------- CLI ----------
-=
 def _group_tasks_by_prefix(tasks_list: List) -> Tuple[List, Dict[str, List]]:
     """
     Group tasks by their prefix (e.g., 'road-block' -> 'road' group).
@@ -1294,7 +1343,6 @@ def _group_tasks_by_prefix(tasks_list: List) -> Tuple[List, Dict[str, List]]:
             ungrouped.extend(task_list)
 
     return ungrouped, grouped
->>>>>>> main
 
 
 def _print_list(file_arg: Optional[str] = None):
@@ -1322,31 +1370,36 @@ def _print_list(file_arg: Optional[str] = None):
             else:
                 main_tasks.append(task)
 
-        def _format_task_line(task):
-            """Format a single task line with name, args, and description."""
-            # Format args in modern --arg=value style using shared function
-            args_str = _format_task_params(task.params, style="modern")
-            if args_str:
-                args_str = " " + args_str
-            
+        def format_task(task):
+            """Format a task for display with aliases and description."""
+            alias_str = ""
+            if hasattr(task, 'aliases') and task.aliases:
+                alias_str = f" ({', '.join(task.aliases)})"
             if task.description:
-                return f"  {task.name}{args_str}  —  {task.description}"
+                return f"  {task.name}{alias_str}  —  {task.description}"
             else:
-                return f"  {task.name}{args_str}"
+                return f"  {task.name}{alias_str}"
 
         # Print main tasks first, grouped by prefix
         if main_tasks:
             print(f"\nFrom {source}:")
             ungrouped, grouped = _group_tasks_by_prefix(main_tasks)
+
+            # Print ungrouped tasks first
+            for task in sorted(ungrouped, key=lambda t: t.name):
+                print(format_task(task))
             
             # Print grouped tasks by prefix
             for prefix in sorted(grouped.keys()):
                 print(f"\n  [{prefix}]")
                 for task in sorted(grouped[prefix], key=lambda t: t.name):
+                    alias_str = ""
+                    if hasattr(task, 'aliases') and task.aliases:
+                        alias_str = f" ({', '.join(task.aliases)})"
                     if task.description:
-                        print(f"    {task.name}  —  {task.description}")
+                        print(f"    {task.name}{alias_str}  —  {task.description}")
                     else:
-                        print(f"    {task.name}")
+                        print(f"    {task.name}{alias_str}")
 
         # Print tasks grouped by include file
         for source_file in sorted(tasks_by_source.keys()):
@@ -1367,19 +1420,19 @@ def _print_list(file_arg: Optional[str] = None):
 
             # Print ungrouped tasks first
             for task in sorted(ungrouped, key=lambda t: t.name):
-                if task.description:
-                    print(f"  {task.name}  —  {task.description}")
-                else:
-                    print(f"  {task.name}")
+                print(format_task(task))
             
             # Print grouped tasks by prefix
             for prefix in sorted(grouped.keys()):
                 print(f"\n  [{prefix}]")
                 for task in sorted(grouped[prefix], key=lambda t: t.name):
+                    alias_str = ""
+                    if hasattr(task, 'aliases') and task.aliases:
+                        alias_str = f" ({', '.join(task.aliases)})"
                     if task.description:
-                        print(f"    {task.name}  —  {task.description}")
+                        print(f"    {task.name}{alias_str}  —  {task.description}")
                     else:
-                        print(f"    {task.name}")
+                        print(f"    {task.name}{alias_str}")
 
     if ENV_MAP:
         print("\nEnvironments:")
@@ -1652,6 +1705,15 @@ def main(argv: List[str]) -> int:
         | HELP_VARIATIONS
     )
 
+    # Build user-defined alias map from task definitions
+    user_alias_map: Dict[str, str] = {}
+    for task_name, task_obj in dsl_tasks.items():
+        for alias in task_obj.aliases:
+            user_alias_map[alias] = task_name
+    
+    # Add user-defined aliases to valid task names for resolution
+    all_valid_names = valid_task_names | set(user_alias_map.keys())
+
     # Parse multi-task + params: <task> [k=v ...] <task2> [k=v ...] ...
     selected = []
     j = 0
@@ -1662,6 +1724,8 @@ def main(argv: List[str]) -> int:
         + list(HELP_VARIATIONS)
     )
     aliasmap_all = _alias_map(all_names_for_alias)
+    # Merge user-defined aliases (take priority over normalized aliases)
+    aliasmap_all.update(user_alias_map)
     while j < len(tasks):
         tname = tasks[j]
 
@@ -1686,7 +1750,7 @@ def main(argv: List[str]) -> int:
                 import difflib as _difflib
 
                 close = _difflib.get_close_matches(
-                    tname, list(valid_task_names), n=3, cutoff=0.5
+                    tname, list(all_valid_names), n=3, cutoff=0.5
                 )
                 print(
                     f"[error] no such task: {tname}"
@@ -1702,13 +1766,13 @@ def main(argv: List[str]) -> int:
             if idx >= len(tasks):
                 return False
             next_arg = tasks[idx]
-            # Value shouldn't start with - or -- (another flag) or be a task name
-            return not next_arg.startswith("-") and next_arg not in valid_task_names
+            # Value shouldn't start with - or -- (another flag) or be a task name/alias
+            return not next_arg.startswith("-") and next_arg not in all_valid_names
 
         while j < len(tasks):
             arg = tasks[j]
-            # Check if this looks like the next task name
-            if not arg.startswith("-") and "=" not in arg and arg in valid_task_names:
+            # Check if this looks like the next task name (including aliases)
+            if not arg.startswith("-") and "=" not in arg and arg in all_valid_names:
                 break
 
             # Support multiple parameter formats:

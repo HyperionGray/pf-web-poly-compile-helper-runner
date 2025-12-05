@@ -23,16 +23,24 @@ comment: COMMENT
 // Used for setting repository-wide or project-level configuration
 env_var: "env" IDENTIFIER "=" STRING
 
-// Task definition with optional parameters
+// Task definition with optional parameters and aliases
 // Parameters can appear in any order before the task name or after it
+// Aliases provide short command names that can be used instead of the full task name
 // Examples: 
 //   task my-task param1="value" param2="value"
 //   task my-task
-task: "task" IDENTIFIER param* NEWLINE task_body+ "end"
+//   task long-command [alias cmd]
+//   task long-command [alias=cmd]
+task: "task" IDENTIFIER (param | alias_def)* NEWLINE task_body+ "end"
 
 // Task parameter: name="value"
 // These become available as $name within the task
 param: IDENTIFIER "=" STRING
+
+// Alias definition: [alias short-name] or [alias=short-name]
+// These provide short command names that map to the full task name
+// Both syntax forms are supported: [alias cmd] and [alias=cmd]
+alias_def: "[" "alias" (IDENTIFIER | "=" IDENTIFIER) "]"
 
 // Things that can appear inside a task body
 // These are the core DSL verbs for task definitions
