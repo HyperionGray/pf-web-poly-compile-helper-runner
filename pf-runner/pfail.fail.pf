@@ -1,7 +1,0 @@
-# pf prune - Failed syntax validation
-# Fix the errors below and re-run pf prune
-
-# Error at line 2: Unclosed 'task' block 'broken' - missing 'end'
-# Hint: Add 'end' to close the task block
-# task broken
-
