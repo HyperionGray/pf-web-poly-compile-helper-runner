@@ -126,11 +126,60 @@ class PfRunner:
             return self._handle_help_command(parsed_args)
         elif parsed_args.command == 'run':
             return self._handle_run_command(parsed_args)
+        elif parsed_args.command == 'prune':
+            return self._handle_prune_command(parsed_args)
+        elif parsed_args.command == 'debug-on':
+            return self._handle_debug_on_command(parsed_args)
+        elif parsed_args.command == 'debug-off':
+            return self._handle_debug_off_command(parsed_args)
         elif hasattr(parsed_args, 'subcommand_tasks'):
             # It's a subcommand
             return self._handle_subcommand(parsed_args)
         else:
             print(f"Unknown command: {parsed_args.command}", file=sys.stderr)
+            return 1
+    
+    def _handle_prune_command(self, args) -> int:
+        """Handle the prune command for syntax checking."""
+        try:
+            from pf_prune import prune_tasks
+            
+            passed, failed, failed_tasks = prune_tasks(
+                file_arg=args.file,
+                dry_run=getattr(args, 'dry_run', True),
+                verbose=getattr(args, 'verbose', False),
+                output_file=getattr(args, 'output', 'pfail.fail.pf')
+            )
+            return 0 if failed == 0 else 1
+            
+        except Exception as e:
+            print(f"Error during prune: {e}", file=sys.stderr)
+            return 1
+    
+    def _handle_debug_on_command(self, args) -> int:
+        """Handle the debug-on command."""
+        try:
+            from pf_prune import set_debug_mode
+            set_debug_mode(True)
+            return 0
+        except PermissionError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"Error enabling debug mode: {e}", file=sys.stderr)
+            return 1
+    
+    def _handle_debug_off_command(self, args) -> int:
+        """Handle the debug-off command."""
+        try:
+            from pf_prune import set_debug_mode
+            set_debug_mode(False)
+            return 0
+        except PermissionError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"Error disabling debug mode: {e}", file=sys.stderr)
             return 1
     
     def _handle_list_command(self, args) -> int:

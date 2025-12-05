@@ -7,6 +7,8 @@
 - Per-task env: inside a task, `env KEY=VAL KEY2=VAL2` applies to subsequent lines in that task
 - Envs/hosts: env=prod, hosts=user@ip:port,..., repeatable host=...
 - Parallel SSH across hosts with prefixed live output
+- Flexible help: support help, --help, -h, hlep, hepl, heelp, hlp variations
+- Flexible parameters: --key=value, -k val, and key=value are equivalent
 
 Install
   pip install "fabric>=3.2,<4"
@@ -34,6 +36,80 @@ ENV_MAP: Dict[str, List[str] | str] = {
     "staging": "staging@10.1.2.3:22,staging@10.1.2.4:22",
 }
 
+# Help command variations - common typos and alternatives
+HELP_VARIATIONS = {"help", "--help", "-h", "hlep", "hepl", "heelp", "hlp"}
+
+
+# ---------- Flexible help and parameter parsing ----------
+def _normalize_help_option(arg: str) -> bool:
+    """Check if an argument is a help option, including common typos."""
+    help_variations = {
+        'help', '--help', '-h', 'hlep', 'hepl', 'heelp', 'hlp',
+        '--hlep', '--hepl', '--heelp', '--hlp'
+    }
+    return arg.lower() in help_variations
+
+
+def _normalize_parameter_key(key: str) -> str:
+    """Normalize parameter keys to handle variations."""
+    # Handle common variations
+    key_mappings = {
+        'sudo_user': 'sudo-user',
+        'become_user': 'become-user',
+        'sudo-user': 'sudo-user',
+        'become-user': 'become-user',
+    }
+    return key_mappings.get(key, key)
+
+
+def _try_parse_parameter_formats(args: List[str], i: int) -> Tuple[Optional[Tuple[str, str]], int]:
+    """
+    Try to parse parameter in multiple formats:
+    1. --key=value
+    2. --key value
+    3. -k value (single char)
+    4. key=value
+    
+    Returns: ((key, value), new_index) or (None, original_index)
+    """
+    if i >= len(args):
+        return None, i
+        
+    arg = args[i]
+    
+    # Format 1: --key=value or key=value
+    if '=' in arg:
+        if arg.startswith('--'):
+            key, value = arg[2:].split('=', 1)
+            return (_normalize_parameter_key(key), value), i + 1
+        elif not arg.startswith('-'):
+            key, value = arg.split('=', 1)
+            return (_normalize_parameter_key(key), value), i + 1
+    
+    # Format 2: --key value
+    if arg.startswith('--') and i + 1 < len(args):
+        key = arg[2:]
+        next_arg = args[i + 1]
+        if not next_arg.startswith('-') and '=' not in next_arg:
+            return (_normalize_parameter_key(key), next_arg), i + 2
+    
+    # Format 3: -k value (single character options)
+    if arg.startswith('-') and len(arg) == 2 and i + 1 < len(args):
+        short_key = arg[1]
+        next_arg = args[i + 1]
+        if not next_arg.startswith('-') and '=' not in next_arg:
+            # Map common short options
+            short_mappings = {
+                'h': 'help',
+                'f': 'file',
+                'u': 'user',
+                'p': 'port',
+                'e': 'env',
+            }
+            key = short_mappings.get(short_key, short_key)
+            return (_normalize_parameter_key(key), next_arg), i + 2
+    
+    return None, i
 
 # ---------- Pfyfile discovery ----------
 def _find_pfyfile(
@@ -684,16 +760,71 @@ def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str]]:
     return task_name, params
 
 
+def _process_line_continuation(lines: List[str], start_idx: int) -> Tuple[str, int]:
+    """
+    Process backslash line continuation starting from the given index.
+    
+    Args:
+        lines: List of all lines (stripped)
+        start_idx: Index of the first line to process
+        
+    Returns:
+        Tuple of (combined_line, next_index_to_process)
+    """
+    combined_parts = []
+    current_idx = start_idx
+    
+    while current_idx < len(lines):
+        line = lines[current_idx]
+        
+        # Skip empty lines and comments during continuation
+        if not line or line.startswith("#"):
+            current_idx += 1
+            continue
+            
+        # Check if this line ends with backslash (line continuation)
+        if line.endswith("\\"):
+            # Remove the backslash and add to combined parts
+            line_without_backslash = line[:-1].rstrip()
+            if line_without_backslash:  # Only add non-empty parts
+                combined_parts.append(line_without_backslash)
+            current_idx += 1
+            continue
+        else:
+            # This line doesn't end with backslash, add it and we're done
+            if line:  # Only add non-empty lines
+                combined_parts.append(line)
+            current_idx += 1
+            break
+    
+    # Join all parts with single space, preserving the structure
+    combined_line = " ".join(combined_parts) if combined_parts else ""
+    return combined_line, current_idx
+
+
 def parse_pfyfile_text(
     text: str, task_sources: Optional[Dict[str, str]] = None
 ) -> Dict[str, Task]:
-    """Parse Pfyfile text into Task objects with optional source tracking"""
+    """Parse Pfyfile text into Task objects with optional source tracking.
+
+    Supports bash-style backslash line continuation: lines ending with '\\'
+    are joined with following lines until a line without trailing backslash.
+    """
     tasks: Dict[str, Task] = {}
     cur: Optional[Task] = None
-    for raw in text.splitlines():
-        line = raw.strip()
+    
+    # Pre-process all lines and strip them
+    all_lines = [raw.strip() for raw in text.splitlines()]
+    line_idx = 0
+    
+    while line_idx < len(all_lines):
+        line = all_lines[line_idx]
+        
+        # Skip empty lines and comments at top level
         if not line or line.startswith("#"):
+            line_idx += 1
             continue
+            
         if line.startswith("task "):
             task_name, params = _parse_task_definition(line)
             # For task_sources lookup, we need to check both the full line and just the task name
@@ -704,17 +835,42 @@ def parse_pfyfile_text(
                 source_file = task_sources.get(full_line) or task_sources.get(task_name)
             cur = Task(task_name, source_file=source_file, params=params)
             tasks[task_name] = cur
+            line_idx += 1
             continue
+            
         if line == "end":
+            # Handle incomplete continuation at task end
+            if pending_continuation is not None and cur is not None:
+                cur.add(pending_continuation)
+                pending_continuation = None
             cur = None
+            line_idx += 1
             continue
+            
         if cur is None:
+            line_idx += 1
             continue
-        if line.startswith("describe "):
-            if cur.description is None:
-                cur.description = line.split(None, 1)[1].strip()
-            continue
-        cur.add(line)
+            
+        # Handle task body lines with potential line continuation
+        if line.endswith("\\"):
+            # This line has continuation, process it
+            combined_line, next_idx = _process_line_continuation(all_lines, line_idx)
+            if combined_line:  # Only add non-empty combined lines
+                if combined_line.startswith("describe "):
+                    if cur.description is None:
+                        cur.description = combined_line.split(None, 1)[1].strip()
+                else:
+                    cur.add(combined_line)
+            line_idx = next_idx
+        else:
+            # Regular line without continuation
+            if line.startswith("describe "):
+                if cur.description is None:
+                    cur.description = line.split(None, 1)[1].strip()
+            else:
+                cur.add(line)
+            line_idx += 1
+            
     return tasks
 
 
@@ -882,936 +1038,7 @@ def _exec_line_fabric(
             )
             shown = f"{exports} {cmd}".strip()
             print(f"{prefix}$ {(('(sudo) ' + shown) if sudo else shown)}")
-            full_cmd = f"{exports} {cmd}" if exports else cmd
-            if sudo:
-                if sudo_user:
-                    full_cmd = f"sudo -u {shlex.quote(sudo_user)} -H bash -lc {shlex.quote(full_cmd)}"
-                else:
-                    full_cmd = f"sudo bash -lc {shlex.quote(full_cmd)}"
-            r = c.run(full_cmd, pty=True, warn=True, hide=False)
-            return r.exited
-
-    # Handle 'shell' command specially - preserve bash syntax
-    if verb == "shell":
-        if not rest_of_line:
-            raise ValueError("shell needs a command")
-
-        # Check for [lang:xxx] syntax to enable polyglot execution
-        lang_hint, remaining_cmd = _parse_lang_bracket(rest_of_line)
-
-        if lang_hint:
-            # This is a polyglot shell command - render it with the appropriate language
-            try:
-                # Use current working directory for file resolution in polyglot commands
-                working_dir = os.getcwd()
-                rendered_cmd, resolved_lang = _render_polyglot_command(
-                    lang_hint, remaining_cmd, working_dir
-                )
-                if rendered_cmd:
-                    return run(rendered_cmd)
-                # This shouldn't happen since _render_polyglot_command always returns a command
-                # when lang_hint is provided, but let's be defensive
-                print(
-                    f"{prefix}[warn] Polyglot rendering returned empty command for [lang:{lang_hint}], falling back to regular shell",
-                    file=sys.stderr,
-                )
-            except (ValueError, KeyError) as e:
-                raise ValueError(
-                    f"Error processing polyglot command [lang:{lang_hint}]: {e}"
-                )
-
-        # Regular shell command (no [lang:xxx])
-        return run(rest_of_line)
-
-    # For other commands, parse with shlex to handle quoted arguments
-    parts = shlex.split(line)
-    if not parts:
-        return 0
-    op = parts[0]
-    args = parts[1:]
-
-    if op == "packages":
-        if len(args) < 2:
-            raise ValueError("packages install/remove <names...>")
-        action, names = args[0], args[1:]
-        if action == "install":
-            return run(" ".join(["apt -y install"] + names))
-        if action == "remove":
-            return run(" ".join(["apt -y remove"] + names))
-        raise ValueError(f"Unknown packages action: {action}")
-
-    if op == "service":
-        if len(args) < 2:
-            raise ValueError("service <start|stop|enable|disable|restart> <name>")
-        action, name = args[0], args[1]
-        map_cmd = {
-            "start": f"systemctl start {shlex.quote(name)}",
-            "stop": f"systemctl stop {shlex.quote(name)}",
-            "enable": f"systemctl enable {shlex.quote(name)}",
-            "disable": f"systemctl disable {shlex.quote(name)}",
-            "restart": f"systemctl restart {shlex.quote(name)}",
-        }
-        if action not in map_cmd:
-            raise ValueError(f"Unknown service action: {action}")
-        return run(map_cmd[action])
-
-    if op == "directory":
-        pos, kv = _split_kv(args)
-        if not pos:
-            raise ValueError("directory <path> [mode=0755]")
-        path = pos[0]
-        mode = kv.get("mode")
-        rc = run(f"mkdir -p {shlex.quote(path)}")
-        if rc == 0 and mode:
-            rc = run(f"chmod {shlex.quote(mode)} {shlex.quote(path)}")
-        return rc
-
-    if op == "copy":
-        pos, kv = _split_kv(args)
-        if len(pos) < 2:
-            raise ValueError("copy <local> <remote> [mode=0644] [user=...] [group=...]")
-        local, remote = pos[0], pos[1]
-        mode = kv.get("mode")
-        owner = kv.get("user")
-        group = kv.get("group")
-        if c is None:
-            import shutil
-
-            os.makedirs(os.path.dirname(remote), exist_ok=True)
-            shutil.copyfile(local, remote)
-            if mode:
-                run(f"chmod {shlex.quote(mode)} {shlex.quote(remote)}")
-            if owner or group:
-                og = f"{owner or ''}:{group or ''}"
-                run(f"chown {og} {shlex.quote(remote)}")
-            return 0
-        else:
-            c.put(local, remote=remote)
-            if mode:
-                run(f"chmod {shlex.quote(mode)} {shlex.quote(remote)}")
-            if owner or group:
-                og = f"{owner or ''}:{group or ''}"
-                run(f"chown {og} {shlex.quote(remote)}")
-            return 0
-
-    if op == "describe":
-        return 0
-
-    # 'env' is handled in the runner loop (stateful), so treat as no-op here
-    if op == "env":
-        return 0
-
-    # tolerate non-executable hints used in some Pfyfiles
-    if op in ("shell_lang", "lang"):
-        return 0
-
-    # ---------- Build System Helpers ----------
-    if op == "makefile" or op == "make":
-        # makefile [target...] [VAR=value...] [clean] [verbose] [jobs=N]
-        pos, kv = _split_kv(args)
-        make_args = []
-        if kv.get("jobs"):
-            make_args.append(f"-j{kv['jobs']}")
-        elif kv.get("parallel") == "true":
-            make_args.append("-j")
-        if kv.get("verbose") == "true":
-            make_args.append("V=1")
-        # Add any VAR=value pairs
-        for k, v in kv.items():
-            if k not in {"jobs", "parallel", "verbose"}:
-                make_args.append(f"{k}={shlex.quote(v)}")
-        # Add targets
-        make_args.extend([shlex.quote(t) for t in pos])
-        cmd = "make " + " ".join(make_args) if make_args else "make"
-        return run(cmd)
-
-    if op == "cmake":
-        # cmake [source_dir] [build_dir] [generator=...] [build_type=...] [options...]
-        pos, kv = _split_kv(args)
-        source_dir = pos[0] if pos else "."
-        build_dir = kv.get("build_dir", "build")
-
-        # Configure step
-        configure_args = [
-            "cmake",
-            "-S",
-            shlex.quote(source_dir),
-            "-B",
-            shlex.quote(build_dir),
-        ]
-        if kv.get("generator"):
-            configure_args.extend(["-G", shlex.quote(kv["generator"])])
-        if kv.get("build_type"):
-            configure_args.append(f"-DCMAKE_BUILD_TYPE={shlex.quote(kv['build_type'])}")
-        # Add any other -D options
-        for k, v in kv.items():
-            if k not in {"build_dir", "generator", "build_type", "target", "jobs"}:
-                configure_args.append(f"-D{k}={shlex.quote(v)}")
-
-        rc = run(" ".join(configure_args))
-        if rc != 0:
-            return rc
-
-        # Build step
-        build_args = ["cmake", "--build", shlex.quote(build_dir)]
-        if kv.get("jobs"):
-            build_args.extend(["-j", kv["jobs"]])
-        if kv.get("target"):
-            build_args.extend(["--target", shlex.quote(kv["target"])])
-
-        return run(" ".join(build_args))
-
-    if op == "meson" or op == "ninja":
-        # meson [source_dir] [build_dir] [options...]
-        pos, kv = _split_kv(args)
-        source_dir = pos[0] if pos else "."
-        build_dir = kv.get("build_dir", "builddir")
-
-        # Check if build directory already exists (reconfigure vs initial setup)
-        check_cmd = f"test -f {shlex.quote(build_dir)}/build.ninja"
-        rc_check = run(check_cmd)
-
-        if rc_check != 0:
-            # Initial setup
-            setup_args = [
-                "meson",
-                "setup",
-                shlex.quote(build_dir),
-                shlex.quote(source_dir),
-            ]
-            if kv.get("buildtype"):
-                setup_args.append(f"--buildtype={shlex.quote(kv['buildtype'])}")
-            for k, v in kv.items():
-                if k not in {"build_dir", "buildtype", "target"}:
-                    setup_args.append(f"-D{k}={shlex.quote(v)}")
-            rc = run(" ".join(setup_args))
-            if rc != 0:
-                return rc
-
-        # Compile
-        compile_args = ["meson", "compile", "-C", shlex.quote(build_dir)]
-        if kv.get("target"):
-            compile_args.append(shlex.quote(kv["target"]))
-
-        return run(" ".join(compile_args))
-
-    if op == "cargo":
-        # cargo <subcommand> [args...] [release] [features=...] [target=...]
-        if not args:
-            raise ValueError("cargo requires a subcommand (build, test, run, etc.)")
-        pos, kv = _split_kv(args)
-        subcommand = pos[0]
-        cargo_args = ["cargo", subcommand]
-
-        if kv.get("release") == "true":
-            cargo_args.append("--release")
-        if kv.get("features"):
-            cargo_args.extend(["--features", shlex.quote(kv["features"])])
-        if kv.get("target"):
-            cargo_args.extend(["--target", shlex.quote(kv["target"])])
-        if kv.get("manifest_path"):
-            cargo_args.extend(["--manifest-path", shlex.quote(kv["manifest_path"])])
-
-        # Add remaining positional args
-        cargo_args.extend([shlex.quote(a) for a in pos[1:]])
-
-        # Add remaining kv pairs as flags
-        for k, v in kv.items():
-            if k not in {"release", "features", "target", "manifest_path"}:
-                if v == "true":
-                    cargo_args.append(f"--{k}")
-                else:
-                    cargo_args.extend([f"--{k}", shlex.quote(v)])
-
-        return run(" ".join(cargo_args))
-
-    if op == "go_build" or op == "gobuild":
-        # go_build [subcommand=build] [output=...] [tags=...] [race] [package]
-        pos, kv = _split_kv(args)
-        subcommand = kv.get("subcommand", "build")
-        go_args = ["go", subcommand]
-
-        if kv.get("output"):
-            go_args.extend(["-o", shlex.quote(kv["output"])])
-        if kv.get("tags"):
-            go_args.extend(["-tags", shlex.quote(kv["tags"])])
-        if kv.get("race") == "true":
-            go_args.append("-race")
-        if kv.get("ldflags"):
-            go_args.extend(["-ldflags", shlex.quote(kv["ldflags"])])
-
-        # Add package path if provided
-        go_args.extend([shlex.quote(p) for p in pos])
-
-        return run(" ".join(go_args))
-
-    if op == "configure":
-        # configure [prefix=...] [options...]
-        pos, kv = _split_kv(args)
-        configure_script = pos[0] if pos else "./configure"
-        configure_args = [configure_script]
-
-        if kv.get("prefix"):
-            configure_args.append(f"--prefix={shlex.quote(kv['prefix'])}")
-
-        # Add boolean flags
-        for k, v in kv.items():
-            if k == "prefix":
-                continue
-            if v == "true":
-                configure_args.append(f"--enable-{k}")
-            elif v == "false":
-                configure_args.append(f"--disable-{k}")
-            else:
-                configure_args.append(f"--{k}={shlex.quote(v)}")
-
-        return run(" ".join(configure_args))
-
-    if op == "justfile" or op == "just":
-        # justfile [recipe] [args...]
-        just_args = ["just"]
-        just_args.extend([shlex.quote(a) for a in args])
-        return run(" ".join(just_args))
-
-    if op == "build_detect" or op == "detect_build":
-        # Detect build system and suggest command
-        # This is informational only - prints what it finds
-        detection_script = """
-if [ -f Makefile ] || [ -f makefile ] || [ -f GNUmakefile ]; then
-    echo "Detected: Makefile (use 'makefile' verb)"
-fi
-if [ -f CMakeLists.txt ]; then
-    echo "Detected: CMake (use 'cmake' verb)"
-fi
-if [ -f meson.build ]; then
-    echo "Detected: Meson (use 'meson' verb)"
-fi
-if [ -f Cargo.toml ]; then
-    echo "Detected: Rust/Cargo (use 'cargo build' verb)"
-fi
-if [ -f go.mod ] || [ -f go.sum ]; then
-    echo "Detected: Go module (use 'go_build' verb)"
-fi
-if [ -f configure ] || [ -f configure.ac ]; then
-    echo "Detected: Autotools/Configure (use 'configure' verb)"
-fi
-if [ -f justfile ] || [ -f Justfile ]; then
-    echo "Detected: Just (use 'justfile' verb)"
-fi
-if [ -f build.ninja ]; then
-    echo "Detected: Ninja build files (use 'ninja' verb or run ninja directly)"
-fi
-if [ -f package.json ]; then
-    echo "Detected: Node.js/npm project (package.json found)"
-fi
-if [ -f setup.py ] || [ -f pyproject.toml ]; then
-    echo "Detected: Python project (setup.py or pyproject.toml found)"
-fi
-if [ -f build.gradle ] || [ -f build.gradle.kts ] || [ -f pom.xml ]; then
-    echo "Detected: Java/JVM project (Gradle or Maven)"
-fi
-"""
-        return run(detection_script)
-
-    if op == "autobuild" or op == "auto_build":
-        # Automagic builder - detects build system and runs appropriate build command
-        # Supports: Cargo, Go, CMake, Meson, Make, npm, Python, Maven/Gradle, Just, Autotools
-        # Optional parameters: target=<target>, jobs=<N>, release=<true/false>, dir=<path>
-
-        pos, kv = _split_kv(args)
-        target_dir = kv.get("dir", ".")
-        jobs = kv.get("jobs", "4")
-        is_release = kv.get("release", "").lower() in ("true", "yes", "1")
-        custom_target = kv.get("target", "")
-
-        autobuild_script = f"""
-set -e
-cd {shlex.quote(target_dir)}
-
-echo "==> Automagic Builder: Detecting build system..."
-
-# Priority order for build system detection (most specific to most general)
-BUILD_SYSTEM=""
-
-# 1. Check for Rust/Cargo (high priority - well-defined)
-if [ -f Cargo.toml ]; then
-    BUILD_SYSTEM="cargo"
-    echo "✓ Detected: Rust/Cargo project"
-fi
-
-# 2. Check for Go module (high priority - well-defined)
-if [ -z "$BUILD_SYSTEM" ] && [ -f go.mod ]; then
-    BUILD_SYSTEM="go"
-    echo "✓ Detected: Go module"
-fi
-
-# 3. Check for Node.js/npm (high priority for web projects)
-if [ -z "$BUILD_SYSTEM" ] && [ -f package.json ]; then
-    BUILD_SYSTEM="npm"
-    echo "✓ Detected: Node.js/npm project"
-fi
-
-# 4. Check for Python project
-if [ -z "$BUILD_SYSTEM" ] && ([ -f setup.py ] || [ -f pyproject.toml ]); then
-    BUILD_SYSTEM="python"
-    echo "✓ Detected: Python project"
-fi
-
-# 5. Check for Java/Maven
-if [ -z "$BUILD_SYSTEM" ] && [ -f pom.xml ]; then
-    BUILD_SYSTEM="maven"
-    echo "✓ Detected: Maven project"
-fi
-
-# 6. Check for Java/Gradle
-if [ -z "$BUILD_SYSTEM" ] && ([ -f build.gradle ] || [ -f build.gradle.kts ]); then
-    BUILD_SYSTEM="gradle"
-    echo "✓ Detected: Gradle project"
-fi
-
-# 7. Check for CMake (higher priority than raw Makefile)
-if [ -z "$BUILD_SYSTEM" ] && [ -f CMakeLists.txt ]; then
-    BUILD_SYSTEM="cmake"
-    echo "✓ Detected: CMake project"
-fi
-
-# 8. Check for Meson
-if [ -z "$BUILD_SYSTEM" ] && [ -f meson.build ]; then
-    BUILD_SYSTEM="meson"
-    echo "✓ Detected: Meson project"
-fi
-
-# 9. Check for Just
-if [ -z "$BUILD_SYSTEM" ] && ([ -f justfile ] || [ -f Justfile ]); then
-    BUILD_SYSTEM="just"
-    echo "✓ Detected: Just build"
-fi
-
-# 10. Check for Autotools (before generic Makefile)
-if [ -z "$BUILD_SYSTEM" ] && ([ -f configure ] || [ -f configure.ac ]); then
-    BUILD_SYSTEM="autotools"
-    echo "✓ Detected: Autotools/Configure"
-fi
-
-# 11. Check for generic Makefile (lowest priority)
-if [ -z "$BUILD_SYSTEM" ] && ([ -f Makefile ] || [ -f makefile ] || [ -f GNUmakefile ]); then
-    BUILD_SYSTEM="make"
-    echo "✓ Detected: Makefile"
-fi
-
-# 12. Check for Ninja build files
-if [ -z "$BUILD_SYSTEM" ] && [ -f build.ninja ]; then
-    BUILD_SYSTEM="ninja"
-    echo "✓ Detected: Ninja build"
-fi
-
-# If no build system detected, error out
-if [ -z "$BUILD_SYSTEM" ]; then
-    echo "✗ Error: No build system detected in $(pwd)"
-    echo "Supported: Cargo.toml, go.mod, package.json, CMakeLists.txt, Makefile, meson.build, etc."
-    exit 1
-fi
-
-echo "==> Building with $BUILD_SYSTEM..."
-
-# Execute appropriate build command based on detected system
-case "$BUILD_SYSTEM" in
-    cargo)
-        if [ "{is_release}" = "True" ]; then
-            echo "Running: cargo build --release"
-            cargo build --release
-        else
-            echo "Running: cargo build"
-            cargo build
-        fi
-        ;;
-    go)
-        if [ -n "{custom_target}" ]; then
-            echo "Running: go build -o {custom_target}"
-            go build -o {shlex.quote(custom_target)}
-        else
-            echo "Running: go build"
-            go build
-        fi
-        ;;
-    npm)
-        # Check for build script in package.json
-        if grep -q '"build"' package.json 2>/dev/null; then
-            echo "Running: npm run build"
-            npm run build
-        else
-            echo "Running: npm install"
-            npm install
-        fi
-        ;;
-    python)
-        if [ -f pyproject.toml ]; then
-            echo "Running: pip install -e ."
-            pip install -e .
-        elif [ -f setup.py ]; then
-            echo "Running: python setup.py build"
-            python setup.py build
-        fi
-        ;;
-    maven)
-        echo "Running: mvn compile"
-        mvn compile
-        ;;
-    gradle)
-        if [ -x ./gradlew ]; then
-            echo "Running: ./gradlew build"
-            ./gradlew build
-        else
-            echo "Running: gradle build"
-            gradle build
-        fi
-        ;;
-    cmake)
-        BUILD_DIR="build"
-        BUILD_TYPE="Release"
-        if [ "{is_release}" = "False" ]; then
-            BUILD_TYPE="Debug"
-        fi
-        echo "Running: cmake -B $BUILD_DIR -DCMAKE_BUILD_TYPE=$BUILD_TYPE"
-        cmake -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
-        echo "Running: cmake --build $BUILD_DIR -j {jobs}"
-        cmake --build "$BUILD_DIR" -j {jobs}
-        ;;
-    meson)
-        BUILD_DIR="builddir"
-        BUILDTYPE="release"
-        if [ "{is_release}" = "False" ]; then
-            BUILDTYPE="debug"
-        fi
-        if [ ! -d "$BUILD_DIR" ]; then
-            echo "Running: meson setup $BUILD_DIR --buildtype=$BUILDTYPE"
-            meson setup "$BUILD_DIR" --buildtype="$BUILDTYPE"
-        fi
-        echo "Running: meson compile -C $BUILD_DIR -j {jobs}"
-        meson compile -C "$BUILD_DIR" -j {jobs}
-        ;;
-    make)
-        TARGET="{custom_target if custom_target else 'all'}"
-        echo "Running: make $TARGET -j{jobs}"
-        make $TARGET -j{jobs}
-        ;;
-    just)
-        if [ -n "{custom_target}" ]; then
-            echo "Running: just {custom_target}"
-            just {shlex.quote(custom_target)}
-        else
-            echo "Running: just"
-            just
-        fi
-        ;;
-    autotools)
-        if [ ! -f config.status ]; then
-            echo "Running: ./configure"
-            ./configure
-        fi
-        echo "Running: make -j{jobs}"
-        make -j{jobs}
-        ;;
-    ninja)
-        echo "Running: ninja -j{jobs}"
-        ninja -j{jobs}
-        ;;
-    *)
-        echo "✗ Error: Unknown build system: $BUILD_SYSTEM"
-        exit 1
-        ;;
-esac
-
-echo "==> Build completed successfully with $BUILD_SYSTEM"
-"""
-        return run(autobuild_script)
-
-    if op == "autobuild_retry" or op == "auto_build_retry":
-        # Enhanced automagic builder with retry and error pattern matching
-        # Supports all autobuild build systems with exponential backoff retry
-        # Parameters: dir=<path>, jobs=<N>, release=<true/false>, target=<target>
-        #            max_retries=<N>, initial_delay=<seconds>, max_delay=<seconds>
-
-        pos, kv = _split_kv(args)
-        target_dir = kv.get("dir", ".")
-        jobs = kv.get("jobs", "4")
-        is_release = kv.get("release", "").lower() in ("true", "yes", "1")
-        custom_target = kv.get("target", "")
-        max_retries = kv.get("max_retries", "3")
-        initial_delay = kv.get("initial_delay", "1")
-        max_delay = kv.get("max_delay", "30")
-
-        autobuild_retry_script = f"""
-set -e
-
-# Retry configuration
-MAX_RETRIES={max_retries}
-INITIAL_DELAY={initial_delay}
-MAX_DELAY={max_delay}
-CURRENT_DELAY=$INITIAL_DELAY
-ATTEMPT=0
-
-# Error patterns and fixes (pattern|fix_command)
-declare -A ERROR_FIXES
-ERROR_FIXES["E: Unable to locate package"]="apt-get update"
-ERROR_FIXES["ModuleNotFoundError"]="pip install --upgrade pip setuptools wheel"
-ERROR_FIXES["Cannot find module"]="npm install"
-ERROR_FIXES["Permission denied"]="chmod -R 755 ."
-ERROR_FIXES["EACCES"]="chmod -R 755 ."
-ERROR_FIXES["no Cargo.lock"]="cargo generate-lockfile"
-ERROR_FIXES["Cargo.lock.*not found"]="cargo generate-lockfile"
-ERROR_FIXES["go.mod.*not found"]="go mod init app"
-ERROR_FIXES["missing go.sum"]="go mod tidy"
-ERROR_FIXES["network is unreachable"]="sleep 5"
-ERROR_FIXES["timeout"]="sleep 5"
-ERROR_FIXES["ETIMEDOUT"]="sleep 5"
-ERROR_FIXES["ECONNRESET"]="sleep 5"
-
-cd {shlex.quote(target_dir)}
-
-# Function to detect build system
-detect_build_system() {{
-    if [ -f Cargo.toml ]; then echo "cargo"; return; fi
-    if [ -f go.mod ]; then echo "go"; return; fi
-    if [ -f package.json ]; then echo "npm"; return; fi
-    if [ -f setup.py ] || [ -f pyproject.toml ]; then echo "python"; return; fi
-    if [ -f pom.xml ]; then echo "maven"; return; fi
-    if [ -f build.gradle ] || [ -f build.gradle.kts ]; then echo "gradle"; return; fi
-    if [ -f CMakeLists.txt ]; then echo "cmake"; return; fi
-    if [ -f meson.build ]; then echo "meson"; return; fi
-    if [ -f justfile ] || [ -f Justfile ]; then echo "just"; return; fi
-    if [ -f configure ] || [ -f configure.ac ]; then echo "autotools"; return; fi
-    if [ -f Makefile ] || [ -f makefile ] || [ -f GNUmakefile ]; then echo "make"; return; fi
-    if [ -f build.ninja ]; then echo "ninja"; return; fi
-    echo "unknown"
-}}
-
-# Function to run build command for a given system
-run_build() {{
-    local BUILD_SYSTEM="$1"
-    
-    case "$BUILD_SYSTEM" in
-        cargo)
-            if [ "{is_release}" = "True" ]; then
-                cargo build --release
-            else
-                cargo build
-            fi
-            ;;
-        go)
-            if [ -n "{custom_target}" ]; then
-                go build -o {shlex.quote(custom_target)}
-            else
-                go build
-            fi
-            ;;
-        npm)
-            if grep -q '"build"' package.json 2>/dev/null; then
-                npm run build
-            else
-                npm install
-            fi
-            ;;
-        python)
-            if [ -f pyproject.toml ]; then
-                pip install -e .
-            elif [ -f setup.py ]; then
-                python setup.py build
-            fi
-            ;;
-        maven)
-            mvn compile
-            ;;
-        gradle)
-            if [ -x ./gradlew ]; then
-                ./gradlew build
-            else
-                gradle build
-            fi
-            ;;
-        cmake)
-            local BUILD_DIR="build"
-            local BUILD_TYPE="Release"
-            if [ "{is_release}" = "False" ]; then
-                BUILD_TYPE="Debug"
-            fi
-            cmake -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
-            cmake --build "$BUILD_DIR" -j {jobs}
-            ;;
-        meson)
-            local BUILD_DIR="builddir"
-            local BUILDTYPE="release"
-            if [ "{is_release}" = "False" ]; then
-                BUILDTYPE="debug"
-            fi
-            if [ ! -d "$BUILD_DIR" ]; then
-                meson setup "$BUILD_DIR" --buildtype="$BUILDTYPE"
-            fi
-            meson compile -C "$BUILD_DIR" -j {jobs}
-            ;;
-        make)
-            local TARGET="{custom_target if custom_target else 'all'}"
-            make $TARGET -j{jobs}
-            ;;
-        just)
-            if [ -n "{custom_target}" ]; then
-                just {shlex.quote(custom_target)}
-            else
-                just
-            fi
-            ;;
-        autotools)
-            if [ ! -f config.status ]; then
-                ./configure
-            fi
-            make -j{jobs}
-            ;;
-        ninja)
-            ninja -j{jobs}
-            ;;
-        *)
-            echo "✗ Error: Unknown build system: $BUILD_SYSTEM"
-            return 1
-            ;;
-    esac
-}}
-
-# Function to try to fix an error based on patterns
-try_fix_error() {{
-    local ERROR_OUTPUT="$1"
-    
-    for pattern in "${{!ERROR_FIXES[@]}}"; do
-        if echo "$ERROR_OUTPUT" | grep -qE "$pattern"; then
-            local FIX="${{ERROR_FIXES[$pattern]}}"
-            echo "  → Applying fix: $FIX"
-            eval "$FIX" 2>/dev/null || true
-            return 0
-        fi
-    done
-    
-    return 1
-}}
-
-# Main retry loop
-echo "==> Automagic Builder with Retry: Detecting build system..."
-BUILD_SYSTEM=$(detect_build_system)
-
-if [ "$BUILD_SYSTEM" = "unknown" ]; then
-    echo "✗ Error: No build system detected in $(pwd)"
-    echo "Supported: Cargo.toml, go.mod, package.json, CMakeLists.txt, Makefile, meson.build, etc."
-    exit 1
-fi
-
-echo "✓ Detected: $BUILD_SYSTEM"
-echo "==> Building with $BUILD_SYSTEM (max $MAX_RETRIES retries)..."
-
-while [ $ATTEMPT -lt $MAX_RETRIES ]; do
-    ATTEMPT=$((ATTEMPT + 1))
-    echo ""
-    echo "==> Attempt $ATTEMPT of $MAX_RETRIES"
-    
-    # Capture build output
-    BUILD_OUTPUT=$(mktemp)
-    
-    if run_build "$BUILD_SYSTEM" 2>&1 | tee "$BUILD_OUTPUT"; then
-        echo ""
-        echo "==> Build completed successfully with $BUILD_SYSTEM on attempt $ATTEMPT"
-        rm -f "$BUILD_OUTPUT"
-        exit 0
-    fi
-    
-    # Build failed - check if we can fix it
-    ERROR_TEXT=$(cat "$BUILD_OUTPUT")
-    rm -f "$BUILD_OUTPUT"
-    
-    if [ $ATTEMPT -lt $MAX_RETRIES ]; then
-        echo ""
-        echo "⚠ Build failed on attempt $ATTEMPT"
-        
-        # Try to apply a fix
-        if try_fix_error "$ERROR_TEXT"; then
-            echo "  → Fix applied, retrying in $CURRENT_DELAY seconds..."
-        else
-            echo "  → No specific fix found, retrying in $CURRENT_DELAY seconds..."
-        fi
-        
-        sleep $CURRENT_DELAY
-        
-        # Exponential backoff
-        CURRENT_DELAY=$((CURRENT_DELAY * 2))
-        if [ $CURRENT_DELAY -gt $MAX_DELAY ]; then
-            CURRENT_DELAY=$MAX_DELAY
-        fi
-    fi
-done
-
-echo ""
-echo "✗ Build failed after $MAX_RETRIES attempts"
-exit 1
-"""
-        return run(autobuild_retry_script)
-
-    if op == "containerize" or op == "auto_container":
-        # Automatic containerization - detect project and generate Dockerfile/Quadlet
-        # Parameters: dir=<path>, image=<name>, tag=<tag>, port=<N>
-        #            install_deps=<pkgs>, main_bin=<binary>, base_image=<image>
-        #            dockerfile_only=<true/false>, quadlet_only=<true/false>
-
-        pos, kv = _split_kv(args)
-        target_dir = kv.get("dir", ".")
-        image_name = kv.get("image", "")
-        tag = kv.get("tag", "latest")
-        port_hint = kv.get("port", "")
-        install_deps = kv.get("install_deps", "")
-        main_bin = kv.get("main_bin", "")
-        base_image = kv.get("base_image", "")
-        dockerfile_only = kv.get("dockerfile_only", "").lower() in ("true", "yes", "1")
-        quadlet_only = kv.get("quadlet_only", "").lower() in ("true", "yes", "1")
-
-        # Build the containerize command
-        containerize_script = f"""
-set -e
-
-cd {shlex.quote(target_dir)}
-
-# Get absolute path
-PROJECT_PATH=$(pwd)
-PROJECT_NAME=$(basename "$PROJECT_PATH" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
-
-# Default image name
-IMAGE_NAME="{image_name}"
-if [ -z "$IMAGE_NAME" ]; then
-    IMAGE_NAME="localhost/$PROJECT_NAME"
-fi
-
-TAG="{tag}"
-FULL_IMAGE="$IMAGE_NAME:$TAG"
-
-echo "==> pf Containerize: Automatic containerization"
-echo "    Project: $PROJECT_PATH"
-echo "    Image: $FULL_IMAGE"
-
-# Check if pf_containerize.py exists
-PF_RUNNER_DIR="$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")"
-CONTAINERIZE_SCRIPT="$PF_RUNNER_DIR/pf_containerize.py"
-
-# Try to find pf_containerize.py in common locations
-if [ ! -f "$CONTAINERIZE_SCRIPT" ]; then
-    for try_path in "./pf-runner/pf_containerize.py" "../pf-runner/pf_containerize.py" "/app/pf-runner/pf_containerize.py"; do
-        if [ -f "$try_path" ]; then
-            CONTAINERIZE_SCRIPT="$try_path"
-            break
-        fi
-    done
-fi
-
-if [ -f "$CONTAINERIZE_SCRIPT" ]; then
-    # Use the Python containerization module
-    ARGS="$PROJECT_PATH"
-    ARGS="$ARGS --image-name=$IMAGE_NAME"
-    ARGS="$ARGS --tag=$TAG"
-    
-    if [ -n "{install_deps}" ]; then
-        ARGS="$ARGS --install-hint-deps='{install_deps}'"
-    fi
-    if [ -n "{main_bin}" ]; then
-        ARGS="$ARGS --main-bin-hint='{main_bin}'"
-    fi
-    if [ -n "{port_hint}" ]; then
-        ARGS="$ARGS --port-hint={port_hint}"
-    fi
-    if [ -n "{base_image}" ]; then
-        ARGS="$ARGS --base-image-hint='{base_image}'"
-    fi
-    if [ "{dockerfile_only}" = "True" ]; then
-        ARGS="$ARGS --dockerfile-only"
-    fi
-    if [ "{quadlet_only}" = "True" ]; then
-        ARGS="$ARGS --quadlet-only"
-    fi
-    
-    eval "python3 $CONTAINERIZE_SCRIPT $ARGS"
-else
-    # Fallback: Basic inline containerization
-    echo "==> Using basic inline containerization (pf_containerize.py not found)"
-    
-    # Detect project type
-    PROJECT_TYPE="unknown"
-    BASE_IMAGE="ubuntu:24.04"
-    BUILD_CMDS=""
-    RUN_CMD=""
-    
-    if [ -f Cargo.toml ]; then
-        PROJECT_TYPE="rust"
-        BASE_IMAGE="rust:1-slim"
-        BUILD_CMDS="cargo build --release"
-        BIN_NAME=$(grep -m1 'name' Cargo.toml | sed 's/.*=\\s*"\\([^"]*\\)".*/\\1/' || echo "app")
-        RUN_CMD="./target/release/$BIN_NAME"
-    elif [ -f go.mod ]; then
-        PROJECT_TYPE="go"
-        BASE_IMAGE="golang:1.22-bookworm"
-        BUILD_CMDS="go build -o /app/main ."
-        RUN_CMD="/app/main"
-    elif [ -f package.json ]; then
-        PROJECT_TYPE="node"
-        BASE_IMAGE="node:20-slim"
-        BUILD_CMDS="npm install"
-        if grep -q '"build"' package.json 2>/dev/null; then
-            BUILD_CMDS="npm install && npm run build"
-        fi
-        RUN_CMD="npm start"
-    elif [ -f requirements.txt ] || [ -f setup.py ] || [ -f pyproject.toml ]; then
-        PROJECT_TYPE="python"
-        BASE_IMAGE="python:3.12-slim"
-        if [ -f requirements.txt ]; then
-            BUILD_CMDS="pip install -r requirements.txt"
-        else
-            BUILD_CMDS="pip install -e ."
-        fi
-        RUN_CMD="python main.py"
-    elif [ -f CMakeLists.txt ]; then
-        PROJECT_TYPE="cmake"
-        BASE_IMAGE="ubuntu:24.04"
-        BUILD_CMDS="apt-get update && apt-get install -y build-essential cmake && cmake -B build && cmake --build build"
-        RUN_CMD="./build/main"
-    elif [ -f Makefile ]; then
-        PROJECT_TYPE="make"
-        BASE_IMAGE="ubuntu:24.04"
-        BUILD_CMDS="apt-get update && apt-get install -y build-essential && make"
-        RUN_CMD="./main"
-    fi
-    
-    # Override with hints
-    if [ -n "{base_image}" ]; then
-        BASE_IMAGE="{base_image}"
-    fi
-    if [ -n "{main_bin}" ]; then
-        RUN_CMD="{main_bin}"
-    fi
-    
-    echo "✓ Detected: $PROJECT_TYPE project"
-    echo "  Base image: $BASE_IMAGE"
-    
-    # Generate Dockerfile
-    DOCKERFILE="Dockerfile.pf-generated"
-    
-    cat > "$DOCKERFILE" << 'DOCKERFILE_EOF'
-FROM $BASE_IMAGE
-
-LABEL maintainer="pf-containerize"
-LABEL generator="pf-web-poly-compile-helper-runner"
-
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=UTC
-
-WORKDIR /app
-
-COPY . .
-
-DOCKERFILE_EOF
-
-    # Add install_deps if specified
-    if [ -n "{install_deps}" ]; then
+           then
         echo "RUN {install_deps}" >> "$DOCKERFILE"
     fi
     
@@ -2032,97 +1259,46 @@ BUILTINS: Dict[str, List[str]] = {
 
 
 # ---------- CLI ----------
-def _format_task_params(params: Dict[str, str], style: str = "modern") -> str:
-    """Format task parameters for display.
-    
-    Args:
-        params: Dictionary of parameter names to default values
-        style: "modern" for --param=value, "legacy" for param=value
-        
-    Returns:
-        Formatted string of parameters
+=
+def _group_tasks_by_prefix(tasks_list: List) -> Tuple[List, Dict[str, List]]:
     """
-    if not params:
-        return ""
-    
-    if style == "modern":
-        # Use --param=value style to encourage modern syntax
-        parts = []
-        for k, v in params.items():
-            if v:
-                parts.append(f"--{k}={v}")
-            else:
-                parts.append(f"--{k}=<value>")
-        return " ".join(parts)
-    else:
-        # Legacy param=value style - handle empty values consistently
-        parts = []
-        for k, v in params.items():
-            if v:
-                parts.append(f"{k}={v}")
-            else:
-                parts.append(f"{k}=<value>")
-        return " ".join(parts)
+    Group tasks by their prefix (e.g., 'road-block' -> 'road' group).
 
+    Returns:
+        Tuple of (ungrouped_tasks, grouped_tasks_dict)
+    """
+    from collections import defaultdict
 
-def _print_task_help(task_name: str, file_arg: Optional[str] = None):
-    """Print detailed help for a specific task."""
-    # Load tasks
-    src_text, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
-    tasks = parse_pfyfile_text(src_text, task_sources)
-    
-    # Check builtins first
-    if task_name in BUILTINS:
-        print(f"Task: {task_name} (built-in)")
-        print()
-        print("Commands:")
-        for line in BUILTINS[task_name]:
-            print(f"  {line}")
-        return
-    
-    # Check DSL tasks
-    if task_name not in tasks:
-        import difflib as _difflib
-        close = _difflib.get_close_matches(task_name, list(tasks.keys()), n=3, cutoff=0.5)
-        print(f"[error] no such task: {task_name}", file=sys.stderr)
-        if close:
-            print(f"Did you mean: {', '.join(close)}?", file=sys.stderr)
-        return
-    
-    task = tasks[task_name]
-    print(f"Task: {task_name}")
-    
-    if task.description:
-        print(f"Description: {task.description}")
-    
-    # Show parameters if any
-    if task.params:
-        print()
-        print("Arguments (use --arg=value or arg=value):")
-        for param, default in task.params.items():
-            if default:
-                print(f"  --{param}  (default: {default})")
-            else:
-                print(f"  --{param}  (required)")
-    
-    # Show commands
-    print()
-    print("Commands:")
-    for line in task.lines:
-        print(f"  {line}")
-    
-    # Show usage example
-    print()
-    if task.params:
-        param_example = _format_task_params(task.params, style="modern")
-        print(f"Usage: pf {task_name} {param_example}")
-        print(f"       pf {task_name} {_format_task_params(task.params, style='legacy')}  # legacy style")
-    else:
-        print(f"Usage: pf {task_name}")
+    prefix_counts = defaultdict(list)
+    ungrouped = []
+
+    for task in tasks_list:
+        name = task.name
+        # Check if task name has a prefix (contains hyphen or underscore)
+        if "-" in name:
+            prefix = name.split("-")[0]
+            prefix_counts[prefix].append(task)
+        elif "_" in name:
+            prefix = name.split("_")[0]
+            prefix_counts[prefix].append(task)
+        else:
+            ungrouped.append(task)
+
+    # Only group if there are 2+ tasks with the same prefix
+    grouped = {}
+    for prefix, task_list in prefix_counts.items():
+        if len(task_list) >= 2:
+            grouped[prefix] = task_list
+        else:
+            # If only one task with this prefix, treat as ungrouped
+            ungrouped.extend(task_list)
+
+    return ungrouped, grouped
+>>>>>>> main
 
 
 def _print_list(file_arg: Optional[str] = None):
-    """Print available tasks grouped by source"""
+    """Print available tasks grouped by source and by prefix"""
     print("Built-ins:")
     print("  " + "  ".join(BUILTINS.keys()))
 
@@ -2158,11 +1334,19 @@ def _print_list(file_arg: Optional[str] = None):
             else:
                 return f"  {task.name}{args_str}"
 
-        # Print main tasks first
+        # Print main tasks first, grouped by prefix
         if main_tasks:
             print(f"\nFrom {source}:")
-            for task in main_tasks:
-                print(_format_task_line(task))
+            ungrouped, grouped = _group_tasks_by_prefix(main_tasks)
+            
+            # Print grouped tasks by prefix
+            for prefix in sorted(grouped.keys()):
+                print(f"\n  [{prefix}]")
+                for task in sorted(grouped[prefix], key=lambda t: t.name):
+                    if task.description:
+                        print(f"    {task.name}  —  {task.description}")
+                    else:
+                        print(f"    {task.name}")
 
         # Print tasks grouped by include file
         for source_file in sorted(tasks_by_source.keys()):
@@ -2178,14 +1362,79 @@ def _print_list(file_arg: Optional[str] = None):
             subcommand_name = subcommand_name.replace("_", "-")
 
             print(f"\n[{subcommand_name}] From {source_file}:")
-            for task in sorted(tasks_by_source[source_file], key=lambda t: t.name):
-                print(_format_task_line(task))
+            source_tasks = tasks_by_source[source_file]
+            ungrouped, grouped = _group_tasks_by_prefix(source_tasks)
+
+            # Print ungrouped tasks first
+            for task in sorted(ungrouped, key=lambda t: t.name):
+                if task.description:
+                    print(f"  {task.name}  —  {task.description}")
+                else:
+                    print(f"  {task.name}")
+            
+            # Print grouped tasks by prefix
+            for prefix in sorted(grouped.keys()):
+                print(f"\n  [{prefix}]")
+                for task in sorted(grouped[prefix], key=lambda t: t.name):
+                    if task.description:
+                        print(f"    {task.name}  —  {task.description}")
+                    else:
+                        print(f"    {task.name}")
 
     if ENV_MAP:
         print("\nEnvironments:")
         for k, v in ENV_MAP.items():
             vs = _normalize_hosts(v)
             print(f"  {k}: {', '.join(vs) if vs else '(empty)'}")
+
+
+def _print_task_help(task_name: str, file_arg: Optional[str] = None) -> int:
+    """Print detailed help for a specific task.
+
+    Returns:
+        0 if task was found, 1 if task was not found.
+    """
+    # Load tasks
+    dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
+    dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
+
+    # Check builtins first
+    if task_name in BUILTINS:
+        print(f"Built-in task: {task_name}")
+        print("\nCommands:")
+        for line in BUILTINS[task_name]:
+            print(f"  {line}")
+        return 0
+
+    # Check DSL tasks
+    if task_name in dsl_tasks:
+        task = dsl_tasks[task_name]
+        print(f"Task: {task_name}")
+        if task.description:
+            print(f"Description: {task.description}")
+        if task.source_file:
+            print(f"Source: {task.source_file}")
+        if task.params:
+            print("\nParameters:")
+            for param, default in task.params.items():
+                print(f"  {param}={default}")
+        print("\nCommands:")
+        for line in task.lines:
+            print(f"  {line}")
+        return 0
+
+    # Task not found - suggest similar tasks
+    import difflib
+
+    all_tasks = list(BUILTINS.keys()) + list(dsl_tasks.keys())
+    suggestions = difflib.get_close_matches(task_name, all_tasks, n=5, cutoff=0.4)
+
+    print(f"Task '{task_name}' not found.", file=sys.stderr)
+    if suggestions:
+        print("Did you mean:", file=sys.stderr)
+        for s in suggestions:
+            print(f"  {s}", file=sys.stderr)
+    return 1
 
 
 def _alias_map(names: List[str]) -> Dict[str, str]:
@@ -2287,7 +1536,8 @@ def main(argv: List[str]) -> int:
                 continue
 
         # Handle --list and --help as standalone flags
-        if a in ("--list", "--help", "-h"):
+        # Also handle help variations like hlep, hepl, heelp, hlp
+        if a in ("--list",) or a in HELP_VARIATIONS:
             tasks = argv[i:]
             break
 
@@ -2320,12 +1570,12 @@ def main(argv: List[str]) -> int:
         tasks = argv[i:]
         break
 
-    if not tasks or tasks[0] in {"help", "--help", "-h"}:
+    if not tasks or tasks[0] in HELP_VARIATIONS:
         if len(tasks) > 1:
-            _print_task_help(tasks[1], file_arg=pfy_file_arg)
+            return _print_task_help(tasks[1], file_arg=pfy_file_arg)
         else:
             print(
-                "Usage: pf [<pfy_file>] [env=NAME|--env=NAME|--env NAME]* [hosts=..|--hosts=..|--hosts ..] [user=..|--user=..|--user ..] [port=..|--port=..|--port ..] [sudo=true|--sudo] [sudo_user=..|--sudo-user=..|--sudo-user ..] <task|list|help> [more_tasks...]"
+                "Usage: pf [<pfy_file>] [env=NAME|--env=NAME|--env NAME]* [hosts=..|--hosts=..|--hosts ..] [user=..|--user=..|--user ..] [port=..|--port=..|--port ..] [sudo=true|--sudo] [sudo_user=..|--sudo-user=..|--sudo-user ..] <task|list|help|prune|debug-on|debug-off> [more_tasks...]"
             )
             print("\nAvailable tasks:")
             _print_list(file_arg=pfy_file_arg)
@@ -2333,6 +1583,58 @@ def main(argv: List[str]) -> int:
     if tasks[0] in ("list", "--list"):
         _print_list(file_arg=pfy_file_arg)
         return 0
+
+    # Handle prune command
+    if tasks[0] == "prune":
+        from pf_prune import prune_tasks
+
+        # Parse prune-specific arguments
+        dry_run = True
+        verbose = False
+        output_file = "pfail.fail.pf"
+        prune_args = tasks[1:]
+        for arg in prune_args:
+            if arg in ("-d", "--dry-run"):
+                dry_run = True
+            elif arg in ("-v", "--verbose"):
+                verbose = True
+            elif arg.startswith("-o=") or arg.startswith("--output="):
+                output_file = arg.split("=", 1)[1]
+        passed, failed, failed_tasks = prune_tasks(
+            file_arg=pfy_file_arg,
+            dry_run=dry_run,
+            verbose=verbose,
+            output_file=output_file,
+        )
+        return 0 if failed == 0 else 1
+
+    # Handle debug-on command
+    if tasks[0] == "debug-on":
+        try:
+            from pf_prune import set_debug_mode
+
+            set_debug_mode(True)
+            return 0
+        except PermissionError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"Error enabling debug mode: {e}", file=sys.stderr)
+            return 1
+
+    # Handle debug-off command
+    if tasks[0] == "debug-off":
+        try:
+            from pf_prune import set_debug_mode
+
+            set_debug_mode(False)
+            return 0
+        except PermissionError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"Error disabling debug mode: {e}", file=sys.stderr)
+            return 1
 
     # Resolve hosts
     env_hosts = _merge_env_hosts(env_names)
@@ -2346,7 +1648,8 @@ def main(argv: List[str]) -> int:
     valid_task_names = (
         set(BUILTINS.keys())
         | set(dsl_tasks.keys())
-        | {"list", "help", "--help", "--list"}
+        | {"list", "help", "--help", "--list", "prune", "debug-on", "debug-off"}
+        | HELP_VARIATIONS
     )
 
     # Parse multi-task + params: <task> [k=v ...] <task2> [k=v ...] ...
@@ -2355,11 +1658,27 @@ def main(argv: List[str]) -> int:
     all_names_for_alias = (
         list(BUILTINS.keys())
         + list(dsl_tasks.keys())
-        + ["list", "help", "--help", "--list"]
+        + ["list", "help", "--help", "--list", "prune", "debug-on", "debug-off"]
+        + list(HELP_VARIATIONS)
     )
     aliasmap_all = _alias_map(all_names_for_alias)
     while j < len(tasks):
         tname = tasks[j]
+
+        # If this is a help variation, show help for the previous task or general help
+        if tname in HELP_VARIATIONS:
+            if selected:
+                # Show help for the last selected task
+                return _print_task_help(selected[-1][0], file_arg=pfy_file_arg)
+            else:
+                # Show general help
+                print(
+                    "Usage: pf [<pfy_file>] [env=NAME|--env=NAME|--env NAME]* [hosts=..|--hosts=..|--hosts ..] [user=..|--user=..|--user ..] [port=..|--port=..|--port ..] [sudo=true|--sudo] [sudo_user=..|--sudo-user=..|--sudo-user ..] <task|list|help> [more_tasks...]"
+                )
+                print("\nAvailable tasks:")
+                _print_list(file_arg=pfy_file_arg)
+            return 0
+
         if tname not in valid_task_names:
             if tname in aliasmap_all:
                 tname = aliasmap_all[tname]
@@ -2383,19 +1702,20 @@ def main(argv: List[str]) -> int:
             if idx >= len(tasks):
                 return False
             next_arg = tasks[idx]
-            # Value shouldn't start with -- (another flag) or be a task name
-            return not next_arg.startswith("--") and next_arg not in valid_task_names
+            # Value shouldn't start with - or -- (another flag) or be a task name
+            return not next_arg.startswith("-") and next_arg not in valid_task_names
 
         while j < len(tasks):
             arg = tasks[j]
             # Check if this looks like the next task name
-            if not arg.startswith("--") and "=" not in arg and arg in valid_task_names:
+            if not arg.startswith("-") and "=" not in arg and arg in valid_task_names:
                 break
 
             # Support multiple parameter formats:
             # 1. --param=value
             # 2. --param value
             # 3. param=value
+            # 4. -k value (short form)
             if arg.startswith("--"):
                 if "=" in arg:
                     # Format: --param=value
@@ -2410,6 +1730,16 @@ def main(argv: List[str]) -> int:
                     j += 2
                 else:
                     # --param without a value, or next arg is a task
+                    break
+            elif arg.startswith("-") and len(arg) == 2:
+                # Format: -k value (short form, single letter key)
+                if _is_valid_parameter_value(j + 1):
+                    k = arg[1:]  # Strip - prefix
+                    v = tasks[j + 1]
+                    params[k] = v
+                    j += 2
+                else:
+                    # -k without a value, or next arg is a task
                     break
             elif "=" in arg:
                 # Format: param=value
