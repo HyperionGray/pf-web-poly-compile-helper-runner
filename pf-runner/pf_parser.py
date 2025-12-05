@@ -7,6 +7,8 @@
 - Per-task env: inside a task, `env KEY=VAL KEY2=VAL2` applies to subsequent lines in that task
 - Envs/hosts: env=prod, hosts=user@ip:port,..., repeatable host=...
 - Parallel SSH across hosts with prefixed live output
+- Flexible help: support help, --help, -h, hlep, hepl, heelp, hlp variations
+- Flexible parameters: --key=value, -k val, and key=value are equivalent
 
 Install
   pip install "fabric>=3.2,<4"
@@ -33,6 +35,9 @@ ENV_MAP: Dict[str, List[str] | str] = {
     "prod": ["ubuntu@10.0.0.5:22", "punk@10.4.4.4:24"],
     "staging": "staging@10.1.2.3:22,staging@10.1.2.4:22",
 }
+
+# Help command variations - common typos and alternatives
+HELP_VARIATIONS = {"help", "--help", "-h", "hlep", "hepl", "heelp", "hlp"}
 
 
 # ---------- Pfyfile discovery ----------
@@ -1175,8 +1180,44 @@ BUILTINS: Dict[str, List[str]] = {
 
 
 # ---------- CLI ----------
+def _group_tasks_by_prefix(tasks_list: List) -> Tuple[List, Dict[str, List]]:
+    """
+    Group tasks by their prefix (e.g., 'road-block' -> 'road' group).
+    
+    Returns:
+        Tuple of (ungrouped_tasks, grouped_tasks_dict)
+    """
+    from collections import defaultdict
+    
+    prefix_counts = defaultdict(list)
+    ungrouped = []
+    
+    for task in tasks_list:
+        name = task.name
+        # Check if task name has a prefix (contains hyphen or underscore)
+        if "-" in name:
+            prefix = name.split("-")[0]
+            prefix_counts[prefix].append(task)
+        elif "_" in name:
+            prefix = name.split("_")[0]
+            prefix_counts[prefix].append(task)
+        else:
+            ungrouped.append(task)
+    
+    # Only group if there are 2+ tasks with the same prefix
+    grouped = {}
+    for prefix, task_list in prefix_counts.items():
+        if len(task_list) >= 2:
+            grouped[prefix] = task_list
+        else:
+            # If only one task with this prefix, treat as ungrouped
+            ungrouped.extend(task_list)
+    
+    return ungrouped, grouped
+
+
 def _print_list(file_arg: Optional[str] = None):
-    """Print available tasks grouped by source"""
+    """Print available tasks grouped by source and by prefix"""
     print("Built-ins:")
     print("  " + "  ".join(BUILTINS.keys()))
 
@@ -1200,14 +1241,26 @@ def _print_list(file_arg: Optional[str] = None):
             else:
                 main_tasks.append(task)
 
-        # Print main tasks first
+        # Print main tasks first, grouped by prefix
         if main_tasks:
             print(f"\nFrom {source}:")
-            for task in main_tasks:
+            ungrouped, grouped = _group_tasks_by_prefix(main_tasks)
+            
+            # Print ungrouped tasks first
+            for task in sorted(ungrouped, key=lambda t: t.name):
                 if task.description:
                     print(f"  {task.name}  —  {task.description}")
                 else:
                     print(f"  {task.name}")
+            
+            # Print grouped tasks by prefix
+            for prefix in sorted(grouped.keys()):
+                print(f"\n  [{prefix}]")
+                for task in sorted(grouped[prefix], key=lambda t: t.name):
+                    if task.description:
+                        print(f"    {task.name}  —  {task.description}")
+                    else:
+                        print(f"    {task.name}")
 
         # Print tasks grouped by include file
         for source_file in sorted(tasks_by_source.keys()):
@@ -1223,17 +1276,78 @@ def _print_list(file_arg: Optional[str] = None):
             subcommand_name = subcommand_name.replace("_", "-")
 
             print(f"\n[{subcommand_name}] From {source_file}:")
-            for task in sorted(tasks_by_source[source_file], key=lambda t: t.name):
+            source_tasks = tasks_by_source[source_file]
+            ungrouped, grouped = _group_tasks_by_prefix(source_tasks)
+            
+            # Print ungrouped tasks first
+            for task in sorted(ungrouped, key=lambda t: t.name):
                 if task.description:
                     print(f"  {task.name}  —  {task.description}")
                 else:
                     print(f"  {task.name}")
+            
+            # Print grouped tasks by prefix
+            for prefix in sorted(grouped.keys()):
+                print(f"\n  [{prefix}]")
+                for task in sorted(grouped[prefix], key=lambda t: t.name):
+                    if task.description:
+                        print(f"    {task.name}  —  {task.description}")
+                    else:
+                        print(f"    {task.name}")
 
     if ENV_MAP:
         print("\nEnvironments:")
         for k, v in ENV_MAP.items():
             vs = _normalize_hosts(v)
             print(f"  {k}: {', '.join(vs) if vs else '(empty)'}")
+
+
+def _print_task_help(task_name: str, file_arg: Optional[str] = None) -> int:
+    """Print detailed help for a specific task.
+    
+    Returns:
+        0 if task was found, 1 if task was not found.
+    """
+    # Load tasks
+    dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
+    dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
+    
+    # Check builtins first
+    if task_name in BUILTINS:
+        print(f"Built-in task: {task_name}")
+        print("\nCommands:")
+        for line in BUILTINS[task_name]:
+            print(f"  {line}")
+        return 0
+    
+    # Check DSL tasks
+    if task_name in dsl_tasks:
+        task = dsl_tasks[task_name]
+        print(f"Task: {task_name}")
+        if task.description:
+            print(f"Description: {task.description}")
+        if task.source_file:
+            print(f"Source: {task.source_file}")
+        if task.params:
+            print("\nParameters:")
+            for param, default in task.params.items():
+                print(f"  {param}={default}")
+        print("\nCommands:")
+        for line in task.lines:
+            print(f"  {line}")
+        return 0
+    
+    # Task not found - suggest similar tasks
+    import difflib
+    all_tasks = list(BUILTINS.keys()) + list(dsl_tasks.keys())
+    suggestions = difflib.get_close_matches(task_name, all_tasks, n=5, cutoff=0.4)
+    
+    print(f"Task '{task_name}' not found.", file=sys.stderr)
+    if suggestions:
+        print("Did you mean:", file=sys.stderr)
+        for s in suggestions:
+            print(f"  {s}", file=sys.stderr)
+    return 1
 
 
 def _alias_map(names: List[str]) -> Dict[str, str]:
@@ -1335,7 +1449,8 @@ def main(argv: List[str]) -> int:
                 continue
 
         # Handle --list and --help as standalone flags
-        if a in ("--list", "--help", "-h"):
+        # Also handle help variations like hlep, hepl, heelp, hlp
+        if a in ("--list",) or a in HELP_VARIATIONS:
             tasks = argv[i:]
             break
 
@@ -1368,9 +1483,9 @@ def main(argv: List[str]) -> int:
         tasks = argv[i:]
         break
 
-    if not tasks or tasks[0] in {"help", "--help", "-h"}:
+    if not tasks or tasks[0] in HELP_VARIATIONS:
         if len(tasks) > 1:
-            _print_task_help(tasks[1], file_arg=pfy_file_arg)
+            return _print_task_help(tasks[1], file_arg=pfy_file_arg)
         else:
             print(
                 "Usage: pf [<pfy_file>] [env=NAME|--env=NAME|--env NAME]* [hosts=..|--hosts=..|--hosts ..] [user=..|--user=..|--user ..] [port=..|--port=..|--port ..] [sudo=true|--sudo] [sudo_user=..|--sudo-user=..|--sudo-user ..] <task|list|help> [more_tasks...]"
@@ -1394,7 +1509,8 @@ def main(argv: List[str]) -> int:
     valid_task_names = (
         set(BUILTINS.keys())
         | set(dsl_tasks.keys())
-        | {"list", "help", "--help", "--list"}
+        | {"list", "--list"}
+        | HELP_VARIATIONS
     )
 
     # Parse multi-task + params: <task> [k=v ...] <task2> [k=v ...] ...
@@ -1403,11 +1519,27 @@ def main(argv: List[str]) -> int:
     all_names_for_alias = (
         list(BUILTINS.keys())
         + list(dsl_tasks.keys())
-        + ["list", "help", "--help", "--list"]
+        + ["list", "--list"]
+        + list(HELP_VARIATIONS)
     )
     aliasmap_all = _alias_map(all_names_for_alias)
     while j < len(tasks):
         tname = tasks[j]
+        
+        # If this is a help variation, show help for the previous task or general help
+        if tname in HELP_VARIATIONS:
+            if selected:
+                # Show help for the last selected task
+                return _print_task_help(selected[-1][0], file_arg=pfy_file_arg)
+            else:
+                # Show general help
+                print(
+                    "Usage: pf [<pfy_file>] [env=NAME|--env=NAME|--env NAME]* [hosts=..|--hosts=..|--hosts ..] [user=..|--user=..|--user ..] [port=..|--port=..|--port ..] [sudo=true|--sudo] [sudo_user=..|--sudo-user=..|--sudo-user ..] <task|list|help> [more_tasks...]"
+                )
+                print("\nAvailable tasks:")
+                _print_list(file_arg=pfy_file_arg)
+            return 0
+        
         if tname not in valid_task_names:
             if tname in aliasmap_all:
                 tname = aliasmap_all[tname]
@@ -1431,19 +1563,20 @@ def main(argv: List[str]) -> int:
             if idx >= len(tasks):
                 return False
             next_arg = tasks[idx]
-            # Value shouldn't start with -- (another flag) or be a task name
-            return not next_arg.startswith("--") and next_arg not in valid_task_names
+            # Value shouldn't start with - or -- (another flag) or be a task name
+            return not next_arg.startswith("-") and next_arg not in valid_task_names
 
         while j < len(tasks):
             arg = tasks[j]
             # Check if this looks like the next task name
-            if not arg.startswith("--") and "=" not in arg and arg in valid_task_names:
+            if not arg.startswith("-") and "=" not in arg and arg in valid_task_names:
                 break
 
             # Support multiple parameter formats:
             # 1. --param=value
             # 2. --param value
             # 3. param=value
+            # 4. -k value (short form)
             if arg.startswith("--"):
                 if "=" in arg:
                     # Format: --param=value
@@ -1458,6 +1591,16 @@ def main(argv: List[str]) -> int:
                     j += 2
                 else:
                     # --param without a value, or next arg is a task
+                    break
+            elif arg.startswith("-") and len(arg) == 2:
+                # Format: -k value (short form, single letter key)
+                if _is_valid_parameter_value(j + 1):
+                    k = arg[1:]  # Strip - prefix
+                    v = tasks[j + 1]
+                    params[k] = v
+                    j += 2
+                else:
+                    # -k without a value, or next arg is a task
                     break
             elif "=" in arg:
                 # Format: param=value
