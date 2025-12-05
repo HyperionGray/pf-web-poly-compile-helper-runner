@@ -41,21 +41,26 @@ const MAX_LOGS_PER_BUILD = 1000;
 // Input validation helpers
 function sanitizeString(str, maxLength = 255) {
   if (typeof str !== 'string') return '';
-  return str.slice(0, maxLength).replace(/[<>]/g, '');
+  // Remove or escape potentially dangerous characters for logs/responses
+  return str
+    .slice(0, maxLength)
+    .replace(/[<>&"'`\\]/g, '')
+    .replace(/[\x00-\x1F\x7F]/g, ''); // Remove control characters
 }
 
 function isValidLanguage(language) {
   const supportedLanguages = ['rust', 'c', 'fortran', 'wat'];
-  return supportedLanguages.includes(language);
+  return typeof language === 'string' && supportedLanguages.includes(language);
 }
 
 function isValidTarget(target) {
   const supportedTargets = ['wasm', 'llvm', 'asm'];
-  return supportedTargets.includes(target);
+  return typeof target === 'string' && supportedTargets.includes(target);
 }
 
 function isValidProjectName(project) {
-  // Only allow alphanumeric, hyphens, and underscores
+  // Handle null/undefined inputs and only allow alphanumeric, hyphens, and underscores
+  if (typeof project !== 'string' || project.length === 0) return false;
   return /^[a-zA-Z0-9_-]+$/.test(project);
 }
 
@@ -342,13 +347,14 @@ app.post('/api/build/:language', async (req, res) => {
       buildStatus.set(buildId, status);
       
       // Store logs (with size limits to prevent memory issues)
+      // Limit to 10KB per output to balance usability and memory usage
       const logs = buildLogs.get(buildId) || [];
       logs.push({
         timestamp: new Date().toISOString(),
         level: 'info',
         message: 'Build completed successfully',
-        stdout: sanitizeString(result.stdout, 100000),
-        stderr: sanitizeString(result.stderr, 100000)
+        stdout: sanitizeString(result.stdout, 10000),
+        stderr: sanitizeString(result.stderr, 10000)
       });
       // Limit log entries to prevent unbounded growth
       if (logs.length > MAX_LOGS_PER_BUILD) {
