@@ -7,6 +7,8 @@ This module provides:
 - Subcommand architecture
 - Auto-discovery of subcommands from included files
 - Backward compatibility with existing usage patterns
+- Flexible help command support (help, -h, --help, hlep, hepl, heelp, hlp)
+- Flexible parameter formats (--key=value, -k val, key=value)
 """
 
 import argparse
@@ -14,6 +16,9 @@ import os
 import sys
 from typing import List, Dict, Optional, Tuple, Any
 import re
+
+# Help command variations - common typos and alternatives
+HELP_VARIATIONS = {"help", "--help", "-h", "hlep", "hepl", "heelp", "hlp"}
 
 
 class PfArgumentParser:
@@ -269,7 +274,8 @@ For more help on a specific subcommand:
         """Parse arguments with legacy compatibility."""
 
         # Handle special cases for backward compatibility
-        if not args or args[0] in ("help", "--help", "-h"):
+        # Support help variations: help, --help, -h, hlep, hepl, heelp, hlp
+        if not args or args[0] in HELP_VARIATIONS:
             if len(args) > 1:
                 # Help for specific topic
                 return self.parser.parse_args(["help", args[1]])
