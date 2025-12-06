@@ -33,8 +33,43 @@ This repository provides:
 - **Parallel execution**: Run tasks across multiple hosts via SSH
 - **Modular configuration**: Split tasks into multiple `.pf` files with `include`
 - **Parameter interpolation**: Pass runtime parameters to tasks
+- **Command aliases**: Define short command aliases with `[alias name]` syntax for quick access
 
-### REST API Server 🌐
+### pf REST API Server 🌐 (NEW!)
+Execute pf tasks remotely via HTTP with automatic API documentation:
+
+```bash
+# Start the REST API server (via systemd)
+pf rest-on         # or use the alias: pf ron
+
+# Stop the REST API server
+pf rest-off        # or use the alias: pf roff
+
+# Start in development mode (foreground with auto-reload)
+pf rest-dev        # or use the alias: pf rdev
+```
+
+**Features:**
+- **Auto-generated docs**: Swagger UI at `/docs` and ReDoc at `/redoc`
+- **Task execution**: Run any pf task via HTTP POST
+- **Alias routing**: Access tasks via their short aliases (e.g., `/ron` instead of `/pf/rest-on`)
+- **Task listing**: Get all available tasks with descriptions
+- **Configurable**: Set host, port, and worker count via environment variables
+
+**API Endpoints:**
+- `GET /pf/` - List all available tasks
+- `GET /pf/{task}` - Get task details
+- `POST /pf/{task}` - Execute a task
+- `GET /{alias}` - Access task by alias
+- `POST /{alias}` - Execute task by alias
+- `POST /reload` - Reload tasks from Pfyfile
+
+**Configuration (Environment Variables):**
+- `PF_API_HOST` - Bind address (default: 127.0.0.1)
+- `PF_API_PORT` - Port number (default: 8000)
+- `PF_API_WORKERS` - Number of workers (default: 4)
+
+### Node.js REST API Server 🌐
 - **Build Management**: Trigger WebAssembly builds via REST endpoints
 - **Real-time Updates**: WebSocket connections for live build status
 - **Project Management**: List projects, modules, and build artifacts
