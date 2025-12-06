@@ -73,7 +73,7 @@ def _find_pfyfile(
 _VAR_RE = re.compile(r"\$([a-zA-Z_][\w-]*)|\$\{([a-zA-Z_][\w-]*)\}")
 
 # Pattern for parsing [alias xxx] blocks in task definitions
-_ALIAS_BLOCK_RE = re.compile(r'\[([^\]]+)\]')
+_ALIAS_BLOCK_RE = re.compile(r"\[([^\]]+)\]")
 
 
 def _interpolate(text: str, params: dict, extra_env: dict | None = None) -> str:
@@ -682,21 +682,21 @@ def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str], List[str]]:
     for match in _ALIAS_BLOCK_RE.finditer(rest):
         block_content = match.group(1)
         # Split by | for multiple aliases in one block
-        parts = block_content.split('|')
+        parts = block_content.split("|")
         for part in parts:
             part = part.strip()
             # Handle both "alias cmd" and "alias=cmd" formats
-            if part.startswith('alias '):
+            if part.startswith("alias "):
                 alias_name = part[6:].strip()
                 if alias_name:
                     aliases.append(alias_name)
-            elif part.startswith('alias='):
+            elif part.startswith("alias="):
                 alias_name = part[6:].strip()
                 if alias_name:
                     aliases.append(alias_name)
-    
+
     # Remove [...] blocks from the line for further parsing
-    rest_without_aliases = _ALIAS_BLOCK_RE.sub('', rest).strip()
+    rest_without_aliases = _ALIAS_BLOCK_RE.sub("", rest).strip()
 
     # Use shlex to properly handle quoted values
     try:
@@ -727,25 +727,25 @@ def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str], List[str]]:
 def _process_line_continuation(lines: List[str], start_idx: int) -> Tuple[str, int]:
     """
     Process backslash line continuation starting from the given index.
-    
+
     Args:
         lines: List of all lines (stripped)
         start_idx: Index of the first line to process
-        
+
     Returns:
         Tuple of (combined_line, next_index_to_process)
     """
     combined_parts = []
     current_idx = start_idx
-    
+
     while current_idx < len(lines):
         line = lines[current_idx]
-        
+
         # Skip empty lines and comments during continuation
         if not line or line.startswith("#"):
             current_idx += 1
             continue
-            
+
         # Check if this line ends with backslash (line continuation)
         if line.endswith("\\"):
             # Remove the backslash and add to combined parts
@@ -760,7 +760,7 @@ def _process_line_continuation(lines: List[str], start_idx: int) -> Tuple[str, i
                 combined_parts.append(line)
             current_idx += 1
             break
-    
+
     # Join all parts with single space, preserving the structure
     combined_line = " ".join(combined_parts) if combined_parts else ""
     return combined_line, current_idx
@@ -801,7 +801,7 @@ def parse_pfyfile_text(
 
         if not line or line.startswith("#"):
             continue
-            
+
         if line.startswith("task "):
             task_name, params, aliases = _parse_task_definition(line)
             # For task_sources lookup, we need to check both the full line and just the task name
@@ -810,10 +810,12 @@ def parse_pfyfile_text(
             source_file = None
             if task_sources:
                 source_file = task_sources.get(full_line) or task_sources.get(task_name)
-            cur = Task(task_name, source_file=source_file, params=params, aliases=aliases)
+            cur = Task(
+                task_name, source_file=source_file, params=params, aliases=aliases
+            )
             tasks[task_name] = cur
             continue
-            
+
         if line == "end":
             # Handle incomplete continuation at task end
             if pending_continuation is not None and cur is not None:
@@ -821,7 +823,7 @@ def parse_pfyfile_text(
                 pending_continuation = None
             cur = None
             continue
-            
+
         if cur is None:
             continue
         if line.startswith("describe "):
@@ -844,7 +846,7 @@ def get_alias_map(
 ) -> Dict[str, str]:
     """
     Build a mapping of aliases to their canonical task names.
-    
+
     Returns:
         Dictionary mapping alias names to full task names
     """
@@ -1024,7 +1026,7 @@ def _exec_line_fabric(
             print(f"{prefix}$ {(('(sudo) ' + shown) if sudo else shown)}")
             # Remote execution would go here; omitted for brevity
             return 0
-    
+
     # Dispatch by verb
     if verb == "shell":
         return run(rest_of_line)
@@ -1153,19 +1155,20 @@ BUILTINS: Dict[str, List[str]] = {
 
 # ---------- CLI ----------
 
+
 def _format_task_params(params: Dict[str, str], style: str = "modern") -> str:
     """Format task parameters for display.
-    
+
     Args:
         params: Dictionary of parameter names to default values
         style: "modern" for --param=value, "legacy" for param=value
-        
+
     Returns:
         Formatted string of parameters
     """
     if not params:
         return ""
-    
+
     if style == "modern":
         # Use --param=value style to encourage modern syntax
         parts = []
@@ -1183,15 +1186,15 @@ def _format_task_params(params: Dict[str, str], style: str = "modern") -> str:
 def _group_tasks_by_prefix(tasks_list: List) -> Tuple[List, Dict[str, List]]:
     """
     Group tasks by their prefix (e.g., 'road-block' -> 'road' group).
-    
+
     Returns:
         Tuple of (ungrouped_tasks, grouped_tasks_dict)
     """
     from collections import defaultdict
-    
+
     prefix_counts = defaultdict(list)
     ungrouped = []
-    
+
     for task in tasks_list:
         name = task.name
         # Check if task name has a prefix (contains hyphen or underscore)
@@ -1203,7 +1206,7 @@ def _group_tasks_by_prefix(tasks_list: List) -> Tuple[List, Dict[str, List]]:
             prefix_counts[prefix].append(task)
         else:
             ungrouped.append(task)
-    
+
     # Only group if there are 2+ tasks with the same prefix
     grouped = {}
     for prefix, task_list in prefix_counts.items():
@@ -1212,7 +1215,7 @@ def _group_tasks_by_prefix(tasks_list: List) -> Tuple[List, Dict[str, List]]:
         else:
             # If only one task with this prefix, treat as ungrouped
             ungrouped.extend(task_list)
-    
+
     return ungrouped, grouped
 
 
@@ -1244,15 +1247,21 @@ def _print_list(file_arg: Optional[str] = None):
         def format_task(task, indent="  "):
             """Format a task for display with aliases, args, and description."""
             alias_str = ""
-            if getattr(task, 'aliases', None):
+            if getattr(task, "aliases", None):
                 alias_str = f" ({', '.join(task.aliases)})"
             # Format args in modern --arg=value style using shared function
-            args_str = _format_task_params(task.params, style="modern") if hasattr(task, 'params') else ""
+            args_str = (
+                _format_task_params(task.params, style="modern")
+                if hasattr(task, "params")
+                else ""
+            )
             if args_str:
                 args_str = " " + args_str
-            
+
             if task.description:
-                return f"{indent}{task.name}{alias_str}{args_str}  —  {task.description}"
+                return (
+                    f"{indent}{task.name}{alias_str}{args_str}  —  {task.description}"
+                )
             else:
                 return f"{indent}{task.name}{alias_str}{args_str}"
 
@@ -1264,11 +1273,11 @@ def _print_list(file_arg: Optional[str] = None):
             # Print ungrouped tasks first
             for task in sorted(ungrouped, key=lambda t: t.name):
                 print(format_task(task))
-            
+
             # Print ungrouped tasks first
             for task in sorted(ungrouped, key=lambda t: t.name):
                 print(format_task(task))
-            
+
             # Print grouped tasks by prefix
             for prefix in sorted(grouped.keys()):
                 print(f"\n  [{prefix}]")
@@ -1291,11 +1300,11 @@ def _print_list(file_arg: Optional[str] = None):
             print(f"\n[{subcommand_name}] From {source_file}:")
             source_tasks = tasks_by_source[source_file]
             ungrouped, grouped = _group_tasks_by_prefix(source_tasks)
-            
+
             # Print ungrouped tasks first
             for task in sorted(ungrouped, key=lambda t: t.name):
                 print(format_task(task))
-            
+
             # Print grouped tasks by prefix
             for prefix in sorted(grouped.keys()):
                 print(f"\n  [{prefix}]")
@@ -1504,10 +1513,11 @@ def main(argv: List[str]) -> int:
     if tasks[0] in ("list", "--list"):
         _print_list(file_arg=pfy_file_arg)
         return 0
-    
+
     # Handle prune command
     if tasks[0] == "prune":
         from pf_prune import prune_tasks
+
         # Parse prune-specific arguments
         dry_run = True
         verbose = False
@@ -1524,14 +1534,15 @@ def main(argv: List[str]) -> int:
             file_arg=pfy_file_arg,
             dry_run=dry_run,
             verbose=verbose,
-            output_file=output_file
+            output_file=output_file,
         )
         return 0 if failed == 0 else 1
-    
+
     # Handle debug-on command
     if tasks[0] == "debug-on":
         try:
             from pf_prune import set_debug_mode
+
             set_debug_mode(True)
             return 0
         except PermissionError as e:
@@ -1540,11 +1551,12 @@ def main(argv: List[str]) -> int:
         except Exception as e:
             print(f"Error enabling debug mode: {e}", file=sys.stderr)
             return 1
-    
+
     # Handle debug-off command
     if tasks[0] == "debug-off":
         try:
             from pf_prune import set_debug_mode
+
             set_debug_mode(False)
             return 0
         except PermissionError as e:
@@ -1627,7 +1639,7 @@ def main(argv: List[str]) -> int:
     for task_name, task_obj in dsl_tasks.items():
         for alias in task_obj.aliases:
             user_alias_map[alias] = task_name
-    
+
     # Add user-defined aliases to valid task names for resolution
     all_valid_names = valid_task_names | set(user_alias_map.keys())
 
@@ -1645,7 +1657,7 @@ def main(argv: List[str]) -> int:
     aliasmap_all.update(user_alias_map)
     while j < len(tasks):
         tname = tasks[j]
-        
+
         # If this is a help variation, show help for the previous task or general help
         if tname in HELP_VARIATIONS:
             if selected:
@@ -1659,7 +1671,7 @@ def main(argv: List[str]) -> int:
                 print("\nAvailable tasks:")
                 _print_list(file_arg=pfy_file_arg)
             return 0
-        
+
         if tname not in valid_task_names:
             if tname in aliasmap_all:
                 tname = aliasmap_all[tname]
