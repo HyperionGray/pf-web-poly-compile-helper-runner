@@ -228,6 +228,58 @@ pf create-user username=john --email john@example.com role="admin"
 pf create-user --username=jane --email=jane@example.com --role=developer
 ```
 
+### Task with Aliases (Short Commands)
+
+You can define short aliases for tasks with long names using the `[alias name]` syntax:
+
+```text
+task long-complicated-task-name [alias lct]
+  describe A task with a short alias
+  shell echo "Running the task with params: $param1"
+end
+```
+
+Now you can call this task using either the full name or the alias:
+```bash
+# Using the full name
+pf long-complicated-task-name param1=value
+
+# Using the alias
+pf lct param1=value
+```
+
+Both commands are equivalent!
+
+**Multiple Aliases:**
+
+You can define multiple aliases for a single task:
+
+```text
+task web-development-server [alias wds|alias=dev]
+  describe Start the web development server
+  shell npm run dev
+end
+```
+
+This task can be called as:
+- `pf web-development-server`
+- `pf wds`
+- `pf dev`
+
+**Alias Syntax Formats:**
+
+Both of these syntax forms are supported:
+```text
+# Space-separated
+task my-task [alias m]
+
+# Equals-separated  
+task my-task [alias=m]
+
+# Multiple in one block (pipe-separated)
+task my-task [alias m|alias=mt]
+```
+
 ### Task with Default Values
 
 When parameters aren't provided, use bash parameter expansion with a two-step pattern:

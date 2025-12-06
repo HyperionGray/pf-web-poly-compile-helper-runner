@@ -1,0 +1,103 @@
+# Pfyfile.rest-api.pf - REST API management tasks
+# 
+# This file provides tasks for managing the pf REST API server.
+# The API provides HTTP endpoints for executing pf tasks remotely.
+#
+# Usage:
+#   pf rest-on      - Start the REST API server
+#   pf rest-off     - Stop the REST API server
+#   pf rest-status  - Check REST API server status
+#   pf rest-dev     - Start in development mode (auto-reload)
+#
+# API Documentation:
+#   Once started, API docs are available at:
+#   - http://localhost:8000/docs (Swagger UI)
+#   - http://localhost:8000/redoc (ReDoc)
+
+task rest-on [alias=ron]
+  describe Start the pf REST API server (systemd service)
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl enable --now pf-rest-api@$USER.service && \
+          echo "pf REST API started. API docs at http://localhost:${PF_API_PORT:-8000}/docs"; \
+        else \
+          echo "systemd not available. Use 'pf rest-dev' to start in foreground mode."; \
+          exit 1; \
+        fi
+end
+
+task rest-off [alias=roff]
+  describe Stop the pf REST API server (systemd service)
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl disable --now pf-rest-api@$USER.service && \
+          echo "pf REST API stopped."; \
+        else \
+          echo "systemd not available."; \
+          exit 1; \
+        fi
+end
+
+task rest-status [alias=rstat]
+  describe Check REST API server status
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          systemctl status pf-rest-api@$USER.service --no-pager || true; \
+        else \
+          echo "systemd not available. Checking for running API process..."; \
+          pgrep -f "uvicorn pf_api:app" && echo "API is running" || echo "API is not running"; \
+        fi
+end
+
+task rest-dev [alias=rdev]
+  describe Start REST API in development mode (foreground with auto-reload)
+  shell_lang bash
+  shell cd "$(dirname "$0")" 2>/dev/null || cd pf-runner; \
+        echo "Starting pf REST API in development mode..."; \
+        echo "API docs will be at http://${PF_API_HOST:-127.0.0.1}:${PF_API_PORT:-8000}/docs"; \
+        python3 pf_api.py --reload --host "${PF_API_HOST:-127.0.0.1}" --port "${PF_API_PORT:-8000}"
+end
+
+task rest-install [alias=rinst]
+  describe Install the REST API systemd service unit
+  shell_lang bash
+  shell PF_RUNNER_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || PF_RUNNER_DIR="$(pwd)/pf-runner"; \
+        sudo cp "$PF_RUNNER_DIR/pf-rest-api@.service" /etc/systemd/system/ && \
+        sudo systemctl daemon-reload && \
+        echo "pf REST API service installed. Use 'pf rest-on' to start."
+end
+
+task rest-uninstall [alias=runinst]
+  describe Uninstall the REST API systemd service unit
+  shell_lang bash
+  shell sudo systemctl disable --now pf-rest-api@$USER.service 2>/dev/null || true; \
+        sudo rm -f /etc/systemd/system/pf-rest-api@.service && \
+        sudo systemctl daemon-reload && \
+        echo "pf REST API service uninstalled."
+end
+
+task rest-logs [alias=rlogs]
+  describe View REST API server logs
+  shell_lang bash
+  shell if command -v journalctl >/dev/null 2>&1; then \
+          journalctl -u pf-rest-api@$USER.service -f --no-pager; \
+        else \
+          echo "journalctl not available."; \
+        fi
+end
+
+task rest-config [alias=rcfg]
+  describe Show REST API configuration
+  shell_lang bash
+  shell echo "pf REST API Configuration:"; \
+        echo "  Host: ${PF_API_HOST:-127.0.0.1}"; \
+        echo "  Port: ${PF_API_PORT:-8000}"; \
+        echo "  Workers: ${PF_API_WORKERS:-4}"; \
+        echo ""; \
+        echo "Environment variables:"; \
+        echo "  PF_API_HOST   - Bind address (default: 127.0.0.1)"; \
+        echo "  PF_API_PORT   - Port number (default: 8000)"; \
+        echo "  PF_API_WORKERS - Number of workers (default: 4)"; \
+        echo ""; \
+        echo "Override in /etc/default/pf-rest-api for systemd service."
+end

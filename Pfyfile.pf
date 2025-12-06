@@ -46,6 +46,9 @@ include Pfyfile.distro-switch.pf
 # Include PE execution and cross-platform binary execution tasks
 include Pfyfile.pe-execution.pf
 
+# Include REST API management tasks
+include Pfyfile.rest-api.pf
+
 task web-dev
   describe Start development server with REST API support
   shell_lang bash
