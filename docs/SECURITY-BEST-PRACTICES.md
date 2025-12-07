@@ -187,9 +187,12 @@ API_PORT=8080
 
 - `CORS_ORIGIN`: Allowed CORS origins
 - `LOG_LEVEL`: Logging verbosity (error|warn|info|debug)
+- `TRUST_PROXY`: Trust proxy headers (default: true, set to 'false' to disable)
 - `PF_API_HOST`: API server bind address
 - `PF_API_PORT`: API server port
 - `PF_API_WORKERS`: Number of workers
+
+**Important**: In production behind a load balancer, `TRUST_PROXY` should be enabled. However, if your application is directly exposed to the internet without a trusted proxy, set `TRUST_PROXY=false` to prevent IP spoofing attacks.
 
 ## Security Headers
 
@@ -302,4 +305,5 @@ If you discover a security vulnerability:
 ---
 
 **Maintained By**: pf-web-poly-compile-helper-runner Contributors  
-**Note**: This documentation is updated as part of ongoing development. Check the git history for the latest changes.
+**Document Version**: 1.0 (Last major update: December 2025)  
+**Note**: For detailed change history, run: `git log -- docs/SECURITY-BEST-PRACTICES.md`

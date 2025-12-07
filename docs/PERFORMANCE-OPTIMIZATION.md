@@ -572,4 +572,5 @@ async function getCachedOrBuild(language, target) {
 ---
 
 **Maintained By**: pf-web-poly-compile-helper-runner Contributors  
-**Note**: This documentation is updated as part of ongoing development. Check the git history for the latest changes.
+**Document Version**: 1.0 (Last major update: December 2025)  
+**Note**: For detailed change history, run: `git log -- docs/PERFORMANCE-OPTIMIZATION.md`

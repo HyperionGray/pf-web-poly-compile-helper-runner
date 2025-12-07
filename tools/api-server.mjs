@@ -171,7 +171,8 @@ function rateLimitMiddleware(req, res, next) {
 
 // Middleware
 // Enable trust proxy for proper IP detection behind load balancers
-app.set('trust proxy', true);
+// In production, consider restricting to specific proxy IPs for security
+app.set('trust proxy', process.env.TRUST_PROXY === 'false' ? false : true);
 
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
@@ -657,13 +658,15 @@ function gracefulShutdown(signal) {
     clearInterval(rateLimitCleanupInterval);
   }
   
-  // Set a timeout for forced shutdown
+  // Set a timeout for forced shutdown after 30 seconds
+  // Using unref() allows the process to exit earlier if all other work completes
+  // This prevents the timeout from keeping the process alive unnecessarily
   const forceShutdownTimeout = setTimeout(() => {
     logger.error('Forced shutdown after timeout');
     process.exit(1);
   }, 30000);
   
-  // Don't keep the process running just for this timeout
+  // Allow early exit if graceful shutdown completes before timeout
   forceShutdownTimeout.unref();
   
   server.close(() => {
