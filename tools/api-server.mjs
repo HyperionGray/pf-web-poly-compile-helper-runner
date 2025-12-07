@@ -38,6 +38,35 @@ const buildLogs = new Map();
 const MAX_BUILDS = 100;
 const MAX_LOGS_PER_BUILD = 1000;
 
+// Simple structured logger
+const logger = {
+  levels: { error: 0, warn: 1, info: 2, debug: 3 },
+  level: process.env.LOG_LEVEL || 'info',
+  
+  log(level, message, meta = {}) {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      level,
+      message,
+      ...meta
+    };
+    
+    if (this.levels[level] <= this.levels[this.level]) {
+      if (level === 'error') {
+        console.error(JSON.stringify(logEntry));
+      } else {
+        console.log(JSON.stringify(logEntry));
+      }
+    }
+  },
+  
+  error(message, meta) { this.log('error', message, meta); },
+  warn(message, meta) { this.log('warn', message, meta); },
+  info(message, meta) { this.log('info', message, meta); },
+  debug(message, meta) { this.log('debug', message, meta); }
+};
+
 // Input validation helpers
 function sanitizeString(str, maxLength = 255) {
   if (typeof str !== 'string') return '';
@@ -84,23 +113,95 @@ const server = createServer(app);
 // WebSocket server for real-time updates
 const wss = new WebSocketServer({ server });
 
+// Rate limiting to prevent abuse
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 100;
+
+// Cleanup rate limit entries periodically to prevent memory leaks
+// Run every 5 minutes to balance cleanup frequency and performance
+const rateLimitCleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of rateLimitMap.entries()) {
+    if (now > data.resetTime) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}, 300000); // 5 minutes
+
+function getClientIp(req) {
+  // Properly handle IP detection behind proxies
+  // Express populates req.ip when trust proxy is enabled
+  // Only check proxy headers if trust proxy is actually enabled
+  const trustProxy = req.app.get('trust proxy');
+  
+  if (trustProxy && (req.headers['x-forwarded-for'] || req.headers['x-real-ip'])) {
+    // When behind trusted proxy, use proxy headers
+    return req.ip || 
+           req.headers['x-forwarded-for']?.split(',')[0].trim() ||
+           req.headers['x-real-ip'] ||
+           req.socket?.remoteAddress || 
+           'unknown';
+  }
+  
+  // Direct connection or untrusted proxy - use socket address only
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+function rateLimitMiddleware(req, res, next) {
+  const clientIp = getClientIp(req);
+  const now = Date.now();
+  
+  if (!rateLimitMap.has(clientIp)) {
+    rateLimitMap.set(clientIp, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return next();
+  }
+  
+  const clientData = rateLimitMap.get(clientIp);
+  
+  if (now > clientData.resetTime) {
+    // Reset the window
+    clientData.count = 1;
+    clientData.resetTime = now + RATE_LIMIT_WINDOW;
+    return next();
+  }
+  
+  if (clientData.count >= MAX_REQUESTS_PER_WINDOW) {
+    return res.status(429).json({ 
+      error: 'Too many requests. Please try again later.',
+      retryAfter: Math.ceil((clientData.resetTime - now) / 1000)
+    });
+  }
+  
+  clientData.count++;
+  next();
+}
+
 // Middleware
+// Enable trust proxy for proper IP detection behind load balancers
+// SECURITY: Default to false for security - require explicit enablement
+// Set TRUST_PROXY=true only when behind verified proxy infrastructure
+app.set('trust proxy', process.env.TRUST_PROXY === 'true');
+
 app.use(cors({
-  origin: '*',
+  origin: process.env.CORS_ORIGIN || '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(rateLimitMiddleware);
 
-// Utility function to execute pf commands
+// Utility function to execute pf commands with timeout and resource limits
 function executePfCommand(command, args = [], options = {}) {
   return new Promise((resolve, reject) => {
     const pfPath = path.resolve(__dirname, '../pf-runner/pf');
     const fullCommand = [command, ...args];
+    const timeout = options.timeout || 300000; // 5 minutes default
     
-    console.log(`Executing: ${pfPath} ${fullCommand.join(' ')}`);
+    logger.info('Executing pf command', { command, args: args.join(' ') });
     
     const child = spawn(pfPath, fullCommand, {
       cwd: options.cwd || process.cwd(),
@@ -110,17 +211,41 @@ function executePfCommand(command, args = [], options = {}) {
 
     let stdout = '';
     let stderr = '';
+    let timeoutHandle = null;
+    let killed = false;
+
+    // Set timeout to prevent long-running processes
+    timeoutHandle = setTimeout(() => {
+      killed = true;
+      child.kill('SIGTERM');
+      setTimeout(() => {
+        if (!child.killed) {
+          child.kill('SIGKILL');
+        }
+      }, 5000);
+    }, timeout);
+
+    // Limit output buffer size to prevent memory issues
+    const MAX_BUFFER = 1024 * 1024; // 1MB
 
     child.stdout.on('data', (data) => {
-      stdout += data.toString();
+      if (stdout.length < MAX_BUFFER) {
+        stdout += data.toString();
+      }
     });
 
     child.stderr.on('data', (data) => {
-      stderr += data.toString();
+      if (stderr.length < MAX_BUFFER) {
+        stderr += data.toString();
+      }
     });
 
     child.on('close', (code) => {
-      if (code === 0) {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      
+      if (killed) {
+        reject(new Error('Command execution timeout'));
+      } else if (code === 0) {
         resolve({ stdout, stderr, code });
       } else {
         reject(new Error(`Command failed with code ${code}: ${stderr || stdout}`));
@@ -128,6 +253,8 @@ function executePfCommand(command, args = [], options = {}) {
     });
 
     child.on('error', (error) => {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      logger.error('Command execution error', { error: error.message });
       reject(error);
     });
   });
@@ -435,7 +562,7 @@ app.post('/api/build/all', async (req, res) => {
       });
       
     } catch (error) {
-      console.error(`Failed to queue build for ${language}:`, error);
+      logger.error('Failed to queue build', { language, error: error.message });
     }
   }
   
@@ -502,33 +629,67 @@ app.get('*', (req, res) => {
   }
 });
 
-// WebSocket connection handling
-wss.on('connection', (ws) => {
-  console.log('WebSocket client connected');
+// WebSocket connection handling with proper error handling
+wss.on('connection', (ws, req) => {
+  const clientIp = req.socket.remoteAddress;
+  logger.info('WebSocket client connected', { clientIp });
   
   // Send current build statuses to new client
-  const allStatuses = Array.from(buildStatus.entries()).map(([id, status]) => ({
-    buildId: id,
-    ...status
-  }));
-  
-  ws.send(JSON.stringify({
-    type: 'initial_status',
-    builds: allStatuses
-  }));
+  try {
+    const allStatuses = Array.from(buildStatus.entries()).map(([id, status]) => ({
+      buildId: id,
+      ...status
+    }));
+    
+    ws.send(JSON.stringify({
+      type: 'initial_status',
+      builds: allStatuses
+    }));
+  } catch (error) {
+    logger.error('Failed to send initial status', { error: error.message });
+  }
   
   ws.on('close', () => {
-    console.log('WebSocket client disconnected');
+    logger.info('WebSocket client disconnected', { clientIp });
   });
   
   ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
+    logger.error('WebSocket error', { clientIp, error: error.message });
   });
 });
 
+// Graceful shutdown handling
+function gracefulShutdown(signal) {
+  logger.info(`${signal} received, shutting down gracefully`);
+  
+  // Clear the rate limit cleanup interval
+  if (rateLimitCleanupInterval) {
+    clearInterval(rateLimitCleanupInterval);
+  }
+  
+  // Set a timeout for forced shutdown after 30 seconds
+  // This ensures the process exits even if graceful shutdown hangs
+  const forceShutdownTimeout = setTimeout(() => {
+    logger.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 30000);
+  
+  server.close(() => {
+    logger.info('Server closed successfully');
+    clearTimeout(forceShutdownTimeout);
+    process.exit(0);
+  });
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 // Start server
 server.listen(PORT, () => {
-  console.log(`[api-server] serving ${ROOT} on http://localhost:${PORT}`);
-  console.log(`[api-server] API endpoints available at http://localhost:${PORT}/api`);
-  console.log(`[api-server] WebSocket server running for real-time updates`);
+  logger.info('API server started', { 
+    root: ROOT, 
+    port: PORT,
+    apiEndpoint: `http://localhost:${PORT}/api`,
+    wsEnabled: true
+  });
 });
