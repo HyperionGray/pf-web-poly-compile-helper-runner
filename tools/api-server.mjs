@@ -120,7 +120,7 @@ const MAX_REQUESTS_PER_WINDOW = 100;
 
 // Cleanup rate limit entries periodically to prevent memory leaks
 // Run every 5 minutes to balance cleanup frequency and performance
-setInterval(() => {
+const rateLimitCleanupInterval = setInterval(() => {
   const now = Date.now();
   for (const [ip, data] of rateLimitMap.entries()) {
     if (now > data.resetTime) {
@@ -155,7 +155,6 @@ function rateLimitMiddleware(req, res, next) {
     // Reset the window
     clientData.count = 1;
     clientData.resetTime = now + RATE_LIMIT_WINDOW;
-    rateLimitMap.set(clientIp, clientData);
     return next();
   }
   
@@ -167,7 +166,6 @@ function rateLimitMiddleware(req, res, next) {
   }
   
   clientData.count++;
-  rateLimitMap.set(clientIp, clientData);
   next();
 }
 
@@ -653,6 +651,11 @@ wss.on('connection', (ws, req) => {
 // Graceful shutdown handling
 function gracefulShutdown(signal) {
   logger.info(`${signal} received, shutting down gracefully`);
+  
+  // Clear the rate limit cleanup interval
+  if (rateLimitCleanupInterval) {
+    clearInterval(rateLimitCleanupInterval);
+  }
   
   // Set a timeout for forced shutdown
   const forceShutdownTimeout = setTimeout(() => {
