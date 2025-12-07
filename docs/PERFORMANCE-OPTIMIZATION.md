@@ -571,5 +571,5 @@ async function getCachedOrBuild(language, target) {
 
 ---
 
-**Last Updated**: 2025-12-07
-**Maintained By**: pf-web-poly-compile-helper-runner Contributors
+**Maintained By**: pf-web-poly-compile-helper-runner Contributors  
+**Note**: This documentation is updated as part of ongoing development. Check the git history for the latest changes.

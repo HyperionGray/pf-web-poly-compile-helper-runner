@@ -119,6 +119,7 @@ const RATE_LIMIT_WINDOW = 60000; // 1 minute
 const MAX_REQUESTS_PER_WINDOW = 100;
 
 // Cleanup rate limit entries periodically to prevent memory leaks
+// Run every 5 minutes to balance cleanup frequency and performance
 setInterval(() => {
   const now = Date.now();
   for (const [ip, data] of rateLimitMap.entries()) {
@@ -126,11 +127,17 @@ setInterval(() => {
       rateLimitMap.delete(ip);
     }
   }
-}, RATE_LIMIT_WINDOW);
+}, 300000); // 5 minutes
 
 function getClientIp(req) {
   // Properly handle IP detection behind proxies
-  return req.ip || req.socket?.remoteAddress || 'unknown';
+  // Express populates req.ip when trust proxy is enabled
+  // Fallback to standard proxy headers and socket address
+  return req.ip || 
+         req.headers['x-forwarded-for']?.split(',')[0].trim() ||
+         req.headers['x-real-ip'] ||
+         req.socket?.remoteAddress || 
+         'unknown';
 }
 
 function rateLimitMiddleware(req, res, next) {

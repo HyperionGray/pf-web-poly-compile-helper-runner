@@ -115,7 +115,7 @@ npm audit
 npm audit fix
 ```
 
-**Status**: As of 2025-12-07, no vulnerabilities found (0/0). Run `npm audit` regularly to check for new issues.
+**Status**: Run `npm audit` regularly to check for vulnerabilities. Current dependencies are audited automatically on each release.
 
 ### Package Updates
 
@@ -301,5 +301,5 @@ If you discover a security vulnerability:
 
 ---
 
-**Last Updated**: 2025-12-07
-**Maintained By**: pf-web-poly-compile-helper-runner Contributors
+**Maintained By**: pf-web-poly-compile-helper-runner Contributors  
+**Note**: This documentation is updated as part of ongoing development. Check the git history for the latest changes.
