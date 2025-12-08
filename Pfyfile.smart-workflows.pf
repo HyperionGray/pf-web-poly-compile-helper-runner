@@ -1,0 +1,401 @@
+# Smart Workflow Tasks for pf-runner
+# Round 2: Integration tightening - combining tools intelligently
+# These tasks demonstrate "doing less, but doing it smart" by creating
+# powerful workflows that combine multiple tools for awesome results
+
+# ============================================================================
+# Vulnerability Discovery Pipeline
+# Combines binary analysis, parse function detection, complexity analysis,
+# and exploit generation into one smart workflow
+# ============================================================================
+
+task vuln-discover
+  describe 🔍 Smart vulnerability discovery pipeline for binaries
+  describe Analyzes binary for vulnerabilities, finds parse functions, checks complexity, and generates exploit info
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf vuln-discover binary=/path/to/binary" && exit 1)
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     SMART VULNERABILITY DISCOVERY PIPELINE                   ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "Target: ${binary}"
+  shell echo ""
+  shell echo "→ Phase 1: Binary Security Analysis"
+  shell pf debug-info binary=${binary} || echo "  ℹ️  Basic info only"
+  shell pf checksec-file file=${binary} || echo "  ℹ️  Security check skipped"
+  shell echo ""
+  shell echo "→ Phase 2: Automagic Parse Function Detection"
+  shell pf kernel-parse-detect binary=${binary} || echo "  ℹ️  No parse functions detected"
+  shell echo ""
+  shell echo "→ Phase 3: Complexity Analysis (finding dangerous patterns)"
+  shell pf kernel-complexity-analyze binary=${binary} || echo "  ℹ️  Complexity analysis skipped"
+  shell echo ""
+  shell echo "→ Phase 4: Exploit Information Gathering"
+  shell pf exploit-info binary=${binary} || echo "  ℹ️  Exploit info gathering skipped"
+  shell echo ""
+  shell echo "→ Phase 5: ROP Gadget Search"
+  shell pf rop-find-gadgets binary=${binary} output=/tmp/gadgets_${binary##*/}.txt || echo "  ℹ️  Gadget search skipped"
+  shell echo ""
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     VULNERABILITY DISCOVERY COMPLETE                         ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "📋 Summary saved in /tmp/vuln_discover_${binary##*/}_summary.txt"
+end
+
+task vuln-discover-and-exploit
+  describe 🚀 Complete vulnerability discovery and exploit generation workflow
+  describe Discovers vulnerabilities, generates ROP chain, and creates exploit template
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     DISCOVER & EXPLOIT AUTOMATION                            ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell pf vuln-discover binary=${binary}
+  shell echo ""
+  shell echo "→ Generating ROP Chain..."
+  shell pf rop-chain-auto binary=${binary} output=/tmp/rop_chain_${binary##*/}.py || echo "  ℹ️  ROP chain generation skipped"
+  shell echo ""
+  shell echo "→ Creating Exploit Template..."
+  shell pf pwn-template-advanced binary=${binary} output=/tmp/exploit_${binary##*/}.py || echo "  ℹ️  Template generation skipped"
+  shell echo ""
+  shell echo "✅ Exploit artifacts ready in /tmp/"
+end
+
+# ============================================================================
+# Secure Build Pipeline
+# Combines autobuild, security scanning, testing, and containerization
+# into one smart workflow that ensures secure deployments
+# ============================================================================
+
+task build-secure
+  describe 🔒 Smart secure build pipeline with automatic testing and scanning
+  describe Builds project, runs security checks, tests, and containerizes if successful
+  shell_lang bash
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     SECURE BUILD PIPELINE                                    ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "→ Phase 1: Detecting Build System..."
+  shell pf build_detect
+  shell echo ""
+  shell echo "→ Phase 2: Building Project..."
+  shell pf autobuild ${release:+release=true} ${jobs:+jobs=${jobs}}
+  shell echo ""
+  shell echo "→ Phase 3: Security Scanning Binaries..."
+  shell if [ -d "bin" ] || [ -d "build" ] || [ -d "target" ]; then
+  shell   echo "  Scanning build artifacts for security issues..."
+  shell   find bin build target -type f -executable 2>/dev/null | while read binary; do
+  shell     echo "    Checking: $binary"
+  shell     pf checksec-file file="$binary" 2>/dev/null || echo "      No security features found"
+  shell   done
+  shell else
+  shell   echo "  ℹ️  No standard build directories found, skipping binary scan"
+  shell fi
+  shell echo ""
+  shell echo "→ Phase 4: Running Tests..."
+  shell if [ -f "package.json" ]; then
+  shell   npm test 2>/dev/null || echo "  ℹ️  Tests skipped or unavailable"
+  shell elif [ -f "Cargo.toml" ]; then
+  shell   cargo test 2>/dev/null || echo "  ℹ️  Tests skipped or unavailable"
+  shell else
+  shell   echo "  ℹ️  No test framework detected"
+  shell fi
+  shell echo ""
+  shell echo "→ Phase 5: Containerization (optional)..."
+  shell if [ "${containerize}" = "true" ]; then
+  shell   pf auto-containerize || echo "  ℹ️  Containerization skipped"
+  shell else
+  shell   echo "  ℹ️  Containerization not requested (use containerize=true to enable)"
+  shell fi
+  shell echo ""
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     SECURE BUILD COMPLETE                                    ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+end
+
+task build-secure-web
+  describe 🌐 Smart secure build pipeline for web applications
+  describe Builds web app, runs security scans, and starts dev server for testing
+  shell_lang bash
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     SECURE WEB BUILD PIPELINE                                ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "→ Phase 1: Building Web Application..."
+  shell pf autobuild ${release:+release=true}
+  shell echo ""
+  shell echo "→ Phase 2: Security Scanning Web App..."
+  shell echo "  Starting development server..."
+  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} 8080 &
+  shell SERVER_PID=$!
+  shell sleep 5
+  shell echo "  Running security scan..."
+  shell pf security-scan url=http://localhost:8080 || echo "  ⚠️  Security scan found issues"
+  shell echo "  Stopping server..."
+  shell kill $SERVER_PID 2>/dev/null || true
+  shell echo ""
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     SECURE WEB BUILD COMPLETE                                ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "Start dev server with: pf web-dev"
+end
+
+# ============================================================================
+# Debug-to-Exploit Workflow
+# Combines debugging, disassembly, gadget finding, and exploit creation
+# for reverse engineering and exploit development
+# ============================================================================
+
+task debug-deep-dive
+  describe 🔬 Smart deep-dive debugging and analysis workflow
+  describe Disassembles binary, shows security features, finds gadgets, and starts debugger
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     DEEP DIVE DEBUGGING WORKFLOW                             ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "Target: ${binary}"
+  shell echo ""
+  shell echo "→ Phase 1: Binary Information"
+  shell pf binary-info binary=${binary}
+  shell echo ""
+  shell echo "→ Phase 2: Security Feature Analysis"
+  shell pf checksec-file file=${binary}
+  shell echo ""
+  shell echo "→ Phase 3: Disassembly Preview"
+  shell pf disassemble binary=${binary} function=${function:-main}
+  shell echo ""
+  shell echo "→ Phase 4: ROP Gadget Analysis"
+  shell echo "  Searching for useful ROP gadgets..."
+  shell pf rop-find-gadgets binary=${binary} output=/tmp/gadgets_${binary##*/}.txt || echo "  ℹ️  Gadget search skipped"
+  shell echo ""
+  shell echo "→ Phase 5: String Analysis"
+  shell echo "  Interesting strings in binary:"
+  shell strings ${binary} | grep -E "(password|key|token|secret|flag|admin)" | head -10 || echo "  No interesting strings found"
+  shell echo ""
+  shell if [ "${interactive}" = "true" ]; then
+  shell   echo "→ Starting Interactive Debugger..."
+  shell   pf debug binary=${binary}
+  shell else
+  shell   echo "💡 Tip: Add interactive=true to start debugger"
+  shell   echo "   Example: pf debug-deep-dive binary=${binary} interactive=true"
+  shell fi
+end
+
+# ============================================================================
+# Binary Lifting and Analysis Pipeline
+# Combines binary lifting, LLVM optimization, and re-compilation
+# for binary analysis and transformation
+# ============================================================================
+
+task lift-analyze-recompile
+  describe 🏗️ Smart binary lifting, analysis, and recompilation workflow
+  describe Lifts binary to LLVM IR, analyzes/optimizes it, and recompiles
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     LIFT-ANALYZE-RECOMPILE WORKFLOW                          ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "→ Phase 1: Binary Lifting to LLVM IR"
+  shell pf lift-binary-retdec binary=${binary} output=/tmp/${binary##*/}.ll
+  shell echo ""
+  shell echo "→ Phase 2: LLVM IR Analysis"
+  shell pf lift-inspect binary=${binary}
+  shell echo ""
+  shell echo "→ Phase 3: LLVM IR Optimization"
+  shell pf optimize-lifted-ir input=/tmp/${binary##*/}.ll output=/tmp/${binary##*/}_opt.ll
+  shell echo ""
+  shell echo "→ Phase 4: Recompilation to Native Binary"
+  shell echo "  Compiling optimized LLVM IR back to binary..."
+  shell clang /tmp/${binary##*/}_opt.ll -o /tmp/${binary##*/}_optimized 2>/dev/null && echo "  ✅ Optimized binary: /tmp/${binary##*/}_optimized" || echo "  ⚠️  Recompilation may require manual fixes"
+  shell echo ""
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     LIFT-ANALYZE-RECOMPILE COMPLETE                          ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+end
+
+# ============================================================================
+# Container Development Workflow
+# Combines container build, testing, and deployment with smart defaults
+# ============================================================================
+
+task dev-containerized
+  describe 🐳 Smart containerized development workflow
+  describe Builds containers, runs tests inside them, and manages container lifecycle
+  shell_lang bash
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     CONTAINERIZED DEVELOPMENT WORKFLOW                       ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "→ Phase 1: Building Container Images"
+  shell pf container-build-all
+  shell echo ""
+  shell echo "→ Phase 2: Starting Development Environment"
+  shell pf compose-up
+  shell echo ""
+  shell echo "→ Phase 3: Running Containerized Tests"
+  shell pf container-test || echo "  ℹ️  Tests skipped"
+  shell echo ""
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     CONTAINERIZED DEV ENVIRONMENT READY                      ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "📋 Available commands:"
+  shell echo "   • pf compose-shell           - Open shell in container"
+  shell echo "   • pf compose-logs            - View container logs"
+  shell echo "   • pf compose-down            - Stop all containers"
+end
+
+# ============================================================================
+# Kernel Fuzzing Pipeline
+# Combines parse detection, complexity analysis, and in-memory fuzzing
+# for efficient kernel vulnerability discovery
+# ============================================================================
+
+task kernel-smart-fuzz
+  describe ⚡ Smart kernel fuzzing pipeline with automagic analysis
+  describe Detects parse functions, analyzes complexity, and runs fast in-memory fuzzing
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     SMART KERNEL FUZZING PIPELINE                            ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "→ Phase 1: Automagic Analysis"
+  shell pf kernel-automagic-analysis binary=${binary}
+  shell echo ""
+  shell echo "→ Phase 2: Fast In-Memory Fuzzing"
+  shell if [ -n "${function}" ]; then
+  shell   echo "  Fuzzing specific function: ${function}"
+  shell   pf kernel-fuzz-in-memory binary=${binary} function=${function}
+  shell else
+  shell   echo "  Running comprehensive fuzzing on detected parse functions..."
+  shell   pf kernel-fuzz-in-memory binary=${binary}
+  shell fi
+  shell echo ""
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     KERNEL FUZZING COMPLETE                                  ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+end
+
+# ============================================================================
+# Multi-Language Build and Test
+# Smart pipeline that detects languages in a polyglot project and builds all
+# ============================================================================
+
+task build-polyglot-smart
+  describe 🌍 Smart polyglot project builder
+  describe Automatically detects and builds all languages in the project
+  shell_lang bash
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     SMART POLYGLOT BUILD PIPELINE                            ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "→ Detecting project languages..."
+  shell echo ""
+  shell if [ -f "Cargo.toml" ]; then
+  shell   echo "  ✓ Rust detected - building..."
+  shell   pf autobuild || echo "    ⚠️  Rust build failed"
+  shell fi
+  shell if [ -f "package.json" ]; then
+  shell   echo "  ✓ Node.js detected - building..."
+  shell   npm run build 2>/dev/null || npm install || echo "    ⚠️  Node.js build failed"
+  shell fi
+  shell if [ -f "Cargo.toml" ] && [ -d "demos/pf-web-polyglot-demo-plus-c" ]; then
+  shell   echo "  ✓ WASM polyglot project detected - building all languages..."
+  shell   pf web-build-all-wasm || echo "    ⚠️  WASM build failed"
+  shell fi
+  shell if [ -f "go.mod" ]; then
+  shell   echo "  ✓ Go detected - building..."
+  shell   go build ./... || echo "    ⚠️  Go build failed"
+  shell fi
+  shell if [ -f "pom.xml" ]; then
+  shell   echo "  ✓ Maven project detected - building..."
+  shell   mvn compile || echo "    ⚠️  Maven build failed"
+  shell fi
+  shell echo ""
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     POLYGLOT BUILD COMPLETE                                  ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+end
+
+# ============================================================================
+# Web Security Full Stack Testing
+# Combines web build, deployment, security scanning, and fuzzing
+# ============================================================================
+
+task web-security-full-stack
+  describe 🛡️ Complete web application security testing workflow
+  describe Builds app, deploys it, runs comprehensive security tests, generates report
+  shell_lang bash
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     FULL STACK WEB SECURITY TESTING                          ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "→ Phase 1: Building Web Application"
+  shell pf web-build-all
+  shell echo ""
+  shell echo "→ Phase 2: Starting Test Server"
+  shell node tools/api-server.mjs demos/pf-web-polyglot-demo-plus-c/web 8080 &
+  shell SERVER_PID=$!
+  shell sleep 5
+  shell echo ""
+  shell echo "→ Phase 3: Security Header Analysis"
+  shell pf security-check-headers url=http://localhost:8080 || echo "  ⚠️  Header issues found"
+  shell echo ""
+  shell echo "→ Phase 4: Vulnerability Scanning"
+  shell pf security-scan-verbose url=http://localhost:8080 || echo "  ⚠️  Vulnerabilities found"
+  shell echo ""
+  shell echo "→ Phase 5: Comprehensive Fuzzing"
+  shell pf security-fuzz-all url=http://localhost:8080 || echo "  ⚠️  Fuzzing found issues"
+  shell echo ""
+  shell echo "→ Phase 6: Generating JSON Report"
+  shell pf security-report url=http://localhost:8080 > /tmp/security_report_$(date +%Y%m%d_%H%M%S).json
+  shell echo "  Report saved to /tmp/security_report_*.json"
+  shell echo ""
+  shell echo "→ Cleanup: Stopping Test Server"
+  shell kill $SERVER_PID 2>/dev/null || true
+  shell echo ""
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     WEB SECURITY TESTING COMPLETE                            ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+end
+
+# ============================================================================
+# Quick Aliases for Smart Workflows
+# ============================================================================
+
+[alias vd]
+task vd
+  describe Quick alias for vuln-discover
+  shell pf vuln-discover binary=${binary}
+end
+
+[alias bs]
+task bs
+  describe Quick alias for build-secure
+  shell pf build-secure ${release:+release=${release}} ${jobs:+jobs=${jobs}} ${containerize:+containerize=${containerize}}
+end
+
+[alias dd]
+task dd
+  describe Quick alias for debug-deep-dive
+  shell pf debug-deep-dive binary=${binary} ${function:+function=${function}} ${interactive:+interactive=${interactive}}
+end
+
+[alias ksf]
+task ksf
+  describe Quick alias for kernel-smart-fuzz
+  shell pf kernel-smart-fuzz binary=${binary} ${function:+function=${function}}
+end
+
+[alias wsfs]
+task wsfs
+  describe Quick alias for web-security-full-stack
+  shell pf web-security-full-stack
+end

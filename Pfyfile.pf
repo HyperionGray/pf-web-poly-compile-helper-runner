@@ -1,5 +1,8 @@
 # pf web plugin (minimal)
 
+# Include smart workflow tasks (Round 2: Integration tightening)
+include Pfyfile.smart-workflows.pf
+
 # Include binary lifting tasks
 include Pfyfile.lifting.pf
 
