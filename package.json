@@ -24,7 +24,13 @@
     "test:api": "node tests/api/api-server.test.mjs",
     "test:all": "npm run test && npm run test:tui && npm run test:unit",
     "api-server": "node tools/api-server.mjs",
-    "dev": "node tools/api-server.mjs"
+    "dev": "node tools/api-server.mjs",
+    "security:scan": "node tools/security/credential-scanner.mjs tools",
+    "security:scan:verbose": "node tools/security/credential-scanner.mjs tools --verbose",
+    "security:deps": "node tools/security/dependency-checker.mjs",
+    "security:deps:verbose": "node tools/security/dependency-checker.mjs --verbose",
+    "security:headers": "node tools/security/security-headers-validator.mjs http://localhost:8080",
+    "security:all": "npm run security:scan && npm run security:deps"
   },
   "keywords": [],
   "author": "",

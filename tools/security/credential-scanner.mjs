@@ -105,7 +105,26 @@ const EXCLUDE_PATTERNS = [
   'coverage',
   '.next',
   'vendor',
-  'target'
+  'target',
+  'pkg',
+  'wasm',
+  '.cache',
+  'tmp',
+  'temp',
+  '.npm',
+  '.yarn',
+  'bundle',
+  'public/assets',
+  'static/assets',
+  '.wasm',
+  '.so',
+  '.dylib',
+  '.dll',
+  '.exe',
+  '.bin',
+  'playwright-report',
+  'test-results',
+  '.playwright'
 ];
 
 // File extensions to scan
@@ -177,6 +196,13 @@ class CredentialScanner {
    */
   async scanFile(filePath) {
     try {
+      // Skip large files (> 1MB) to prevent memory issues
+      const stats = fs.statSync(filePath);
+      if (stats.size > 1024 * 1024) {
+        this.log(`Skipping large file: ${filePath} (${stats.size} bytes)`);
+        return;
+      }
+
       const content = fs.readFileSync(filePath, 'utf8');
       const relativePath = path.relative(this.rootDir, filePath);
 
