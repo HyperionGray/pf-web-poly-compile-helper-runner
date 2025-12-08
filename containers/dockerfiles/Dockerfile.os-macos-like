@@ -23,7 +23,6 @@ RUN apt-get update && \
         tar \
         gzip \
         unzip \
-        which \
         findutils \
         util-linux \
         coreutils \
