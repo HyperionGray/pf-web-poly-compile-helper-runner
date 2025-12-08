@@ -152,42 +152,6 @@ For more help on a specific subcommand:
             description="Toggle debug mode off - returns to normal error reporting",
         )
         
-        # prune command - syntax checking
-        prune_parser = self.subparsers.add_parser(
-            'prune',
-            help='Check syntax of tasks and report errors',
-            description='Validate all tasks for syntax errors without executing them'
-        )
-        prune_parser.add_argument(
-            '-d', '--dry-run',
-            action='store_true',
-            help='Only check syntax, do not execute (default behavior)'
-        )
-        prune_parser.add_argument(
-            '-v', '--verbose',
-            action='store_true',
-            help='Show verbose output with stack traces'
-        )
-        prune_parser.add_argument(
-            '-o', '--output',
-            default='pfail.fail.pf',
-            help='Output file for failed tasks (default: pfail.fail.pf)'
-        )
-        
-        # debug-on command
-        debug_on_parser = self.subparsers.add_parser(
-            'debug-on',
-            help='Enable debug mode for verbose error reporting',
-            description='Toggle debug mode on - provides full stack traces for errors'
-        )
-        
-        # debug-off command
-        debug_off_parser = self.subparsers.add_parser(
-            'debug-off',
-            help='Disable debug mode',
-            description='Toggle debug mode off - returns to normal error reporting'
-        )
-        
     def add_subcommand_from_file(self, filename: str, tasks: List[str]):
         """Add a subcommand based on an included file."""
         # Transform filename to subcommand name

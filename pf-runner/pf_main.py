@@ -203,7 +203,7 @@ class PfRunner:
             main_tasks = []
             categorized_tasks = {}
             
-            for task_name, description in tasks_with_desc:
+            for task_name, description, aliases in tasks_with_desc:
                 # Simple categorization based on task name patterns
                 if any(prefix in task_name for prefix in ['web-', 'build-', 'install-', 'test-']):
                     category = task_name.split('-')[0]
