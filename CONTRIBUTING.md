@@ -7,11 +7,11 @@ Thank you for your interest in contributing to this project! This document provi
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
 - [How to Contribute](#how-to-contribute)
-- [Development Workflow](#development-workflow)
+- [Development Setup](#development-setup)
+- [Pull Request Process](#pull-request-process)
 - [Coding Standards](#coding-standards)
 - [Testing](#testing)
 - [Documentation](#documentation)
-- [Pull Request Process](#pull-request-process)
 
 ## Code of Conduct
 
@@ -31,9 +31,9 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 1. **Fork the repository** on GitHub
 
-2. **Clone your fork** locally:
+2. **Clone your fork**:
    ```bash
-   git clone https://github.com/YOUR-USERNAME/pf-web-poly-compile-helper-runner.git
+   git clone https://github.com/YOUR_USERNAME/pf-web-poly-compile-helper-runner.git
    cd pf-web-poly-compile-helper-runner
    ```
 
@@ -96,69 +96,42 @@ Enhancement suggestions are welcome! Please include:
 5. **Add tests** for new functionality
 6. **Submit a pull request**
 
-## Development Workflow
+## Pull Request Process
 
-### Branch Naming
+1. **Update documentation** if your changes require it
+2. **Add tests** for new functionality
+3. **Ensure all tests pass**:
+   ```bash
+   npm run test:all
+   ```
+4. **Update the CHANGELOG.md** if applicable
+5. **Request a review** from a maintainer
+6. **Address feedback** promptly
 
-Use descriptive branch names:
-- `feature/add-new-build-system`
-- `fix/wasm-compilation-error`
-- `docs/update-quickstart`
-- `refactor/parser-improvements`
+### Commit Message Guidelines
 
-### Commit Messages
-
-Follow conventional commit format:
-```
-type(scope): brief description
-
-Optional longer description explaining the change.
-
-Fixes #123
-```
+- Use the present tense ("Add feature" not "Added feature")
+- Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
+- Limit the first line to 72 characters or less
+- Reference issues and pull requests liberally after the first line
 
 Types:
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `refactor`: Code refactoring
-- `test`: Adding or updating tests
-- `chore`: Maintenance tasks
-
-### Making Changes
-
-1. **Create your branch**:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-2. **Make your changes** with small, focused commits
-
-3. **Test your changes**:
-   ```bash
-   pf web-test
-   ```
-
-4. **Push your branch**:
-   ```bash
-   git push origin feature/your-feature-name
-   ```
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `docs:` - Documentation changes
+- `style:` - Code style changes (formatting, etc.)
+- `refactor:` - Code refactoring
+- `test:` - Adding or updating tests
+- `chore:` - Maintenance tasks
 
 ## Coding Standards
 
-### Python Code (pf-runner)
+### Python (pf-runner)
 
 - Follow PEP 8 style guidelines
 - Use type hints where appropriate
-- Keep functions focused and modular
-- Document complex logic with comments
-
-### Pfyfile Tasks
-
-- Use clear, descriptive task names
-- Add `describe` for all tasks
-- Keep tasks focused on single responsibilities
-- Use consistent naming: `module-action` format
+- Write docstrings for public functions and classes
+- Use meaningful variable and function names
 
 ### JavaScript/TypeScript
 
@@ -171,87 +144,54 @@ Types:
 ### Running Tests
 
 ```bash
-# Run all Playwright tests
-pf web-test
+# Run all tests
+npm run test:all
 
-# Run specific test file
-npx playwright test tests/e2e/polyglot-plus-c.spec.ts
-
-# Run unit tests
-npm run test:unit
-
-# Run with verbose output
-npm run test:unit:verbose
-
-# Debug tests
-npx playwright test --debug
+# Run specific test suites
+npm run test          # Playwright E2E tests
+npm run test:unit     # Unit tests
+npm run test:tui      # TUI tests
+npm run test:grammar  # Grammar tests
 ```
 
 ### Writing Tests
 
-- Add tests for new features in `tests/e2e/`
-- Follow existing test patterns
-- Test both success and failure cases
+- Place E2E tests in `tests/e2e/`
+- Place unit tests in appropriate subdirectories under `tests/`
 - Use descriptive test names
+- Test both success and failure cases
+
+### Debugging Tests
+
+```bash
+# Debug Playwright tests
+npm run test:debug
+
+# Run tests with UI
+npm run test:ui
+```
 
 ## Documentation
 
-### Updating Documentation
-
-- Update relevant `.md` files for feature changes
-- Keep README.md up to date
-- Add examples for new features
-- Update CHANGELOG.md for notable changes
-
-### Documentation Files
-
-- `README.md` - Main project documentation
-- `QUICKSTART.md` - Quick start guide
-- `docs/*.md` - Feature-specific documentation
-- `pf-runner/*.md` - pf-runner specific docs
-
-## Pull Request Process
-
-### Before Submitting
-
-1. **Ensure your code follows** the coding standards
-2. **Run the test suite** and ensure all tests pass
-3. **Update documentation** as needed
-4. **Add a changelog entry** for notable changes
-
-### Submitting Your PR
-
-1. **Create your pull request** against the `main` branch
-2. **Fill out the PR template** completely
-3. **Link related issues** using keywords (Fixes #123)
-4. **Request review** from maintainers
-
-### Review Process
-
-1. Maintainers will review your PR
-2. Address any requested changes
-3. Once approved, a maintainer will merge your PR
-
-### After Merge
-
-- Delete your feature branch
-- Update your local main branch
-- Celebrate your contribution! 🎉
+- Update README.md for significant changes
+- Update QUICKSTART.md for user-facing changes
+- Add to docs/ for new features or guides
+- Keep documentation up-to-date with code changes
 
 ## Task File Contributions
 
 When contributing new pf tasks:
 
-1. Place task definitions in appropriate `.pf` files
-2. Add a `describe` line for each task
-3. Follow the naming convention: `category-action-name`
-4. Test your tasks thoroughly before submitting
+- Use descriptive task names
+- Include `describe` for all tasks
+- Follow established DSL patterns
+- Test tasks thoroughly
 
 Example:
-```text
+```pf
+describe "Brief description of what this task does"
 task my-new-task
-  describe Brief description of what this task does
-  shell echo "Task implementation"
+  # Task implementation
 end
 ```
 
