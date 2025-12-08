@@ -47,11 +47,12 @@ export class ResponseCache {
    * Store response in cache
    */
   set(key, data) {
-    // Implement LRU-style eviction if cache is full
+    // Implement FIFO eviction if cache is full
+    // Note: For true LRU, would need to track access order separately
     if (this.cache.size >= this.maxSize) {
-      // Remove oldest entry
-      const oldestKey = this.cache.keys().next().value;
-      this.cache.delete(oldestKey);
+      // Remove first (oldest) entry
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
     }
 
     this.cache.set(key, {

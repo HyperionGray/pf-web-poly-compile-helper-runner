@@ -116,7 +116,7 @@ class SecurityHeadersValidator {
   async fetchHeaders(url) {
     try {
       const controller = new AbortController();
-      const timeoutHandle = globalThis.setTimeout(() => controller.abort(), this.timeout);
+      const timeoutHandle = setTimeout(() => controller.abort(), this.timeout);
 
       const response = await fetch(url, {
         method: 'HEAD', // Only fetch headers, not body
@@ -124,7 +124,7 @@ class SecurityHeadersValidator {
         redirect: 'manual' // Don't follow redirects
       });
 
-      globalThis.clearTimeout(timeoutHandle);
+      clearTimeout(timeoutHandle);
 
       return {
         url: response.url,

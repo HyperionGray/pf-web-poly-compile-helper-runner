@@ -18,17 +18,17 @@ const __dirname = path.dirname(__filename);
 const SECRET_PATTERNS = [
   {
     name: 'Generic API Key',
-    pattern: /(?:api[_-]?key|apikey)[\s]*[:=][\s]*['"]([a-zA-Z0-9_\-]{20,})['"]|/gi,
+    pattern: /(?:api[_-]?key|apikey)[\s]*[:=][\s]*['"]([a-zA-Z0-9_\-]{20,})['"]/gi,
     severity: 'high'
   },
   {
     name: 'Generic Secret',
-    pattern: /(?:secret|token)[\s]*[:=][\s]*['"]([a-zA-Z0-9_\-]{20,})['"]|/gi,
+    pattern: /(?:secret|token)[\s]*[:=][\s]*['"]([a-zA-Z0-9_\-]{20,})['"]/gi,
     severity: 'high'
   },
   {
     name: 'Password',
-    pattern: /(?:password|passwd|pwd)[\s]*[:=][\s]*['"]([^'"]{4,})['"]|/gi,
+    pattern: /(?:password|passwd|pwd)[\s]*[:=][\s]*['"]([^'"]{4,})['"]/gi,
     severity: 'critical'
   },
   {
@@ -38,7 +38,7 @@ const SECRET_PATTERNS = [
   },
   {
     name: 'AWS Secret Key',
-    pattern: /aws[_-]?secret[_-]?access[_-]?key[\s]*[:=][\s]*['"]([a-zA-Z0-9/+=]{40})['"]|/gi,
+    pattern: /aws[_-]?secret[_-]?access[_-]?key[\s]*[:=][\s]*['"]([a-zA-Z0-9/+=]{40})['"]/gi,
     severity: 'critical'
   },
   {
@@ -151,7 +151,17 @@ const FALSE_POSITIVE_PATTERNS = [
   /secrets\.[A-Z_]+/,  // GitHub Actions secrets
   /process\.env\./,    // Environment variables
   /ENV\[/,             // Environment variable access
-  /\$\{[^}]+\}/        // Shell/template variables
+  /\$\{[^}]+\}/,       // Shell/template variables
+  /github\.com/i,      // GitHub URLs (not credentials)
+  /mozilla\.org/i,     // Mozilla URLs
+  /10\.0\.0\./,        // Private IP examples in docs
+  /10\.1\./,           // Private IP examples in docs
+  /10\.4\./,           // Private IP examples in docs
+  /192\.168\./,        // Private IP examples in docs
+  /^[#\/\*]/,          // Comments
+  /ubuntu@/,           // Example SSH users
+  /staging@/,          // Example SSH users
+  /punk@/              // Example SSH users
 ];
 
 class CredentialScanner {
