@@ -114,15 +114,4 @@ end
 # ============================================================================
 # Installation Tasks
 # ============================================================================
-
-task install
-  describe Build pf-runner container image and install pf wrapper (web stack is containerized)
-  shell_lang bash
-  shell bash install.sh
-end
-
-task install-all
-  describe Build pf-runner container image and install pf wrapper
-  shell_lang bash
-  shell bash install.sh
-end
+# Note: Install tasks are defined in main Pfyfile.pf

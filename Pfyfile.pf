@@ -46,6 +46,18 @@ include Pfyfile.distro-switch.pf
 # Include PE execution and cross-platform binary execution tasks
 include Pfyfile.pe-execution.pf
 
+# Include PE container tasks
+include Pfyfile.pe-containers.pf
+
+# Include heap spray demonstration tasks
+include Pfyfile.heap-spray.pf
+
+# Include kernel debugging tasks
+include Pfyfile.kernel-debug.pf
+
+# Include web development and WASM build tasks
+include Pfyfile.web.pf
+
 # Include REST API management tasks
 include Pfyfile.rest-api.pf
 

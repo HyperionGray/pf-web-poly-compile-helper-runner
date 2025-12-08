@@ -6,14 +6,6 @@
 # PE Container Build Tasks
 # ==========================================
 
-task pe-build-all
-  describe Build all PE execution containers
-  shell_lang bash
-  shell |
-    echo "Building PE execution containers..."
-    ./containers/scripts/build-containers.sh pe
-    echo "PE containers built successfully!"
-end
 
 task pe-build-vmkit
   describe Build VMKit container for PE execution with full passthrough
@@ -21,11 +13,6 @@ task pe-build-vmkit
   shell podman build -t localhost/pf-pe-vmkit:latest -f containers/dockerfiles/Dockerfile.pe-vmkit .
 end
 
-task pe-build-reactos
-  describe Build ReactOS container for PE execution
-  shell_lang bash
-  shell podman build -t localhost/pf-pe-reactos:latest -f containers/dockerfiles/Dockerfile.pe-reactos .
-end
 
 task pe-build-macos
   describe Build macOS QEMU container
@@ -328,100 +315,4 @@ end
 # Status and Help Tasks
 # ==========================================
 
-task pe-status
-  describe Show status of PE execution containers and images
-  shell_lang bash
-  shell |
-    echo "╔════════════════════════════════════════════════════════════╗"
-    echo "║         PE Execution Environment Status                    ║"
-    echo "╚════════════════════════════════════════════════════════════╝"
-    echo ""
-    
-    echo "=== Container Images ==="
-    podman images | grep -E "pf-pe-|pf-macos-" || echo "No PE containers found"
-    echo ""
-    
-    echo "=== Running Containers ==="
-    podman ps | grep -E "pf-pe-|pf-macos-" || echo "No PE containers running"
-    echo ""
-    
-    echo "=== VM Images ==="
-    echo "VMKit images:"
-    ls -lh vmkit-images/*.qcow2 2>/dev/null || echo "  No VMKit images"
-    echo ""
-    echo "ReactOS images:"
-    ls -lh reactos-images/*.iso reactos-images/*.qcow2 2>/dev/null || echo "  No ReactOS images"
-    echo ""
-    echo "macOS images:"
-    ls -lh macos-images/*.qcow2 2>/dev/null || echo "  No macOS images"
-end
 
-task pe-help
-  describe Show help for PE execution containers
-  shell_lang bash
-  shell cat << 'EOF'
-
-PE Execution Container Commands
-===============================
-
-BUILD COMMANDS:
-  pf pe-build-all             Build all PE execution containers
-  pf pe-build-vmkit           Build VMKit container
-  pf pe-build-reactos         Build ReactOS container
-  pf pe-build-macos           Build macOS QEMU container
-
-VMKIT (Lightweight VM with passthrough):
-  pf pe-vmkit-setup           Set up VMKit with VM images
-  pf pe-vmkit-run pe=X        Run PE in VMKit VM
-  pf pe-vmkit-analyze pe=X    Analyze PE file
-  pf pe-vmkit-shell           Open container shell
-
-REACTOS (Windows-compatible OS):
-  pf pe-reactos-setup         Download and setup ReactOS
-  pf pe-reactos-run pe=X      Run PE in ReactOS VM
-  pf pe-reactos-analyze pe=X  Analyze PE file
-  pf pe-reactos-shell         Open container shell
-
-macOS (QEMU-based):
-  pf macos-setup              Create macOS disk image
-  pf macos-run                Start macOS VM
-  pf macos-run-headless       Start VM in background
-  pf macos-stop               Stop macOS VM
-  pf macos-run-app app=X      Run app in macOS VM
-  pf macos-shell              Open container shell
-
-WORKFLOWS:
-  pf pe-setup-all             Set up all environments
-  pf pe-analyze-and-run       Analyze and run PE
-
-STATUS:
-  pf pe-status                Show environment status
-
-EXAMPLES:
-
-  # Build all PE containers
-  pf pe-build-all
-
-  # Set up ReactOS and run a PE
-  pf pe-reactos-setup
-  pf pe-reactos-run pe=./samples/myapp.exe
-
-  # Analyze PE before running
-  pf pe-reactos-analyze pe=./samples/myapp.exe
-
-  # Run with VMKit (faster with KVM)
-  pf pe-vmkit-setup
-  pf pe-vmkit-run pe=./samples/myapp.exe
-
-  # macOS execution
-  pf macos-setup
-  pf macos-run
-
-NOTES:
-  - VMKit requires /dev/kvm for acceleration
-  - ReactOS is an open-source Windows-compatible OS
-  - macOS containers require legal macOS license/hardware
-  - All containers support --device /dev/kvm for acceleration
-
-EOF
-end

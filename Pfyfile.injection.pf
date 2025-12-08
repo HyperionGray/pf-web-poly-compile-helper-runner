@@ -4,12 +4,7 @@
 # ============================================================================
 # Installation Tasks
 # ============================================================================
-
-task install-injection-tools
-  describe Install tools for binary injection and shared library manipulation
-   bash
-  shell bash tools/injection/install-injection-tools.sh
-end
+# Note: install-injection-tools task is defined at the end of this file for better organization
 
 # ============================================================================
 # Payload Generation Tasks
