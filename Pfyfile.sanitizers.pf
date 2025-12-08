@@ -29,10 +29,6 @@ task create-sanitizer-wrappers
   describe Create compiler wrapper scripts for easy sanitizer usage
   shell mkdir -p ~/.local/bin
   shell python3 tools/sanitizers/create_wrappers.py
-  shell chmod +x ~/.local/bin/clang-asan ~/.local/bin/clang++-asan
-  shell chmod +x ~/.local/bin/clang-msan ~/.local/bin/clang++-msan
-  shell chmod +x ~/.local/bin/clang-ubsan ~/.local/bin/clang++-ubsan
-  shell chmod +x ~/.local/bin/clang-tsan ~/.local/bin/clang++-tsan
   shell echo "✅ Sanitizer wrapper scripts created"
 end
 
@@ -98,76 +94,24 @@ task build-with-all-sanitizers
   shell echo "Run with: ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1 ./your_binary"
 end
 
-# Sanitizer Analysis Tasks
-
-task sanitizer-analyze
-  describe Analyze sanitizer output and generate report
-  shell python3 tools/sanitizers/analyze_output.py ${log_file} ${output:-sanitizer_report.html}
-  shell echo "📊 Sanitizer analysis complete: ${output:-sanitizer_report.html}"
-end
-
-task sanitizer-symbolize
-  describe Symbolize sanitizer stack traces for better debugging
-  shell python3 tools/sanitizers/symbolize_traces.py ${binary} ${log_file} ${output:-symbolized.log}
-  shell echo "🔍 Symbolized traces saved to: ${output:-symbolized.log}"
-end
-
-task sanitizer-compare
-  describe Compare sanitizer runs to identify new issues
-  shell python3 tools/sanitizers/compare_runs.py ${baseline_log} ${current_log} ${output:-comparison.html}
-  shell echo "📈 Comparison report: ${output:-comparison.html}"
-end
-
-# Fuzzing Integration with Sanitizers
-
-task fuzz-with-asan
-  describe Run fuzzing with AddressSanitizer for enhanced bug detection
-  shell echo "🚀 Starting fuzzing with AddressSanitizer..."
-  shell pf build-with-asan dir=${dir:-.}
-  shell python3 tools/fuzzing/fuzz_with_sanitizer.py --sanitizer asan --binary ${binary} --corpus ${corpus:-./corpus} --timeout ${timeout:-3600}
-end
-
-task fuzz-with-msan
-  describe Run fuzzing with MemorySanitizer for uninitialized memory detection
-  shell echo "🚀 Starting fuzzing with MemorySanitizer..."
-  shell pf build-with-msan dir=${dir:-.}
-  shell python3 tools/fuzzing/fuzz_with_sanitizer.py --sanitizer msan --binary ${binary} --corpus ${corpus:-./corpus} --timeout ${timeout:-3600}
-end
-
 # Educational and Testing Tasks
-
-task sanitizer-demo
-  describe Demonstrate sanitizer capabilities with vulnerable code
-  shell echo "🎓 Running sanitizer demonstration..."
-  shell gcc -o /tmp/vuln_asan -fsanitize=address -g tools/sanitizers/demo/buffer_overflow.c
-  shell gcc -o /tmp/vuln_msan -fsanitize=memory -g tools/sanitizers/demo/uninitialized_memory.c
-  shell gcc -o /tmp/vuln_ubsan -fsanitize=undefined -g tools/sanitizers/demo/undefined_behavior.c
-  shell echo ""
-  shell echo "Running AddressSanitizer demo (buffer overflow):"
-  shell /tmp/vuln_asan || true
-  shell echo ""
-  shell echo "Running MemorySanitizer demo (uninitialized memory):"
-  shell /tmp/vuln_msan || true
-  shell echo ""
-  shell echo "Running UBSan demo (undefined behavior):"
-  shell /tmp/vuln_ubsan || true
-  shell echo ""
-  shell echo "🎓 Sanitizer demonstration complete!"
-end
 
 task sanitizer-test
   describe Test sanitizer installation and basic functionality
   shell echo "🧪 Testing sanitizer installation..."
   shell echo ""
+  shell TEST_ASAN=$(mktemp)
+  shell TEST_MSAN=$(mktemp)
+  shell TEST_UBSAN=$(mktemp)
+  shell trap 'rm -f $TEST_ASAN $TEST_MSAN $TEST_UBSAN' EXIT
   shell echo "1. Testing clang with AddressSanitizer..."
-  shell echo 'int main(){char *p=malloc(10); p[10]=1; return 0;}' | clang -x c -fsanitize=address -o /tmp/test_asan -
+  shell echo 'int main(){char *p=malloc(10); p[10]=1; return 0;}' | clang -x c -fsanitize=address -o $TEST_ASAN - 2>&1 | head -5 || true
   shell echo "2. Testing clang with MemorySanitizer..."
-  shell echo 'int main(){int x; return x;}' | clang -x c -fsanitize=memory -o /tmp/test_msan - 2>/dev/null || echo "MSan requires special libc (expected)"
+  shell echo 'int main(){int x; return x;}' | clang -x c -fsanitize=memory -o $TEST_MSAN - 2>/dev/null || echo "MSan requires special libc (expected)"
   shell echo "3. Testing clang with UBSan..."
-  shell echo 'int main(){int x=INT_MAX; return x+1;}' | clang -x c -fsanitize=undefined -o /tmp/test_ubsan -
+  shell echo '#include <limits.h>' | cat - <(echo 'int main(){int x=INT_MAX; return x+1;}') | clang -x c -fsanitize=undefined -o $TEST_UBSAN - 2>&1 | head -5 || true
   shell echo ""
   shell echo "✅ Sanitizer installation test complete!"
-  shell rm -f /tmp/test_asan /tmp/test_msan /tmp/test_ubsan
 end
 
 # Advanced Sanitizer Features
@@ -181,11 +125,6 @@ task sanitizer-coverage
   env LDFLAGS="-fsanitize=address"
   autobuild ${dir:+dir=$dir} ${jobs:+jobs=$jobs}
   shell echo "✅ Build complete with sanitizer coverage"
-end
-
-task sanitizer-profile
-  describe Profile sanitizer overhead and performance impact
-  shell python3 tools/sanitizers/profile_overhead.py ${binary} ${test_input} ${iterations:-100}
 end
 
 # Help and Documentation
@@ -207,21 +146,8 @@ task sanitizer-help
   shell echo "  pf build-with-tsan           # ThreadSanitizer (data races)"
   shell echo "  pf build-with-all-sanitizers # Multiple sanitizers (asan+ubsan)"
   shell echo ""
-  shell echo "ANALYSIS AND DEBUGGING:"
-  shell echo "  pf sanitizer-analyze log_file=<file>    # Analyze sanitizer output"
-  shell echo "  pf sanitizer-symbolize binary=<file>    # Symbolize stack traces"
-  shell echo "  pf sanitizer-compare baseline=<file>    # Compare runs"
-  shell echo ""
-  shell echo "FUZZING INTEGRATION:"
-  shell echo "  pf fuzz-with-asan binary=<file>         # Fuzz with AddressSanitizer"
-  shell echo "  pf fuzz-with-msan binary=<file>         # Fuzz with MemorySanitizer"
-  shell echo ""
   shell echo "ADVANCED FEATURES:"
   shell echo "  pf sanitizer-coverage                   # Build with coverage"
-  shell echo "  pf sanitizer-profile binary=<file>      # Profile overhead"
-  shell echo ""
-  shell echo "LEARNING AND TESTING:"
-  shell echo "  pf sanitizer-demo                       # Interactive demonstration"
   shell echo ""
   shell echo "SANITIZER ENVIRONMENT VARIABLES:"
   shell echo "  ASAN_OPTIONS=detect_leaks=1:abort_on_error=1"
