@@ -42,7 +42,7 @@ class PfRunner:
         
         try:
             # Load the main pfy source with includes
-            dsl_src = _load_pfy_source_with_includes(file_arg=pfyfile)
+            dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=pfyfile)
             
             # Parse to find include statements and their tasks
             include_files = self._extract_include_files(dsl_src)
@@ -51,7 +51,7 @@ class PfRunner:
                 try:
                     # Load the included file
                     include_src = self._load_include_file(include_file, pfyfile)
-                    include_tasks = parse_pfyfile_text(include_src)
+                    include_tasks = parse_pfyfile_text(include_src, {})
                     
                     # Extract task names
                     task_names = list(include_tasks.keys())
@@ -203,29 +203,31 @@ class PfRunner:
             main_tasks = []
             categorized_tasks = {}
             
-            for task_name, description in tasks_with_desc:
+            for task_name, description, aliases in tasks_with_desc:
                 # Simple categorization based on task name patterns
                 if any(prefix in task_name for prefix in ['web-', 'build-', 'install-', 'test-']):
                     category = task_name.split('-')[0]
                     if category not in categorized_tasks:
                         categorized_tasks[category] = []
-                    categorized_tasks[category].append((task_name, description))
+                    categorized_tasks[category].append((task_name, description, aliases))
                 else:
-                    main_tasks.append((task_name, description))
+                    main_tasks.append((task_name, description, aliases))
             
             # Display main tasks first
             if main_tasks:
                 print("\nCore tasks:")
-                for task_name, description in main_tasks:
+                for task_name, description, aliases in main_tasks:
                     desc_text = f" - {description}" if description else ""
-                    print(f"  {task_name}{desc_text}")
+                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
+                    print(f"  {task_name}{desc_text}{alias_text}")
             
             # Display categorized tasks
             for category, tasks in sorted(categorized_tasks.items()):
                 print(f"\n{category.title()} tasks:")
-                for task_name, description in tasks:
+                for task_name, description, aliases in tasks:
                     desc_text = f" - {description}" if description else ""
-                    print(f"  {task_name}{desc_text}")
+                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
+                    print(f"  {task_name}{desc_text}{alias_text}")
                     
             # Show usage hint
             print(f"\nUsage: pf run <task_name> [params...]")
