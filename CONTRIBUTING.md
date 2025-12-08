@@ -1,8 +1,6 @@
 # Contributing to pf-web-poly-compile-helper-runner
 
-Thank you for your interest in contributing to this project! This document provides guidelines and instructions for contributing. This was not written by AI. Or did someone tell the AI to put this here? Haha You'll never know!
-
-- Github Copilot
+Thank you for your interest in contributing to this project! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 
@@ -27,24 +25,9 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 - Git
 - Python 3.10+
 - Docker or Podman (for containerized workflows)
-- Node.js (for web development features)
+- Node.js 18+ (for web development features)
 
-### Setting Up Your Development Environment
-
-1. **Fork the repository** on GitHub
-
-2. **Clone your fork**:
-- [Development Setup](#development-setup)
-- [Pull Request Process](#pull-request-process)
-- [Coding Standards](#coding-standards)
-- [Testing](#testing)
-- [Documentation](#documentation)
-
-## Code of Conduct
-
-Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) to help us maintain a welcoming and inclusive community.
-
-## Getting Started
+### Development Setup
 
 1. **Fork the repository** on GitHub
 
@@ -54,55 +37,61 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) to help us main
    cd pf-web-poly-compile-helper-runner
    ```
 
-2.5. **Add the upstream remote**: 
+3. **Add the upstream remote**: 
    ```bash
    git remote add upstream https://github.com/P4X-ng/pf-web-poly-compile-helper-runner.git
    ```
 
-<small>It's 2.5 because I forgot a step and don't feel like renumbering them all</small>
-
-3. **Install pf-runner**:
+4. **Install pf-runner**:
    ```bash
+   # System-wide installation (requires sudo)
+   sudo ./install.sh
+   
+   # Or user-level installation (recommended for development)
    ./install.sh --prefix ~/.local
    ```
 
-4. **Install development dependencies**:
+5. **Install development dependencies**:
    ```bash
-   npm install playwright
+   npm install
    npx playwright install
    ```
 
-5. **Verify your setup**:
+6. **Verify your setup**:
    ```bash
    pf --version
    pf list
+   ```
 
 ## How to Contribute
 
-### Reporting Bugs
+### Reporting Issues
 
-1. **Check existing issues** to avoid duplicates
-2. **Use the bug report template** when creating new issues
-3. **Include**:
-   - Clear description of the bug
-   - Steps to reproduce
-   - Expected vs actual behavior
-   - System information (OS, Python version, etc.)
-   - Relevant logs or error messages
+Before creating bug reports, please check existing issues to avoid duplicates. When creating a bug report, include:
 
-### Suggesting Features
+- A clear and descriptive title
+- Steps to reproduce the behavior
+- Expected behavior vs actual behavior
+- Your environment (OS, Python version, Node.js version, etc.)
+- Any relevant logs or error messages
 
-1. **Check existing issues and discussions** for similar suggestions
-2. **Create a feature request** with:
-   - Clear description of the proposed feature
-   - Use cases and benefits
-   - Potential implementation approach (optional)
+### Suggesting Enhancements
+
+Enhancement suggestions are welcome! Please include:
+
+- A clear and descriptive title
+- Detailed description of the proposed enhancement
+- Explanation of why this enhancement would be useful
+- Examples of how it would work
 
 ### Contributing Code
 
 1. **Find an issue to work on** or create one for new features
 2. **Comment on the issue** to let others know you're working on it
-3. **Create a feature branch** from `main`
+3. **Create a feature branch** from `main`:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
 4. **Make your changes** following our coding standards
 5. **Add tests** for new functionality
 6. **Submit a pull request**
@@ -176,107 +165,6 @@ Types:
 - Use ES modules
 - Follow existing formatting conventions
 - Add JSDoc comments for public APIs
-Before creating bug reports, please check existing issues to avoid duplicates. When creating a bug report, include:
-
-- A clear and descriptive title
-- Steps to reproduce the behavior
-- Expected behavior vs actual behavior
-- Your environment (OS, Python version, Node.js version, etc.)
-- Any relevant logs or error messages
-
-### Suggesting Enhancements
-
-Enhancement suggestions are welcome! Please include:
-
-- A clear and descriptive title
-- Detailed description of the proposed enhancement
-- Explanation of why this enhancement would be useful
-- Examples of how it would work
-
-### Contributing Code
-
-1. Create a feature branch from `main`:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-2. Make your changes
-3. Add or update tests as needed
-4. Ensure all tests pass
-5. Commit your changes with a descriptive message
-6. Push to your fork
-7. Open a Pull Request
-
-## Development Setup
-
-### Prerequisites
-
-- Linux (Ubuntu/Debian recommended) or macOS
-- Python 3.10+
-- Node.js 18+
-- Git
-- Docker or Podman (optional, for container-based development)
-
-### Installation
-
-```bash
-# Install pf runner
-sudo ./install.sh
-
-# Or for user-level installation
-./install.sh --prefix ~/.local
-
-# Install Node.js dependencies
-npm install
-
-# Install Playwright for testing
-npx playwright install
-```
-
-### Running the Development Server
-
-```bash
-pf web-dev
-```
-
-## Pull Request Process
-
-1. **Update documentation** if your changes require it
-2. **Add tests** for new functionality
-3. **Ensure all tests pass**:
-   ```bash
-   pf web-test
-   npm run test:unit
-   ```
-4. **Update the CHANGELOG.md** if applicable
-5. **Request a review** from a maintainer
-6. **Address feedback** promptly
-
-### Commit Message Guidelines
-
-- Use the present tense ("Add feature" not "Added feature")
-- Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
-- Limit the first line to 72 characters or less
-- Reference issues and pull requests liberally after the first line
-
-## Coding Standards
-
-### Python (pf-runner)
-
-- Follow PEP 8 style guidelines
-- Use type hints where appropriate
-- Write docstrings for public functions and classes
-
-### JavaScript/TypeScript
-
-- Use ESLint configuration (if present)
-- Use meaningful variable and function names
-- Write JSDoc comments for public APIs
-
-### pf Task Files (.pf)
-
-- Use `describe` for all tasks
-- Include meaningful descriptions
-- Follow the established DSL patterns
 
 ## Testing
 
@@ -350,94 +238,7 @@ npx playwright test --debug
 - Update your local main branch
 - Celebrate your contribution! 🎉
 
-## Questions?
-
-- Check the [documentation](README.md)
-- Open a discussion on GitHub
-- File an issue for bugs
-
-Thank you for contributing to pf-web-poly-compile-helper-runner!
-- Place E2E tests in `tests/e2e/`
-- Place unit tests in appropriate subdirectories under `tests/`
-- Use descriptive test names
-- Test both success and failure cases
-
-## Documentation
-
-- Update README.md for significant changes
-- Update QUICKSTART.md for user-facing changes
-- Add to docs/ for new features or guides
-- Keep documentation up-to-date with code changes
-
-## Questions?
-
-If you have questions, feel free to:
-
-- Open an issue for discussion
-- Check existing documentation in `pf-runner/README.md`
-- Review example tasks in `Pfyfile.pf` files
-
-<small>Thank you for your interest in contributing to this project! We welcome contributions from the community.
-But only the smart people, not from dummies. Just kidding. We love all of you idiots. Sorry, I mean thanks!</small>
-
-## How to Contribute
-
-### Reporting Issues
-
-If you find a bug or have a feature request, please open an issue on GitHub. When reporting issues, please include:
-
-- A clear description of the problem or feature request
-- Steps to reproduce the issue (if applicable)
-- Expected vs actual behavior
-- Your environment (OS, Node.js version, etc.)
-
-### Pull Requests
-
-1. **Fork the repository** and create your branch from `main`
-2. **Make your changes** with clear, descriptive commit messages
-3. **Add tests** if applicable
-4. **Update documentation** as needed
-5. **Run the test suite** to ensure nothing is broken:
-   ```bash
-   npm test
-   npm run test:unit
-   npm run test:tui
-   ```
-6. **Submit a pull request** with a clear description of your changes
-
-### Development Setup
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/P4X-ng/pf-web-poly-compile-helper-runner.git
-   cd pf-web-poly-compile-helper-runner
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Install pf-runner:
-   ```bash
-   sudo ./install.sh
-   # Or for user installation:
-   ./install.sh --prefix ~/.local
-   ```
-
-4. Run tests:
-   ```bash
-   npm test
-   ```
-
-### Code Style
-
-- Follow the existing code style in the project
-- Use meaningful variable and function names
-- Add comments for complex logic
-- Keep functions focused and small
-
-### Task File Contributions
+## Task File Contributions
 
 When contributing new pf tasks:
 
@@ -454,23 +255,14 @@ task my-new-task
 end
 ```
 
-### Documentation
-
-When contributing documentation:
-
-- Update README.md for user-facing changes
-- Add or update docs in the `docs/` directory
-- Include examples where helpful
-- Keep language clear and concise
-
-## Code of Conduct
-
-Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
-
 ## Questions?
 
-If you have questions about contributing, feel free to open an issue for discussion.
+If you have questions about contributing, feel free to:
+
+- Open an issue for discussion
+- Check existing documentation in `pf-runner/README.md`
+- Review example tasks in `Pfyfile.pf` files
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the project's ISC License.
+By contributing, you agree that your contributions will be licensed under the project's MIT License.
