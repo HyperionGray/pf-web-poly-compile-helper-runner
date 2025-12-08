@@ -1,6 +1,87 @@
 # Enhanced Tool Integration for pf-runner
 # Smart combinations of existing tools that "just work"
-# From PR #196 - Tool Integration Round 4
+
+# ============================================================================
+# One-Command Complete Workflows
+# ============================================================================
+
+task autopwn
+  describe Complete binary exploitation: analysis + vulnerability discovery + exploit generation (binary=path/to/binary)
+  shell test -n "${binary}" || (echo "❌ Error: binary parameter required" && exit 1)
+  shell echo "🎯 AutoPwn: Complete binary exploitation workflow"
+  shell echo "Target: ${binary}"
+  shell echo ""
+  
+  # Phase 1: Basic Analysis
+  shell echo "📋 Phase 1: Basic Analysis"
+  shell pf checksec-analyze binary="${binary}"
+  shell file "${binary}"
+  shell echo ""
+  
+  # Phase 2: Vulnerability Discovery
+  shell echo "🔍 Phase 2: Vulnerability Discovery"
+  shell pf debug-analyze-binary binary="${binary}" quick=true
+  shell strings "${binary}" | grep -E "(password|admin|flag|key)" | head -10 || true
+  shell echo ""
+  
+  # Phase 3: Exploitation Prep
+  shell echo "💥 Phase 3: Exploitation Preparation"
+  shell pf rop-find-gadgets binary="${binary}" limit=20
+  shell pf create-exploit-template binary="${binary}" type=buffer_overflow
+  shell echo ""
+  
+  shell echo "✅ AutoPwn complete! Check generated exploit template and ROP gadgets."
+end
+
+task autoweb
+  describe Complete web security assessment: discovery + scanning + exploitation (url=http://target)
+  shell test -n "${url}" || (echo "❌ Error: url parameter required" && exit 1)
+  shell echo "🌐 AutoWeb: Complete web security assessment"
+  shell echo "Target: ${url}"
+  shell echo ""
+  
+  # Phase 1: Discovery
+  shell echo "📋 Phase 1: Service Discovery"
+  shell curl -I "${url}" 2>/dev/null | head -10 || echo "Basic HTTP check failed"
+  shell echo ""
+  
+  # Phase 2: Security Scanning
+  shell echo "🔍 Phase 2: Security Scanning"
+  shell pf security-scan url="${url}" checks=sqli,xss,cmdi
+  shell echo ""
+  
+  # Phase 3: Fuzzing
+  shell echo "💥 Phase 3: Vulnerability Fuzzing"
+  shell pf security-fuzz url="${url}" type=all
+  shell echo ""
+  
+  shell echo "✅ AutoWeb complete! Review security scan and fuzzing results."
+end
+
+task autokernel
+  describe Complete kernel analysis: IOCTL discovery + firmware extraction + vulnerability analysis (target=module_or_device)
+  shell test -n "${target}" || (echo "❌ Error: target parameter required" && exit 1)
+  shell echo "🔧 AutoKernel: Complete kernel security analysis"
+  shell echo "Target: ${target}"
+  shell echo ""
+  
+  # Phase 1: IOCTL Analysis
+  shell echo "📋 Phase 1: IOCTL Analysis"
+  shell pf kernel-ioctl-detect target="${target}"
+  shell echo ""
+  
+  # Phase 2: Binary Analysis (if it's a file)
+  shell echo "🔍 Phase 2: Binary Analysis"
+  shell if [ -f "${target}" ]; then pf checksec-analyze binary="${target}"; else echo "Target is not a file, skipping binary analysis"; fi
+  shell echo ""
+  
+  # Phase 3: Advanced Analysis
+  shell echo "💥 Phase 3: Advanced Analysis"
+  shell pf kernel-debug-lldb-session target="${target}" || echo "LLDB session setup failed"
+  shell echo ""
+  
+  shell echo "✅ AutoKernel complete! Review IOCTL and vulnerability analysis results."
+end
 
 # ============================================================================
 # Smart Analysis Combinations
@@ -20,7 +101,7 @@ task smart-binary-complete
   # Always run basic security analysis
   shell echo ""
   shell echo "🛡️  Security Feature Analysis"
-  shell pf unified-checksec binary="${binary}" || true
+  shell pf checksec-analyze binary="${binary}"
   
   # ELF-specific analysis
   shell echo ""
@@ -60,13 +141,13 @@ task smart-web-complete
   
   # Comprehensive vulnerability scanning
   shell echo "🔍 Comprehensive Vulnerability Scan"
-  shell pf security-scan-critical url="${url}" || true
+  shell pf security-scan-critical url="${url}"
   shell echo ""
   
   # Targeted fuzzing based on findings
   shell echo "💥 Targeted Vulnerability Fuzzing"
-  shell pf security-fuzz url="${url}" type=sqli || true
-  shell pf security-fuzz url="${url}" type=xss || true
+  shell pf security-fuzz url="${url}" type=sqli
+  shell pf security-fuzz url="${url}" type=xss
   shell echo ""
   
   shell echo "✅ Smart web security assessment complete!"
@@ -109,27 +190,27 @@ task smart-exploit-chain
   # Phase 1: Vulnerability Discovery
   shell echo "🔍 Phase 1: Vulnerability Discovery"
   shell if [ -f "${target}" ]; then
-  shell   pf unified-checksec binary="${target}" || true
-  shell   pf debug-analyze-binary binary="${target}" quick=true || true
+  shell   pf checksec-analyze binary="${target}"
+  shell   pf debug-analyze-binary binary="${target}" quick=true
   shell else
-  shell   pf security-scan url="${target}" checks=sqli,xss,cmdi || true
+  shell   pf security-scan url="${target}" checks=sqli,xss,cmdi
   shell fi
   shell echo ""
   
   # Phase 2: Exploit Development
   shell echo "💥 Phase 2: Exploit Development"
   shell if [ -f "${target}" ]; then
-  shell   pf rop-find-gadgets binary="${target}" limit=10 || true
-  shell   pf create-exploit-template binary="${target}" type="${vuln_type:-buffer_overflow}" || true
+  shell   pf rop-find-gadgets binary="${target}" limit=10
+  shell   pf create-exploit-template binary="${target}" type="${vuln_type:-buffer_overflow}"
   shell else
   shell   echo "Web exploit payload generation..."
-  shell   pf security-fuzz url="${target}" type="${vuln_type:-sqli}" || true
+  shell   pf security-fuzz url="${target}" type="${vuln_type:-sqli}"
   shell fi
   shell echo ""
   
   # Phase 3: Payload Generation
   shell echo "🎯 Phase 3: Payload Generation"
-  shell pf generate-shellcode arch="${arch:-x64}" type="${payload_type:-reverse_shell}" || true
+  shell pf generate-shellcode arch="${arch:-x64}" type="${payload_type:-reverse_shell}"
   shell echo ""
   
   shell echo "✅ Exploit chain building complete!"
@@ -139,22 +220,23 @@ end
 # Quick Aliases for Power Users
 # ============================================================================
 
-task sbc
-  describe Alias for smart-binary-complete
-  shell pf smart-binary-complete binary=${binary}
-end
+[alias apwn]
+task autopwn
 
-task swc
-  describe Alias for smart-web-complete
-  shell pf smart-web-complete url=${url}
-end
+[alias aweb]
+task autoweb
 
-task sfs
-  describe Alias for smart-full-stack
-  shell pf smart-full-stack target=${target}
-end
+[alias akernel]
+task autokernel
 
-task sec
-  describe Alias for smart-exploit-chain
-  shell pf smart-exploit-chain target=${target}
-end
+[alias sbc]
+task smart-binary-complete
+
+[alias swc]
+task smart-web-complete
+
+[alias sfs]
+task smart-full-stack
+
+[alias sec]
+task smart-exploit-chain
