@@ -8,8 +8,6 @@
  * Validates that web servers are configured with appropriate security headers
  */
 
-import { setTimeout } from 'node:timers/promises';
-
 // Recommended security headers and their expected values
 const SECURITY_HEADERS = {
   'x-frame-options': {
