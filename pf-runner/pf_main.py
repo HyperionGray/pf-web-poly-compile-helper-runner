@@ -324,8 +324,8 @@ class PfRunner:
                 merged_hosts = ["@local"]
             
             # Load tasks
-            dsl_src = _load_pfy_source_with_includes(file_arg=args.file)
-            dsl_tasks = parse_pfyfile_text(dsl_src)
+            dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=args.file)
+            dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
             valid_task_names = set(BUILTINS.keys()) | set(dsl_tasks.keys())
             
             # Parse task arguments
