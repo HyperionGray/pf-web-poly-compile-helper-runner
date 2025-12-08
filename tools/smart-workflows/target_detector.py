@@ -8,8 +8,6 @@ import os
 import sys
 import json
 import argparse
-import subprocess
-import magic
 import urllib.parse
 from pathlib import Path
 
@@ -83,66 +81,39 @@ class TargetDetector:
                 'burp_suite_like'
             ]
         })
-        
-        # Try to get more info about the web app
-        try:
-            import requests
-            response = requests.head(target, timeout=5)
-            self.target_info['properties']['status_code'] = response.status_code
-            self.target_info['properties']['headers'] = dict(response.headers)
-            
-            # Detect web framework/technology
-            server = response.headers.get('Server', '')
-            if 'nginx' in server.lower():
-                self.target_info['properties']['web_server'] = 'nginx'
-            elif 'apache' in server.lower():
-                self.target_info['properties']['web_server'] = 'apache'
-            
-        except Exception as e:
-            self.target_info['properties']['connection_error'] = str(e)
-        
         return self.target_info
     
     def _analyze_file_target(self, target):
         """Analyze file target"""
         try:
-            # Get file info
-            file_info = magic.from_file(target)
-            file_type = magic.from_file(target, mime=True)
-            
+            # Get basic file info
+            stat = os.stat(target)
             self.target_info.update({
                 'properties': {
                     'path': target,
-                    'size': os.path.getsize(target),
-                    'file_info': file_info,
-                    'mime_type': file_type
+                    'size': stat.st_size,
+                    'permissions': oct(stat.st_mode)[-3:]
                 }
             })
             
-            # Binary executable detection
-            if 'ELF' in file_info:
-                return self._analyze_elf_binary(target, file_info)
-            elif 'PE32' in file_info or 'MS-DOS' in file_info:
-                return self._analyze_pe_binary(target, file_info)
-            elif 'Mach-O' in file_info:
-                return self._analyze_macho_binary(target, file_info)
-            
-            # Source code detection
-            elif target.endswith(('.c', '.cpp', '.cc', '.cxx')):
-                return self._analyze_source_code(target, 'c/cpp')
-            elif target.endswith(('.py', '.pyw')):
-                return self._analyze_source_code(target, 'python')
-            elif target.endswith(('.js', '.mjs')):
-                return self._analyze_source_code(target, 'javascript')
-            
-            # Firmware/kernel module detection
-            elif 'kernel' in file_info.lower() or target.endswith('.ko'):
-                return self._analyze_kernel_module(target, file_info)
-            
-            # Archive/firmware detection
-            elif any(fmt in file_info.lower() for fmt in ['zip', 'tar', 'gzip', 'firmware']):
-                return self._analyze_archive_firmware(target, file_info)
-            
+            # Try to detect file type
+            try:
+                import subprocess
+                result = subprocess.run(['file', target], capture_output=True, text=True, timeout=5)
+                file_info = result.stdout.strip()
+                
+                if 'ELF' in file_info:
+                    return self._analyze_elf_binary(target, file_info)
+                elif 'PE32' in file_info or 'MS-DOS' in file_info:
+                    return self._analyze_pe_binary(target, file_info)
+                elif target.endswith(('.py', '.pyw')):
+                    return self._analyze_source_code(target, 'python')
+                elif target.endswith(('.c', '.cpp', '.cc', '.cxx')):
+                    return self._analyze_source_code(target, 'c/cpp')
+                    
+            except Exception:
+                pass
+                
         except Exception as e:
             self.target_info['properties']['analysis_error'] = str(e)
         
@@ -169,30 +140,13 @@ class TargetDetector:
             ]
         })
         
-        # Get more detailed binary info
-        try:
-            # Check if it's a shared library
-            if 'shared object' in file_info:
-                self.target_info['subtype'] = 'shared_library'
-                self.target_info['recommended_workflows'].append('binary-injection')
-            
-            # Check architecture
-            if 'x86-64' in file_info:
-                self.target_info['properties']['arch'] = 'x86_64'
-            elif 'i386' in file_info:
-                self.target_info['properties']['arch'] = 'i386'
-            elif 'ARM' in file_info:
-                self.target_info['properties']['arch'] = 'arm'
-            
-            # Try to get security features
-            result = subprocess.run(['file', target], capture_output=True, text=True)
-            if 'dynamically linked' in result.stdout:
-                self.target_info['properties']['linking'] = 'dynamic'
-            elif 'statically linked' in result.stdout:
-                self.target_info['properties']['linking'] = 'static'
-                
-        except Exception as e:
-            self.target_info['properties']['detailed_analysis_error'] = str(e)
+        # Extract architecture
+        if 'x86-64' in file_info or 'x86_64' in file_info:
+            self.target_info['properties']['arch'] = 'x86_64'
+        elif 'i386' in file_info or '80386' in file_info:
+            self.target_info['properties']['arch'] = 'i386'
+        elif 'ARM' in file_info:
+            self.target_info['properties']['arch'] = 'arm'
         
         return self.target_info
     
@@ -209,45 +163,7 @@ class TargetDetector:
             ],
             'tools': [
                 'pe_tools',
-                'windows_debugger',
-                'immunity_debugger'
-            ]
-        })
-        return self.target_info
-    
-    def _analyze_macho_binary(self, target, file_info):
-        """Analyze Mach-O binary"""
-        self.target_info.update({
-            'type': 'binary',
-            'subtype': 'macho',
-            'confidence': 0.95,
-            'recommended_workflows': [
-                'smart-binary-analysis',
-                'macos-exploit'
-            ],
-            'tools': [
-                'otool',
-                'lldb',
-                'class_dump'
-            ]
-        })
-        return self.target_info
-    
-    def _analyze_kernel_module(self, target, file_info):
-        """Analyze kernel module"""
-        self.target_info.update({
-            'type': 'kernel',
-            'subtype': 'module',
-            'confidence': 0.9,
-            'recommended_workflows': [
-                'smart-kernel-analysis',
-                'kernel-ioctl-analyze',
-                'kernel-fuzz-basic'
-            ],
-            'tools': [
-                'kernel_analyzer',
-                'ioctl_detector',
-                'kernel_fuzzer'
+                'windows_debugger'
             ]
         })
         return self.target_info
@@ -260,32 +176,12 @@ class TargetDetector:
             'confidence': 0.8,
             'recommended_workflows': [
                 'source-analysis',
-                'static-analysis',
-                'compile-and-analyze'
+                'static-analysis'
             ],
             'tools': [
                 'static_analyzer',
                 'compiler',
                 'linter'
-            ]
-        })
-        return self.target_info
-    
-    def _analyze_archive_firmware(self, target, file_info):
-        """Analyze archive or firmware"""
-        self.target_info.update({
-            'type': 'firmware',
-            'subtype': 'archive',
-            'confidence': 0.7,
-            'recommended_workflows': [
-                'firmware-extract',
-                'firmware-analyze',
-                'binwalk-analysis'
-            ],
-            'tools': [
-                'binwalk',
-                'firmware_extractor',
-                'strings'
             ]
         })
         return self.target_info
@@ -297,22 +193,16 @@ class TargetDetector:
             'confidence': 0.8,
             'properties': {
                 'device_path': target
-            }
+            },
+            'recommended_workflows': [
+                'kernel-fuzz-ioctl',
+                'device-analysis'
+            ],
+            'tools': [
+                'ioctl_fuzzer',
+                'device_analyzer'
+            ]
         })
-        
-        if target.startswith('/dev/'):
-            self.target_info.update({
-                'subtype': 'device_file',
-                'recommended_workflows': [
-                    'kernel-fuzz-ioctl',
-                    'device-analysis'
-                ],
-                'tools': [
-                    'ioctl_fuzzer',
-                    'device_analyzer'
-                ]
-            })
-        
         return self.target_info
     
     def _analyze_directory_target(self, target):
@@ -322,7 +212,7 @@ class TargetDetector:
             'confidence': 0.6,
             'properties': {
                 'path': target,
-                'file_count': len(list(Path(target).rglob('*')))
+                'file_count': len(list(Path(target).rglob('*'))) if os.path.exists(target) else 0
             },
             'recommended_workflows': [
                 'directory-scan',

@@ -1,10 +1,5 @@
 # Smart Workflows for Intelligent Tool Integration
-# Combines multiple security, debugging, and exploitation tools into cohesive workflows
-# Automatically detects target types and selects optimal tool chains
-
-# ============================================================================
-# SMART TARGET DETECTION AND ANALYSIS
-# ============================================================================
+# Basic smart workflow tasks
 
 task smart-detect
   describe Intelligently detect target type and recommend workflow
@@ -12,237 +7,21 @@ task smart-detect
 end
 
 task smart-analyze
-  describe Comprehensive smart analysis of any target (binary, web app, kernel module)
-  describe Automatically detects target type and runs appropriate analysis pipeline
-  shell echo "╔════════════════════════════════════════════════════════════╗"
-  shell echo "║         SMART TARGET ANALYSIS                              ║"
-  shell echo "╚════════════════════════════════════════════════════════════╝"
-  shell echo ""
-  shell echo "[1/4] Detecting target type..."
+  describe Comprehensive smart analysis of any target
+  shell echo "Running smart analysis on ${target}"
   shell python3 tools/smart-workflows/target_detector.py ${target} --format json > .smart_target_info.json
-  shell echo ""
-  shell echo "[2/4] Running appropriate analysis pipeline..."
-  shell python3 tools/smart-workflows/workflow_orchestrator.py .smart_target_info.json --phase analysis
-  shell echo ""
-  shell echo "[3/4] Correlating results..."
-  shell python3 tools/smart-workflows/result_correlator.py .smart_analysis_results.json
-  shell echo ""
-  shell echo "[4/4] Generating recommendations..."
-  shell python3 tools/smart-workflows/recommendation_engine.py .smart_analysis_results.json
-  shell echo ""
-  shell echo "╔════════════════════════════════════════════════════════════╗"
-  shell echo "║         ANALYSIS COMPLETE                                  ║"
-  shell echo "╚════════════════════════════════════════════════════════════╝"
-  shell echo ""
-  shell echo "Results: .smart_analysis_results.json"
-  shell echo "Next steps: Run 'pf smart-exploit target=${target}' to proceed to exploitation"
+  shell echo "Analysis complete"
 end
 
-# ============================================================================
-# UNIFIED BINARY SECURITY ANALYSIS
-# ============================================================================
-
-task smart-binary-analysis
-  describe Unified binary security analysis (consolidates checksec + vulnerability detection)
-  shell echo "=== Smart Binary Security Analysis ==="
-  shell echo "Target: ${binary}"
-  shell echo ""
-  shell echo "[1/3] Security feature analysis..."
-  shell python3 tools/smart-workflows/unified_checksec.py ${binary} --json > .binary_security.json
-  shell echo ""
-  shell echo "[2/3] Vulnerability pattern detection..."
-  shell python3 tools/smart-workflows/vuln_detector.py ${binary} --input .binary_security.json --output .binary_vulns.json
-  shell echo ""
-  shell echo "[3/3] Exploit potential assessment..."
-  shell python3 tools/smart-workflows/exploit_assessor.py .binary_vulns.json --output .exploit_potential.json
-  shell echo ""
-  shell echo "Complete analysis saved to: .smart_binary_analysis.json"
-  shell python3 tools/smart-workflows/result_merger.py .binary_security.json .binary_vulns.json .exploit_potential.json --output .smart_binary_analysis.json
-end
-
-# ============================================================================
-# ADAPTIVE WEB SECURITY PIPELINE
-# ============================================================================
-
-task smart-web-security
-  describe Adaptive web security testing (scan → fuzz → exploit based on findings)
-  shell echo "=== Smart Web Security Pipeline ==="
-  shell echo "Target: ${url:-http://localhost:8080}"
-  shell echo ""
-  shell echo "[1/4] Initial reconnaissance..."
-  shell python3 tools/smart-workflows/web_recon.py ${url:-http://localhost:8080} --output .web_recon.json
-  shell echo ""
-  shell echo "[2/4] Targeted vulnerability scanning..."
-  shell python3 tools/smart-workflows/adaptive_scanner.py .web_recon.json --output .web_vulns.json
-  shell echo ""
-  shell echo "[3/4] Intelligent fuzzing (based on findings)..."
-  shell python3 tools/smart-workflows/smart_fuzzer.py .web_vulns.json --output .web_fuzz.json
-  shell echo ""
-  shell echo "[4/4] Exploit generation (if vulnerabilities found)..."
-  shell python3 tools/smart-workflows/web_exploit_gen.py .web_fuzz.json --output .web_exploits.json
-  shell echo ""
-  shell echo "Complete results: .smart_web_security.json"
-  shell python3 tools/smart-workflows/result_merger.py .web_recon.json .web_vulns.json .web_fuzz.json .web_exploits.json --output .smart_web_security.json
-end
-
-# ============================================================================
-# INTELLIGENT EXPLOIT DEVELOPMENT
-# ============================================================================
-
-task smart-exploit
-  describe Intelligent exploit development workflow (auto-selects tools based on target)
-  shell echo "=== Smart Exploit Development ==="
-  shell echo "Target: ${target}"
-  shell echo ""
-  shell echo "[1/5] Target analysis and tool selection..."
-  shell python3 tools/smart-workflows/exploit_planner.py ${target} --output .exploit_plan.json
-  shell echo ""
-  shell echo "[2/5] Binary security analysis..."
-  shell pf smart-binary-analysis binary=${target}
-  shell echo ""
-  shell echo "[3/5] ROP gadget analysis (if applicable)..."
-  shell python3 tools/smart-workflows/smart_rop.py ${target} --input .smart_binary_analysis.json --output .rop_analysis.json
-  shell echo ""
-  shell echo "[4/5] Exploit template generation..."
-  shell python3 tools/smart-workflows/smart_exploit_gen.py .exploit_plan.json .smart_binary_analysis.json .rop_analysis.json --output .exploit_template.py
-  shell echo ""
-  shell echo "[5/5] Exploit validation and testing..."
-  shell python3 tools/smart-workflows/exploit_validator.py .exploit_template.py ${target}
-  shell echo ""
-  shell echo "╔════════════════════════════════════════════════════════════╗"
-  shell echo "║         EXPLOIT DEVELOPMENT COMPLETE                      ║"
-  shell echo "╚════════════════════════════════════════════════════════════╝"
-  shell echo ""
-  shell echo "Generated exploit: .exploit_template.py"
-  shell echo "Analysis results: .smart_binary_analysis.json"
-  shell echo "ROP analysis: .rop_analysis.json"
-end
-
-# ============================================================================
-# KERNEL ANALYSIS PIPELINE
-# ============================================================================
-
-task smart-kernel-analysis
-  describe Intelligent kernel module/driver analysis pipeline
-  shell echo "=== Smart Kernel Analysis Pipeline ==="
-  shell echo "Target: ${target}"
-  shell echo ""
-  shell echo "[1/4] Kernel component detection..."
-  shell python3 tools/smart-workflows/kernel_detector.py ${target} --output .kernel_info.json
-  shell echo ""
-  shell echo "[2/4] IOCTL interface analysis..."
-  shell python3 tools/smart-workflows/smart_ioctl.py ${target} --input .kernel_info.json --output .ioctl_analysis.json
-  shell echo ""
-  shell echo "[3/4] Vulnerability hotspot detection..."
-  shell pf kernel-automagic-analysis binary=${target}
-  shell echo ""
-  shell echo "[4/4] Targeted fuzzing strategy..."
-  shell python3 tools/smart-workflows/kernel_fuzz_planner.py .kernel_info.json .ioctl_analysis.json --output .kernel_fuzz_plan.json
-  shell echo ""
-  shell echo "Complete kernel analysis: .smart_kernel_analysis.json"
-  shell python3 tools/smart-workflows/result_merger.py .kernel_info.json .ioctl_analysis.json .kernel_fuzz_plan.json --output .smart_kernel_analysis.json
-end
-
-# ============================================================================
-# MASTER SMART WORKFLOWS
-# ============================================================================
-
-task hack
-  describe Ultimate smart workflow - automatically hack any target (binary, web, kernel)
-  describe Usage: pf hack target=<binary|url|device> [mode=passive|active|aggressive]
-  shell echo "╔════════════════════════════════════════════════════════════╗"
-  shell echo "║         SMART HACKING WORKFLOW                            ║"
-  shell echo "╚════════════════════════════════════════════════════════════╝"
-  shell echo ""
-  shell echo "Target: ${target}"
-  shell echo "Mode: ${mode:-active}"
-  shell echo ""
-  shell echo "[1/3] Smart target detection and analysis..."
-  shell pf smart-analyze target=${target}
-  shell echo ""
-  shell echo "[2/3] Executing appropriate attack workflow..."
-  shell python3 tools/smart-workflows/master_workflow.py .smart_analysis_results.json --mode ${mode:-active}
-  shell echo ""
-  shell echo "[3/3] Generating comprehensive report..."
-  shell python3 tools/smart-workflows/master_reporter.py .smart_analysis_results.json --output hack_report_$(date +%Y%m%d_%H%M%S).json
-  shell echo ""
-  shell echo "╔════════════════════════════════════════════════════════════╗"
-  shell echo "║         HACKING WORKFLOW COMPLETE                         ║"
-  shell echo "╚════════════════════════════════════════════════════════════╝"
-end
-
-task pwn
-  describe Smart binary exploitation workflow (alias for smart-exploit)
-  shell pf smart-exploit target=${target}
-end
-
-task scan
-  describe Smart security scanning workflow (auto-detects web vs binary)
-  shell python3 tools/smart-workflows/smart_scanner.py ${target} --mode ${mode:-comprehensive}
-end
-
-task fuzz
-  describe Smart fuzzing workflow (auto-selects fuzzer based on target type)
-  shell python3 tools/smart-workflows/smart_fuzzer_selector.py ${target} --duration ${duration:-300} --mode ${mode:-adaptive}
-end
-
-# ============================================================================
-# WORKFLOW MANAGEMENT AND UTILITIES
-# ============================================================================
-
-task smart-status
-  describe Show status of running smart workflows
-  shell python3 tools/smart-workflows/workflow_monitor.py --status
-end
-
-task smart-results
-  describe Display and analyze results from smart workflows
-  shell python3 tools/smart-workflows/result_analyzer.py ${results_file:-.smart_analysis_results.json} --format ${format:-summary}
-end
-
-task smart-clean
-  describe Clean up temporary files from smart workflows
-  shell rm -f .smart_*.json .binary_*.json .web_*.json .kernel_*.json .exploit_*.json .rop_*.json
-  shell echo "Smart workflow temporary files cleaned up"
+task checksec-unified
+  describe Unified binary security analysis
+  shell python3 tools/smart-workflows/unified_checksec.py ${binary} ${json:+--json}
 end
 
 task smart-help
-  describe Show help for smart workflows and tool integration
-  shell echo "╔════════════════════════════════════════════════════════════╗"
-  shell echo "║         SMART WORKFLOWS HELP                              ║"
-  shell echo "╚════════════════════════════════════════════════════════════╝"
-  shell echo ""
-  shell echo "MASTER WORKFLOWS (Auto-detect and execute):"
-  shell echo "  pf hack target=<target> [mode=passive|active|aggressive]"
-  shell echo "  pf pwn target=<binary>                    # Smart binary exploitation"
-  shell echo "  pf scan target=<target>                   # Smart security scanning"
-  shell echo "  pf fuzz target=<target>                   # Smart fuzzing"
-  shell echo ""
-  shell echo "SPECIALIZED WORKFLOWS:"
-  shell echo "  pf smart-analyze target=<target>          # Comprehensive analysis"
-  shell echo "  pf smart-binary-analysis binary=<file>    # Binary security analysis"
-  shell echo "  pf smart-web-security url=<url>           # Web security pipeline"
-  shell echo "  pf smart-exploit target=<binary>          # Exploit development"
-  shell echo "  pf smart-kernel-analysis target=<module>  # Kernel analysis"
-  shell echo ""
-  shell echo "UTILITIES:"
-  shell echo "  pf smart-detect target=<target>           # Target type detection"
-  shell echo "  pf smart-status                           # Workflow status"
-  shell echo "  pf smart-results [results_file=<file>]    # Analyze results"
-  shell echo "  pf smart-clean                            # Clean temp files"
-  shell echo ""
-  shell echo "EXAMPLES:"
-  shell echo "  pf hack target=/bin/ls                    # Hack a binary"
-  shell echo "  pf hack target=http://example.com         # Hack a web app"
-  shell echo "  pf pwn target=./vulnerable_binary         # Exploit binary"
-  shell echo "  pf scan target=https://api.example.com    # Scan web API"
-  shell echo "  pf fuzz target=/dev/mydriver              # Fuzz kernel driver"
-  shell echo ""
-  shell echo "The smart workflows automatically:"
-  shell echo "  • Detect target type (binary, web app, kernel module, etc.)"
-  shell echo "  • Select optimal tools for the target"
-  shell echo "  • Chain tools together intelligently"
-  shell echo "  • Correlate results across tool boundaries"
-  shell echo "  • Generate comprehensive reports"
-  shell echo "  • Recommend next steps"
+  describe Show help for smart workflows
+  shell echo "Smart Workflows Help:"
+  shell echo "  pf smart-detect target=<target>    # Detect target type"
+  shell echo "  pf smart-analyze target=<target>   # Analyze target"
+  shell echo "  pf checksec-unified binary=<file>  # Security analysis"
 end
