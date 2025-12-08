@@ -1866,8 +1866,8 @@ def main(argv: List[str]) -> int:
                         )
                         print(format_exception_for_user(exc, include_traceback=False), file=sys.stderr)
                         return rc
-                except PFException:
-                    # PF exceptions are already formatted, just re-raise
+                except PFException as e:
+                    # Let PF exceptions bubble up to outer handler for proper formatting
                     raise
                 except Exception as e:
                     # Wrap unexpected errors

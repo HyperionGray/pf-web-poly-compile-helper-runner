@@ -279,6 +279,9 @@ class PFExecutionError(PFException):
     - Remote command execution fails
     """
     
+    # Maximum file size to check for PE signature (10MB)
+    MAX_FILE_SIZE_FOR_PE_CHECK = 10 * 1024 * 1024
+    
     def __init__(self, message: str, **kwargs):
         super().__init__(message=message, **kwargs)
         
@@ -308,8 +311,9 @@ class PFExecutionError(PFException):
                     try:
                         # Get absolute path to avoid directory traversal
                         abs_path = os.path.abspath(exe_path)
-                        # Only read if it's a reasonable size (< 10MB header check)
-                        if os.path.getsize(abs_path) < 10 * 1024 * 1024:
+                        
+                        # Additional security: only read if file size is reasonable
+                        if os.path.getsize(abs_path) < self.MAX_FILE_SIZE_FOR_PE_CHECK:
                             # Read first few bytes to check for PE signature (MZ header)
                             with open(abs_path, 'rb') as f:
                                 magic = f.read(2)

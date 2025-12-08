@@ -226,7 +226,7 @@ def validate_shell_syntax(cmd_line: str) -> Tuple[bool, Optional[str]]:
         return True, None
         
     except PFExecutionError as e:
-        return False, str(e.message)
+        return False, str(e.message) if hasattr(e, 'message') else str(e)
     except Exception as e:
         return False, f"Shell syntax error: {e}"
 
