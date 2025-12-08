@@ -222,7 +222,7 @@ task lift-and-instrument-binary
   shell echo ""
   shell echo "Step 1: Lifting ${binary} to LLVM IR with RetDec..."
   shell mkdir -p /tmp/fuzzing-lift
-  shell retdec-decompiler.py --backend llvmir --no-memory-limit ${binary} -o /tmp/fuzzing-lift/$(basename ${binary}).ll || (echo "RetDec not installed. Install with: pf install-retdec" && exit 1)
+  shell retdec-decompiler.py --backend llvmir ${binary} -o /tmp/fuzzing-lift/$(basename ${binary}).ll || (echo "RetDec not installed. Install with: pf install-retdec" && exit 1)
   shell echo ""
   shell echo "Step 2: Instrumenting with AFL++ LLVM pass..."
   shell opt -load AFLplusplus.so -afl-llvm-pass /tmp/fuzzing-lift/$(basename ${binary}).ll -o /tmp/fuzzing-lift/$(basename ${binary})_instrumented.bc || echo "Using alternative method..."

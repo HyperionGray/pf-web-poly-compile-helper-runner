@@ -46,7 +46,7 @@ As mentioned in the AFL++ documentation about instrumenting lifted binaries:
 - AFL++ LLVM instrumentation passes
 - Comprehensive fuzzing infrastructure
 
-Result: You can now fuzz closed-source/black-box binaries by lifting them to LLVM IR and instrumenting the sh** out of them! 🎉
+Result: You can now fuzz closed-source/black-box binaries by lifting them to LLVM IR and instrumenting them extensively! 🎉
 
 ## Installation
 
