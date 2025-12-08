@@ -12,7 +12,7 @@
 task vuln-discover
   describe 🔍 Smart vulnerability discovery pipeline for binaries
   describe Analyzes binary for vulnerabilities, finds parse functions, checks complexity, and generates exploit info
-  shell_lang bash
+
   shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf vuln-discover binary=/path/to/binary" && exit 1)
   shell echo "╔══════════════════════════════════════════════════════════════╗"
   shell echo "║     SMART VULNERABILITY DISCOVERY PIPELINE                   ║"
@@ -46,7 +46,7 @@ end
 task vuln-discover-and-exploit
   describe 🚀 Complete vulnerability discovery and exploit generation workflow
   describe Discovers vulnerabilities, generates ROP chain, and creates exploit template
-  shell_lang bash
+
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
   shell echo "╔══════════════════════════════════════════════════════════════╗"
   shell echo "║     DISCOVER & EXPLOIT AUTOMATION                            ║"
@@ -72,7 +72,7 @@ end
 task build-secure
   describe 🔒 Smart secure build pipeline with automatic testing and scanning
   describe Builds project, runs security checks, tests, and containerizes if successful
-  shell_lang bash
+
   shell echo "╔══════════════════════════════════════════════════════════════╗"
   shell echo "║     SECURE BUILD PIPELINE                                    ║"
   shell echo "╚══════════════════════════════════════════════════════════════╝"
@@ -118,7 +118,7 @@ end
 task build-secure-web
   describe 🌐 Smart secure build pipeline for web applications
   describe Builds web app, runs security scans, and starts dev server for testing
-  shell_lang bash
+
   shell echo "╔══════════════════════════════════════════════════════════════╗"
   shell echo "║     SECURE WEB BUILD PIPELINE                                ║"
   shell echo "╚══════════════════════════════════════════════════════════════╝"
@@ -152,7 +152,7 @@ end
 task debug-deep-dive
   describe 🔬 Smart deep-dive debugging and analysis workflow
   describe Disassembles binary, shows security features, finds gadgets, and starts debugger
-  shell_lang bash
+
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
   shell echo "╔══════════════════════════════════════════════════════════════╗"
   shell echo "║     DEEP DIVE DEBUGGING WORKFLOW                             ║"
@@ -195,7 +195,7 @@ end
 task lift-analyze-recompile
   describe 🏗️ Smart binary lifting, analysis, and recompilation workflow
   describe Lifts binary to LLVM IR, analyzes/optimizes it, and recompiles
-  shell_lang bash
+
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
   shell echo "╔══════════════════════════════════════════════════════════════╗"
   shell echo "║     LIFT-ANALYZE-RECOMPILE WORKFLOW                          ║"
@@ -227,7 +227,7 @@ end
 task dev-containerized
   describe 🐳 Smart containerized development workflow
   describe Builds containers, runs tests inside them, and manages container lifecycle
-  shell_lang bash
+
   shell echo "╔══════════════════════════════════════════════════════════════╗"
   shell echo "║     CONTAINERIZED DEVELOPMENT WORKFLOW                       ║"
   shell echo "╚══════════════════════════════════════════════════════════════╝"
@@ -260,7 +260,7 @@ end
 task kernel-smart-fuzz
   describe ⚡ Smart kernel fuzzing pipeline with automagic analysis
   describe Detects parse functions, analyzes complexity, and runs fast in-memory fuzzing
-  shell_lang bash
+
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
   shell echo "╔══════════════════════════════════════════════════════════════╗"
   shell echo "║     SMART KERNEL FUZZING PIPELINE                            ║"
@@ -291,7 +291,7 @@ end
 task build-polyglot-smart
   describe 🌍 Smart polyglot project builder
   describe Automatically detects and builds all languages in the project
-  shell_lang bash
+
   shell echo "╔══════════════════════════════════════════════════════════════╗"
   shell echo "║     SMART POLYGLOT BUILD PIPELINE                            ║"
   shell echo "╚══════════════════════════════════════════════════════════════╝"
@@ -332,7 +332,7 @@ end
 task web-security-full-stack
   describe 🛡️ Complete web application security testing workflow
   describe Builds app, deploys it, runs comprehensive security tests, generates report
-  shell_lang bash
+
   shell echo "╔══════════════════════════════════════════════════════════════╗"
   shell echo "║     FULL STACK WEB SECURITY TESTING                          ║"
   shell echo "╚══════════════════════════════════════════════════════════════╝"
@@ -399,3 +399,224 @@ task wsfs
   describe Quick alias for web-security-full-stack
   shell pf web-security-full-stack
 end
+
+# ============================================================================
+# Smart Installation Workflows
+# Installs tools based on use case rather than individual packages
+# ============================================================================
+
+task install-dev-essentials
+  describe 🔧 Install essential development tools for all workflows
+  describe Installs core tools needed for most development scenarios
+
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     INSTALLING DEVELOPMENT ESSENTIALS                        ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "→ Phase 1: Core pf Installation"
+  shell pf install-base || echo "  ℹ️  pf already installed"
+  shell echo ""
+  shell echo "→ Phase 2: Debugging Tools"
+  shell pf install-debuggers || echo "  ⚠️  Debugger installation failed"
+  shell echo ""
+  shell echo "→ Phase 3: Build Tools"
+  shell echo "  Checking build tools availability..."
+  shell which gcc && gcc --version | head -1 || echo "  ℹ️  GCC not found"
+  shell which clang && clang --version | head -1 || echo "  ℹ️  Clang not found"
+  shell which rustc && rustc --version || echo "  ℹ️  Rust not found"
+  shell which node && node --version || echo "  ℹ️  Node.js not found"
+  shell echo ""
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     DEVELOPMENT ESSENTIALS INSTALLED                         ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "💡 Next steps:"
+  shell echo "   • For security research: pf install-security-researcher"
+  shell echo "   • For web development: pf install-web-developer"
+  shell echo "   • For exploit dev: pf install-exploit-developer"
+end
+
+task install-security-researcher
+  describe 🔐 Install complete security research toolkit
+  describe Everything needed for binary analysis, exploit dev, and vulnerability research
+
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     INSTALLING SECURITY RESEARCH TOOLKIT                     ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "This will install:"
+  shell echo "  • GDB, LLDB, pwndbg (debugging)"
+  shell echo "  • pwntools, ROPgadget, ropper (exploit dev)"
+  shell echo "  • checksec (binary security analysis)"
+  shell echo "  • RetDec (binary lifting)"
+  shell echo "  • Radare2, Ghidra (reverse engineering)"
+  shell echo "  • Security scanning tools"
+  shell echo ""
+  shell read -p "Continue? [Y/n] " -n 1 -r
+  shell echo
+  shell if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+  shell   echo "→ Installing debugging tools..."
+  shell   pf install-debuggers || echo "  ⚠️  Debugger installation failed"
+  shell   echo ""
+  shell   echo "→ Installing exploit development tools..."
+  shell   pf install-exploit-tools || echo "  ⚠️  Exploit tools installation failed"
+  shell   echo ""
+  shell   echo "→ Installing binary lifting tools..."
+  shell   pf install-lifting-tools || echo "  ⚠️  Lifting tools installation failed"
+  shell   echo ""
+  shell   echo "→ Installing reverse engineering tools..."
+  shell   pf install-radare2 || echo "  ℹ️  Radare2 installation skipped"
+  shell   pf install-ghidra || echo "  ℹ️  Ghidra installation skipped"
+  shell   echo ""
+  shell   echo "→ Installing security scanning tools..."
+  shell   pf install-security-tools || echo "  ℹ️  Security tools already installed"
+  shell   echo ""
+  shell   echo "╔══════════════════════════════════════════════════════════════╗"
+  shell   echo "║     SECURITY RESEARCH TOOLKIT INSTALLED                      ║"
+  shell   echo "╚══════════════════════════════════════════════════════════════╝"
+  shell   echo ""
+  shell   echo "🎯 Try these workflows:"
+  shell   echo "   pf vd binary=./target                  # Vulnerability discovery"
+  shell   echo "   pf dd binary=./target interactive=true # Deep debugging"
+  shell   echo "   pf ksf binary=./module                 # Kernel fuzzing"
+  shell else
+  shell   echo "Installation cancelled."
+  shell fi
+end
+
+task install-web-developer
+  describe 🌐 Install complete web development toolkit
+  describe Everything needed for web app development, WASM compilation, and security testing
+
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     INSTALLING WEB DEVELOPMENT TOOLKIT                       ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "This will install:"
+  shell echo "  • Core pf runner"
+  shell echo "  • Web security scanning tools"
+  shell echo "  • WASM build dependencies"
+  shell echo ""
+  shell echo "→ Installing core pf..."
+  shell pf install-base || echo "  ℹ️  pf already installed"
+  shell echo ""
+  shell echo "→ Installing web security tools..."
+  shell pf install-security-tools || echo "  ℹ️  Security tools already installed"
+  shell echo ""
+  shell echo "→ Checking WASM build tools..."
+  shell which wasm-pack && wasm-pack --version || echo "  ℹ️  wasm-pack not found (install with: cargo install wasm-pack)"
+  shell which emcc && emcc --version | head -1 || echo "  ℹ️  Emscripten not found"
+  shell which wat2wasm && wat2wasm --version || echo "  ℹ️  WABT not found"
+  shell echo ""
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     WEB DEVELOPMENT TOOLKIT INSTALLED                        ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "🚀 Try these workflows:"
+  shell echo "   pf build-secure-web              # Secure web build"
+  shell echo "   pf wsfs                          # Full security testing"
+  shell echo "   pf web-dev                       # Start dev server"
+end
+
+task install-exploit-developer
+  describe 💥 Install complete exploit development toolkit
+  describe Everything needed for exploit development and binary exploitation
+
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     INSTALLING EXPLOIT DEVELOPMENT TOOLKIT                   ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "→ Installing debugging tools..."
+  shell pf install-debuggers || echo "  ⚠️  Debugger installation failed"
+  shell echo ""
+  shell echo "→ Installing exploit development tools..."
+  shell pf install-exploit-tools || echo "  ⚠️  Exploit tools installation failed"
+  shell echo ""
+  shell echo "→ Installing binary injection tools..."
+  shell pf install-injection-tools || echo "  ⚠️  Injection tools installation failed"
+  shell echo ""
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     EXPLOIT DEVELOPMENT TOOLKIT INSTALLED                    ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "💣 Try these workflows:"
+  shell echo "   pf vuln-discover-and-exploit binary=./target"
+  shell echo "   pf dd binary=./target interactive=true"
+  shell echo "   pf rop-demo                      # ROP demo"
+end
+
+task install-check-all
+  describe ✅ Check installation status of all tools
+  describe Comprehensive check of which tools are installed and working
+
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     CHECKING INSTALLATION STATUS                             ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "→ Core Tools"
+  shell which pf && echo "  ✓ pf installed" || echo "  ✗ pf not installed"
+  shell which python3 && python3 --version || echo "  ✗ Python 3 not found"
+  shell which node && node --version || echo "  ✗ Node.js not found"
+  shell echo ""
+  shell echo "→ Build Tools"
+  shell which gcc && echo "  ✓ GCC installed" || echo "  ✗ GCC not installed"
+  shell which clang && echo "  ✓ Clang installed" || echo "  ✗ Clang not installed"
+  shell which rustc && echo "  ✓ Rust installed" || echo "  ✗ Rust not installed"
+  shell which cargo && echo "  ✓ Cargo installed" || echo "  ✗ Cargo not installed"
+  shell which cmake && echo "  ✓ CMake installed" || echo "  ✗ CMake not installed"
+  shell echo ""
+  shell echo "→ Debugging Tools"
+  shell which gdb && echo "  ✓ GDB installed" || echo "  ✗ GDB not installed"
+  shell which lldb && echo "  ✓ LLDB installed" || echo "  ✗ LLDB not installed"
+  shell test -d "$HOME/.pwndbg" && echo "  ✓ pwndbg installed" || echo "  ✗ pwndbg not installed"
+  shell echo ""
+  shell echo "→ Exploit Development"
+  shell python3 -c "import pwn" 2>/dev/null && echo "  ✓ pwntools installed" || echo "  ✗ pwntools not installed"
+  shell which ROPgadget && echo "  ✓ ROPgadget installed" || echo "  ✗ ROPgadget not installed"
+  shell which ropper && echo "  ✓ ropper installed" || echo "  ✗ ropper not installed"
+  shell which checksec && echo "  ✓ checksec installed" || echo "  ✗ checksec not installed"
+  shell echo ""
+  shell echo "→ Reverse Engineering"
+  shell which r2 && echo "  ✓ Radare2 installed" || echo "  ✗ Radare2 not installed"
+  shell which retdec-decompiler && echo "  ✓ RetDec installed" || echo "  ✗ RetDec not installed"
+  shell test -d "$HOME/ghidra" && echo "  ✓ Ghidra installed" || echo "  ✗ Ghidra not installed"
+  shell echo ""
+  shell echo "→ WASM Tools"
+  shell which wasm-pack && echo "  ✓ wasm-pack installed" || echo "  ✗ wasm-pack not installed"
+  shell which emcc && echo "  ✓ Emscripten installed" || echo "  ✗ Emscripten not installed"
+  shell which wat2wasm && echo "  ✓ WABT installed" || echo "  ✗ WABT not installed"
+  shell echo ""
+  shell echo "→ Container Tools"
+  shell which podman && echo "  ✓ Podman installed" || echo "  ✗ Podman not installed"
+  shell which docker && echo "  ✓ Docker installed" || echo "  ✗ Docker not installed"
+  shell echo ""
+  shell echo "╔══════════════════════════════════════════════════════════════╗"
+  shell echo "║     CHECK COMPLETE                                           ║"
+  shell echo "╚══════════════════════════════════════════════════════════════╝"
+end
+
+# Quick aliases for installation workflows
+[alias ide]
+task ide
+  describe Quick alias for install-dev-essentials
+  shell pf install-dev-essentials
+end
+
+[alias isr]
+task isr
+  describe Quick alias for install-security-researcher
+  shell pf install-security-researcher
+end
+
+[alias iwd]
+task iwd
+  describe Quick alias for install-web-developer
+  shell pf install-web-developer
+end
+
+[alias ied]
+task ied
+  describe Quick alias for install-exploit-developer
+  shell pf install-exploit-developer
+end
+
