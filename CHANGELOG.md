@@ -26,9 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automagic Builder**: Intelligent build system that auto-detects project type
 - **WebAssembly Compilation**: Build WASM modules from Rust, C, Fortran, and WAT
 - **REST API Server**: Build management via REST endpoints with WebSocket support for real-time updates
-- **Interactive TUI**: Beautiful text-based interface for task management
-- **Container Infrastructure**: Podman-based containers with Quadlet systemd integration
-- **Debugging Tools Integration**: GDB, LLDB, pwndbg, radare2, Ghidra support
 - **Binary Injection**: Multi-language payload injection (Rust, C, Fortran, WASM, LLVM IR)
 - **LLVM Binary Lifting**: Convert binaries to LLVM IR using RetDec and McSema
 - **Kernel Debugging**: Automagic vulnerability discovery with parse function detection and in-memory fuzzing
@@ -38,11 +35,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **OS Switching**: Experimental kexec-based OS switching
 - **Git Repository Cleanup**: Interactive TUI for removing large files from git history
 - **ROP Exploit Demo**: Educational framework for buffer overflow exploitation
+- **Interactive TUI**: Beautiful text-based interface for task management
+- **Package Manager Translation**: Convert packages between deb, rpm, flatpak, snap, and pacman formats
+- **Multi-Distro Container Management**: Install packages from Fedora, CentOS, Arch, and openSUSE containers
+- **Git Repository Cleanup**: Interactive TUI for removing large files from git history
+- **ROP Exploit Demo**: Educational framework for buffer overflow exploitation
+- **Debugging & Reverse Engineering**: GDB, LLDB, and pwndbg integration
+>>>>>>> 331fcc0 (Changes before error encountered)
 
 ### Changed
 - Simplified installation to container-first approach with `./install.sh`
 - Legacy host-based installer moved to `bak/install-legacy.sh`
 
+<<<<<<< HEAD
 ### Documentation
 - Comprehensive README with examples
 - QUICKSTART guide
