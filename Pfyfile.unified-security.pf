@@ -1,0 +1,206 @@
+# Unified Security Assessment Framework
+# Smart integration of exploitation, fuzzing, and vulnerability hunting tools
+# Reduces complexity while increasing effectiveness through intelligent automation
+
+# ============================================================================
+# COMPREHENSIVE SECURITY ASSESSMENT WORKFLOWS
+# ============================================================================
+
+task security-assess-comprehensive
+  describe 🎯 Complete security assessment combining web, binary, and kernel analysis
+  describe Intelligently orchestrates multiple tools for maximum coverage with minimal effort
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║         COMPREHENSIVE SECURITY ASSESSMENT                 ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "Target: ${target:-auto-detect}"
+  shell echo "Mode: ${mode:-full} (options: full, web, binary, kernel)"
+  shell echo ""
+  
+  # Phase 1: Target Discovery and Analysis
+  shell echo "[1/5] 🔍 Target Discovery and Initial Analysis..."
+  shell python3 tools/unified-security/target_analyzer.py ${target} --mode ${mode:-full} --output assessment_targets.json
+  
+  # Phase 2: Smart Binary Analysis (if binary targets found)
+  shell echo "[2/5] 🔬 Smart Binary Analysis..."
+  shell python3 tools/unified-security/smart_binary_analysis.py --targets assessment_targets.json --output binary_analysis.json
+  
+  # Phase 3: Adaptive Web Security Testing (if web targets found)
+  shell echo "[3/5] 🌐 Adaptive Web Security Testing..."
+  shell python3 tools/unified-security/adaptive_web_testing.py --targets assessment_targets.json --binary-intel binary_analysis.json --output web_analysis.json
+  
+  # Phase 4: Targeted Fuzzing (guided by previous analysis)
+  shell echo "[4/5] ⚡ Targeted Fuzzing..."
+  shell python3 tools/unified-security/smart_fuzzer.py --targets assessment_targets.json --analysis-data binary_analysis.json,web_analysis.json --output fuzzing_results.json
+  
+  # Phase 5: Unified Reporting and Exploit Generation
+  shell echo "[5/5] 📊 Generating Unified Report and Exploits..."
+  shell python3 tools/unified-security/report_generator.py --inputs assessment_targets.json,binary_analysis.json,web_analysis.json,fuzzing_results.json --output comprehensive_security_report
+  
+  shell echo ""
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║         ASSESSMENT COMPLETE                               ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "📁 Results:"
+  shell echo "  - comprehensive_security_report.html (main report)"
+  shell echo "  - comprehensive_security_report.json (machine readable)"
+  shell echo "  - exploits/ (generated exploit templates)"
+  shell echo "  - evidence/ (proof-of-concept files)"
+  shell echo ""
+  shell echo "🎯 Next Steps:"
+  shell echo "  1. Review high-risk findings in the HTML report"
+  shell echo "  2. Test generated exploits in exploits/ directory"
+  shell echo "  3. Run focused testing: pf security-focus-high-risk"
+end
+
+task security-focus-high-risk
+  describe 🔥 Focus testing on highest-risk findings from previous assessment
+  describe Automatically prioritizes and deep-dives into the most critical vulnerabilities
+  shell echo "🔥 Focusing on high-risk findings..."
+  shell python3 tools/unified-security/risk_focused_testing.py --previous-report comprehensive_security_report.json --depth ${depth:-deep} --output focused_results.json
+  shell echo "✅ Focused testing complete. Check focused_results.json"
+end
+
+# ============================================================================
+# SMART EXPLOIT DEVELOPMENT WORKFLOWS
+# ============================================================================
+
+task exploit-develop-smart
+  describe 🚀 Automated exploit development from vulnerability discovery to working exploit
+  describe Combines binary analysis, ROP chain building, and payload generation intelligently
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║         SMART EXPLOIT DEVELOPMENT                         ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  
+  # Phase 1: Comprehensive Binary Analysis
+  shell echo "[1/4] 🔍 Analyzing target binary..."
+  shell python3 tools/unified-security/exploit_target_analyzer.py ${binary} --output exploit_analysis.json
+  
+  # Phase 2: Vulnerability Discovery
+  shell echo "[2/4] 🎯 Discovering vulnerabilities..."
+  shell python3 tools/unified-security/vuln_discovery_engine.py --binary ${binary} --analysis exploit_analysis.json --output vulnerabilities.json
+  
+  # Phase 3: Exploit Chain Construction
+  shell echo "[3/4] ⚡ Building exploit chains..."
+  shell python3 tools/unified-security/exploit_chain_builder.py --binary ${binary} --vulns vulnerabilities.json --output exploit_chains.json
+  
+  # Phase 4: Exploit Generation and Testing
+  shell echo "[4/4] 🚀 Generating and testing exploits..."
+  shell python3 tools/unified-security/exploit_generator.py --binary ${binary} --chains exploit_chains.json --output exploits/
+  
+  shell echo ""
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║         EXPLOIT DEVELOPMENT COMPLETE                      ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "📁 Generated Exploits:"
+  shell ls -la exploits/ 2>/dev/null || echo "  (No exploits generated - check vulnerabilities.json)"
+  shell echo ""
+  shell echo "🎯 Next Steps:"
+  shell echo "  1. Test exploits: pf exploit-test-generated"
+  shell echo "  2. Refine payloads: pf exploit-refine"
+  shell echo "  3. Generate variants: pf exploit-generate-variants"
+end
+
+task exploit-test-generated
+  describe 🧪 Test all generated exploits automatically
+  shell python3 tools/unified-security/exploit_tester.py --exploits-dir exploits/ --target ${binary} --output test_results.json
+end
+
+# ============================================================================
+# ADAPTIVE FUZZING WORKFLOWS
+# ============================================================================
+
+task fuzz-adaptive
+  describe ⚡ Intelligent fuzzing that adapts based on binary analysis and previous findings
+  describe Uses complexity analysis and parse function detection to guide fuzzing efforts
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║         ADAPTIVE FUZZING ENGINE                           ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  
+  # Phase 1: Target Analysis for Fuzzing
+  shell echo "[1/3] 🔍 Analyzing fuzzing targets..."
+  shell python3 tools/unified-security/fuzz_target_analyzer.py ${target} --output fuzz_targets.json
+  
+  # Phase 2: Smart Fuzzing Campaign
+  shell echo "[2/3] ⚡ Running adaptive fuzzing campaign..."
+  shell python3 tools/unified-security/adaptive_fuzzer.py --targets fuzz_targets.json --duration ${duration:-300} --parallel ${parallel:-4} --output fuzz_results.json
+  
+  # Phase 3: Results Analysis and Crash Triage
+  shell echo "[3/3] 📊 Analyzing results and triaging crashes..."
+  shell python3 tools/unified-security/crash_triager.py --results fuzz_results.json --output crash_analysis.json
+  
+  shell echo ""
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║         ADAPTIVE FUZZING COMPLETE                        ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "📊 Fuzzing Statistics:"
+  shell python3 -c "import json; data=json.load(open('fuzz_results.json')); print(f'  - Test cases: {data.get(\"total_cases\", 0)}'); print(f'  - Crashes found: {data.get(\"crashes\", 0)}'); print(f'  - Unique crashes: {data.get(\"unique_crashes\", 0)}')" 2>/dev/null || echo "  (Check fuzz_results.json for details)"
+end
+
+# ============================================================================
+# CONTINUOUS SECURITY MONITORING
+# ============================================================================
+
+task security-monitor-continuous
+  describe 🔄 Long-running security monitoring with adaptive testing
+  describe Continuously monitors targets and adapts testing based on changes and findings
+  shell echo "🔄 Starting continuous security monitoring..."
+  shell echo "Target: ${target}"
+  shell echo "Check interval: ${interval:-3600} seconds"
+  shell echo "Duration: ${duration:-86400} seconds (24h default)"
+  shell echo ""
+  shell python3 tools/unified-security/continuous_monitor.py --target ${target} --interval ${interval:-3600} --duration ${duration:-86400} --output monitoring_results/
+  shell echo "✅ Monitoring complete. Check monitoring_results/ for timeline and findings."
+end
+
+# ============================================================================
+# SMART INTEGRATION HELPERS
+# ============================================================================
+
+task security-status
+  describe 📊 Show status of all security assessment components
+  shell python3 tools/unified-security/status_checker.py --show-all
+end
+
+task security-cleanup
+  describe 🧹 Clean up temporary files from security assessments
+  shell echo "🧹 Cleaning up temporary assessment files..."
+  shell rm -f assessment_targets.json binary_analysis.json web_analysis.json fuzzing_results.json
+  shell rm -f exploit_analysis.json vulnerabilities.json exploit_chains.json
+  shell rm -f fuzz_targets.json crash_analysis.json
+  shell echo "✅ Cleanup complete"
+end
+
+task security-config
+  describe ⚙️ Configure unified security assessment settings
+  shell python3 tools/unified-security/config_manager.py --interactive
+end
+
+# ============================================================================
+# QUICK ACCESS ALIASES
+# ============================================================================
+
+[alias sac]
+task security-assess-comprehensive
+end
+
+[alias sed]
+task exploit-develop-smart
+end
+
+[alias fad]
+task fuzz-adaptive
+end
+
+[alias smc]
+task security-monitor-continuous
+end
+
+[alias shr]
+task security-focus-high-risk
+end
