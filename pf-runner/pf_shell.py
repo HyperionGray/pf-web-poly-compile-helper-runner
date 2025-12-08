@@ -6,12 +6,21 @@ This module provides:
 - Proper parsing of ENV_VAR=value command syntax
 - Environment variable handling
 - Command execution with proper quoting
+- Transparent error reporting with context
 """
 
 import os
+import sys
 import shlex
 import re
 from typing import List, Dict, Tuple, Optional
+
+# Import custom exceptions
+from pf_exceptions import (
+    PFExecutionError,
+    PFEnvironmentError,
+    format_exception_for_user
+)
 
 
 def parse_shell_command(cmd_line: str) -> Tuple[Dict[str, str], str]:
@@ -22,15 +31,22 @@ def parse_shell_command(cmd_line: str) -> Tuple[Dict[str, str], str]:
     
     Returns:
         Tuple of (env_vars_dict, remaining_command)
+        
+    Raises:
+        PFExecutionError: If command parsing fails
     """
     env_vars = {}
     
     # Use shlex to properly handle quoted strings
     try:
         tokens = shlex.split(cmd_line)
-    except ValueError:
-        # If shlex fails, fall back to simple split
-        tokens = cmd_line.split()
+    except ValueError as e:
+        # If shlex fails, raise a detailed error
+        raise PFExecutionError(
+            message=f"Failed to parse shell command: {e}",
+            command=cmd_line,
+            suggestion="Check for unclosed quotes or invalid escape sequences"
+        )
     
     # Find environment variable assignments at the start
     remaining_tokens = []
@@ -155,22 +171,63 @@ def execute_shell_command(cmd_line: str, task_env: Optional[Dict[str, str]] = No
         proc_env.update({k: str(v) for k, v in env_vars.items()})
         
         # For local execution, we can pass env directly to subprocess
-        if sudo:
-            # For sudo, we need to use the shell command we built
-            p = subprocess.Popen(full_command, shell=True, env=proc_env)
-        else:
-            # For non-sudo, we can run the command directly with the environment
-            p = subprocess.Popen(command, shell=True, env=proc_env)
-        
-        return p.wait()
+        try:
+            if sudo:
+                # For sudo, we need to use the shell command we built
+                p = subprocess.Popen(full_command, shell=True, env=proc_env)
+            else:
+                # For non-sudo, we can run the command directly with the environment
+                p = subprocess.Popen(command, shell=True, env=proc_env)
+            
+            exit_code = p.wait()
+            
+            # If command failed, raise detailed error
+            if exit_code != 0:
+                raise PFExecutionError(
+                    message=f"Command failed with exit code {exit_code}",
+                    command=display_cmd,
+                    exit_code=exit_code,
+                    environment=display_env,
+                    suggestion="Check the command output above for error details"
+                )
+            
+            return exit_code
+            
+        except subprocess.SubprocessError as e:
+            raise PFExecutionError(
+                message=f"Failed to execute subprocess: {e}",
+                command=display_cmd,
+                environment=display_env,
+                suggestion="Check that the command exists and is executable"
+            )
     else:
         # Remote execution via Fabric
         try:
             result = connection.run(full_command, pty=True, warn=True, hide=False)
-            return result.exited
+            exit_code = result.exited
+            
+            # If command failed, raise detailed error
+            if exit_code != 0:
+                raise PFExecutionError(
+                    message=f"Remote command failed with exit code {exit_code}",
+                    command=display_cmd,
+                    exit_code=exit_code,
+                    environment=display_env,
+                    suggestion="Check the remote command output for error details"
+                )
+            
+            return exit_code
+            
+        except PFExecutionError:
+            # Re-raise our own exceptions
+            raise
         except Exception as e:
-            print(f"{prefix}[error] Command execution failed: {e}")
-            return 1
+            raise PFExecutionError(
+                message=f"Remote command execution failed: {e}",
+                command=display_cmd,
+                environment=display_env,
+                suggestion="Check network connectivity and remote host accessibility"
+            )
 
 
 def validate_shell_syntax(cmd_line: str) -> Tuple[bool, Optional[str]]:
@@ -193,6 +250,8 @@ def validate_shell_syntax(cmd_line: str) -> Tuple[bool, Optional[str]]:
         
         return True, None
         
+    except PFExecutionError as e:
+        return False, str(e.message)
     except Exception as e:
         return False, f"Shell syntax error: {e}"
 
