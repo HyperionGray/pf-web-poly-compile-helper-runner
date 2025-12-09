@@ -1,0 +1,8 @@
+priority_rules:
+  - name: label automated or base is main
+    priority: high
+    conditions:
+      - or:
+          - label = automated
+          - base = main
+    allow_checks_interruption: true
