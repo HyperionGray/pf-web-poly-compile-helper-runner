@@ -21,6 +21,9 @@ include Pfyfile.practice.pf
 # Include security testing tasks
 include Pfyfile.security.pf
 
+# Include fuzzing and sanitizer tasks
+include Pfyfile.fuzzing.pf
+
 # Include git cleanup tasks
 include Pfyfile.git-cleanup.pf
 
