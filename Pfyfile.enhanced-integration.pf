@@ -1,0 +1,160 @@
+# Enhanced Tool Integration for pf-runner
+# Smart combinations of existing tools that "just work"
+# From PR #196 - Tool Integration Round 4
+
+# ============================================================================
+# Smart Analysis Combinations
+# ============================================================================
+
+task smart-binary-complete
+  describe Complete binary analysis combining multiple tools intelligently (binary=path/to/binary)
+  shell test -n "${binary}" || (echo "❌ Error: binary parameter required" && exit 1)
+  shell echo "🧠 Smart Binary Analysis: ${binary}"
+  shell echo ""
+  
+  # Auto-detect binary type and choose appropriate tools
+  shell echo "🔍 Auto-detecting binary characteristics..."
+  shell file_info=$(file "${binary}")
+  shell echo "File info: $file_info"
+  
+  # Always run basic security analysis
+  shell echo ""
+  shell echo "🛡️  Security Feature Analysis"
+  shell pf checksec-analyze binary="${binary}" || true
+  
+  # ELF-specific analysis
+  shell echo ""
+  shell echo "📊 ELF Analysis (if applicable)"
+  shell if echo "$file_info" | grep -q "ELF"; then readelf -h "${binary}" | head -20; else echo "Not an ELF file, skipping ELF analysis"; fi
+  
+  # String analysis with smart filtering
+  shell echo ""
+  shell echo "🔤 Intelligent String Analysis"
+  shell strings "${binary}" | grep -E "(password|admin|flag|key|secret|token|api)" | head -20 || echo "No interesting strings found"
+  
+  # Disassembly preview
+  shell echo ""
+  shell echo "⚙️  Disassembly Preview"
+  shell objdump -d "${binary}" | head -50 || echo "Disassembly failed"
+  
+  shell echo ""
+  shell echo "✅ Smart binary analysis complete!"
+end
+
+task smart-web-complete
+  describe Complete web security assessment with intelligent tool selection (url=http://target)
+  shell test -n "${url}" || (echo "❌ Error: url parameter required" && exit 1)
+  shell echo "🧠 Smart Web Security Assessment: ${url}"
+  shell echo ""
+  
+  # Basic connectivity and info gathering
+  shell echo "🌐 Basic Connectivity Check"
+  shell curl -I "${url}" 2>/dev/null | head -5 || echo "HTTP check failed"
+  shell echo ""
+  
+  # Smart security header analysis
+  shell echo "🛡️  Security Headers Analysis"
+  shell headers=$(curl -I "${url}" 2>/dev/null)
+  shell echo "$headers" | grep -i "x-frame-options\|content-security-policy\|x-xss-protection\|strict-transport-security" || echo "No security headers found"
+  shell echo ""
+  
+  # Comprehensive vulnerability scanning
+  shell echo "🔍 Comprehensive Vulnerability Scan"
+  shell pf security-scan-critical url="${url}" || true
+  shell echo ""
+  
+  # Targeted fuzzing based on findings
+  shell echo "💥 Targeted Vulnerability Fuzzing"
+  shell pf security-fuzz url="${url}" type=sqli || true
+  shell pf security-fuzz url="${url}" type=xss || true
+  shell echo ""
+  
+  shell echo "✅ Smart web security assessment complete!"
+end
+
+# ============================================================================
+# Cross-Domain Intelligence
+# ============================================================================
+
+task smart-full-stack
+  describe Full-stack security analysis: binary + web + network (target=binary_or_url, mode=auto)
+  shell test -n "${target}" || (echo "❌ Error: target parameter required" && exit 1)
+  shell echo "🎯 Full-Stack Security Analysis: ${target}"
+  shell echo ""
+  
+  # Auto-detect target type
+  shell echo "🔍 Auto-detecting target type..."
+  shell if [ -f "${target}" ]; then
+  shell   echo "Target is a file - running binary analysis"
+  shell   pf smart-binary-complete binary="${target}"
+  shell elif echo "${target}" | grep -q "^https\?://"; then
+  shell   echo "Target is a URL - running web analysis"
+  shell   pf smart-web-complete url="${target}"
+  shell else
+  shell   echo "Unknown target type - running basic analysis"
+  shell   file "${target}" 2>/dev/null || echo "File analysis failed"
+  shell fi
+  shell echo ""
+  
+  shell echo "✅ Full-stack analysis complete!"
+end
+
+task smart-exploit-chain
+  describe Build complete exploit chain from vulnerability to payload (target=binary_or_url, vuln_type=auto)
+  shell test -n "${target}" || (echo "❌ Error: target parameter required" && exit 1)
+  shell echo "⛓️  Smart Exploit Chain Builder: ${target}"
+  shell echo "Vulnerability Type: ${vuln_type:-auto-detect}"
+  shell echo ""
+  
+  # Phase 1: Vulnerability Discovery
+  shell echo "🔍 Phase 1: Vulnerability Discovery"
+  shell if [ -f "${target}" ]; then
+  shell   pf checksec-analyze binary="${target}" || true
+  shell   pf debug-analyze-binary binary="${target}" quick=true || true
+  shell else
+  shell   pf security-scan url="${target}" checks=sqli,xss,cmdi || true
+  shell fi
+  shell echo ""
+  
+  # Phase 2: Exploit Development
+  shell echo "💥 Phase 2: Exploit Development"
+  shell if [ -f "${target}" ]; then
+  shell   pf rop-find-gadgets binary="${target}" limit=10 || true
+  shell   pf create-exploit-template binary="${target}" type="${vuln_type:-buffer_overflow}" || true
+  shell else
+  shell   echo "Web exploit payload generation..."
+  shell   pf security-fuzz url="${target}" type="${vuln_type:-sqli}" || true
+  shell fi
+  shell echo ""
+  
+  # Phase 3: Payload Generation
+  shell echo "🎯 Phase 3: Payload Generation"
+  shell pf generate-shellcode arch="${arch:-x64}" type="${payload_type:-reverse_shell}" || true
+  shell echo ""
+  
+  shell echo "✅ Exploit chain building complete!"
+end
+
+# ============================================================================
+# Quick Aliases for Power Users
+# ============================================================================
+
+task sbc
+  describe Alias for smart-binary-complete
+  shell pf smart-binary-complete binary=${binary}
+end
+
+task swc
+  describe Alias for smart-web-complete
+  shell pf smart-web-complete url=${url}
+end
+
+task sfs
+  describe Alias for smart-full-stack
+  shell pf smart-full-stack target=${target}
+end
+
+task sec
+  describe Alias for smart-exploit-chain
+  shell pf smart-exploit-chain target=${target}
+end
