@@ -169,14 +169,42 @@ def main():
             sys.exit(1)
         
         all_results = []
-        for file_path in Path(args.binary).rglob("*"):
+        # Limit depth and only check ELF files
+        for file_path in Path(args.binary).glob("*"):
             if file_path.is_file() and os.access(file_path, os.X_OK):
-                results = analyzer.analyze_binary(str(file_path))
-                if 'error' not in results:
-                    all_results.append(results)
+                # Quick ELF check before full analysis
+                try:
+                    with open(file_path, 'rb') as f:
+                        if f.read(4) == b'\x7fELF':
+                            results = analyzer.analyze_binary(str(file_path))
+                            if 'error' not in results:
+                                all_results.append(results)
+                except Exception:
+                    continue
         
         if output_format == 'json':
-            output = json.dumps([format_unified_output(r, 'text') for r in all_results], indent=2)
+            # Create unified results for batch JSON output
+            batch_output = {
+                'directory': args.binary,
+                'total_binaries': len(all_results),
+                'results': []
+            }
+            for r in all_results:
+                unified_result = {
+                    'file': r.get('file'),
+                    'security_features': {
+                        'relro': r.get('relro', 'Unknown'),
+                        'canary': 'Yes' if r.get('stack_canary') else 'No',
+                        'nx': 'Yes' if r.get('nx') else 'No',
+                        'pie': r.get('pie', 'Unknown'),
+                        'rpath': 'Yes' if r.get('rpath') else 'No',
+                        'fortify': 'Yes' if r.get('fortify') else 'No'
+                    },
+                    'risk_score': calculate_risk_score(r),
+                    'security_status': get_security_status(r)
+                }
+                batch_output['results'].append(unified_result)
+            output = json.dumps(batch_output, indent=2)
         else:
             output = "\n".join([format_unified_output(r, 'text') for r in all_results])
         

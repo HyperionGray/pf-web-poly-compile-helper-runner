@@ -6,7 +6,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync } from 'fs';
+import { writeFileSync } from 'fs';
 
 // Tool definitions with their capabilities and detection methods
 const TOOL_DEFINITIONS = {
@@ -45,12 +45,23 @@ const TOOL_DEFINITIONS = {
   },
   pwndbg: {
     capabilities: ['debugging', 'exploit-development'],
-    commands: ['gdb', '--batch', '-ex', 'pi import pwndbg'],
+    commands: ['gdb', '--version'],
     description: 'GDB plugin for exploit development',
-    checkCommand: (cmd) => {
+    checkCommand: () => {
       try {
-        execSync('gdb --batch -ex "pi import pwndbg" 2>&1 | grep -q "pwndbg"', { encoding: 'utf8' });
-        return true;
+        // Check if gdb exists first
+        execSync('which gdb 2>/dev/null', { encoding: 'utf8', stdio: 'pipe' });
+        // Try to check for pwndbg config file as a simpler check
+        try {
+          execSync('test -f ~/.gdbinit && grep -q pwndbg ~/.gdbinit 2>/dev/null', {
+            encoding: 'utf8',
+            stdio: 'pipe',
+            shell: true
+          });
+          return true;
+        } catch {
+          return false;
+        }
       } catch {
         return false;
       }
@@ -274,10 +285,8 @@ function main() {
   
   // Write output
   if (outputFile) {
-    import('fs').then(fs => {
-      fs.writeFileSync(outputFile, output);
-      console.log(`✅ Tool detection results written to: ${outputFile}`);
-    });
+    writeFileSync(outputFile, output);
+    console.log(`✅ Tool detection results written to: ${outputFile}`);
   } else {
     console.log(output);
   }

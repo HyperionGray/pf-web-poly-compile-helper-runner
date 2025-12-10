@@ -15,9 +15,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'security'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'unified'))
 
 def run_command(cmd, timeout=30):
-    """Run a command and return output"""
+    """Run a command and return output. cmd should be a list of arguments."""
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, shell=isinstance(cmd, str))
+        # Ensure cmd is always a list to avoid shell injection
+        if isinstance(cmd, str):
+            # If a string is passed, split it safely
+            cmd = cmd.split()
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, shell=False)
         return result.stdout if result.returncode == 0 else None
     except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
         return None
