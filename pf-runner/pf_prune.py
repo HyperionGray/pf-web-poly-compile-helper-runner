@@ -31,6 +31,12 @@ from pf_parser import (
     _find_pfyfile, _load_pfy_source_with_includes, parse_pfyfile_text
 )
 
+# Import custom exceptions
+from pf_exceptions import (
+    PFSyntaxError as PFSyntaxException,
+    format_exception_for_user
+)
+
 
 # Debug mode configuration file location
 DEBUG_CONFIG_FILE = os.path.expanduser("~/.pf_debug_mode")

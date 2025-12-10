@@ -28,6 +28,16 @@ from pf_args import PfArgumentParser
 from pf_shell import execute_shell_command, validate_shell_syntax
 from pfuck import PfAutocorrect
 
+# Import custom exceptions
+from pf_exceptions import (
+    PFException,
+    PFSyntaxError,
+    PFExecutionError,
+    PFTaskNotFoundError,
+    PFConnectionError,
+    format_exception_for_user
+)
+
 
 class PfRunner:
     """Enhanced pf runner with subcommand support."""
@@ -105,7 +115,7 @@ class PfRunner:
             return f.read()
     
     def run_command(self, args: List[str]) -> int:
-        """Run pf command with enhanced argument parsing."""
+        """Run pf command with enhanced argument parsing and error handling."""
         
         # Discover subcommands first
         self.discover_subcommands()
@@ -141,31 +151,47 @@ class PfRunner:
         
         # Parse arguments
         try:
-            parsed_args = self.arg_parser.parse_args(args)
-        except SystemExit as e:
-            return e.code if e.code is not None else 1
+            # Discover subcommands first
+            self.discover_subcommands()
             
-        # Initialize autocorrect with the specified file
-        self.autocorrect = PfAutocorrect(parsed_args.file)
-        
-        # Handle different commands
-        if parsed_args.command == 'list':
-            return self._handle_list_command(parsed_args)
-        elif parsed_args.command == 'help':
-            return self._handle_help_command(parsed_args)
-        elif parsed_args.command == 'run':
-            return self._handle_run_command(parsed_args)
-        elif parsed_args.command == 'prune':
-            return self._handle_prune_command(parsed_args)
-        elif parsed_args.command == 'debug-on':
-            return self._handle_debug_on_command(parsed_args)
-        elif parsed_args.command == 'debug-off':
-            return self._handle_debug_off_command(parsed_args)
-        elif hasattr(parsed_args, 'subcommand_tasks'):
-            # It's a subcommand
-            return self._handle_subcommand(parsed_args)
-        else:
-            print(f"Unknown command: {parsed_args.command}", file=sys.stderr)
+            # Parse arguments
+            try:
+                parsed_args = self.arg_parser.parse_args(args)
+            except SystemExit as e:
+                return e.code if e.code is not None else 1
+                
+            # Initialize autocorrect with the specified file
+            self.autocorrect = PfAutocorrect(parsed_args.file)
+            
+            # Handle different commands
+            if parsed_args.command == 'list':
+                return self._handle_list_command(parsed_args)
+            elif parsed_args.command == 'help':
+                return self._handle_help_command(parsed_args)
+            elif parsed_args.command == 'run':
+                return self._handle_run_command(parsed_args)
+            elif parsed_args.command == 'prune':
+                return self._handle_prune_command(parsed_args)
+            elif parsed_args.command == 'debug-on':
+                return self._handle_debug_on_command(parsed_args)
+            elif parsed_args.command == 'debug-off':
+                return self._handle_debug_off_command(parsed_args)
+            elif hasattr(parsed_args, 'subcommand_tasks'):
+                # It's a subcommand
+                return self._handle_subcommand(parsed_args)
+            else:
+                raise PFException(
+                    message=f"Unknown command: {parsed_args.command}",
+                    suggestion="Run 'pf help' to see available commands"
+                )
+                
+        except PFException as e:
+            # Our custom exceptions - show full context
+            print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
+            return 1
+        except Exception as e:
+            # Unexpected exceptions - show with context
+            print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
             return 1
     
     def _handle_prune_command(self, args) -> int:
@@ -381,10 +407,14 @@ class PfRunner:
             if task_name not in valid_task_names:
                 # Try autocorrect
                 suggestions = self.autocorrect.suggest_task_correction(task_name)
-                print(f"[error] no such task: {task_name}", file=sys.stderr)
-                if suggestions:
-                    print(f"Did you mean: {', '.join(suggestions)}?", file=sys.stderr)
-                return []
+                
+                # Raise a proper exception instead of printing and returning
+                available_tasks = list(valid_task_names)
+                raise PFTaskNotFoundError(
+                    task_name=task_name,
+                    available_tasks=available_tasks,
+                    suggestion=f"Did you mean: {', '.join(suggestions)}?" if suggestions else None
+                )
             
             i += 1
             
@@ -430,8 +460,11 @@ class PfRunner:
                     try:
                         connection.open()
                     except Exception as e:
-                        print(f"{prefix} connect error: {e}", file=sys.stderr)
-                        return 1
+                        raise PFConnectionError(
+                            message=str(e),
+                            host=host_spec,
+                            suggestion="Verify SSH credentials and network connectivity"
+                        )
             
             # Execute tasks
             rc = 0
@@ -468,12 +501,27 @@ class PfRunner:
                             )
                         
                         if rc != 0:
-                            print(f"{prefix} !! command failed (rc={rc}): {line}", file=sys.stderr)
-                            return rc
+                            # Command failed - create detailed error
+                            raise PFExecutionError(
+                                message=f"Command failed with exit code {rc}",
+                                task_name=task_name,
+                                command=line,
+                                exit_code=rc,
+                                environment=task_env,
+                                suggestion="Check the command output above for details"
+                            )
                             
+                    except PFExecutionError:
+                        # Re-raise our exceptions
+                        raise
                     except Exception as e:
-                        print(f"{prefix} !! error: {e}", file=sys.stderr)
-                        return 1
+                        # Wrap unexpected errors
+                        raise PFExecutionError(
+                            message=f"Unexpected error executing command: {e}",
+                            task_name=task_name,
+                            command=line,
+                            environment=task_env
+                        )
             
             # Clean up connection
             if connection is not None:
@@ -490,8 +538,13 @@ class PfRunner:
                 host = futures[future]
                 try:
                     rc = future.result()
+                except PFException as e:
+                    # Show formatted error for PF exceptions
+                    print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
+                    rc = 1
                 except Exception as e:
-                    print(f"[{host}] !! unhandled: {e}", file=sys.stderr)
+                    # Wrap and show unexpected exceptions
+                    print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
                     rc = 1
                 rc_total = rc_total or rc
         

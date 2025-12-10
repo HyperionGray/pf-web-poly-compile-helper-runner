@@ -1,5 +1,11 @@
 # pf web plugin (minimal)
 
+# Include smart workflows and intelligent tool integration
+include Pfyfile.smart-workflows.pf
+
+# Include enhanced tool integration (smart combinations)
+include Pfyfile.enhanced-integration.pf
+
 # Include binary lifting tasks
 include Pfyfile.lifting.pf
 
@@ -14,6 +20,9 @@ include Pfyfile.practice.pf
 
 # Include security testing tasks
 include Pfyfile.security.pf
+
+# Include fuzzing and sanitizer tasks
+include Pfyfile.fuzzing.pf
 
 # Include git cleanup tasks
 include Pfyfile.git-cleanup.pf

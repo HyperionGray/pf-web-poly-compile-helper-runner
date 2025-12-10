@@ -1,0 +1,216 @@
+# Smart Workflows for Integrated Security Testing
+# Intelligent workflows that combine multiple tools automatically
+# Reduces cognitive load from 100+ individual tasks to smart, context-aware workflows
+# Combined from PRs #194, #195, #196
+
+# ============================================================================
+# Core Smart Workflows - The "Just Works" Tasks
+# ============================================================================
+
+task smart-detect-tools
+  describe Detect available security tools and their capabilities
+  shell node tools/orchestration/tool-detector.mjs --format json --output tools-capabilities.json
+  shell echo "Tool capabilities saved to tools-capabilities.json"
+  shell echo "Use 'pf smart-show-capabilities' to view available tools"
+end
+
+task smart-show-capabilities
+  describe Show detected tool capabilities in human-readable format
+  shell node tools/orchestration/tool-detector.mjs --format table
+end
+
+task smart-detect
+  describe Intelligently detect target type and recommend workflow
+  shell python3 tools/smart-workflows/target_detector.py ${target} ${format:+--format $format}
+end
+
+task smart-analyze
+  describe Comprehensive smart analysis of any target
+  shell test -n "${target}" || (echo "❌ Error: target parameter required" && exit 1)
+  shell echo "🧠 Smart Analysis starting for: ${target}"
+  shell python3 tools/smart-workflows/target_detector.py ${target} --format json > .smart_target_info.json
+  shell python3 tools/orchestration/smart_analyzer.py ${target} ${deep:+--deep-analysis} ${format:+--format $format} ${output:+--output $output}
+end
+
+task smart-exploit
+  describe  🎯 Smart exploit development - from binary to working exploit automatically
+  shell test -n "${binary}" || (echo "❌ Error: binary parameter required" && exit 1)
+  shell echo "💥 Smart Exploit Development: ${binary}"
+  shell python3 tools/orchestration/smart_exploiter.py ${binary} ${output:+--output $output} ${arch:+--arch $arch} ${technique:+--technique $technique}
+end
+
+task smart-fuzz
+  describe 🚀 Smart fuzzing - automatically detects target type and uses optimal strategy
+  shell test -n "${target}" || (echo "❌ Error: target parameter required" && exit 1)
+  shell python3 tools/smart-workflows/smart_fuzzer_selector.py ${target} ${duration:+--duration $duration} ${strategy:+--strategy $strategy}
+end
+
+task smart-security-test
+  describe 🔒 Smart security testing - comprehensive security assessment
+  shell test -n "${target}" || (echo "❌ Error: target parameter required" && exit 1)
+  shell python3 tools/smart-workflows/smart_scanner.py ${target} ${mode:+--mode $mode}
+end
+
+# ============================================================================
+# Intelligent Binary Analysis Workflows
+# ============================================================================
+
+task smart-binary-analysis
+  describe Complete automated binary analysis workflow (binary=path/to/binary)
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell echo "🔍 Starting intelligent binary analysis for: ${binary}"
+  shell node tools/orchestration/workflow-engine.mjs binary-analysis --target "${binary}" --output "${output:-analysis-report.json}" --verbose
+end
+
+task smart-binary-exploit
+  describe Full binary analysis + exploit generation workflow (binary=path/to/binary)
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell echo "💥 Starting binary exploitation workflow for: ${binary}"
+  shell node tools/orchestration/workflow-engine.mjs binary-exploit --target "${binary}" --output "${output:-exploit-report.json}" --generate-payloads
+end
+
+# ============================================================================
+# One-Command Complete Workflows (from PR #196)
+# ============================================================================
+
+task autopwn
+  describe Complete binary exploitation: analysis + vulnerability discovery + exploit generation (binary=path/to/binary)
+  shell test -n "${binary}" || (echo "❌ Error: binary parameter required" && exit 1)
+  shell echo "🎯 AutoPwn: Complete binary exploitation workflow"
+  shell echo "Target: ${binary}"
+  shell echo ""
+  
+  # Phase 1: Basic Analysis
+  shell echo "📋 Phase 1: Basic Analysis"
+  shell pf checksec-analyze binary="${binary}" || true
+  shell file "${binary}"
+  shell echo ""
+  
+  # Phase 2: Vulnerability Discovery
+  shell echo "🔍 Phase 2: Vulnerability Discovery"
+  shell pf debug-analyze-binary binary="${binary}" quick=true || true
+  shell strings "${binary}" | grep -E "(password|admin|flag|key)" | head -10 || true
+  shell echo ""
+  
+  # Phase 3: Exploitation Prep
+  shell echo "💥 Phase 3: Exploitation Preparation"
+  shell pf rop-find-gadgets binary="${binary}" limit=20 || true
+  shell pf create-exploit-template binary="${binary}" type=buffer_overflow || true
+  shell echo ""
+  
+  shell echo "✅ AutoPwn complete! Check generated exploit template and ROP gadgets."
+end
+
+task autoweb
+  describe Complete web security assessment: discovery + scanning + exploitation (url=http://target)
+  shell test -n "${url}" || (echo "❌ Error: url parameter required" && exit 1)
+  shell echo "🌐 AutoWeb: Complete web security assessment"
+  shell echo "Target: ${url}"
+  shell echo ""
+  
+  # Phase 1: Discovery
+  shell echo "📋 Phase 1: Service Discovery"
+  shell curl -I "${url}" 2>/dev/null | head -10 || echo "Basic HTTP check failed"
+  shell echo ""
+  
+  # Phase 2: Security Scanning
+  shell echo "🔍 Phase 2: Security Scanning"
+  shell pf security-scan url="${url}" checks=sqli,xss,cmdi || true
+  shell echo ""
+  
+  # Phase 3: Fuzzing
+  shell echo "💥 Phase 3: Vulnerability Fuzzing"
+  shell pf security-fuzz url="${url}" type=all || true
+  shell echo ""
+  
+  shell echo "✅ AutoWeb complete! Review security scan and fuzzing results."
+end
+
+# ============================================================================
+# Unified Tool Interfaces
+# ============================================================================
+
+task unified-checksec
+  describe 🛡️ Unified binary security analysis - smart checksec that chooses best approach
+  shell python3 tools/unified/unified_checksec.py ${binary} ${format:+--format $format} ${batch:+--batch} ${output:+--output $output}
+end
+
+task checksec-unified
+  describe Unified binary security analysis (replaces all other checksec implementations)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf checksec-unified binary=/path/to/binary" && exit 1)
+  shell python3 tools/unified/unified_checksec.py ${binary} ${json:+--json} ${output:+--output $output}
+end
+
+# ============================================================================
+# Workflow Management
+# ============================================================================
+
+task workflow-status
+  describe 📊 Show status of running smart workflows
+  shell python3 tools/orchestration/workflow_manager.py --status ${workflow_id:+--workflow-id $workflow_id}
+end
+
+task workflow-history
+  describe 📜 Show workflow execution history and results
+  shell python3 tools/orchestration/workflow_manager.py --history ${limit:+--limit $limit} ${filter:+--filter $filter}
+end
+
+# ============================================================================
+# Quick Aliases for Power Users
+# ============================================================================
+
+task apwn
+  describe Alias for autopwn
+  shell pf autopwn binary=${binary}
+end
+
+task aweb
+  describe Alias for autoweb
+  shell pf autoweb url=${url}
+end
+
+task stools
+  describe Alias for smart-detect-tools
+  shell pf smart-detect-tools
+end
+
+task smart-help
+  describe ❓ Show smart workflows help and usage examples
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║                SMART WORKFLOWS HELP                       ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "🧠 CORE SMART WORKFLOWS (The \"Just Works\" Tasks):"
+  shell echo ""
+  shell echo "  pf smart-analyze target=<file>           # Smart binary analysis"
+  shell echo "  pf smart-exploit binary=<file>           # Automated exploit development"
+  shell echo "  pf smart-fuzz target=<file|url>          # Adaptive fuzzing"
+  shell echo "  pf smart-security-test target=<file|url> # Comprehensive security testing"
+  shell echo ""
+  shell echo "🎯 ONE-COMMAND WORKFLOWS:"
+  shell echo ""
+  shell echo "  pf autopwn binary=<file>                 # Complete binary exploitation"
+  shell echo "  pf autoweb url=<url>                     # Complete web security assessment"
+  shell echo ""
+  shell echo "🔬 ADVANCED WORKFLOWS:"
+  shell echo ""
+  shell echo "  pf smart-detect target=<file>            # Detect target type"
+  shell echo "  pf smart-binary-analysis binary=<file>   # Full binary analysis"
+  shell echo ""
+  shell echo "🛠️ UNIFIED TOOL INTERFACES:"
+  shell echo ""
+  shell echo "  pf unified-checksec binary=<file>        # Smart binary security analysis"
+  shell echo ""
+  shell echo "📊 WORKFLOW MANAGEMENT:"
+  shell echo ""
+  shell echo "  pf workflow-status                       # Show running workflows"
+  shell echo "  pf workflow-history                      # Show execution history"
+  shell echo ""
+  shell echo "⚡ QUICK ALIASES:"
+  shell echo ""
+  shell echo "  pf apwn binary=<file>                    # Short for autopwn"
+  shell echo "  pf aweb url=<url>                        # Short for autoweb"
+  shell echo "  pf stools                                # Short for smart-detect-tools"
+  shell echo ""
+  shell echo "For detailed documentation, see: docs/SMART-WORKFLOWS.md"
+end
