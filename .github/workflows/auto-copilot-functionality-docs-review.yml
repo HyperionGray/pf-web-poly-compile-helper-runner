@@ -181,10 +181,10 @@ jobs:
               class_count=$(grep -c "^class " "$file" 2>/dev/null || echo 0)
               docstring_count=$(grep -c '"""' "$file" 2>/dev/null || echo 0)
               
-              # Ensure variables are numeric
-              func_count=${func_count:-0}
-              class_count=${class_count:-0}
-              docstring_count=${docstring_count:-0}
+              # Ensure variables are numeric and clean
+              func_count=$(echo "${func_count:-0}" | tr -d '[:space:]' | grep -E '^[0-9]+$' || echo 0)
+              class_count=$(echo "${class_count:-0}" | tr -d '[:space:]' | grep -E '^[0-9]+$' || echo 0)
+              docstring_count=$(echo "${docstring_count:-0}" | tr -d '[:space:]' | grep -E '^[0-9]+$' || echo 0)
               
               total=$((func_count + class_count))
               if [ $total -gt 0 ] && [ $docstring_count -eq 0 ]; then
@@ -207,10 +207,10 @@ jobs:
               class_count=$(grep -c "^class " "$file" 2>/dev/null || echo 0)
               jsdoc_count=$(grep -c '/\*\*' "$file" 2>/dev/null || echo 0)
               
-              # Ensure variables are numeric
-              func_count=${func_count:-0}
-              class_count=${class_count:-0}
-              jsdoc_count=${jsdoc_count:-0}
+              # Ensure variables are numeric and clean
+              func_count=$(echo "${func_count:-0}" | tr -d '[:space:]' | grep -E '^[0-9]+$' || echo 0)
+              class_count=$(echo "${class_count:-0}" | tr -d '[:space:]' | grep -E '^[0-9]+$' || echo 0)
+              jsdoc_count=$(echo "${jsdoc_count:-0}" | tr -d '[:space:]' | grep -E '^[0-9]+$' || echo 0)
               
               total=$((func_count + class_count))
               if [ $total -gt 5 ] && [ $jsdoc_count -eq 0 ]; then
