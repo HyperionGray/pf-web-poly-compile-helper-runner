@@ -10,10 +10,10 @@
  * 5. Unified API functionality is working
  */
 
-import { spawn } from 'child_process';
-import { promises as fs } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { spawn } from 'node:child_process';
+import { promises as fs } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -277,8 +277,8 @@ async function main() {
             'No duplicate task keywords');
         
         // Check for balanced 'task' and 'end' statements
-        const taskCount = (content.match(/\ntask\s/g) || []).length;
-        const endCount = (content.match(/\nend\s*$/gm) || []).length;
+        const taskCount = (content.match(/^task\s/gm) || []).length;
+        const endCount = (content.match(/^end\s*$/gm) || []).length;
         
         tester.assert(taskCount > 0, 
             'Should have at least one task');
@@ -294,7 +294,9 @@ async function main() {
         const lines = output.split('\n');
         
         for (const line of lines) {
-            const match = line.match(/^\s+([a-z][a-z0-9_-]+)/);
+            // Match task lines: indented, start with lowercase letter, followed by alphanumeric/hyphen/underscore
+            // Exclude: lines with 'From' (file headers), '[' (categories), or containing '--' after first word (descriptions)
+            const match = line.match(/^\s+([a-z][a-z0-9_-]+)(\s|$)/);
             if (match && !line.includes('From') && !line.includes('[')) {
                 taskNames.push(match[1]);
             }
@@ -302,14 +304,15 @@ async function main() {
         
         const uniqueNames = new Set(taskNames);
         
-        // Note: There's a known issue where some tasks in Pfyfile.pf appear twice
-        // in the list output (api-server, debug-check-podman, install, sync-demo)
+        // Known issue: Some tasks in Pfyfile.pf appear twice in list output
+        // (api-server, debug-check-podman, install, sync-demo)
         // This appears to be a display bug in pf list command, not actual duplicate definitions
+        const EXPECTED_MAX_DUPLICATES = 4; // Known display issue with specific tasks
         const duplicatesCount = taskNames.length - uniqueNames.size;
         
-        // Allow a small number of duplicates (the known pf list display issue)
-        tester.assert(duplicatesCount <= 4, 
-            `Found ${duplicatesCount} duplicate task names (expected <= 4 due to known pf list display issue)`);
+        // Allow up to the known number of display duplicates
+        tester.assert(duplicatesCount <= EXPECTED_MAX_DUPLICATES, 
+            `Found ${duplicatesCount} duplicate task names (expected <= ${EXPECTED_MAX_DUPLICATES} due to known pf list display issue)`);
         
         // Verify we have a good number of unique tasks
         tester.assert(uniqueNames.size > 500, 
