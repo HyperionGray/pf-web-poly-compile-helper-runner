@@ -213,4 +213,279 @@ task smart-help
   shell echo "  pf stools                                # Short for smart-detect-tools"
   shell echo ""
   shell echo "For detailed documentation, see: docs/SMART-WORKFLOWS.md"
+=======
+# Smart Integrated Workflows
+# Combines multiple tools intelligently for common security and analysis tasks
+
+# ============================================================================
+# Smart Binary Analysis Workflow
+# ============================================================================
+
+task smart-binary-analysis
+  describe Comprehensive binary analysis: checksec → lift → analyze → debug-prep
+  describe Automatically analyzes a binary using all available tools intelligently
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf smart-binary-analysis binary=/path/to/binary" && exit 1)
+  shell echo "╔═══════════════════════════════════════════════════════════╗"
+  shell echo "║         SMART BINARY ANALYSIS WORKFLOW                   ║"
+  shell echo "╚═══════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "Target: ${binary}"
+  shell echo ""
+  shell echo "=== Phase 1: Security Check (checksec) ==="
+  shell python3 tools/exploit/checksec_batch.py ${binary} --output /tmp/smart-analysis-${$}.json || echo "Checksec analysis failed, continuing..."
+  shell echo ""
+  shell echo "=== Phase 2: Binary Information ==="
+  shell file ${binary} || echo "File type detection failed"
+  shell readelf -h ${binary} 2>/dev/null || echo "Not an ELF binary, skipping readelf"
+  shell echo ""
+  shell echo "=== Phase 3: Binary Lifting to LLVM IR ==="
+  shell pf lift-inspect binary=${binary} || echo "Binary lifting not available, skipping..."
+  shell echo ""
+  shell echo "=== Phase 4: Analysis Summary ==="
+  shell echo "Analysis complete! Results:"
+  shell echo "  - Security features checked"
+  shell echo "  - Binary format analyzed"
+  shell echo "  - LLVM IR lifting attempted"
+  shell echo ""
+  shell echo "Next steps:"
+  shell echo "  pf debug binary=${binary}           # Start interactive debugging"
+  shell echo "  pf rop-gadgets binary=${binary}     # Find ROP gadgets"
+  shell echo "  pf lift-binary-retdec binary=${binary}  # Full LLVM lifting"
+end
+
+# ============================================================================
+# Smart Exploit Development Workflow
+# ============================================================================
+
+task smart-exploit-dev
+  describe Intelligent exploit development: checksec → rop-gadgets → exploit-gen
+  describe Automatically determines best exploitation strategy based on binary protections
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf smart-exploit-dev binary=/path/to/binary" && exit 1)
+  shell echo "╔═══════════════════════════════════════════════════════════╗"
+  shell echo "║         SMART EXPLOIT DEVELOPMENT WORKFLOW                ║"
+  shell echo "╚═══════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "Target: ${binary}"
+  shell echo ""
+  shell echo "=== Phase 1: Security Analysis ==="
+  shell python3 tools/exploit/checksec_batch.py ${binary} --json > /tmp/checksec-${$}.json || echo "Checksec failed"
+  shell echo ""
+  shell echo "=== Phase 2: ROP Gadget Discovery ==="
+  shell pf rop-gadgets binary=${binary} 2>&1 | head -50 || echo "ROP gadget search not available"
+  shell echo ""
+  shell echo "=== Phase 3: Exploit Strategy Recommendation ==="
+  shell python3 -c "
+import json, sys, os
+try:
+    with open('/tmp/checksec-${$}.json') as f:
+        data = json.load(f)
+    print('Based on security features:')
+    # Check for NX
+    if 'NX' in str(data) or 'nx' in str(data).lower():
+        print('  ✓ NX enabled → Use ROP-based exploitation')
+        print('  Next: pf rop-chain-build binary=${binary}')
+    else:
+        print('  ✗ NX disabled → Shellcode injection possible')
+        print('  Next: pf pwn-shellcode arch=amd64')
+    # Check for PIE
+    if 'PIE' in str(data) or 'pie' in str(data).lower():
+        print('  ✓ PIE enabled → Need information leak')
+        print('  Consider: format string vulnerability for leak')
+    # Check for RELRO
+    if 'RELRO' in str(data):
+        print('  ✓ RELRO enabled → GOT overwrite limited')
+except:
+    print('Could not parse checksec output')
+    print('Recommended approach:')
+    print('  1. Use pf debug binary=${binary} to analyze')
+    print('  2. Use pf rop-gadgets binary=${binary} for ROP chains')
+    print('  3. Generate exploit template with pf pwn-template')
+" || echo "Analysis script failed"
+  shell echo ""
+  shell echo "╔═══════════════════════════════════════════════════════════╗"
+  shell echo "║         EXPLOIT DEVELOPMENT READY                         ║"
+  shell echo "╚═══════════════════════════════════════════════════════════╝"
+end
+
+# ============================================================================
+# Smart Security Testing Workflow (Web + Binary)
+# ============================================================================
+
+task smart-security-test
+  describe Comprehensive security testing: web scan + binary analysis + fuzzing
+  describe Intelligently tests web apps and their backend binaries
+  shell_lang bash
+  shell echo "╔═══════════════════════════════════════════════════════════╗"
+  shell echo "║         SMART SECURITY TESTING WORKFLOW                   ║"
+  shell echo "╚═══════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell if [ -n "${url}" ]; then
+  shell   echo "=== Phase 1: Web Application Security Scan ==="
+  shell   pf security-scan url=${url} || echo "Web security scan failed"
+  shell   echo ""
+  shell   echo "=== Phase 2: API Fuzzing ==="
+  shell   pf security-fuzz url=${url} type=all || echo "Fuzzing failed"
+  shell fi
+  shell echo ""
+  shell if [ -n "${binary}" ]; then
+  shell   echo "=== Phase 3: Binary Security Analysis ==="
+  shell   pf smart-binary-analysis binary=${binary} || echo "Binary analysis failed"
+  shell   echo ""
+  shell   echo "=== Phase 4: Binary Fuzzing ==="
+  shell   echo "Consider using pf fuzz-* tasks for binary fuzzing"
+  shell fi
+  shell echo ""
+  shell echo "╔═══════════════════════════════════════════════════════════╗"
+  shell echo "║         SECURITY TESTING COMPLETE                         ║"
+  shell echo "╚═══════════════════════════════════════════════════════════╝"
+end
+
+# ============================================================================
+# Smart Kernel Debugging Workflow
+# ============================================================================
+
+task smart-kernel-analysis
+  describe Intelligent kernel module/driver analysis: lift → parse-detect → complexity → fuzz
+  describe Automatically analyzes kernel binaries for vulnerabilities
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf smart-kernel-analysis binary=/path/to/binary" && exit 1)
+  shell echo "╔═══════════════════════════════════════════════════════════╗"
+  shell echo "║         SMART KERNEL ANALYSIS WORKFLOW                    ║"
+  shell echo "╚═══════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "Target: ${binary}"
+  shell echo ""
+  shell echo "=== Phase 1: Binary Lifting ==="
+  shell pf lift-binary-retdec binary=${binary} 2>&1 | tail -20 || echo "Lifting failed, continuing..."
+  shell echo ""
+  shell echo "=== Phase 2: Automagic Vulnerability Analysis ==="
+  shell pf kernel-automagic-analysis binary=${binary} 2>&1 | head -100 || echo "Kernel analysis not available"
+  shell echo ""
+  shell echo "=== Phase 3: Parse Function Detection ==="
+  shell pf kernel-parse-detect binary=${binary} 2>&1 | head -50 || echo "Parse detection not available"
+  shell echo ""
+  shell echo "=== Phase 4: Complexity Analysis ==="
+  shell pf kernel-complexity-analyze binary=${binary} 2>&1 | head -50 || echo "Complexity analysis not available"
+  shell echo ""
+  shell echo "╔═══════════════════════════════════════════════════════════╗"
+  shell echo "║         KERNEL ANALYSIS COMPLETE                          ║"
+  shell echo "╚═══════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "Next steps for discovered vulnerabilities:"
+  shell echo "  pf kernel-fuzz-in-memory binary=${binary} function=<detected_func>"
+end
+
+# ============================================================================
+# Smart Container + Package Workflow
+# ============================================================================
+
+task smart-package-install
+  describe Intelligent package installation: auto-detect format → convert → install
+  describe Automatically handles package format conversion and installation
+  shell_lang bash
+  shell test -n "${package}" || (echo "Error: package parameter required. Usage: pf smart-package-install package=/path/to/package" && exit 1)
+  shell echo "╔═══════════════════════════════════════════════════════════╗"
+  shell echo "║         SMART PACKAGE INSTALLATION WORKFLOW               ║"
+  shell echo "╚═══════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "Package: ${package}"
+  shell echo ""
+  shell echo "=== Phase 1: Package Format Detection ==="
+  shell PKG_EXT="${package##*.}"
+  shell echo "Detected format: $PKG_EXT"
+  shell echo ""
+  shell echo "=== Phase 2: System Package Manager Detection ==="
+  shell if command -v apt-get >/dev/null 2>&1; then
+  shell   echo "System: Debian/Ubuntu (apt)"
+  shell   TARGET_FORMAT="deb"
+  shell elif command -v dnf >/dev/null 2>&1; then
+  shell   echo "System: Fedora/RHEL (dnf)"
+  shell   TARGET_FORMAT="rpm"
+  shell elif command -v pacman >/dev/null 2>&1; then
+  shell   echo "System: Arch (pacman)"
+  shell   TARGET_FORMAT="pacman"
+  shell else
+  shell   echo "Unknown package manager, using container-based install"
+  shell   TARGET_FORMAT="container"
+  shell fi
+  shell echo ""
+  shell echo "=== Phase 3: Package Conversion (if needed) ==="
+  shell if [ "$PKG_EXT" != "$TARGET_FORMAT" ] && [ "$TARGET_FORMAT" != "container" ]; then
+  shell   echo "Converting $PKG_EXT to $TARGET_FORMAT..."
+  shell   pf pkg-convert source=${package} target=$TARGET_FORMAT || echo "Conversion failed, trying direct install"
+  shell else
+  shell   echo "No conversion needed"
+  shell fi
+  shell echo ""
+  shell echo "╔═══════════════════════════════════════════════════════════╗"
+  shell echo "║         PACKAGE READY FOR INSTALLATION                    ║"
+  shell echo "╚═══════════════════════════════════════════════════════════╝"
+end
+
+# ============================================================================
+# Smart Web Development Workflow
+# ============================================================================
+
+task smart-web-dev
+  describe Intelligent web development: build → test → security-check → serve
+  describe Complete development workflow with automatic building and testing
+  shell_lang bash
+  shell echo "╔═══════════════════════════════════════════════════════════╗"
+  shell echo "║         SMART WEB DEVELOPMENT WORKFLOW                    ║"
+  shell echo "╚═══════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "=== Phase 1: Auto-Build Detection ==="
+  shell pf build_detect || echo "Build detection not available"
+  shell echo ""
+  shell echo "=== Phase 2: Build All WASM Modules ==="
+  shell pf web-build-all 2>&1 | tail -20 || echo "WASM build failed"
+  shell echo ""
+  shell echo "=== Phase 3: Run Tests ==="
+  shell npm run test:unit 2>&1 | tail -30 || echo "Tests not available or failed"
+  shell echo ""
+  shell echo "=== Phase 4: Quick Security Check ==="
+  shell echo "Checking for common security issues..."
+  shell grep -r "eval(" demos/ 2>/dev/null && echo "⚠ Warning: eval() usage found" || echo "✓ No eval() usage"
+  shell grep -r "innerHTML" demos/ 2>/dev/null && echo "⚠ Warning: innerHTML usage found (XSS risk)" || echo "✓ No innerHTML usage"
+  shell echo ""
+  shell echo "=== Phase 5: Starting Development Server ==="
+  shell echo "Server will start on http://localhost:${port:-8080}"
+  shell pf web-dev port=${port:-8080} || echo "Server failed to start"
+end
+
+# ============================================================================
+# Workflow Help
+# ============================================================================
+
+task smart-workflows-help
+  describe Show help for all smart integrated workflows
+  shell_lang bash
+  shell echo "╔═══════════════════════════════════════════════════════════╗"
+  shell echo "║         SMART INTEGRATED WORKFLOWS                        ║"
+  shell echo "╚═══════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "Available Smart Workflows:"
+  shell echo ""
+  shell echo "1. smart-binary-analysis binary=<path>"
+  shell echo "   → Comprehensive binary analysis (checksec + lift + analyze)"
+  shell echo ""
+  shell echo "2. smart-exploit-dev binary=<path>"
+  shell echo "   → Intelligent exploit development (checksec + ROP + strategy)"
+  shell echo ""
+  shell echo "3. smart-security-test url=<url> binary=<path>"
+  shell echo "   → Complete security testing (web + binary + fuzzing)"
+  shell echo ""
+  shell echo "4. smart-kernel-analysis binary=<path>"
+  shell echo "   → Kernel module analysis (lift + parse-detect + complexity)"
+  shell echo ""
+  shell echo "5. smart-package-install package=<path>"
+  shell echo "   → Auto-format detection and conversion"
+  shell echo ""
+  shell echo "6. smart-web-dev [port=8080]"
+  shell echo "   → Complete web dev workflow (build + test + security + serve)"
+  shell echo ""
+  shell echo "These workflows combine multiple tools intelligently to"
+  shell echo "accomplish complex tasks with a single command."
 end

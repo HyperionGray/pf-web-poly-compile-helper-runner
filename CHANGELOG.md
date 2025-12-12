@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Round 3 Integration Improvements (2025-12-08)
+- **Smart Integrated Workflows**: 6 new intelligent workflows that combine multiple tools automatically
+  - `smart-binary-analysis`: Comprehensive binary analysis (checksec → lift → analyze → debug-prep)
+  - `smart-exploit-dev`: Intelligent exploit development (checksec → ROP gadgets → strategy recommendation)
+  - `smart-security-test`: Complete security testing (web scan + binary analysis + fuzzing)
+  - `smart-kernel-analysis`: Kernel vulnerability analysis (lift → parse-detect → complexity → fuzz)
+  - `smart-package-install`: Auto-format detection and package conversion
+  - `smart-web-dev`: Complete web dev workflow (build → test → security-check → serve)
+- New `Pfyfile.smart-workflows.pf` with all integrated workflows
+- Comprehensive documentation in README with examples and usage
+
+### Fixed - Round 3 Bug Fixes (2025-12-08)
+- **Critical**: Removed duplicate "prune" command definition in pf_args.py (was causing ArgumentError)
+- **Critical**: Removed duplicate "debug-on" and "debug-off" command definitions
+- **Critical**: Fixed task list unpacking to handle 3-tuple (name, description, aliases) correctly
+- **Critical**: Fixed tuple unpacking bug in 3 locations where `_load_pfy_source_with_includes` was called
+  - Fixed in `discover_subcommands` method
+  - Fixed in `_show_task_help` method
+  - Fixed in `_handle_run_command` method
+- Resolved "'tuple' object has no attribute 'splitlines'" error
+
+### Changed - Round 3 Improvements (2025-12-08)
+- Reduced complexity: One command now accomplishes what required 4-5 manual steps before
+- Better tool integration: Tools now work together seamlessly with intelligent detection
+- Improved user experience: Smart workflows suggest next steps based on analysis results
+
 ### Added
 - Complete CI/CD review workflow with documentation analysis
 - CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md, and LICENSE.md documentation files

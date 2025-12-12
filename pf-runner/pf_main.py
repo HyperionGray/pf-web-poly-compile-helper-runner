@@ -258,7 +258,7 @@ class PfRunner:
             main_tasks = []
             categorized_tasks = {}
             
-            for task_name, description in tasks_with_desc:
+            for task_name, description, aliases in tasks_with_desc:
                 # Simple categorization based on task name patterns
                 if any(prefix in task_name for prefix in ['web-', 'build-', 'install-', 'test-']):
                     category = task_name.split('-')[0]
@@ -305,8 +305,8 @@ class PfRunner:
     def _show_task_help(self, task_name: str, pfyfile: Optional[str] = None) -> int:
         """Show help for a specific task."""
         try:
-            dsl_src = _load_pfy_source_with_includes(file_arg=pfyfile)
-            dsl_tasks = parse_pfyfile_text(dsl_src)
+            dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=pfyfile)
+            dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
             
             if task_name in dsl_tasks:
                 task = dsl_tasks[task_name]
@@ -377,8 +377,8 @@ class PfRunner:
                 merged_hosts = ["@local"]
             
             # Load tasks
-            dsl_src = _load_pfy_source_with_includes(file_arg=args.file)
-            dsl_tasks = parse_pfyfile_text(dsl_src)
+            dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=args.file)
+            dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
             valid_task_names = set(BUILTINS.keys()) | set(dsl_tasks.keys())
             
             # Parse task arguments

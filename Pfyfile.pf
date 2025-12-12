@@ -1,10 +1,7 @@
 # pf web plugin (minimal)
 
-# Include smart workflows and intelligent tool integration
+# Include smart integrated workflows (NEW - combines tools intelligently)
 include Pfyfile.smart-workflows.pf
-
-# Include enhanced tool integration (smart combinations)
-include Pfyfile.enhanced-integration.pf
 
 # Include binary lifting tasks
 include Pfyfile.lifting.pf
