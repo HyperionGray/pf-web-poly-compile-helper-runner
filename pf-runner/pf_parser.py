@@ -597,7 +597,7 @@ class Task:
         self.description: Optional[str] = None
         self.source_file = source_file  # Track which file this task came from
         self.params: Dict[str, str] = params or {}  # Default parameter values
-        self.aliases: List[str] = aliases or []  # Short command aliases for this task
+        self.aliases: List[str] = aliases or []  # Command aliases for this task
 
     def add(self, line: str):
         self.lines.append(line)
@@ -1084,6 +1084,23 @@ def _exec_line_fabric(
 
     # Parse args once for other ops
     args = shlex.split(rest_of_line) if rest_of_line else []
+
+    if verb == "packages":
+        if len(args) < 2:
+            raise PFSyntaxError(
+                message="packages requires an action and at least one package name",
+                command=line,
+                suggestion="Usage: packages install pkg1 pkg2"
+            )
+        action, names = args[0], args[1:]
+        if action not in {"install", "remove"}:
+            raise PFSyntaxError(
+                message=f"Unknown packages action '{action}'",
+                command=line,
+                suggestion="Supported actions: install, remove"
+            )
+        apt_cmd = " ".join(["apt", "-y", action] + names)
+        return run(apt_cmd)
 
     if verb == "sync":
         # sync src=<path> dest=<path> [host=<host>] [user=<user>] [port=<port>]

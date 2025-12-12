@@ -20,7 +20,7 @@ from pf_parser import (
     _find_pfyfile, _load_pfy_source_with_includes, parse_pfyfile_text,
     _normalize_hosts, _merge_env_hosts, _dedupe_preserve_order,
     _parse_host, _c_for, Task, BUILTINS, ENV_MAP,
-    _interpolate, _exec_line_fabric, list_dsl_tasks_with_desc
+    _interpolate, _exec_line_fabric, list_dsl_tasks_with_desc, get_alias_map
 )
 
 # Import new functionality
@@ -52,7 +52,7 @@ class PfRunner:
         
         try:
             # Load the main pfy source with includes
-            dsl_src = _load_pfy_source_with_includes(file_arg=pfyfile)
+            dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=pfyfile)
             
             # Parse to find include statements and their tasks
             include_files = self._extract_include_files(dsl_src)
@@ -61,7 +61,7 @@ class PfRunner:
                 try:
                     # Load the included file
                     include_src = self._load_include_file(include_file, pfyfile)
-                    include_tasks = parse_pfyfile_text(include_src)
+                    include_tasks = parse_pfyfile_text(include_src, {})
                     
                     # Extract task names
                     task_names = list(include_tasks.keys())
@@ -117,6 +117,39 @@ class PfRunner:
     def run_command(self, args: List[str]) -> int:
         """Run pf command with enhanced argument parsing and error handling."""
         
+        # Discover subcommands first
+        self.discover_subcommands()
+        
+        # Check if we need to resolve an alias
+        # First, extract file argument if present (before any command)
+        file_arg = None
+        args_copy = list(args)
+        i = 0
+        while i < len(args_copy):
+            if args_copy[i] in ('-f', '--file') and i + 1 < len(args_copy):
+                file_arg = args_copy[i + 1]
+                i += 2
+            elif args_copy[i].startswith('--file='):
+                file_arg = args_copy[i].split('=', 1)[1]
+                i += 1
+            elif not args_copy[i].startswith('-'):
+                # Found a non-option argument, check if it's an alias
+                builtins = {'list', 'help', 'run', 'prune', 'debug-on', 'debug-off'}
+                if args_copy[i] not in builtins:
+                    try:
+                        alias_map = get_alias_map(file_arg=file_arg)
+                        if args_copy[i] in alias_map:
+                            # Replace alias with actual task name and prefix with 'run'
+                            task_name = alias_map[args_copy[i]]
+                            args = args[:i] + ['run', task_name] + args[i+1:]
+                    except Exception:
+                        # If alias resolution fails, continue with normal parsing
+                        pass
+                break
+            else:
+                i += 1
+        
+        # Parse arguments
         try:
             # Discover subcommands first
             self.discover_subcommands()
@@ -225,29 +258,31 @@ class PfRunner:
             main_tasks = []
             categorized_tasks = {}
             
-            for task_name, description in tasks_with_desc:
+            for task_name, description, aliases in tasks_with_desc:
                 # Simple categorization based on task name patterns
                 if any(prefix in task_name for prefix in ['web-', 'build-', 'install-', 'test-']):
                     category = task_name.split('-')[0]
                     if category not in categorized_tasks:
                         categorized_tasks[category] = []
-                    categorized_tasks[category].append((task_name, description))
+                    categorized_tasks[category].append((task_name, description, aliases))
                 else:
-                    main_tasks.append((task_name, description))
+                    main_tasks.append((task_name, description, aliases))
             
             # Display main tasks first
             if main_tasks:
                 print("\nCore tasks:")
-                for task_name, description in main_tasks:
+                for task_name, description, aliases in main_tasks:
                     desc_text = f" - {description}" if description else ""
-                    print(f"  {task_name}{desc_text}")
+                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
+                    print(f"  {task_name}{desc_text}{alias_text}")
             
             # Display categorized tasks
             for category, tasks in sorted(categorized_tasks.items()):
                 print(f"\n{category.title()} tasks:")
-                for task_name, description in tasks:
+                for task_name, description, aliases in tasks:
                     desc_text = f" - {description}" if description else ""
-                    print(f"  {task_name}{desc_text}")
+                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
+                    print(f"  {task_name}{desc_text}{alias_text}")
                     
             # Show usage hint
             print(f"\nUsage: pf run <task_name> [params...]")
@@ -272,8 +307,8 @@ class PfRunner:
     def _show_task_help(self, task_name: str, pfyfile: Optional[str] = None) -> int:
         """Show help for a specific task."""
         try:
-            dsl_src = _load_pfy_source_with_includes(file_arg=pfyfile)
-            dsl_tasks = parse_pfyfile_text(dsl_src)
+            dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=pfyfile)
+            dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
             
             if task_name in dsl_tasks:
                 task = dsl_tasks[task_name]
@@ -344,8 +379,8 @@ class PfRunner:
                 merged_hosts = ["@local"]
             
             # Load tasks
-            dsl_src = _load_pfy_source_with_includes(file_arg=args.file)
-            dsl_tasks = parse_pfyfile_text(dsl_src)
+            dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=args.file)
+            dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
             valid_task_names = set(BUILTINS.keys()) | set(dsl_tasks.keys())
             
             # Parse task arguments
