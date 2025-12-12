@@ -102,6 +102,39 @@ pf rest-dev        # or use the alias: pf rdev
 - **Backward Compatibility**: Maintains static file serving for existing web demo
 - **Multi-language Support**: API endpoints for Rust, C, Fortran, and WAT builds
 
+### Smart Integrated Workflows 🎯 (NEW!)
+**One command to do it all!** Smart workflows automatically combine multiple tools to accomplish complex tasks intelligently:
+
+- **smart-binary-analysis**: Complete binary analysis (checksec → lift → analyze → debug-prep)
+- **smart-exploit-dev**: Intelligent exploit development (checksec → ROP gadgets → strategy recommendation)
+- **smart-security-test**: Comprehensive security testing (web scan + binary analysis + fuzzing)
+- **smart-kernel-analysis**: Kernel module vulnerability analysis (lift → parse-detect → complexity → fuzzing)
+- **smart-package-install**: Auto-format detection and package conversion
+- **smart-web-dev**: Complete web dev workflow (build → test → security-check → serve)
+
+**Quick Examples:**
+```bash
+# Analyze any binary comprehensively
+pf smart-binary-analysis binary=/path/to/binary
+
+# Develop exploits intelligently
+pf smart-exploit-dev binary=/path/to/vulnerable
+
+# Complete security assessment
+pf smart-security-test url=http://target.com binary=/path/to/backend
+
+# Kernel vulnerability research
+pf smart-kernel-analysis binary=/path/to/driver.ko
+
+# Smart web development
+pf smart-web-dev port=8080
+
+# Show all smart workflows
+pf smart-workflows-help
+```
+
+These workflows intelligently combine tools like checksec, binary lifting, ROP gadgets, debuggers, fuzzers, and security scanners to accomplish complex tasks with minimal effort.
+
 ### Automagic Builder
 The **automagic builder** is an intelligent build system that automatically detects your project type and runs the appropriate build command - no configuration needed! Just run `pf autobuild` and it handles the rest.
 
@@ -182,6 +215,37 @@ Convert compiled binaries back to LLVM IR for analysis, optimization, and transf
 - **Security Analysis**: Instrument and analyze binaries for vulnerabilities
 
 See [LLVM Lifting Guide](docs/LLVM-LIFTING.md) for complete documentation.
+
+### Fuzzing & Sanitizers 🔍
+Comprehensive fuzzing and memory safety testing with turnkey integration:
+- **🛡️ Sanitizers**: ASan, MSan, UBSan, TSan for detecting memory errors and undefined behavior
+- **⚡ libfuzzer**: In-process, coverage-guided fuzzing integrated with LLVM
+- **🎯 AFL++**: Advanced fuzzing with LLVM instrumentation for maximum coverage
+- **🔬 Binary Lifting + Fuzzing**: Fuzz black-box binaries by lifting to LLVM IR and instrumenting
+- **📊 Turnkey Workflows**: Single commands like `pf afl-fuzz` for complete fuzzing campaigns
+- **🚀 "Good Luck With That" Achievement**: Successfully instrument lifted binaries with AFL++ (they said it couldn't be done!)
+
+**Quick Start:**
+```bash
+# Build with sanitizers
+pf build-with-asan source=mycode.c
+pf build-with-msan source=mycode.c
+
+# libfuzzer
+pf generate-libfuzzer-template
+pf build-libfuzzer-target source=fuzz_target.c
+pf run-libfuzzer target=fuzzer time=60
+
+# AFL++
+pf build-afl-target source=target.c
+pf afl-fuzz target=target_afl time=1h
+
+# Fuzz black-box binaries!
+pf lift-and-instrument-binary binary=/path/to/binary
+pf afl-fuzz target=binary_afl_lifted time=30m
+```
+
+See [Fuzzing Guide](docs/FUZZING.md) for complete documentation.
 
 ### Advanced Kernel Debugging 🛡️
 Comprehensive kernel-mode debugging and security analysis capabilities:
@@ -984,6 +1048,7 @@ npx playwright show-report
 - **🔥 SMART WORKFLOWS Guide**: See [`docs/SMART-WORKFLOWS.md`](docs/SMART-WORKFLOWS.md) - **NEW!** Powerful tool combinations for efficient workflows
 - **pf-runner Documentation**: See [`pf-runner/README.md`](pf-runner/README.md) for comprehensive pf runner documentation
 - **REST API Guide**: See [`docs/REST-API.md`](docs/REST-API.md) for complete API documentation and examples
+- **Fuzzing & Sanitizers Guide**: See [`docs/FUZZING.md`](docs/FUZZING.md) for fuzzing, AFL++, and sanitizer documentation
 - **Security Testing Guide**: See [`docs/SECURITY-TESTING.md`](docs/SECURITY-TESTING.md) for web application security testing
 - **Binary Injection Guide**: See [`docs/BINARY-INJECTION.md`](docs/BINARY-INJECTION.md) for injection and hooking documentation
 - **LLVM Lifting Guide**: See [`docs/LLVM-LIFTING.md`](docs/LLVM-LIFTING.md) for binary lifting documentation
@@ -1016,6 +1081,15 @@ Additional documentation in `pf-runner/`:
 
 | Command | Description |
 |---------|-------------|
+| **Smart Integrated Workflows (NEW!)** | |
+| `pf smart-binary-analysis binary=<path>` | **Complete binary analysis** (checksec → lift → analyze → debug-prep) |
+| `pf smart-exploit-dev binary=<path>` | **Intelligent exploit development** (checksec → ROP gadgets → strategy) |
+| `pf smart-security-test url=<url> binary=<path>` | **Comprehensive security testing** (web + binary + fuzzing) |
+| `pf smart-kernel-analysis binary=<path>` | **Kernel vulnerability analysis** (lift → parse-detect → complexity → fuzz) |
+| `pf smart-package-install package=<path>` | **Auto package format conversion** and installation |
+| `pf smart-web-dev [port=8080]` | **Complete web dev workflow** (build → test → security → serve) |
+| `pf smart-workflows-help` | Show all smart workflows and usage |
+| **Build and Development** | |
 | `pf autobuild` | **Automagic builder** - auto-detect and build any project |
 | `pf autobuild release=true` | Build in release/optimized mode |
 | `pf build_detect` | Detect build system without building |
@@ -1081,6 +1155,29 @@ Additional documentation in `pf-runner/`:
 | `pf kernel-parse-detect binary=<path>` | **Auto-detect parse functions in binary** |
 | `pf kernel-complexity-analyze binary=<path>` | **Find functions with many if/else, long functions, high complexity** |
 | `pf kernel-fuzz-in-memory binary=<path>` | **Fast in-memory fuzzing with loop-back (100-1000x faster)** |
+| **Fuzzing & Sanitizers** | |
+| `pf install-fuzzing-tools` | Install all fuzzing tools (AFL++, libfuzzer, sanitizers) |
+| `pf install-sanitizers` | Install LLVM sanitizer libraries |
+| `pf install-libfuzzer` | Install libfuzzer development files |
+| `pf install-aflplusplus` | Install AFL++ fuzzer |
+| `pf build-with-asan source=<file>` | Build with AddressSanitizer |
+| `pf build-with-msan source=<file>` | Build with MemorySanitizer |
+| `pf build-with-ubsan source=<file>` | Build with UndefinedBehaviorSanitizer |
+| `pf build-with-tsan source=<file>` | Build with ThreadSanitizer |
+| `pf build-with-all-sanitizers source=<file>` | Build with all sanitizers |
+| `pf generate-libfuzzer-template` | Generate libfuzzer harness template |
+| `pf build-libfuzzer-target source=<file>` | Build fuzzing target with libfuzzer |
+| `pf run-libfuzzer target=<fuzzer>` | Run libfuzzer on target |
+| `pf build-afl-target source=<file>` | Build target with AFL++ instrumentation |
+| `pf build-afl-llvm-target source=<file>` | Build target with AFL++ LLVM mode |
+| `pf afl-fuzz target=<binary>` | Run AFL++ fuzzer |
+| `pf afl-analyze-crashes` | Analyze AFL++ crash findings |
+| `pf afl-minimize-corpus` | Minimize AFL++ corpus |
+| `pf lift-and-instrument-binary binary=<path>` | Lift binary to LLVM IR and instrument with AFL++ |
+| `pf instrument-llvm-ir-afl input=<file.ll>` | Instrument LLVM IR with AFL++ |
+| `pf create-fuzzing-example` | Create example fuzzing target |
+| `pf demo-fuzzing` | Run complete fuzzing demonstration |
+| `pf fuzzing-help` | Show fuzzing and sanitizer help |
 | **ROP Exploit Demonstration** | |
 | `pf rop-build` | Build vulnerable binaries for ROP demonstration |
 | `pf rop-check` | Check security features of built binaries |
