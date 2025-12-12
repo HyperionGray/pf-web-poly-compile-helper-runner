@@ -90,6 +90,7 @@ task security-test-dev
   describe Starts dev server and runs security tests, then stops server
   shell echo "=== Starting Development Server ==="
   shell node tools/api-server.mjs demos/pf-web-polyglot-demo-plus-c/web 8080 &
+  shell SERVER_PID=$!
   shell sleep 5
   shell echo ""
   shell echo "=== Running Security Tests ==="
@@ -97,7 +98,7 @@ task security-test-dev
   shell node tools/security/fuzzer.mjs http://localhost:8080 --type all --verbose
   shell echo ""
   shell echo "=== Stopping Server ==="
-  shell pkill -f "api-server.mjs" || true
+  shell kill $SERVER_PID 2>/dev/null || true
 end
 
 task security-check-headers

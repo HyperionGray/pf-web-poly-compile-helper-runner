@@ -27,6 +27,34 @@ from typing import List, Dict, Tuple, Optional, Callable
 
 from fabric import Connection
 
+# Import custom exceptions
+try:
+    from pf_exceptions import (
+        PFException,
+        PFSyntaxError,
+        PFExecutionError,
+        PFEnvironmentError,
+        PFConnectionError,
+        PFTaskNotFoundError,
+        format_exception_for_user
+    )
+except ImportError:
+    # If exceptions module not available, define minimal versions
+    class PFException(Exception):
+        pass
+    class PFSyntaxError(PFException):
+        pass
+    class PFExecutionError(PFException):
+        pass
+    class PFEnvironmentError(PFException):
+        pass
+    class PFConnectionError(PFException):
+        pass
+    class PFTaskNotFoundError(PFException):
+        pass
+    def format_exception_for_user(exc, include_traceback=True):
+        return str(exc)
+
 # ---------- CONFIG ----------
 PFY_FILE = os.environ.get("PFY_FILE", "Pfyfile.pf")
 PFY_ROOT: Optional[str] = None  # Set by main() when loading the Pfyfile
@@ -465,7 +493,11 @@ def _canonical_lang(lang_hint: str) -> str:
     # Check if it's an alias
     if lang in POLYGLOT_ALIASES:
         return POLYGLOT_ALIASES[lang]
-    raise ValueError(f"Unsupported language: {lang_hint}")
+    raise PFExecutionError(
+        message=f"Unsupported language: {lang_hint}",
+        suggestion=f"Supported languages: {', '.join(sorted(POLYGLOT_LANGS.keys()))}",
+        command=f"shell_lang {lang_hint}"
+    )
 
 
 # Regex to parse [lang:xxx] syntax from shell command
@@ -500,11 +532,17 @@ def _extract_polyglot_source(
     raw = cmd.strip()
     base_dir = working_dir or PFY_ROOT or os.getcwd()
     if not raw:
-        raise ValueError("polyglot shell requires code or @file reference")
+        raise PFSyntaxError(
+            message="Polyglot shell requires code or @file reference",
+            suggestion="Provide inline code or use @filename syntax"
+        )
     if raw.startswith("@") or raw.startswith("file:"):
         tokens = shlex.split(cmd)
         if not tokens:
-            raise ValueError("polyglot file token missing")
+            raise PFSyntaxError(
+                message="Polyglot file token missing",
+                suggestion="Use syntax: shell_lang python @script.py"
+            )
         source_token = tokens.pop(0)
         if source_token.startswith("@"):
             rel_path = source_token[1:]
@@ -514,7 +552,11 @@ def _extract_polyglot_source(
             rel_path if os.path.isabs(rel_path) else os.path.join(base_dir, rel_path)
         )
         if not os.path.exists(full_path):
-            raise FileNotFoundError(f"polyglot source file not found: {full_path}")
+            raise PFSyntaxError(
+                message=f"Polyglot source file not found: {full_path}",
+                file_path=full_path,
+                suggestion="Check that the file path is correct and the file exists"
+            )
         with open(full_path, "r", encoding="utf-8") as poly_file:
             code = poly_file.read()
         if tokens and tokens[0] == "--":
@@ -531,8 +573,9 @@ def _render_polyglot_command(
     lang_key = _canonical_lang(lang_hint)
     # _canonical_lang validates that the language exists, but let's be extra safe
     if lang_key not in POLYGLOT_LANGS:
-        raise ValueError(
-            f"Language '{lang_key}' (from '{lang_hint}') has no builder registered"
+        raise PFExecutionError(
+            message=f"Language '{lang_key}' (from '{lang_hint}') has no builder registered",
+            suggestion=f"Supported languages: {', '.join(sorted(POLYGLOT_LANGS.keys()))}"
         )
     builder = POLYGLOT_LANGS[lang_key]
     snippet, lang_args, _ = _extract_polyglot_source(cmd, working_dir)
@@ -554,7 +597,11 @@ class Task:
         self.description: Optional[str] = None
         self.source_file = source_file  # Track which file this task came from
         self.params: Dict[str, str] = params or {}  # Default parameter values
+<<<<<<< HEAD
+        self.aliases: List[str] = aliases or []  # Command aliases for this task
+=======
         self.aliases: List[str] = aliases or []  # Short command aliases for this task
+>>>>>>> main
 
     def add(self, line: str):
         self.lines.append(line)
@@ -673,7 +720,10 @@ def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str], List[str]]:
     # Remove "task " prefix
     rest = line[5:].strip()
     if not rest:
-        raise ValueError("Task name missing.")
+        raise PFSyntaxError(
+            message="Task name missing",
+            suggestion="Task definition format: task task-name [param=\"value\"]"
+        )
 
     # Extract aliases from [...] blocks first
     aliases: List[str] = []
@@ -701,12 +751,17 @@ def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str], List[str]]:
     # Use shlex to properly handle quoted values
     try:
         tokens = shlex.split(rest_without_aliases)
-    except ValueError:
-        # If shlex fails, fall back to simple split
-        tokens = rest_without_aliases.split()
+    except ValueError as e:
+        raise PFSyntaxError(
+            message=f"Failed to parse task definition: {e}",
+            suggestion="Check for unclosed quotes or invalid escape sequences"
+        )
 
     if not tokens:
-        raise ValueError("Task name missing.")
+        raise PFSyntaxError(
+            message="Task name missing after parsing",
+            suggestion="Task definition format: task task-name [param=\"value\"]"
+        )
 
     task_name = tokens[0]
     params: Dict[str, str] = {}
@@ -1034,8 +1089,22 @@ def _exec_line_fabric(
     # Parse args once for other ops
     args = shlex.split(rest_of_line) if rest_of_line else []
 
+<<<<<<< HEAD
+    if op == "packages":
+        if len(args) < 2:
+            raise ValueError("packages install/remove <names...>")
+        action, names = args[0], args[1:]
+        if action == "install":
+            return run(" ".join(["apt -y install"] + names))
+        if action == "remove":
+            return run(" ".join(["apt -y remove"] + names))
+        raise ValueError(f"Unknown packages action: {action}")
+
+    rc=<path> dest=<path> [host=<host>] [user=<user>] [port=<port>]
+=======
     if verb == "sync":
         # sync src=<path> dest=<path> [host=<host>] [user=<user>] [port=<port>]
+>>>>>>> main
         #      [excludes=["pattern1","pattern2"]] [exclude_file=<path>]
         #      [delete] [dry] [verbose]
         # Supports both local and remote (SSH) sync using rsync
@@ -1046,7 +1115,11 @@ def _exec_line_fabric(
         src = kv.get("src")
         dest = kv.get("dest")
         if not src or not dest:
-            raise ValueError("sync requires src=<path> and dest=<path>")
+            raise PFSyntaxError(
+                message="sync requires src=<path> and dest=<path>",
+                command=line,
+                suggestion="Example: sync src=/local/path dest=/remote/path"
+            )
 
         # Optional parameters
         host = kv.get("host")
@@ -1122,7 +1195,11 @@ def _exec_line_fabric(
         cmd = " ".join(rsync_parts)
         return run(cmd)
 
-    raise ValueError(f"Unknown verb: {verb}")
+    raise PFSyntaxError(
+        message=f"Unknown verb: {verb}",
+        command=line,
+        suggestion="Check the pf documentation for valid verbs like shell, packages, service, directory, copy, sync"
+    )
 
 
 # ---------- Built-ins ----------
@@ -1771,7 +1848,13 @@ def main(argv: List[str]) -> int:
             try:
                 connection.open()
             except Exception as e:
-                print(f"{prefix} connect error: {e}", file=sys.stderr)
+                # Wrap connection errors with context
+                exc = PFConnectionError(
+                    message=str(e),
+                    host=hspec,
+                    suggestion="Verify SSH credentials and network connectivity"
+                )
+                print(format_exception_for_user(exc, include_traceback=False), file=sys.stderr)
                 return 1
         rc = 0
         for tname, lines, params in selected:
@@ -1790,13 +1873,29 @@ def main(argv: List[str]) -> int:
                         connection, ln, sflag, suser, prefix, params, task_env
                     )
                     if rc != 0:
-                        print(
-                            f"{prefix} !! command failed (rc={rc}): {ln}",
-                            file=sys.stderr,
+                        # Command failed - create detailed error
+                        exc = PFExecutionError(
+                            message=f"Command failed with exit code {rc}",
+                            task_name=tname,
+                            command=ln,
+                            exit_code=rc,
+                            environment=task_env,
+                            suggestion="Check the command output above for details"
                         )
+                        print(format_exception_for_user(exc, include_traceback=False), file=sys.stderr)
                         return rc
+                except PFException as e:
+                    # Let PF exceptions bubble up to outer handler for proper formatting
+                    raise
                 except Exception as e:
-                    print(f"{prefix} !! error: {e}", file=sys.stderr)
+                    # Wrap unexpected errors
+                    exc = PFExecutionError(
+                        message=f"Unexpected error executing command: {e}",
+                        task_name=tname,
+                        command=ln,
+                        environment=task_env
+                    )
+                    print(format_exception_for_user(exc, include_traceback=True), file=sys.stderr)
                     return 1
         if connection is not None:
             connection.close()
@@ -1809,8 +1908,13 @@ def main(argv: List[str]) -> int:
             h = futs[fut]
             try:
                 rc = fut.result()
+            except PFException as e:
+                # Show formatted error for PF exceptions
+                print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
+                rc = 1
             except Exception as e:
-                print(f"[{h}] !! unhandled: {e}", file=sys.stderr)
+                # Wrap and show unexpected exceptions
+                print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
                 rc = 1
             rc_total = rc_total or rc
 

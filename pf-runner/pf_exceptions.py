@@ -1,355 +1,466 @@
 #!/usr/bin/env python3
 """
-pf_exceptions.py - Custom exception classes for PF with environment context
+pf_exceptions.py - Custom exception classes for the pf runner
 
-This module provides:
-- PFException base class with environment context capture
-- PFSyntaxError for DSL parsing issues
-- Environment context collection and reporting
-- Container detection and subshell state tracking
+This module provides specialized exception classes that capture detailed
+context about failures, including:
+- Full Python tracebacks
+- Environment variables at time of failure
+- Execution context (container, subshell, etc.)
+- User-friendly error messages with suggestions
+
+The philosophy is to be transparent with users - show them exactly what
+went wrong, where it happened, and what the environment looked like.
 """
 
 import os
 import sys
 import traceback
-import subprocess
 import platform
-from typing import Dict, List, Optional, Any, Union
-from pathlib import Path
+from typing import Optional, Dict, Any, List
+from dataclasses import dataclass, field
 
 
-class EnvironmentContext:
-    """Captures and provides environment context for error reporting."""
+def _detect_container_environment() -> Optional[str]:
+    """
+    Detect if we're running inside a container and return container type.
     
-    def __init__(self):
-        self.container_info = self._detect_container()
-        self.subshell_level = self._get_subshell_level()
-        self.environment_vars = dict(os.environ)
-        self.working_directory = os.getcwd()
-        self.platform_info = self._get_platform_info()
-        self.shell_info = self._get_shell_info()
-        
-    def _detect_container(self) -> Dict[str, Any]:
-        """Detect if running in a container and what type."""
-        container_info = {
-            'in_container': False,
-            'type': None,
-            'details': {}
-        }
-        
-        # Check for Docker
-        if os.path.exists('/.dockerenv'):
-            container_info['in_container'] = True
-            container_info['type'] = 'docker'
-            
-        # Check for Podman
-        elif os.path.exists('/run/.containerenv'):
-            container_info['in_container'] = True
-            container_info['type'] = 'podman'
-            try:
-                with open('/run/.containerenv', 'r') as f:
-                    container_info['details']['containerenv'] = f.read().strip()
-            except:
-                pass
-                
-        # Check for LXC/LXD
-        elif os.path.exists('/proc/1/environ'):
-            try:
-                with open('/proc/1/environ', 'rb') as f:
-                    environ = f.read().decode('utf-8', errors='ignore')
-                    if 'container=lxc' in environ:
-                        container_info['in_container'] = True
-                        container_info['type'] = 'lxc'
-            except:
-                pass
-                
-        # Check for systemd-nspawn
-        if not container_info['in_container']:
-            try:
-                result = subprocess.run(['systemd-detect-virt', '-c'], 
-                                      capture_output=True, text=True, timeout=2)
-                if result.returncode == 0 and result.stdout.strip():
-                    container_info['in_container'] = True
-                    container_info['type'] = result.stdout.strip()
-            except:
-                pass
-                
-        return container_info
-        
-    def _get_subshell_level(self) -> int:
-        """Get the current subshell nesting level."""
-        return int(os.environ.get('SHLVL', '1'))
-        
-    def _get_platform_info(self) -> Dict[str, str]:
-        """Get platform information."""
-        return {
-            'system': platform.system(),
-            'release': platform.release(),
-            'machine': platform.machine(),
-            'python_version': platform.python_version()
-        }
-        
-    def _get_shell_info(self) -> Dict[str, Optional[str]]:
-        """Get shell information."""
-        return {
-            'shell': os.environ.get('SHELL'),
-            'term': os.environ.get('TERM'),
-            'user': os.environ.get('USER'),
-            'home': os.environ.get('HOME')
-        }
-        
-    def format_context(self, include_env: bool = False) -> str:
-        """Format environment context for error reporting."""
-        lines = []
-        
-        # Container information
-        if self.container_info['in_container']:
-            lines.append(f"Container: {self.container_info['type']}")
-            if self.container_info['details']:
-                for key, value in self.container_info['details'].items():
-                    lines.append(f"  {key}: {value}")
-        else:
-            lines.append("Container: Not in container")
-            
-        # Subshell level
-        if self.subshell_level > 1:
-            lines.append(f"Subshell level: {self.subshell_level} (nested)")
-        else:
-            lines.append("Subshell level: 1 (main shell)")
-            
-        # Platform info
-        lines.append(f"Platform: {self.platform_info['system']} {self.platform_info['release']} ({self.platform_info['machine']})")
-        lines.append(f"Python: {self.platform_info['python_version']}")
-        
-        # Shell info
-        if self.shell_info['shell']:
-            lines.append(f"Shell: {self.shell_info['shell']}")
-        if self.shell_info['user']:
-            lines.append(f"User: {self.shell_info['user']}")
-            
-        # Working directory
-        lines.append(f"Working directory: {self.working_directory}")
-        
-        # Environment variables (if requested)
-        if include_env:
-            lines.append("\nEnvironment variables:")
-            for key, value in sorted(self.environment_vars.items()):
-                # Mask sensitive variables
-                if any(sensitive in key.lower() for sensitive in ['password', 'token', 'key', 'secret']):
-                    value = '***MASKED***'
-                lines.append(f"  {key}={value}")
-                
-        return "\n".join(lines)
+    Returns:
+        Container type string (e.g., 'docker', 'podman', 'lxc') or None
+    """
+    # Check for /.dockerenv file (Docker)
+    if os.path.exists('/.dockerenv'):
+        return 'docker'
+    
+    # Check /proc/1/cgroup for container indicators
+    try:
+        with open('/proc/1/cgroup', 'r') as f:
+            content = f.read()
+            if 'docker' in content:
+                return 'docker'
+            if 'lxc' in content:
+                return 'lxc'
+            if 'kubepods' in content:
+                return 'kubernetes'
+    except (FileNotFoundError, PermissionError):
+        pass
+    
+    # Check for container environment variables
+    if os.getenv('container'):
+        return os.getenv('container')
+    
+    return None
 
 
+def _detect_subshell_depth() -> int:
+    """
+    Detect how many subshells deep we are.
+    
+    Returns:
+        Number of subshell levels (0 = no subshell)
+    """
+    # Count SHLVL if available
+    shlvl = os.getenv('SHLVL')
+    if shlvl and shlvl.isdigit():
+        return max(0, int(shlvl) - 1)
+    return 0
+
+
+def _get_platform_info() -> Dict[str, str]:
+    """Get platform information for error context."""
+    info = {
+        'system': platform.system(),
+        'machine': platform.machine(),
+        'python_version': platform.python_version(),
+    }
+    
+    # Add OS-specific details
+    if platform.system() == 'Linux':
+        try:
+            with open('/etc/os-release', 'r') as f:
+                for line in f:
+                    if line.startswith('PRETTY_NAME='):
+                        info['os'] = line.split('=', 1)[1].strip().strip('"')
+                        break
+        except (FileNotFoundError, PermissionError):
+            info['os'] = 'Linux (unknown distribution)'
+    elif platform.system() == 'Windows':
+        info['os'] = platform.platform()
+    elif platform.system() == 'Darwin':
+        info['os'] = f"macOS {platform.mac_ver()[0]}"
+    
+    return info
+
+
+def _format_environment_context() -> str:
+    """
+    Format execution environment context for error messages.
+    
+    Returns:
+        Formatted string describing the execution environment
+    """
+    lines = []
+    
+    # Container detection
+    container = _detect_container_environment()
+    if container:
+        lines.append(f"  Container: Running in {container} container")
+    else:
+        lines.append("  Container: Not in a container")
+    
+    # Subshell depth
+    depth = _detect_subshell_depth()
+    if depth > 0:
+        lines.append(f"  Subshell: {depth} level{'s' if depth > 1 else ''} deep")
+    else:
+        lines.append("  Subshell: Direct shell (no subshell)")
+    
+    # Platform info
+    platform_info = _get_platform_info()
+    lines.append(f"  Platform: {platform_info.get('os', 'Unknown OS')} ({platform_info['machine']})")
+    lines.append(f"  Python: {platform_info['python_version']}")
+    
+    # Current working directory
+    lines.append(f"  CWD: {os.getcwd()}")
+    
+    # User and permissions
+    if hasattr(os, 'geteuid'):
+        uid = os.geteuid()
+        lines.append(f"  User: UID {uid} {'(root)' if uid == 0 else '(non-root)'}")
+    
+    return "\n".join(lines)
+
+
+@dataclass
 class PFException(Exception):
-    """Base exception class for PF with environment context."""
+    """
+    Base exception class for all pf-related errors.
     
-    def __init__(self, message: str, context: Optional[EnvironmentContext] = None, 
-                 cause: Optional[Exception] = None, line_number: Optional[int] = None,
-                 file_path: Optional[str] = None):
-        super().__init__(message)
-        self.message = message
-        self.context = context or EnvironmentContext()
-        self.cause = cause
-        self.line_number = line_number
-        self.file_path = file_path
-        self.traceback_info = traceback.format_exc() if cause else None
+    This exception captures comprehensive context about the failure:
+    - Error message
+    - Full traceback
+    - Environment variables
+    - Execution context (container, subshell, platform)
+    - Optional suggestions for fixing the issue
+    """
+    message: str
+    suggestion: Optional[str] = None
+    task_name: Optional[str] = None
+    file_path: Optional[str] = None
+    line_number: Optional[int] = None
+    command: Optional[str] = None
+    exit_code: Optional[int] = None
+    environment: Dict[str, str] = field(default_factory=dict)
+    _traceback: Optional[str] = None
+    _context: Optional[str] = None
+    
+    def __post_init__(self):
+        """Capture traceback and context at creation time."""
+        # Capture current environment if not provided
+        if not self.environment:
+            # Capture relevant environment variables
+            relevant_vars = [
+                'PATH', 'HOME', 'USER', 'SHELL', 'PWD', 'SHLVL',
+                'VIRTUAL_ENV', 'CONDA_DEFAULT_ENV', 'NODE_ENV',
+                'RUST_BACKTRACE', 'PYTHONPATH', 'LD_LIBRARY_PATH'
+            ]
+            self.environment = {
+                k: v for k, v in os.environ.items() 
+                if k in relevant_vars or k.startswith('PF_')
+            }
         
-    def format_error(self, show_traceback: bool = True, show_env: bool = False) -> str:
-        """Format the error with context information."""
+        # Capture execution context
+        if not self._context:
+            self._context = _format_environment_context()
+        
+        # Capture traceback if not already set
+        if not self._traceback:
+            self._traceback = ''.join(traceback.format_stack()[:-1])
+    
+    def format_error(self, include_traceback: bool = True, 
+                    include_environment: bool = True) -> str:
+        """
+        Format the error for display to the user.
+        
+        Args:
+            include_traceback: Include Python traceback in output
+            include_environment: Include environment variables in output
+            
+        Returns:
+            Formatted error message
+        """
         lines = []
         
-        # Error header
-        lines.append(f"PF Error: {self.message}")
+        # Header
+        lines.append("=" * 70)
+        lines.append("PF ERROR")
+        lines.append("=" * 70)
         
-        # File and line information
+        # Error location
+        if self.task_name:
+            lines.append(f"Task: {self.task_name}")
         if self.file_path:
-            lines.append(f"File: {self.file_path}")
-        if self.line_number:
-            lines.append(f"Line: {self.line_number}")
-            
-        # Environment context
-        lines.append("\nEnvironment Context:")
-        lines.append(self.context.format_context(include_env=show_env))
+            location = f"File: {self.file_path}"
+            if self.line_number:
+                location += f", line {self.line_number}"
+            lines.append(location)
+        if self.command:
+            lines.append(f"Command: {self.command}")
         
-        # Original cause
-        if self.cause:
-            lines.append(f"\nOriginal error: {type(self.cause).__name__}: {self.cause}")
-            
+        # Main error message
+        lines.append("")
+        lines.append(f"Error: {self.message}")
+        
+        # Exit code if available
+        if self.exit_code is not None:
+            lines.append(f"Exit Code: {self.exit_code}")
+        
+        # Suggestion
+        if self.suggestion:
+            lines.append("")
+            lines.append(f"Suggestion: {self.suggestion}")
+        
+        # Execution context
+        lines.append("")
+        lines.append("Execution Context:")
+        lines.append(self._context)
+        
+        # Environment variables
+        if include_environment and self.environment:
+            lines.append("")
+            lines.append("Relevant Environment Variables:")
+            for key, value in sorted(self.environment.items()):
+                # Truncate long values
+                display_value = value if len(value) < 80 else value[:77] + "..."
+                lines.append(f"  {key}={display_value}")
+        
         # Traceback
-        if show_traceback and self.traceback_info and self.traceback_info != "NoneType: None\n":
-            lines.append("\nFull traceback:")
-            lines.append(self.traceback_info)
-            
-        return "\n".join(lines)
+        if include_traceback and self._traceback:
+            lines.append("")
+            lines.append("Python Traceback:")
+            lines.append(self._traceback)
         
+        lines.append("=" * 70)
+        
+        return "\n".join(lines)
+    
     def __str__(self) -> str:
-        return self.format_error(show_traceback=False, show_env=False)
+        """String representation shows the formatted error."""
+        return self.format_error()
 
 
 class PFSyntaxError(PFException):
-    """Exception for PF DSL syntax errors."""
+    """
+    Exception for syntax errors in PF files.
     
-    def __init__(self, message: str, line_content: Optional[str] = None, 
-                 suggestions: Optional[List[str]] = None, **kwargs):
-        super().__init__(message, **kwargs)
-        self.line_content = line_content
-        self.suggestions = suggestions or []
-        
-    def format_error(self, show_traceback: bool = False, show_env: bool = False) -> str:
-        """Format syntax error with additional context."""
-        lines = []
-        
-        # Error header
-        lines.append(f"PF Syntax Error: {self.message}")
-        
-        # File and line information
-        if self.file_path:
-            lines.append(f"File: {self.file_path}")
-        if self.line_number:
-            lines.append(f"Line: {self.line_number}")
-            
-        # Show the problematic line
-        if self.line_content:
-            lines.append(f"Content: {self.line_content.strip()}")
-            
-        # Suggestions
-        if self.suggestions:
-            lines.append("\nSuggestions:")
-            for suggestion in self.suggestions:
-                lines.append(f"  - {suggestion}")
-                
-        # Environment context (usually less relevant for syntax errors)
-        if show_env:
-            lines.append("\nEnvironment Context:")
-            lines.append(self.context.format_context(include_env=show_env))
-            
-        return "\n".join(lines)
+    This is raised when the pf file has invalid syntax, such as:
+    - Unclosed blocks (task, if, for)
+    - Invalid operators (===, etc.)
+    - Missing required keywords
+    - Malformed task definitions
+    """
+    
+    def __init__(self, message: str, **kwargs):
+        super().__init__(
+            message=message,
+            suggestion=kwargs.pop('suggestion', 
+                "Run 'pf prune' to check syntax and get detailed error information"),
+            **kwargs
+        )
 
 
 class PFExecutionError(PFException):
-    """Exception for command execution errors."""
+    """
+    Exception for command execution failures.
     
-    def __init__(self, message: str, command: Optional[str] = None, 
-                 exit_code: Optional[int] = None, stdout: Optional[str] = None,
-                 stderr: Optional[str] = None, **kwargs):
-        super().__init__(message, **kwargs)
-        self.command = command
-        self.exit_code = exit_code
-        self.stdout = stdout
-        self.stderr = stderr
+    This is raised when:
+    - A shell command fails (non-zero exit code)
+    - A subprocess cannot be started
+    - Remote command execution fails
+    """
+    
+    # Maximum file size to check for PE signature (10MB)
+    MAX_FILE_SIZE_FOR_PE_CHECK = 10 * 1024 * 1024
+    
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message=message, **kwargs)
         
-    def format_error(self, show_traceback: bool = True, show_env: bool = True) -> str:
-        """Format execution error with command details."""
-        lines = []
-        
-        # Error header
-        lines.append(f"PF Execution Error: {self.message}")
-        
-        # Command information
-        if self.command:
-            lines.append(f"Command: {self.command}")
-        if self.exit_code is not None:
-            lines.append(f"Exit code: {self.exit_code}")
+        # Add PE executable detection if on Linux trying to run Windows binary
+        # Only suggest this for specific error codes that indicate execution issues
+        if (kwargs.get('exit_code') in (126, 127, -1) and 
+            platform.system() == 'Linux' and 
+            kwargs.get('command')):
+            cmd = kwargs.get('command', '')
             
-        # Output information
-        if self.stdout:
-            lines.append(f"Stdout: {self.stdout}")
-        if self.stderr:
-            lines.append(f"Stderr: {self.stderr}")
+            # Check if command looks like it might be a Windows binary
+            # Look for common Windows executable patterns
+            is_likely_pe = False
             
-        # Environment context
-        lines.append("\nEnvironment Context:")
-        lines.append(self.context.format_context(include_env=show_env))
-        
-        # Original cause and traceback
-        if self.cause:
-            lines.append(f"\nOriginal error: {type(self.cause).__name__}: {self.cause}")
+            # Check file extension
+            if cmd.endswith('.exe') or cmd.endswith('.dll') or cmd.endswith('.bat'):
+                is_likely_pe = True
             
-        if show_traceback and self.traceback_info and self.traceback_info != "NoneType: None\n":
-            lines.append("\nFull traceback:")
-            lines.append(self.traceback_info)
+            # Check if the file exists and we can read it to verify
+            # Extract the actual executable path from the command
+            parts = cmd.split()
+            if parts:
+                exe_path = parts[0]
+                # Validate path is reasonable before attempting to read
+                # Only check files that exist and are regular files
+                if os.path.exists(exe_path) and os.path.isfile(exe_path):
+                    try:
+                        # Get absolute path to avoid directory traversal
+                        abs_path = os.path.abspath(exe_path)
+                        
+                        # Additional security: only read if file size is reasonable
+                        if os.path.getsize(abs_path) < self.MAX_FILE_SIZE_FOR_PE_CHECK:
+                            # Read first few bytes to check for PE signature (MZ header)
+                            with open(abs_path, 'rb') as f:
+                                magic = f.read(2)
+                                if magic == b'MZ':
+                                    is_likely_pe = True
+                    except (IOError, PermissionError, OSError):
+                        # Can't read file, fall back to extension check
+                        pass
             
-        return "\n".join(lines)
+            if is_likely_pe:
+                container = _detect_container_environment()
+                if container:
+                    self.suggestion = (
+                        f"You appear to be trying to execute a Windows PE executable "
+                        f"inside a {container} container on Linux. "
+                        "Consider using Wine or running this in a Windows environment."
+                    )
+                else:
+                    self.suggestion = (
+                        f"You appear to be trying to execute a Windows PE executable "
+                        f"on Linux. Consider using Wine or running this "
+                        "in a Windows environment."
+                    )
 
 
 class PFEnvironmentError(PFException):
-    """Exception for environment-related errors."""
+    """
+    Exception for environment-related issues.
     
-    def __init__(self, message: str, env_var: Optional[str] = None, 
-                 expected_value: Optional[str] = None, actual_value: Optional[str] = None,
-                 **kwargs):
-        super().__init__(message, **kwargs)
-        self.env_var = env_var
-        self.expected_value = expected_value
-        self.actual_value = actual_value
+    This is raised when:
+    - Required environment variables are missing
+    - Environment variable expansion fails
+    - Path resolution fails in the current environment
+    """
+    
+    def __init__(self, message: str, **kwargs):
+        # Enhance the message with environment context
+        depth = _detect_subshell_depth()
+        if depth > 0:
+            message += (
+                f"\n\nNote: You are {depth} subshell level{'s' if depth > 1 else ''} deep. "
+                "Environment variables may not have propagated correctly."
+            )
         
-    def format_error(self, show_traceback: bool = True, show_env: bool = True) -> str:
-        """Format environment error with variable details."""
-        lines = []
-        
-        # Error header
-        lines.append(f"PF Environment Error: {self.message}")
-        
-        # Variable information
-        if self.env_var:
-            lines.append(f"Variable: {self.env_var}")
-        if self.expected_value is not None:
-            lines.append(f"Expected: {self.expected_value}")
-        if self.actual_value is not None:
-            lines.append(f"Actual: {self.actual_value}")
-            
-        # Environment context
-        lines.append("\nEnvironment Context:")
-        lines.append(self.context.format_context(include_env=show_env))
-        
-        # Original cause and traceback
-        if self.cause:
-            lines.append(f"\nOriginal error: {type(self.cause).__name__}: {self.cause}")
-            
-        if show_traceback and self.traceback_info and self.traceback_info != "NoneType: None\n":
-            lines.append("\nFull traceback:")
-            lines.append(self.traceback_info)
-            
-        return "\n".join(lines)
+        super().__init__(
+            message=message,
+            suggestion=kwargs.pop('suggestion', 
+                "Check that all required environment variables are set and exported"),
+            **kwargs
+        )
 
 
-def format_pf_error(exc: Exception, show_traceback: bool = True, show_env: bool = False) -> str:
-    """Format any exception as a PF error with context."""
+class PFTaskNotFoundError(PFException):
+    """
+    Exception for when a requested task doesn't exist.
+    
+    This is raised when:
+    - A task name is not found in the Pfyfile
+    - An included file cannot be loaded
+    """
+    
+    def __init__(self, task_name: str, available_tasks: Optional[List[str]] = None, **kwargs):
+        message = f"Task '{task_name}' not found"
+        
+        # Try to suggest similar task names
+        suggestion = None
+        if available_tasks:
+            # Simple fuzzy matching - find tasks with similar prefixes
+            similar = [t for t in available_tasks if t.startswith(task_name[:3])]
+            if similar:
+                suggestion = f"Did you mean one of these? {', '.join(similar[:5])}"
+        
+        super().__init__(
+            message=message,
+            task_name=task_name,
+            suggestion=suggestion or kwargs.pop('suggestion', 
+                "Run 'pf list' to see all available tasks"),
+            **kwargs
+        )
+
+
+class PFConnectionError(PFException):
+    """
+    Exception for remote connection failures.
+    
+    This is raised when:
+    - SSH connection fails
+    - Remote host is unreachable
+    - Authentication fails
+    """
+    
+    def __init__(self, message: str, host: Optional[str] = None, **kwargs):
+        if host:
+            message = f"Connection failed to {host}: {message}"
+        
+        super().__init__(
+            message=message,
+            suggestion=kwargs.pop('suggestion', 
+                "Check that the host is reachable and credentials are correct"),
+            **kwargs
+        )
+
+
+def format_exception_for_user(exc: Exception, include_traceback: bool = True) -> str:
+    """
+    Format any exception for user-friendly display.
+    
+    This function handles both PFException instances and regular Python exceptions,
+    ensuring users always get useful error information.
+    
+    Args:
+        exc: The exception to format
+        include_traceback: Whether to include the traceback
+        
+    Returns:
+        Formatted error message
+    """
     if isinstance(exc, PFException):
-        return exc.format_error(show_traceback=show_traceback, show_env=show_env)
-    else:
-        # Wrap regular exceptions in PFException for consistent formatting
-        context = EnvironmentContext()
-        pf_exc = PFException(str(exc), context=context, cause=exc)
-        return pf_exc.format_error(show_traceback=show_traceback, show_env=show_env)
+        return exc.format_error(include_traceback=include_traceback)
+    
+    # For non-PF exceptions, create a basic formatted output
+    lines = []
+    lines.append("=" * 70)
+    lines.append("UNEXPECTED ERROR")
+    lines.append("=" * 70)
+    lines.append(f"Error Type: {type(exc).__name__}")
+    lines.append(f"Error: {str(exc)}")
+    lines.append("")
+    lines.append("Execution Context:")
+    lines.append(_format_environment_context())
+    
+    if include_traceback:
+        lines.append("")
+        lines.append("Python Traceback:")
+        lines.append(''.join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
+    
+    lines.append("=" * 70)
+    return "\n".join(lines)
 
 
-def handle_pf_error(exc: Exception, exit_on_error: bool = True, 
-                   show_traceback: bool = None, show_env: bool = None) -> int:
-    """Handle PF errors with appropriate formatting and exit behavior."""
-    
-    # Determine default values based on exception type
-    if show_traceback is None:
-        show_traceback = not isinstance(exc, PFSyntaxError)
-    if show_env is None:
-        show_env = isinstance(exc, (PFExecutionError, PFEnvironmentError))
-        
-    # Format and display the error
-    error_msg = format_pf_error(exc, show_traceback=show_traceback, show_env=show_env)
-    print(error_msg, file=sys.stderr)
-    
-    # Return appropriate exit code
-    exit_code = 1
-    if isinstance(exc, PFSyntaxError):
-        exit_code = 2
-    elif isinstance(exc, PFEnvironmentError):
-        exit_code = 3
-    elif isinstance(exc, PFExecutionError) and exc.exit_code:
-        exit_code = exc.exit_code
-        
-    if exit_on_error:
-        sys.exit(exit_code)
-        
-    return exit_code
+# Export all exception classes
+__all__ = [
+    'PFException',
+    'PFSyntaxError',
+    'PFExecutionError',
+    'PFEnvironmentError',
+    'PFTaskNotFoundError',
+    'PFConnectionError',
+    'format_exception_for_user',
+]
