@@ -1,0 +1,145 @@
+{
+  "tools": {
+    "checksec": {
+      "available": false,
+      "capabilities": [
+        "binary-analysis",
+        "security-features"
+      ],
+      "description": "Binary security feature checker"
+    },
+    "readelf": {
+      "available": true,
+      "capabilities": [
+        "binary-analysis",
+        "elf-analysis"
+      ],
+      "description": "ELF file analysis tool"
+    },
+    "objdump": {
+      "available": true,
+      "capabilities": [
+        "binary-analysis",
+        "disassembly"
+      ],
+      "description": "Object file disassembler"
+    },
+    "nm": {
+      "available": true,
+      "capabilities": [
+        "binary-analysis",
+        "symbol-analysis"
+      ],
+      "description": "Symbol table analyzer"
+    },
+    "gdb": {
+      "available": false,
+      "capabilities": [
+        "debugging",
+        "binary-analysis"
+      ],
+      "description": "GNU Debugger"
+    },
+    "lldb": {
+      "available": false,
+      "capabilities": [
+        "debugging",
+        "binary-analysis"
+      ],
+      "description": "LLVM Debugger"
+    },
+    "pwndbg": {
+      "available": false,
+      "capabilities": [
+        "debugging",
+        "exploit-development"
+      ],
+      "description": "GDB plugin for exploit development"
+    },
+    "radare2": {
+      "available": false,
+      "capabilities": [
+        "reverse-engineering",
+        "disassembly",
+        "binary-analysis"
+      ],
+      "description": "Reverse engineering framework"
+    },
+    "ghidra": {
+      "available": false,
+      "capabilities": [
+        "reverse-engineering",
+        "decompilation"
+      ],
+      "description": "NSA reverse engineering suite"
+    },
+    "ROPgadget": {
+      "available": false,
+      "capabilities": [
+        "exploit-development",
+        "rop-analysis"
+      ],
+      "description": "ROP gadget finder"
+    },
+    "ropper": {
+      "available": false,
+      "capabilities": [
+        "exploit-development",
+        "rop-analysis"
+      ],
+      "description": "ROP gadget finder and exploit tool"
+    },
+    "pwntools": {
+      "available": false,
+      "capabilities": [
+        "exploit-development",
+        "scripting"
+      ],
+      "description": "CTF framework and exploit development library"
+    },
+    "AFL": {
+      "available": false,
+      "capabilities": [
+        "fuzzing",
+        "testing"
+      ],
+      "description": "American Fuzzy Lop fuzzer"
+    },
+    "curl": {
+      "available": true,
+      "capabilities": [
+        "web-testing",
+        "http-client"
+      ],
+      "description": "HTTP client"
+    },
+    "file": {
+      "available": true,
+      "capabilities": [
+        "file-analysis"
+      ],
+      "description": "File type detection"
+    },
+    "strings": {
+      "available": true,
+      "capabilities": [
+        "binary-analysis",
+        "string-extraction"
+      ],
+      "description": "Extract printable strings from files"
+    },
+    "ldd": {
+      "available": true,
+      "capabilities": [
+        "binary-analysis",
+        "dependency-analysis"
+      ],
+      "description": "Print shared library dependencies"
+    }
+  },
+  "summary": {
+    "total": 17,
+    "available": 7,
+    "missing": 10
+  }
+}

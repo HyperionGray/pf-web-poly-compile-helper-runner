@@ -796,9 +796,64 @@ end
 `);
 
     // ==========================================
-    // SECTION 15: Edge Cases
+    // SECTION 15: Multiline Bash (Backslash Continuation)
     // ==========================================
-    console.log('\n--- Section 15: Edge Cases ---');
+    console.log('\n--- Section 15: Multiline Bash (Backslash Continuation) ---');
+
+    await tester.testValidSyntax('Simple backslash continuation', `
+task test-simple-continuation
+  describe Test simple backslash continuation
+  shell echo "this is" \\
+    "a continued" \\
+    "line"
+end
+`);
+
+    await tester.testValidSyntax('Docker command with continuation', `
+task docker-multiline
+  describe Docker command with backslash continuation
+  shell docker run \\
+    --rm \\
+    -v /tmp:/data \\
+    -e VAR=value \\
+    alpine:latest \\
+    echo "hello"
+end
+`);
+
+    await tester.testValidSyntax('Mixed regular and continued lines', `
+task mixed-lines
+  describe Test mixed regular and continued lines
+  shell echo "first command"
+  shell echo "second" \\
+    "continued command"
+  shell echo "third command"
+end
+`);
+
+    await tester.testValidSyntax('Find command with continuation', `
+task find-multiline
+  describe Find command with backslash continuation
+  shell find /tmp \\
+    -name "*.txt" \\
+    -type f
+end
+`);
+
+    await tester.testValidSyntax('Environment variable with continuation', `
+task env-continuation
+  describe Environment vars with continuation
+  env CC=gcc CFLAGS="-O2 \\
+    -Wall \\
+    -Wextra"
+  shell echo "Building..."
+end
+`);
+
+    // ==========================================
+    // SECTION 16: Edge Cases
+    // ==========================================
+    console.log('\n--- Section 16: Edge Cases ---');
 
     await tester.testValidSyntax('Empty task body', `
 task empty

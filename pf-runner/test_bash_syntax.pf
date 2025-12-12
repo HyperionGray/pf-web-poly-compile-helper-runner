@@ -56,6 +56,34 @@ task test-command-substitution
   shell echo "Date: $(date +%Y-%m-%d)" | grep -E "[0-9]{4}-[0-9]{2}-[0-9]{2}"
 end
 
+task test-line-continuation
+  describe Test backslash line continuation
+  shell echo "Testing simple continuation" \
+        && echo "This should be on same command"
+  shell docker run --rm \
+          -v $(pwd):/app \
+          -w /app \
+          echo "Multi-line docker-style command works"
+end
+
+task test-line-continuation-complex
+  describe Test complex line continuation scenarios
+  shell echo "Line 1" \
+        && echo "Line 2" \
+        && echo "Line 3"
+  shell if [ -f "/etc/passwd" ]; then \
+          echo "File exists"; \
+        fi
+end
+
+task test-line-continuation-mixed
+  describe Test mixed continuation and regular lines
+  shell echo "Regular line"
+  shell echo "Continuation line 1" \
+        && echo "Continuation line 2"
+  shell echo "Another regular line"
+end
+
 task run-all-bash-tests
   describe Run all bash syntax tests
   shell echo "=== Running bash syntax tests ==="
@@ -67,5 +95,7 @@ task run-all-bash-tests
   shell for i in 1; do echo "✓ Loops work"; done
   shell echo "test" | grep "test" && echo "✓ Pipes work"
   shell result=$(echo "cmd") && echo "✓ Command substitution: $result"
+  shell echo "Line continuation test:" \
+        && echo "✓ Backslash continuation works"
   shell echo "=== All tests passed! ==="
 end

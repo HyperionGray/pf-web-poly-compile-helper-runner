@@ -64,6 +64,11 @@ const testSuites = [
         name: 'Package Manager Tests',
         file: 'package-manager/package-manager.test.mjs',
         description: 'Tests package format translation tool'
+    },
+    {
+        name: 'pf Tasks Validation Tests',
+        file: 'pf-tasks-validation.test.mjs',
+        description: 'Tests that all pf tasks are syntactically correct and properly documented'
     }
 ];
 

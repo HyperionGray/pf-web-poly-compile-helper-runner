@@ -55,10 +55,6 @@ task rop-clean
   shell cd demos/rop-exploit && make clean
 end
 
-task rop-demo
-  describe Complete ROP demonstration workflow
-  shell cd demos/rop-exploit && echo "=== ROP Exploit Demonstration ===" && echo "" && echo "Step 1: Building vulnerable binaries..." && make all && echo "" && echo "Step 2: Checking security features..." && make check && echo "" && echo "Step 3: Finding ROP gadgets..." && make gadgets && echo "" && echo "Step 4: Generating exploit payload..." && make exploit && echo "" && echo "Step 5: Testing exploit (will crash)..." && make test-exploit && echo "" && echo "=== Demo Complete ===" && echo "See demos/rop-exploit/README.md for detailed documentation"
-end
 
 task rop-help
   describe Show ROP demo help and available commands

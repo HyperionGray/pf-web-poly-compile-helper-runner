@@ -1,0 +1,14 @@
+task test-continuation
+  describe Test backslash line continuation
+  shell echo "This is" \
+        && echo "a multiline command"
+  shell echo "Regular command"
+end
+
+task test-docker-style
+  describe Test docker-style multiline
+  shell docker run --rm \
+          -v $(pwd):/app \
+          -w /app \
+          echo "Docker style works"
+end
