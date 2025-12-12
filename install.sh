@@ -1,34 +1,10 @@
 #!/usr/bin/env bash
-<<<<<<< HEAD
-# Container-based installer for pf
-# Builds the pf-runner image and installs the pf executable directly to /usr/local/bin.
-=======
 # Simple installer for pf
 # Installs pf directly to /usr/local/bin (or user-specified path) with dependencies.
->>>>>>> main
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-<<<<<<< HEAD
-IMAGE_NAME="pf-runner:local"
-BASE_IMAGE="localhost/pf-base:latest"
-RUNTIME=""
-
-usage() {
-  cat <<'USAGE'
-Usage: ./install.sh [--image NAME] [--runtime docker|podman]
-
-Builds the pf-runner container image (Dockerfile.pf-runner) and installs the pf
-executable directly to /usr/local/bin using a privileged container with mounted volume.
-
-Options:
-  --image NAME       Image tag to build/use (default: pf-runner:local)
-  --runtime NAME     Container runtime to use (auto-detects docker then podman)
-  -h, --help         Show this help
-
-Note: This installation requires sudo privileges to write to /usr/local/bin.
-=======
 INSTALL_PATH="/usr/local/bin"
 INSTALL_DIR="/usr/local/lib/pf-runner"
 SKIP_DEPS=0
@@ -62,7 +38,6 @@ Examples:
   ./install.sh                    # Install to /usr/local/bin (requires sudo)
   ./install.sh --prefix ~/.local  # Install to ~/.local/bin (no sudo needed)
   sudo ./install.sh               # Install system-wide with sudo
->>>>>>> main
 USAGE
 }
 
@@ -109,73 +84,6 @@ install_deps() {
   log_success "Dependencies installed"
 }
 
-<<<<<<< HEAD
-build_base_image() {
-  echo "[pf-install] Building base image '${BASE_IMAGE}' with ${RUNTIME}..."
-  ${RUNTIME} build -f "${ROOT_DIR}/containers/dockerfiles/Dockerfile.base" -t "${BASE_IMAGE}" "${ROOT_DIR}"
-  echo "[pf-install] Base image built: ${BASE_IMAGE}"
-}
-
-install_executable() {
-  echo "[pf-install] Installing pf executable to /usr/local/bin..."
-  
-  # Check if we can write to /usr/local/bin
-  if [[ ! -w /usr/local/bin ]] && [[ $EUID -ne 0 ]]; then
-    echo "[pf-install] Warning: /usr/local/bin is not writable. You may need sudo privileges."
-    echo "[pf-install] Attempting installation with sudo..."
-    SUDO_CMD="sudo"
-  else
-    SUDO_CMD=""
-  fi
-  
-  # Create a temporary container to extract the executable
-  echo "[pf-install] Extracting pf executable from container..."
-  TEMP_CONTAINER=$(${RUNTIME} create "${IMAGE_NAME}")
-  
-  # Copy the main Python script from the container
-  if ! ${RUNTIME} cp "${TEMP_CONTAINER}:/app/pf-runner/pf_parser.py" /tmp/pf_parser.py; then
-    echo "Error: Failed to extract pf_parser.py from container" >&2
-    ${RUNTIME} rm "${TEMP_CONTAINER}" >/dev/null 2>&1 || true
-    exit 1
-  fi
-  
-  # Clean up the temporary container
-  ${RUNTIME} rm "${TEMP_CONTAINER}" >/dev/null 2>&1 || true
-  
-  # Create a proper executable script with shebang
-  cat > /tmp/pf-executable << 'EOF'
-#!/usr/bin/env python3
-EOF
-  
-  # Append the Python script content (skip the first line if it's a comment)
-  tail -n +2 /tmp/pf_parser.py >> /tmp/pf-executable
-  
-  # Install the executable
-  if [[ -n "${SUDO_CMD}" ]]; then
-    ${SUDO_CMD} cp /tmp/pf-executable /usr/local/bin/pf
-    ${SUDO_CMD} chmod +x /usr/local/bin/pf
-    ${SUDO_CMD} chown root:root /usr/local/bin/pf
-  else
-    cp /tmp/pf-executable /usr/local/bin/pf
-    chmod +x /usr/local/bin/pf
-  fi
-  
-  # Clean up temporary files
-  rm -f /tmp/pf-executable /tmp/pf_parser.py
-  
-  echo "[pf-install] pf executable installed to /usr/local/bin/pf"
-  
-  # Check if required Python packages are available
-  echo "[pf-install] Checking Python dependencies..."
-  if ! python3 -c "import fabric" >/dev/null 2>&1; then
-    echo "[pf-install] Warning: Python 'fabric' package not found."
-    echo "[pf-install] Install with: pip3 install 'fabric>=3.2,<4'"
-  fi
-  
-  if ! python3 -c "import lark" >/dev/null 2>&1; then
-    echo "[pf-install] Warning: Python 'lark' package not found."
-    echo "[pf-install] Install with: pip3 install lark"
-=======
 install_pf() {
   log_info "Installing pf to ${INSTALL_PATH}/pf..."
   
@@ -229,26 +137,18 @@ verify_install() {
   else
     log_error "Installation verification failed"
     exit 1
->>>>>>> main
   fi
 }
 
 # Parse args
 while [[ $# -gt 0 ]]; do
   case "$1" in
-<<<<<<< HEAD
-    --image)
-      IMAGE_NAME="$2"; shift 2;;
-    --runtime)
-      RUNTIME="$2"; shift 2;;
-=======
     --prefix)
       INSTALL_PATH="$2/bin"
       INSTALL_DIR="$2/lib/pf-runner"
       shift 2;;
     --skip-deps)
       SKIP_DEPS=1; shift;;
->>>>>>> main
     -h|--help)
       usage; exit 0;;
     *)
@@ -256,19 +156,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-<<<<<<< HEAD
-choose_runtime
-build_base_image
-build_image
-install_executable
-
-echo "[pf-install] Installation complete!"
-echo "[pf-install] The 'pf' command is now available in /usr/local/bin"
-echo "[pf-install] Run 'pf list' to verify the installation."
-echo ""
-echo "[pf-install] Note: Make sure you have the required Python dependencies:"
-echo "[pf-install]   pip3 install 'fabric>=3.2,<4' lark"
-=======
 log_info "pf-web-poly-compile-helper-runner installer"
 log_info "============================================"
 
@@ -276,6 +163,5 @@ check_python
 install_deps
 install_pf
 verify_install
->>>>>>> main
 
 exit 0

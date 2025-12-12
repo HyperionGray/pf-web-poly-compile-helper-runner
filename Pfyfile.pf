@@ -1,10 +1,6 @@
 # pf web plugin (minimal)
 
-<<<<<<< HEAD
-# Include smart integrated workflows - Round 1 of tightening integration
-=======
-# Include smart integrated workflows (NEW - combines tools intelligently)
->>>>>>> main
+# Include smart workflows for intelligent tool integration
 include Pfyfile.smart-workflows.pf
 
 # Include binary lifting tasks

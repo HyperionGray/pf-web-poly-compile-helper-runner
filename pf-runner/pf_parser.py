@@ -597,11 +597,7 @@ class Task:
         self.description: Optional[str] = None
         self.source_file = source_file  # Track which file this task came from
         self.params: Dict[str, str] = params or {}  # Default parameter values
-<<<<<<< HEAD
         self.aliases: List[str] = aliases or []  # Command aliases for this task
-=======
-        self.aliases: List[str] = aliases or []  # Short command aliases for this task
->>>>>>> main
 
     def add(self, line: str):
         self.lines.append(line)
@@ -1089,22 +1085,25 @@ def _exec_line_fabric(
     # Parse args once for other ops
     args = shlex.split(rest_of_line) if rest_of_line else []
 
-<<<<<<< HEAD
-    if op == "packages":
+    if verb == "packages":
         if len(args) < 2:
-            raise ValueError("packages install/remove <names...>")
+            raise PFSyntaxError(
+                message="packages requires an action and at least one package name",
+                command=line,
+                suggestion="Usage: packages install pkg1 pkg2"
+            )
         action, names = args[0], args[1:]
-        if action == "install":
-            return run(" ".join(["apt -y install"] + names))
-        if action == "remove":
-            return run(" ".join(["apt -y remove"] + names))
-        raise ValueError(f"Unknown packages action: {action}")
+        if action not in {"install", "remove"}:
+            raise PFSyntaxError(
+                message=f"Unknown packages action '{action}'",
+                command=line,
+                suggestion="Supported actions: install, remove"
+            )
+        apt_cmd = " ".join(["apt", "-y", action] + names)
+        return run(apt_cmd)
 
-    rc=<path> dest=<path> [host=<host>] [user=<user>] [port=<port>]
-=======
     if verb == "sync":
         # sync src=<path> dest=<path> [host=<host>] [user=<user>] [port=<port>]
->>>>>>> main
         #      [excludes=["pattern1","pattern2"]] [exclude_file=<path>]
         #      [delete] [dry] [verbose]
         # Supports both local and remote (SSH) sync using rsync
