@@ -73,10 +73,12 @@ task demo-command-injection
   shell cd demos/practice-binaries && ./demo_command_injection.sh
 end
 
-task demo-fuzzing
-  describe Run fuzzing techniques demonstration
+task demo-fuzzing-practice
+  describe Run fuzzing techniques demonstration (practice binaries)
   shell cd demos/practice-binaries && ./demo_fuzzing.sh
 end
+
+# NOTE: The more comprehensive 'demo-fuzzing' task is defined in Pfyfile.fuzzing.pf
 
 task demo-all-practice
   describe Run all practice binary demonstrations
@@ -84,7 +86,7 @@ task demo-all-practice
   shell cd demos/practice-binaries && ./demo_format_string.sh
   shell cd demos/practice-binaries && ./demo_uaf.sh
   shell cd demos/practice-binaries && ./demo_command_injection.sh
-  shell cd demos/practice-binaries && ./demo_fuzzing.sh
+  shell pf demo-fuzzing-practice
 end
 
 # Quick start task
