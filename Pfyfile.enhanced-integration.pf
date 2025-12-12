@@ -20,7 +20,7 @@ task smart-binary-complete
   # Always run basic security analysis
   shell echo ""
   shell echo "🛡️  Security Feature Analysis"
-  shell pf checksec-analyze binary="${binary}" || true
+  shell pf unified-checksec binary="${binary}" || true
   
   # ELF-specific analysis
   shell echo ""
@@ -109,7 +109,7 @@ task smart-exploit-chain
   # Phase 1: Vulnerability Discovery
   shell echo "🔍 Phase 1: Vulnerability Discovery"
   shell if [ -f "${target}" ]; then
-  shell   pf checksec-analyze binary="${target}" || true
+  shell   pf unified-checksec binary="${target}" || true
   shell   pf debug-analyze-binary binary="${target}" quick=true || true
   shell else
   shell   pf security-scan url="${target}" checks=sqli,xss,cmdi || true

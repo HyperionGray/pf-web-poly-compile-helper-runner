@@ -82,7 +82,7 @@ task autopwn
   
   # Phase 1: Basic Analysis
   shell echo "📋 Phase 1: Basic Analysis"
-  shell pf checksec-analyze binary="${binary}" || true
+  shell pf unified-checksec binary="${binary}" || true
   shell file "${binary}"
   shell echo ""
   

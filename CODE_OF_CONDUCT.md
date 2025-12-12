@@ -14,21 +14,12 @@ diverse, inclusive, and healthy community.
 
 ## Our Standards
 
-Examples of behavior that contributes to a positive environment include:
+Examples of behavior that contributes to a positive environment for our
+community include:
 
 * Demonstrating empathy and kindness toward other people
 * Being respectful of differing opinions, viewpoints, and experiences
 * Giving and gracefully accepting constructive feedback
-* Focusing on what is best for the overall community
-* Accepting responsibility and apologizing to those affected by our mistakes
-
-Examples of unacceptable behavior include:
-
-* The use of sexualized language or imagery
-* Trolling, insulting or derogatory comments, and personal or political attacks
-* Public or private harassment
-* Publishing others' private information without permission
-* Other conduct which could reasonably be considered inappropriate
 * Accepting responsibility and apologizing to those affected by our mistakes,
   and learning from the experience
 * Focusing on what is best not just for us as individuals, but for the overall
@@ -80,6 +71,7 @@ version 2.1.
 [homepage]: https://www.contributor-covenant.org
 reported to the community leaders responsible for enforcement via GitHub issues
 or pull requests.
+or by contacting the project maintainers directly.
 
 All complaints will be reviewed and investigated promptly and fairly.
 

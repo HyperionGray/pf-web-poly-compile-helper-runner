@@ -8,7 +8,7 @@
     "test": "tests"
   },
   "scripts": {
-    "build": "echo 'Build complete: pf-runner is a Python-based tool, no build step required for Node.js layer'",
+    "build": "pf web-build-all",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
