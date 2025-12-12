@@ -48,11 +48,11 @@ case "$action" in
 	;;
 "setup-venv")
 	echo "Setting up central python virtual environment..."
-	if [ ! -d "~/.venv" ]; then
-		~/.venv/bin/python -m venv ~/.venv
+	if [ ! -d "$HOME/.venv" ]; then
+		python3 -m venv "$HOME/.venv"
 	fi
-	~/.venv/bin/pip install --upgrade pip
-	echo "Virtual environment ready at ~/.venv"
+	"$HOME/.venv/bin/pip" install --upgrade pip
+	echo "Virtual environment ready at $HOME/.venv"
 	;;
 "help")
 	echo "Usage: $0 {update|upgrade|install-base|install-build-tools|setup-venv}"

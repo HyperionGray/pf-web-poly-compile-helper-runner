@@ -3,6 +3,10 @@
 
 set -e
 
+# Determine the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PF_PARSER="${SCRIPT_DIR}/pf_parser.py"
+
 echo "=== Testing Build Helper Verbs ==="
 echo
 
@@ -18,7 +22,7 @@ task test-detect
   build_detect
 end
 EOF
-python3 /home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/pf-runner/pf_parser.py test.pf test-detect
+python3 "${PF_PARSER}" test.pf test-detect
 echo "✓ Test 1 passed"
 echo
 
@@ -36,7 +40,7 @@ task build
   makefile all
 end
 EOF
-python3 /home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/pf-runner/pf_parser.py test.pf build
+python3 "${PF_PARSER}" test.pf build
 test -f hello || (echo "✗ Test 2 failed: hello binary not created"; exit 1)
 ./hello | grep -q "Hello Makefile" || (echo "✗ Test 2 failed: wrong output"; exit 1)
 echo "✓ Test 2 passed"
@@ -49,7 +53,7 @@ task test-llvm
   shell [lang:c-llvm] int main() { return 0; }
 end
 EOF
-python3 /home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/pf-runner/pf_parser.py test.pf test-llvm | grep -q "ModuleID" || (echo "✗ Test 3 failed: no LLVM IR output"; exit 1)
+python3 "${PF_PARSER}" test.pf test-llvm | grep -q "ModuleID" || (echo "✗ Test 3 failed: no LLVM IR output"; exit 1)
 echo "✓ Test 3 passed"
 echo
 
@@ -72,7 +76,7 @@ task build
   cmake . build_dir=build
 end
 EOF
-python3 /home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/pf-runner/pf_parser.py test.pf build
+python3 "${PF_PARSER}" test.pf build
 test -f build/hello_cmake || (echo "✗ Test 4 failed: cmake binary not created"; exit 1)
 ./build/hello_cmake | grep -q "Hello CMake" || (echo "✗ Test 4 failed: wrong output"; exit 1)
 echo "✓ Test 4 passed"

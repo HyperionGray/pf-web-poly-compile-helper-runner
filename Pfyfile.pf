@@ -1,5 +1,8 @@
 # pf web plugin (minimal)
 
+# Include smart integrated workflows (NEW - combines tools intelligently)
+include Pfyfile.smart-workflows.pf
+
 # Include binary lifting tasks
 include Pfyfile.lifting.pf
 
@@ -14,6 +17,9 @@ include Pfyfile.practice.pf
 
 # Include security testing tasks
 include Pfyfile.security.pf
+
+# Include fuzzing and sanitizer tasks
+include Pfyfile.fuzzing.pf
 
 # Include git cleanup tasks
 include Pfyfile.git-cleanup.pf
@@ -45,6 +51,21 @@ include Pfyfile.distro-switch.pf
 
 # Include PE execution and cross-platform binary execution tasks
 include Pfyfile.pe-execution.pf
+
+# Include PE container tasks
+include Pfyfile.pe-containers.pf
+
+# Include heap spray demonstration tasks
+include Pfyfile.heap-spray.pf
+
+# Include kernel debugging tasks
+include Pfyfile.kernel-debug.pf
+
+# Include web development and WASM build tasks
+include Pfyfile.web.pf
+
+# Include REST API management tasks
+include Pfyfile.rest-api.pf
 
 task web-dev
   describe Start development server with REST API support
@@ -171,18 +192,23 @@ task web-build-c-llvm-opt
 end
 
 task install-base
-  describe Build pf-runner container image and install pf wrapper
+  describe Install pf task runner directly to /usr/local/bin
   shell bash install.sh
 end
 
 task install-web
-  describe Build pf-runner container image and install pf wrapper for containerized web stack
+  describe Install pf task runner (alias for install)
   shell bash install.sh
 end
 
 task install
-  describe Build pf-runner container image and install pf wrapper
+  describe Install pf task runner directly to /usr/local/bin
   shell bash install.sh
+end
+
+task install-container
+  describe Build pf-runner container images (alternative to direct install)
+  shell bash install-container.sh
 end
 
 task install-full mode=container runtime=podman
@@ -207,7 +233,7 @@ task install-all
 end
 
 task install-all-min
-  describe Install wrapper and quadlets only (no image build)
+  describe Install pf and quadlets only (no image build)
   shell pf install
   shell pf quadlet-install
   shell pf quadlet-reload

@@ -331,34 +331,37 @@ end
 # Status and Help Tasks
 # ==========================================
 
-task os-status
-  describe Show status of OS container environments
-  shell_lang bash
-  shell |
-    echo "=== OS Container Images ==="
-    podman images | grep "pf-os-" || echo "No OS container images found"
-    
-    echo -e "\n=== OS Artifact Directories ==="
-    if [ -d "/opt/pf-os" ]; then
-        for os_dir in /opt/pf-os/*/; do
-            if [ -d "$os_dir" ]; then
-                os_name=$(basename "$os_dir")
-                bin_count=$(ls -1 "$os_dir/bin/" 2>/dev/null | wc -l)
-                lib_count=$(ls -1 "$os_dir/lib/" 2>/dev/null | wc -l)
-                echo "$os_name: $bin_count binaries, $lib_count libraries"
-            fi
-        done
-    else
-        echo "No artifact directories found (run: pf os-setup-volumes)"
-    fi
-    
-    echo -e "\n=== Current Environment ==="
-    if [ -n "${PF_CURRENT_OS:-}" ]; then
-        echo "Active OS: ${PF_CURRENT_OS}"
-    else
-        echo "No OS environment active"
-    fi
-end
+# NOTE: This task is commented out because it conflicts with os-status in Pfyfile.distro-switch.pf
+# The distro-switch.pf version is more comprehensive and handles both distros and OS switching
+#
+# task os-status
+#   describe Show status of OS container environments
+#   shell_lang bash
+#   shell |
+#     echo "=== OS Container Images ==="
+#     podman images | grep "pf-os-" || echo "No OS container images found"
+#     
+#     echo -e "\n=== OS Artifact Directories ==="
+#     if [ -d "/opt/pf-os" ]; then
+#         for os_dir in /opt/pf-os/*/; do
+#             if [ -d "$os_dir" ]; then
+#                 os_name=$(basename "$os_dir")
+#                 bin_count=$(ls -1 "$os_dir/bin/" 2>/dev/null | wc -l)
+#                 lib_count=$(ls -1 "$os_dir/lib/" 2>/dev/null | wc -l)
+#                 echo "$os_name: $bin_count binaries, $lib_count libraries"
+#             fi
+#         done
+#     else
+#         echo "No artifact directories found (run: pf os-setup-volumes)"
+#     fi
+#     
+#     echo -e "\n=== Current Environment ==="
+#     if [ -n "${PF_CURRENT_OS:-}" ]; then
+#         echo "Active OS: ${PF_CURRENT_OS}"
+#     else
+#         echo "No OS environment active"
+#     fi
+# end
 
 task os-help
   describe Show help for OS container commands

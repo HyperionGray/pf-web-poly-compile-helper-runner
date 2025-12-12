@@ -5,6 +5,9 @@ include ./Pfyfile.shells.pf
 include ./Pfyfile.build-helpers.pf
 include ./Pfyfile.tests.pf
 include ./Pfyfile.pasm.pf
+include ./Pfyfile.dev.pf
+include ./Pfyfile.builds.pf
+# Note: Pfyfile.web-demo.pf excluded to avoid duplicates with main Pfyfile.web.pf
 
 task default-task
   describe This is a task from the default Pfyfile.pf

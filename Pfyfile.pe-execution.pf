@@ -279,19 +279,24 @@ task vmkit-setup
   shell_lang bash
   shell |
     echo "[*] Setting up VMKit environment..."
-    echo "[!] This requires access to HyperionGray/HGWS/VMkit repository"
+    echo "[!] This requires VMKit to be installed or accessible"
     echo ""
     
-    # Check if VMKit is available
-    if [ -d "../HGWS/VMkit" ]; then
-        echo "[*] VMKit repository found at ../HGWS/VMkit"
-        cd ../HGWS/VMkit
+    # Check environment variable first, then common paths
+    VMKIT_PATH="${VMKIT_PATH:-}"
+    
+    if [ -n "$VMKIT_PATH" ] && [ -d "$VMKIT_PATH" ]; then
+        echo "[*] VMKit found at $VMKIT_PATH (via VMKIT_PATH)"
+        cd "$VMKIT_PATH"
         echo "[*] VMKit setup would be performed here"
         echo "[*] Use: vmkit create --all-the-passthru for maximum performance"
+    elif command -v vmkit >/dev/null 2>&1; then
+        echo "[*] VMKit is installed and available in PATH"
+        echo "[*] Use: vmkit create --all-the-passthru for maximum performance"
     else
-        echo "[!] VMKit repository not found"
-        echo "[!] Please clone HyperionGray/HGWS repository to ../HGWS/"
-        echo "[!] Or set VMKIT_PATH environment variable"
+        echo "[!] VMKit not found"
+        echo "[!] Set VMKIT_PATH environment variable to your VMKit installation"
+        echo "[!] Or install VMKit and ensure it's in your PATH"
     fi
 end
 

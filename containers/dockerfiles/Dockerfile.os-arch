@@ -1,6 +1,6 @@
 # Lightweight Arch Linux container for package management
 # Provides Arch environment with pacman package manager
-FROM archlinux:latest
+FROM docker.io/archlinux:latest
 
 LABEL maintainer="pf-runner"
 LABEL description="Lightweight Arch Linux container for package management"
