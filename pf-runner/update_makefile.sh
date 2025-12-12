@@ -3,7 +3,7 @@ cat > Makefile << EOL
 SHELL := /bin/bash
 
 # Central Python from the user's venv (per workspace conventions)
-PF_PY := /home/punk/.venv/bin/python
+PF_PY := ~/.venv/bin/python
 PF_SCRIPT := pf_parser.py
 PF_LINK := pf
 

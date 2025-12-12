@@ -1,0 +1,291 @@
+# Distro Container and OS Switching Tasks
+# Provides container-based multi-distro package management and OS switching
+
+# ==========================================
+# Distro Container Management Tasks
+# ==========================================
+
+task distro-install distro="" packages=""
+  describe Install packages from a specific distro container (fedora, centos, arch, opensuse)
+  shell_lang bash
+  shell node tools/distro-container-manager.mjs install "${distro}" ${packages}
+end
+
+task distro-install-fedora packages=""
+  describe Install packages from Fedora container
+  shell_lang bash
+  shell node tools/distro-container-manager.mjs install fedora ${packages}
+end
+
+task distro-install-centos packages=""
+  describe Install packages from CentOS/AlmaLinux container
+  shell_lang bash
+  shell node tools/distro-container-manager.mjs install centos ${packages}
+end
+
+task distro-install-arch packages=""
+  describe Install packages from Arch Linux container
+  shell_lang bash
+  shell node tools/distro-container-manager.mjs install arch ${packages}
+end
+
+task distro-install-opensuse packages=""
+  describe Install packages from openSUSE container
+  shell_lang bash
+  shell node tools/distro-container-manager.mjs install opensuse ${packages}
+end
+
+task distro-switch distro=""
+  describe Switch active distro for PATH (use in isolated view mode)
+  shell_lang bash
+  shell node tools/distro-container-manager.mjs switch ${distro:-}
+end
+
+task distro-view-unified
+  describe Enable unified view (all distro binaries in one directory)
+  shell_lang bash
+  shell node tools/distro-container-manager.mjs view unified
+end
+
+task distro-view-isolated
+  describe Enable isolated view (separate directories per distro)
+  shell_lang bash
+  shell node tools/distro-container-manager.mjs view isolated
+end
+
+task distro-status
+  describe Show status of all distro containers and installed packages
+  shell_lang bash
+  shell node tools/distro-container-manager.mjs status
+end
+
+task distro-build distro=""
+  describe Build distro container image(s)
+  shell_lang bash
+  shell if [ -n "${distro:-}" ]; then node tools/distro-container-manager.mjs build "${distro}"; else node tools/distro-container-manager.mjs build; fi
+end
+
+task distro-build-all
+  describe Build all distro container images
+  shell_lang bash
+  shell node tools/distro-container-manager.mjs build
+end
+
+task distro-init
+  describe Initialize distro artifact directories
+  shell_lang bash
+  shell node tools/distro-container-manager.mjs init
+end
+
+task distro-cleanup
+  describe Remove distro container images (keep artifacts)
+  shell_lang bash
+  shell node tools/distro-container-manager.mjs cleanup
+end
+
+task distro-cleanup-all
+  describe Remove distro container images and all artifacts
+  shell_lang bash
+  shell node tools/distro-container-manager.mjs cleanup --artifacts
+end
+
+# ==========================================
+# OS Switching Tasks
+# ==========================================
+
+task switch-os target="" partition="" dry_run=""
+  describe Switch to a different OS using containers and kexec
+  shell_lang bash
+  shell |
+    args="switch ${target}"
+    if [ -n "${partition:-}" ]; then args="$args --partition=${partition}"; fi
+    if [ "${dry_run:-}" = "true" ]; then args="$args --dry-run"; fi
+    sudo node tools/os-switcher.mjs $args
+end
+
+task switch-os-fedora partition="" dry_run=""
+  describe Switch to Fedora Linux
+  shell_lang bash
+  shell |
+    args="switch fedora"
+    if [ -n "${partition:-}" ]; then args="$args --partition=${partition}"; fi
+    if [ "${dry_run:-}" = "true" ]; then args="$args --dry-run"; fi
+    sudo node tools/os-switcher.mjs $args
+end
+
+task switch-os-arch partition="" dry_run=""
+  describe Switch to Arch Linux
+  shell_lang bash
+  shell |
+    args="switch arch"
+    if [ -n "${partition:-}" ]; then args="$args --partition=${partition}"; fi
+    if [ "${dry_run:-}" = "true" ]; then args="$args --dry-run"; fi
+    sudo node tools/os-switcher.mjs $args
+end
+
+task switch-os-ubuntu partition="" dry_run=""
+  describe Switch to Ubuntu Linux
+  shell_lang bash
+  shell |
+    args="switch ubuntu"
+    if [ -n "${partition:-}" ]; then args="$args --partition=${partition}"; fi
+    if [ "${dry_run:-}" = "true" ]; then args="$args --dry-run"; fi
+    sudo node tools/os-switcher.mjs $args
+end
+
+task switch-os-debian partition="" dry_run=""
+  describe Switch to Debian Linux
+  shell_lang bash
+  shell |
+    args="switch debian"
+    if [ -n "${partition:-}" ]; then args="$args --partition=${partition}"; fi
+    if [ "${dry_run:-}" = "true" ]; then args="$args --dry-run"; fi
+    sudo node tools/os-switcher.mjs $args
+end
+
+task os-snapshot name=""
+  describe Create a snapshot of current OS for recovery
+  shell_lang bash
+  shell sudo node tools/os-switcher.mjs snapshot ${name:-}
+end
+
+task os-snapshots
+  describe List available OS snapshots
+  shell_lang bash
+  shell node tools/os-switcher.mjs snapshots
+end
+
+task os-status
+  describe Show OS switching status (current OS, snapshot method, kexec support)
+  shell_lang bash
+  shell node tools/os-switcher.mjs status
+end
+
+task os-prepare target=""
+  describe Prepare target OS container without switching
+  shell_lang bash
+  shell sudo node tools/os-switcher.mjs prepare ${target}
+end
+
+task install-kexec
+  describe Install kexec-tools for rebootless kernel switching
+  shell_lang bash
+  shell |
+    if command -v apt-get &>/dev/null; then
+      sudo apt-get install -y kexec-tools
+    elif command -v dnf &>/dev/null; then
+      sudo dnf install -y kexec-tools
+    elif command -v pacman &>/dev/null; then
+      sudo pacman -S --noconfirm kexec-tools
+    elif command -v zypper &>/dev/null; then
+      sudo zypper install -y kexec-tools
+    else
+      echo "Unknown package manager. Please install kexec-tools manually."
+    fi
+end
+
+# ==========================================
+# Help Tasks
+# ==========================================
+
+task distro-help
+  describe Show help for distro container management
+  shell_lang bash
+  shell cat << 'EOF'
+
+Distro Container Management
+============================
+
+OVERVIEW:
+  Use lightweight containers for CentOS, Fedora, Arch, and openSUSE
+  to install and manage packages from different distributions.
+  Binaries are extracted to ~/.pf/distros for host access.
+
+INSTALL PACKAGES:
+  pf distro-install distro=fedora packages="vim htop"
+  pf distro-install-fedora packages="vim htop"
+  pf distro-install-centos packages="nginx"
+  pf distro-install-arch packages="neovim tree"
+  pf distro-install-opensuse packages="gcc make"
+
+VIEW MODES:
+  pf distro-view-unified    # All distro binaries in one directory
+  pf distro-view-isolated   # Separate directories per distro
+
+SWITCH DISTRO (isolated mode):
+  pf distro-switch distro=fedora
+  pf distro-switch distro=arch
+
+STATUS & MANAGEMENT:
+  pf distro-status          # Show installed packages and status
+  pf distro-build-all       # Build all distro images
+  pf distro-cleanup         # Remove images (keep artifacts)
+  pf distro-cleanup-all     # Remove images and artifacts
+
+PATH SETUP:
+  Add to your shell profile:
+  
+  # For unified view:
+  export PATH="$HOME/.pf/distros/unified/bin:$PATH"
+  
+  # For specific distro:
+  export PATH="$HOME/.pf/distros/fedora/bin:$PATH"
+
+EOF
+end
+
+task switch-os-help
+  describe Show help for OS switching functionality
+  shell_lang bash
+  shell cat << 'EOF'
+
+OS Switching (pf switch-os)
+============================
+
+OVERVIEW:
+  Switch between different Linux distributions using containers
+  and kexec for rebootless kernel switching.
+
+  ⚠️  CAUTION: This modifies your system at a low level.
+  Always have backups and test with dry_run=true first!
+
+SWITCH OS:
+  pf switch-os target=fedora partition=/dev/sda3
+  pf switch-os target=arch dry_run=true
+  pf switch-os-fedora partition=/dev/sda3
+  pf switch-os-ubuntu dry_run=true
+
+SNAPSHOTS:
+  pf os-snapshot name=before-upgrade  # Create named snapshot
+  pf os-snapshot                      # Create timestamped snapshot
+  pf os-snapshots                     # List all snapshots
+
+STATUS:
+  pf os-status                        # Show current OS and capabilities
+
+PREPARE (without switching):
+  pf os-prepare target=fedora         # Download and prepare container
+
+INSTALL KEXEC:
+  pf install-kexec                    # Install kexec-tools
+
+SUPPORTED TARGET OS:
+  - fedora  (Fedora Linux 40)
+  - arch    (Arch Linux latest)
+  - ubuntu  (Ubuntu 24.04 LTS)
+  - debian  (Debian Bookworm)
+
+SNAPSHOT METHODS (auto-detected):
+  - btrfs   (fastest, requires btrfs root)
+  - zfs     (fast, requires zfs)
+  - rsync   (slowest, always available)
+
+PROCESS:
+  1. Creates backup snapshot of current OS
+  2. Downloads and prepares target OS container
+  3. Syncs filesystem to target partition (if specified)
+  4. Loads new kernel with kexec
+  5. Execute "sudo kexec -e" to complete switch
+
+EOF
+end

@@ -1,0 +1,248 @@
+#!/usr/bin/env bash
+# build-containers.sh - Build all container images for pf-web-poly-compile-helper-runner
+#
+# Usage:
+#   ./containers/scripts/build-containers.sh           # Build all containers
+#   ./containers/scripts/build-containers.sh base      # Build only base image
+#   ./containers/scripts/build-containers.sh api       # Build API services
+#   ./containers/scripts/build-containers.sh build     # Build builder images
+#   ./containers/scripts/build-containers.sh debug     # Build debugger images
+#   ./containers/scripts/build-containers.sh --help    # Show help
+
+set -euo pipefail
+
+# Color output helpers
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
+
+# Get script directory and project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+DOCKERFILE_DIR="${PROJECT_ROOT}/containers/dockerfiles"
+
+# Container runtime (podman preferred, docker as fallback)
+CONTAINER_RT="${CONTAINER_RT:-podman}"
+if ! command -v "${CONTAINER_RT}" &> /dev/null; then
+    if command -v docker &> /dev/null; then
+        CONTAINER_RT="docker"
+        log_warn "podman not found, using docker instead"
+    else
+        log_error "Neither podman nor docker found. Please install one of them."
+        exit 1
+    fi
+fi
+
+show_help() {
+    cat <<EOF
+Build Container Images for pf-web-poly-compile-helper-runner
+============================================================
+
+USAGE:
+    ./containers/scripts/build-containers.sh [OPTIONS] [TARGET]
+
+TARGETS:
+    all       Build all container images (default)
+    base      Build only the base Ubuntu 24.04 image
+    api       Build API server and pf-runner images
+    build     Build compilation images (Rust, C, Fortran)
+    debug     Build debugger images (standard and GPU)
+    os        Build OS distribution containers (CentOS, Fedora, Arch, openSUSE, macOS-like)
+    pe        Build PE execution containers
+    pe        Build PE execution containers (VMKit, Windows Server Core, ReactOS, macOS QEMU)
+
+OPTIONS:
+    --no-cache    Build without using cache
+    --push        Push images to registry after building
+    --help        Show this help message
+
+EXAMPLES:
+    # Build all images
+    ./containers/scripts/build-containers.sh
+
+    # Build only base and API images
+    ./containers/scripts/build-containers.sh base api
+
+    # Build without cache
+    ./containers/scripts/build-containers.sh --no-cache all
+
+ENVIRONMENT:
+    CONTAINER_RT    Container runtime to use (default: podman, fallback: docker)
+    REGISTRY        Registry to push to (default: localhost)
+
+EOF
+}
+
+build_image() {
+    local name="$1"
+    local dockerfile="$2"
+    local tag="${3:-latest}"
+    local extra_args="${4:-}"
+    
+    local full_tag="localhost/pf-${name}:${tag}"
+    
+    log_info "Building ${full_tag}..."
+    
+    if ${CONTAINER_RT} build ${CACHE_ARG:-} ${extra_args} \
+        -t "${full_tag}" \
+        -f "${DOCKERFILE_DIR}/${dockerfile}" \
+        "${PROJECT_ROOT}"; then
+        log_success "Built ${full_tag}"
+        return 0
+    else
+        log_error "Failed to build ${full_tag}"
+        return 1
+    fi
+}
+
+build_base() {
+    log_info "=== Building Base Image ==="
+    build_image "base" "Dockerfile.base"
+}
+
+build_api() {
+    log_info "=== Building API Images ==="
+    build_image "runner" "Dockerfile.pf-runner"
+    build_image "api-server" "Dockerfile.api-server"
+}
+
+build_builders() {
+    log_info "=== Building Compilation Images ==="
+    build_image "build-rust" "Dockerfile.build-rust"
+    build_image "build-c" "Dockerfile.build-c"
+    build_image "build-fortran" "Dockerfile.build-fortran"
+}
+
+build_debugger() {
+    log_info "=== Building Debugger Images ==="
+    build_image "debugger" "Dockerfile.debugger"
+    build_image "debugger-gpu" "Dockerfile.debugger-gpu"
+}
+
+build_os_containers() {
+    log_info "=== Building OS Distribution Containers ==="
+    build_image "os-centos" "Dockerfile.os-centos"
+    build_image "os-fedora" "Dockerfile.os-fedora"
+    build_image "os-arch" "Dockerfile.os-arch"
+    build_image "os-opensuse" "Dockerfile.os-opensuse"
+    build_image "os-macos-like" "Dockerfile.os-macos-like"
+}
+
+build_pe_containers() {
+    log_info "=== Building PE Execution Containers ==="
+    build_image "pe-vmkit" "Dockerfile.pe-vmkit"
+    build_image "pe-reactos" "Dockerfile.pe-reactos"
+    build_image "macos-qemu" "Dockerfile.macos-qemu"
+    log_info "Building Windows Server Core PE execution container..."
+    build_image "pe-windows-server" "Dockerfile.pe-windows-server"
+    
+    log_info "Building ReactOS PE execution container..."
+    build_image "pe-reactos" "Dockerfile.pe-reactos"
+    
+    log_info "Building macOS QEMU virtualization container..."
+    build_image "macos-qemu" "Dockerfile.os-macos-qemu"
+    
+    log_warn "PE execution containers require:"
+    log_warn "  - KVM support for hardware acceleration"
+    log_warn "  - Sufficient RAM (2GB+ for Windows, 8GB+ for macOS)"
+    log_warn "  - Proper licensing for Windows Server Core"
+    log_warn "  - Apple Software License Agreement compliance for macOS"
+}
+
+build_all() {
+    build_base
+    build_api
+    build_builders
+    build_debugger
+    build_os_containers
+    build_pe_containers
+}
+
+# Main script
+main() {
+    cd "${PROJECT_ROOT}"
+    
+    # Parse arguments
+    CACHE_ARG=""
+    PUSH_IMAGES=false
+    TARGETS=()
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --no-cache)
+                CACHE_ARG="--no-cache"
+                shift
+                ;;
+            --push)
+                PUSH_IMAGES=true
+                shift
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            all|base|api|build|debug|os|pe)
+                TARGETS+=("$1")
+                shift
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+    
+    # Default to all if no targets specified
+    if [[ ${#TARGETS[@]} -eq 0 ]]; then
+        TARGETS=("all")
+    fi
+    
+    log_info "Using container runtime: ${CONTAINER_RT}"
+    log_info "Project root: ${PROJECT_ROOT}"
+    
+    # Build requested targets
+    for target in "${TARGETS[@]}"; do
+        case "$target" in
+            all)
+                build_all
+                ;;
+            base)
+                build_base
+                ;;
+            api)
+                build_base
+                build_api
+                ;;
+            build)
+                build_base
+                build_builders
+                ;;
+            debug)
+                build_base
+                build_debugger
+                ;;
+            os)
+                build_os_containers
+                ;;
+            pe)
+                build_pe_containers
+                ;;
+        esac
+    done
+    
+    log_success "All requested images built successfully!"
+    
+    # List built images
+    log_info "Built images:"
+    ${CONTAINER_RT} images | grep "pf-" | head -20
+}
+
+main "$@"

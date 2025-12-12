@@ -1,0 +1,318 @@
+# PE Container Execution Tasks
+# Containers for running Windows Portable Executables (PEs) and macOS apps
+# Uses VMKit, ReactOS, and QEMU-based containers for native execution
+
+# ==========================================
+# PE Container Build Tasks
+# ==========================================
+
+
+task pe-build-vmkit
+  describe Build VMKit container for PE execution with full passthrough
+  shell_lang bash
+  shell podman build -t localhost/pf-pe-vmkit:latest -f containers/dockerfiles/Dockerfile.pe-vmkit .
+end
+
+
+task pe-build-macos
+  describe Build macOS QEMU container
+  shell_lang bash
+  shell podman build -t localhost/pf-macos-qemu:latest -f containers/dockerfiles/Dockerfile.macos-qemu .
+end
+
+# ==========================================
+# VMKit PE Execution Tasks
+# ==========================================
+
+task pe-vmkit-setup
+  describe Set up VMKit environment with VM images
+  shell_lang bash
+  shell |
+    echo "Setting up VMKit environment..."
+    podman run --rm -it \
+      -v ${PWD}/vmkit-images:/vmkit/images \
+      localhost/pf-pe-vmkit:latest \
+      vmkit-create.sh --all-the-passthru
+end
+
+task pe-vmkit-run pe=""
+  describe Run PE file in VMKit lightweight VM
+  shell_lang bash
+  shell |
+    if [ -z "${pe}" ]; then
+      echo "Usage: pf pe-vmkit-run pe=/path/to/file.exe"
+      exit 1
+    fi
+    
+    PE_DIR=$(dirname "${pe}")
+    PE_FILE=$(basename "${pe}")
+    
+    podman run --rm -it \
+      --device /dev/kvm \
+      -v ${PWD}/vmkit-images:/vmkit/images \
+      -v ${PE_DIR}:/vmkit/pe-input \
+      -v ${PWD}/pe-output:/vmkit/pe-output \
+      localhost/pf-pe-vmkit:latest \
+      vmkit-run.sh "/vmkit/pe-input/${PE_FILE}"
+end
+
+task pe-vmkit-analyze pe=""
+  describe Analyze PE file before execution
+  shell_lang bash
+  shell |
+    if [ -z "${pe}" ]; then
+      echo "Usage: pf pe-vmkit-analyze pe=/path/to/file.exe"
+      exit 1
+    fi
+    
+    PE_DIR=$(dirname "${pe}")
+    PE_FILE=$(basename "${pe}")
+    
+    podman run --rm -it \
+      -v ${PE_DIR}:/vmkit/pe-input \
+      localhost/pf-pe-vmkit:latest \
+      pf-analyze-pe.sh "/vmkit/pe-input/${PE_FILE}"
+end
+
+task pe-vmkit-shell
+  describe Open shell in VMKit container
+  shell_lang bash
+  shell |
+    podman run --rm -it \
+      --device /dev/kvm \
+      -v ${PWD}/vmkit-images:/vmkit/images \
+      localhost/pf-pe-vmkit:latest \
+      /bin/bash
+end
+
+# ==========================================
+# ReactOS PE Execution Tasks
+# ==========================================
+
+task pe-reactos-setup
+  describe Download and set up ReactOS for PE execution
+  shell_lang bash
+  shell |
+    echo "Setting up ReactOS..."
+    mkdir -p reactos-images
+    podman run --rm -it \
+      -v ${PWD}/reactos-images:/reactos/images \
+      localhost/pf-pe-reactos:latest \
+      setup-reactos.sh
+end
+
+task pe-reactos-run pe=""
+  describe Run PE file in ReactOS VM
+  shell_lang bash
+  shell |
+    if [ -z "${pe}" ]; then
+      echo "Usage: pf pe-reactos-run pe=/path/to/file.exe"
+      exit 1
+    fi
+    
+    PE_DIR=$(dirname "${pe}")
+    PE_FILE=$(basename "${pe}")
+    
+    podman run --rm -it \
+      --device /dev/kvm \
+      -v ${PWD}/reactos-images:/reactos/images \
+      -v ${PE_DIR}:/reactos/pe-input \
+      -v ${PWD}/pe-output:/reactos/pe-output \
+      localhost/pf-pe-reactos:latest \
+      run-pe.sh "/reactos/pe-input/${PE_FILE}"
+end
+
+task pe-reactos-analyze pe=""
+  describe Analyze PE file using ReactOS container
+  shell_lang bash
+  shell |
+    if [ -z "${pe}" ]; then
+      echo "Usage: pf pe-reactos-analyze pe=/path/to/file.exe"
+      exit 1
+    fi
+    
+    PE_DIR=$(dirname "${pe}")
+    PE_FILE=$(basename "${pe}")
+    
+    podman run --rm -it \
+      -v ${PE_DIR}:/reactos/pe-input \
+      localhost/pf-pe-reactos:latest \
+      analyze-pe.sh "/reactos/pe-input/${PE_FILE}"
+end
+
+task pe-reactos-shell
+  describe Open shell in ReactOS container
+  shell_lang bash
+  shell |
+    podman run --rm -it \
+      --device /dev/kvm \
+      -v ${PWD}/reactos-images:/reactos/images \
+      localhost/pf-pe-reactos:latest \
+      /bin/bash
+end
+
+# ==========================================
+# macOS QEMU Execution Tasks
+# ==========================================
+
+task macos-setup
+  describe Create macOS disk image and prepare environment
+  shell_lang bash
+  shell |
+    echo "Setting up macOS QEMU environment..."
+    mkdir -p macos-images
+    podman run --rm -it \
+      -v ${PWD}/macos-images:/macos/images \
+      localhost/pf-macos-qemu:latest \
+      create-macos-image.sh 64G
+    echo ""
+    echo "Disk image created. See container help for next steps."
+end
+
+task macos-run
+  describe Start macOS VM
+  shell_lang bash
+  shell |
+    echo "Starting macOS VM..."
+    podman run --rm -it \
+      --device /dev/kvm \
+      -v ${PWD}/macos-images:/macos/images \
+      -p 5901:5901 \
+      -p 10022:10022 \
+      localhost/pf-macos-qemu:latest \
+      run-macos.sh
+end
+
+task macos-run-headless
+  describe Start macOS VM in headless mode
+  shell_lang bash
+  shell |
+    echo "Starting macOS VM (headless)..."
+    podman run -d --rm \
+      --name pf-macos-vm \
+      --device /dev/kvm \
+      -v ${PWD}/macos-images:/macos/images \
+      -p 5901:5901 \
+      -p 10022:10022 \
+      localhost/pf-macos-qemu:latest \
+      run-macos.sh
+    echo ""
+    echo "macOS VM started in background"
+    echo "VNC: localhost:5901"
+    echo "SSH: localhost:10022"
+    echo ""
+    echo "Stop with: podman stop pf-macos-vm"
+end
+
+task macos-stop
+  describe Stop running macOS VM
+  shell_lang bash
+  shell |
+    podman stop pf-macos-vm 2>/dev/null || echo "No macOS VM running"
+end
+
+task macos-run-app app=""
+  describe Run application in running macOS VM
+  shell_lang bash
+  shell |
+    if [ -z "${app}" ]; then
+      echo "Usage: pf macos-run-app app=/path/to/app"
+      exit 1
+    fi
+    
+    APP_DIR=$(dirname "${app}")
+    APP_FILE=$(basename "${app}")
+    
+    podman run --rm -it \
+      -v ${APP_DIR}:/macos/input \
+      --network host \
+      localhost/pf-macos-qemu:latest \
+      run-macos-app.sh "/macos/input/${APP_FILE}"
+end
+
+task macos-shell
+  describe Open shell in macOS container
+  shell_lang bash
+  shell |
+    podman run --rm -it \
+      -v ${PWD}/macos-images:/macos/images \
+      localhost/pf-macos-qemu:latest \
+      /bin/bash
+end
+
+# ==========================================
+# Combined Workflows
+# ==========================================
+
+task pe-setup-all
+  describe Set up all PE execution environments
+  shell_lang bash
+  shell |
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "║         Setting up PE Execution Environments               ║"
+    echo "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+    SETUP_ERRORS=0
+    
+    echo "[1/4] Building containers..."
+    pf pe-build-all
+    echo ""
+    
+    echo "[2/4] Setting up VMKit..."
+    if ! pf pe-vmkit-setup; then
+      echo "  ⚠ VMKit setup failed or was skipped"
+      SETUP_ERRORS=$((SETUP_ERRORS + 1))
+    fi
+    echo ""
+    
+    echo "[3/4] Setting up ReactOS..."
+    if ! pf pe-reactos-setup; then
+      echo "  ⚠ ReactOS setup failed or was skipped"
+      SETUP_ERRORS=$((SETUP_ERRORS + 1))
+    fi
+    echo ""
+    
+    echo "[4/4] Setting up macOS..."
+    if ! pf macos-setup; then
+      echo "  ⚠ macOS setup failed or was skipped"
+      SETUP_ERRORS=$((SETUP_ERRORS + 1))
+    fi
+    echo ""
+    
+    if [ $SETUP_ERRORS -gt 0 ]; then
+      echo "Setup completed with $SETUP_ERRORS warning(s)"
+    else
+      echo "Setup complete - all environments ready!"
+    fi
+end
+
+task pe-analyze-and-run pe="" env="reactos"
+  describe Analyze PE file and run in specified environment
+  shell_lang bash
+  shell |
+    if [ -z "${pe}" ]; then
+      echo "Usage: pf pe-analyze-and-run pe=/path/to/file.exe env=<reactos|vmkit>"
+      exit 1
+    fi
+    
+    echo "=== Analyzing PE file ==="
+    pf pe-reactos-analyze pe="${pe}"
+    
+    echo ""
+    echo "=== Running PE file in ${env} ==="
+    
+    case "${env}" in
+      vmkit)
+        pf pe-vmkit-run pe="${pe}"
+        ;;
+      reactos|*)
+        pf pe-reactos-run pe="${pe}"
+        ;;
+    esac
+end
+
+# ==========================================
+# Status and Help Tasks
+# ==========================================
+
+

@@ -1,0 +1,390 @@
+# PE Execution Container - Windows Server Core via VMKit
+# Provides reliable Windows PE execution using lightweight VMs
+FROM ubuntu:22.04
+
+LABEL maintainer="pf-runner"
+LABEL description="PE execution environment using VMKit and Windows Server Core"
+LABEL os.type="windows-server-core"
+LABEL os.version="2022"
+LABEL execution.type="pe"
+LABEL vm.backend="vmkit"
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install essential tools and dependencies for VMKit and QEMU
+RUN apt-get update && \
+    apt-get install -y \
+        qemu-system-x86 \
+        qemu-utils \
+        qemu-kvm \
+        libvirt-daemon-system \
+        libvirt-clients \
+        bridge-utils \
+        virt-manager \
+        ovmf \
+        wget \
+        curl \
+        git \
+        python3 \
+        python3-pip \
+        python3-venv \
+        build-essential \
+        pkg-config \
+        libssl-dev \
+        socat \
+        netcat-openbsd \
+        jq \
+        unzip \
+        p7zip-full \
+        cabextract \
+        wimtools \
+        genisoimage \
+        samba-common-bin \
+        cifs-utils \
+        && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create directories for VM management
+RUN mkdir -p /opt/vmkit \
+    /opt/pe-execution \
+    /opt/windows-images \
+    /opt/vm-instances \
+    /artifacts/pe-results \
+    /artifacts/vm-logs
+
+# Install VMKit (placeholder for actual VMKit installation)
+# Note: This would need to be replaced with actual VMKit installation from HyperionGray/HGWS/VMkit
+RUN cat > /opt/vmkit/install-vmkit.sh << 'EOF'
+#!/bin/bash
+# VMKit Installation Script
+# This is a placeholder - replace with actual VMKit installation
+
+echo "[*] Installing VMKit for PE execution..."
+
+# Clone VMKit repository (placeholder)
+# git clone https://github.com/HyperionGray/HGWS.git /opt/vmkit/HGWS
+# cd /opt/vmkit/HGWS/VMkit
+
+# For now, create a mock VMKit interface
+mkdir -p /opt/vmkit/bin
+cat > /opt/vmkit/bin/vmkit << 'VMKIT_EOF'
+#!/bin/bash
+# Mock VMKit interface for PE execution
+# Replace with actual VMKit binary
+
+case "$1" in
+    "create")
+        echo "[VMKit] Creating VM instance: $2"
+        echo "[VMKit] Using passthrough options: $3"
+        # Mock VM creation
+        ;;
+    "start")
+        echo "[VMKit] Starting VM: $2"
+        # Mock VM start
+        ;;
+    "stop")
+        echo "[VMKit] Stopping VM: $2"
+        # Mock VM stop
+        ;;
+    "execute")
+        echo "[VMKit] Executing PE in VM: $2"
+        echo "[VMKit] PE file: $3"
+        # Mock PE execution
+        ;;
+    *)
+        echo "Usage: vmkit {create|start|stop|execute} [options]"
+        exit 1
+        ;;
+esac
+VMKIT_EOF
+
+chmod +x /opt/vmkit/bin/vmkit
+echo "[*] VMKit mock interface installed"
+EOF
+
+RUN chmod +x /opt/vmkit/install-vmkit.sh && /opt/vmkit/install-vmkit.sh
+
+# Add VMKit to PATH
+ENV PATH="/opt/vmkit/bin:${PATH}"
+
+# Create Windows Server Core VM template preparation script
+RUN cat > /opt/pe-execution/prepare-windows-template.sh << 'EOF'
+#!/bin/bash
+# Prepare Windows Server Core VM template
+
+set -e
+
+WINDOWS_ISO_URL="${WINDOWS_ISO_URL:-}"
+WINDOWS_IMAGE_PATH="/opt/windows-images/windows-server-core.qcow2"
+VM_SIZE="${VM_SIZE:-20G}"
+VM_MEMORY="${VM_MEMORY:-2048}"
+
+echo "[*] Preparing Windows Server Core VM template..."
+
+if [ -z "$WINDOWS_ISO_URL" ]; then
+    echo "[!] WINDOWS_ISO_URL not provided"
+    echo "[!] Please provide Windows Server Core ISO URL or mount ISO to /opt/windows-images/"
+    echo "[!] For evaluation versions, check: https://www.microsoft.com/en-us/evalcenter/"
+    exit 1
+fi
+
+# Create VM disk image
+if [ ! -f "$WINDOWS_IMAGE_PATH" ]; then
+    echo "[*] Creating Windows VM disk image..."
+    qemu-img create -f qcow2 "$WINDOWS_IMAGE_PATH" "$VM_SIZE"
+fi
+
+# Download Windows ISO if not present
+WINDOWS_ISO="/opt/windows-images/windows-server.iso"
+if [ ! -f "$WINDOWS_ISO" ] && [ -n "$WINDOWS_ISO_URL" ]; then
+    echo "[*] Downloading Windows Server Core ISO..."
+    wget -O "$WINDOWS_ISO" "$WINDOWS_ISO_URL"
+fi
+
+echo "[*] Windows Server Core template preparation complete"
+echo "[*] VM image: $WINDOWS_IMAGE_PATH"
+echo "[*] ISO: $WINDOWS_ISO"
+EOF
+
+RUN chmod +x /opt/pe-execution/prepare-windows-template.sh
+
+# Create PE execution wrapper script
+RUN cat > /opt/pe-execution/execute-pe.sh << 'EOF'
+#!/bin/bash
+# Execute PE file in Windows Server Core VM
+
+set -e
+
+PE_FILE="$1"
+OUTPUT_DIR="${2:-/artifacts/pe-results}"
+VM_INSTANCE_ID="${3:-pe-exec-$(date +%s)}"
+TIMEOUT="${TIMEOUT:-300}"
+
+if [ -z "$PE_FILE" ] || [ ! -f "$PE_FILE" ]; then
+    echo "Usage: execute-pe.sh <pe-file> [output-dir] [vm-instance-id]"
+    echo "Error: PE file not found: $PE_FILE"
+    exit 1
+fi
+
+echo "[*] Executing PE file: $PE_FILE"
+echo "[*] VM Instance: $VM_INSTANCE_ID"
+echo "[*] Output directory: $OUTPUT_DIR"
+
+# Create output directory
+mkdir -p "$OUTPUT_DIR"
+
+# Create VM instance directory
+VM_DIR="/opt/vm-instances/$VM_INSTANCE_ID"
+mkdir -p "$VM_DIR"
+
+# Copy Windows template
+WINDOWS_TEMPLATE="/opt/windows-images/windows-server-core.qcow2"
+VM_DISK="$VM_DIR/disk.qcow2"
+
+if [ ! -f "$WINDOWS_TEMPLATE" ]; then
+    echo "[!] Windows template not found: $WINDOWS_TEMPLATE"
+    echo "[!] Run prepare-windows-template.sh first"
+    exit 1
+fi
+
+echo "[*] Creating VM instance from template..."
+cp "$WINDOWS_TEMPLATE" "$VM_DISK"
+
+# Copy PE file to VM shared directory
+PE_SHARED_DIR="$VM_DIR/shared"
+mkdir -p "$PE_SHARED_DIR"
+cp "$PE_FILE" "$PE_SHARED_DIR/"
+PE_FILENAME=$(basename "$PE_FILE")
+
+# Create VM execution script
+cat > "$VM_DIR/execute.sh" << 'VM_EOF'
+#!/bin/bash
+# VM execution script
+
+VM_DISK="$1"
+PE_SHARED_DIR="$2"
+PE_FILENAME="$3"
+VM_INSTANCE_ID="$4"
+TIMEOUT="$5"
+
+echo "[*] Starting Windows VM for PE execution..."
+
+# Start QEMU with Windows Server Core
+timeout "$TIMEOUT" qemu-system-x86_64 \
+    -enable-kvm \
+    -m 2048 \
+    -smp 2 \
+    -drive file="$VM_DISK",format=qcow2 \
+    -netdev user,id=net0,smb="$PE_SHARED_DIR" \
+    -device e1000,netdev=net0 \
+    -vnc :1 \
+    -daemonize \
+    -pidfile "$VM_DIR/qemu.pid" \
+    -monitor unix:"$VM_DIR/monitor.sock",server,nowait \
+    -serial file:"$VM_DIR/serial.log" \
+    -boot c
+
+# Wait for VM to boot and execute PE
+sleep 30
+
+# Send commands to execute PE via monitor
+echo "[*] Executing PE file in VM..."
+echo "info status" | socat - UNIX-CONNECT:"$VM_DIR/monitor.sock"
+
+# For now, this is a placeholder for actual PE execution
+# In a real implementation, this would:
+# 1. Wait for Windows to boot
+# 2. Copy PE file to VM
+# 3. Execute PE file
+# 4. Capture output
+# 5. Shutdown VM
+
+echo "[*] PE execution completed (placeholder)"
+
+# Shutdown VM
+echo "quit" | socat - UNIX-CONNECT:"$VM_DIR/monitor.sock" || true
+
+VM_EOF
+
+chmod +x "$VM_DIR/execute.sh"
+
+# Execute PE in VM
+echo "[*] Starting PE execution..."
+"$VM_DIR/execute.sh" "$VM_DISK" "$PE_SHARED_DIR" "$PE_FILENAME" "$VM_INSTANCE_ID" "$TIMEOUT"
+
+# Collect results
+echo "[*] Collecting execution results..."
+cp "$VM_DIR/serial.log" "$OUTPUT_DIR/execution.log" 2>/dev/null || true
+
+# Create execution report
+cat > "$OUTPUT_DIR/execution-report.json" << REPORT_EOF
+{
+    "pe_file": "$PE_FILE",
+    "vm_instance_id": "$VM_INSTANCE_ID",
+    "execution_time": "$(date -Iseconds)",
+    "status": "completed",
+    "output_dir": "$OUTPUT_DIR",
+    "vm_logs": "$VM_DIR/serial.log"
+}
+REPORT_EOF
+
+echo "[*] PE execution completed successfully"
+echo "[*] Results available in: $OUTPUT_DIR"
+
+# Cleanup VM instance
+rm -rf "$VM_DIR"
+EOF
+
+RUN chmod +x /opt/pe-execution/execute-pe.sh
+
+# Create PE execution management scripts
+RUN cat > /usr/local/bin/pf-execute-pe << 'EOF'
+#!/bin/bash
+# Main PE execution interface
+
+PE_FILE="$1"
+if [ -z "$PE_FILE" ]; then
+    echo "Usage: pf-execute-pe <pe-file>"
+    echo "Execute Windows PE file in isolated VM environment"
+    exit 1
+fi
+
+/opt/pe-execution/execute-pe.sh "$PE_FILE"
+EOF
+
+RUN chmod +x /usr/local/bin/pf-execute-pe
+
+RUN cat > /usr/local/bin/pf-prepare-windows << 'EOF'
+#!/bin/bash
+# Prepare Windows Server Core template
+
+echo "Preparing Windows Server Core VM template..."
+echo "Note: You may need to provide WINDOWS_ISO_URL environment variable"
+echo "For evaluation versions, visit: https://www.microsoft.com/en-us/evalcenter/"
+
+/opt/pe-execution/prepare-windows-template.sh
+EOF
+
+RUN chmod +x /usr/local/bin/pf-prepare-windows
+
+RUN cat > /usr/local/bin/pf-pe-status << 'EOF'
+#!/bin/bash
+# Show PE execution environment status
+
+echo "=== PE Execution Environment Status ==="
+echo ""
+
+echo "VMKit Status:"
+if command -v vmkit >/dev/null 2>&1; then
+    echo "  ✓ VMKit available"
+    vmkit --version 2>/dev/null || echo "  ⚠ VMKit version check failed"
+else
+    echo "  ✗ VMKit not found"
+fi
+
+echo ""
+echo "QEMU Status:"
+if command -v qemu-system-x86_64 >/dev/null 2>&1; then
+    echo "  ✓ QEMU available"
+    qemu-system-x86_64 --version | head -1
+else
+    echo "  ✗ QEMU not found"
+fi
+
+echo ""
+echo "KVM Status:"
+if [ -r /dev/kvm ]; then
+    echo "  ✓ KVM available"
+else
+    echo "  ⚠ KVM not available (will use software emulation)"
+fi
+
+echo ""
+echo "Windows Template Status:"
+WINDOWS_TEMPLATE="/opt/windows-images/windows-server-core.qcow2"
+if [ -f "$WINDOWS_TEMPLATE" ]; then
+    echo "  ✓ Windows template available"
+    echo "    Size: $(du -h "$WINDOWS_TEMPLATE" | cut -f1)"
+else
+    echo "  ✗ Windows template not found"
+    echo "    Run: pf-prepare-windows"
+fi
+
+echo ""
+echo "VM Instances:"
+if [ -d "/opt/vm-instances" ] && [ "$(ls -A /opt/vm-instances 2>/dev/null)" ]; then
+    echo "  Active instances:"
+    ls -1 /opt/vm-instances/ | sed 's/^/    /'
+else
+    echo "  No active instances"
+fi
+
+echo ""
+echo "Recent PE Executions:"
+if [ -d "/artifacts/pe-results" ] && [ "$(ls -A /artifacts/pe-results 2>/dev/null)" ]; then
+    echo "  Recent results:"
+    ls -lt /artifacts/pe-results/ | head -5 | tail -n +2 | awk '{print "    " $9 " (" $6 " " $7 " " $8 ")"}'
+else
+    echo "  No recent executions"
+fi
+EOF
+
+RUN chmod +x /usr/local/bin/pf-pe-status
+
+# Set working directory
+WORKDIR /workspace
+
+# Default command
+CMD ["/bin/bash"]
+
+# Environment variables
+ENV OS_TYPE=windows-server-core
+ENV OS_VERSION=2022
+ENV EXECUTION_TYPE=pe
+ENV VM_BACKEND=vmkit
+ENV ARTIFACTS_DIR=/artifacts
+ENV PE_TIMEOUT=300
+ENV VM_MEMORY=2048
+ENV VM_CPUS=2

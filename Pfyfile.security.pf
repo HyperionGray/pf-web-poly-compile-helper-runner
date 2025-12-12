@@ -1,0 +1,390 @@
+# Security Testing and Fuzzing Tasks
+# Web application security scanning inspired by Burp Suite and massweb
+
+task security-scan
+  describe Run comprehensive security scan on web application
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} ${checks:+--checks ${checks}} ${verbose:+--verbose}
+end
+
+task security-scan-verbose
+  describe Run security scan with verbose output
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --verbose
+end
+
+task security-scan-json
+  describe Run security scan and output JSON report
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --json
+end
+
+task security-scan-sqli
+  describe Scan for SQL injection vulnerabilities only
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --checks sqli --verbose
+end
+
+task security-scan-xss
+  describe Scan for XSS vulnerabilities only
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --checks xss --verbose
+end
+
+task security-scan-critical
+  describe Run critical vulnerability checks (SQLi, XSS, CMDI, XXE)
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --checks sqli,xss,cmdi,xxe --verbose
+end
+
+task security-fuzz
+  describe Run web application fuzzer
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} ${type:+--type ${type}} ${delay:+--delay ${delay}} ${verbose:+--verbose}
+end
+
+task security-fuzz-verbose
+  describe Run fuzzer with verbose output
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --verbose
+end
+
+task security-fuzz-sqli
+  describe Fuzz with SQL injection payloads
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type sqli --verbose
+end
+
+task security-fuzz-xss
+  describe Fuzz with XSS payloads
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type xss --verbose
+end
+
+task security-fuzz-traversal
+  describe Fuzz with path traversal payloads
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type traversal --verbose
+end
+
+task security-fuzz-all
+  describe Run complete fuzzing suite with all payload types
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type all --verbose
+end
+
+task security-test-all
+  describe Run complete security test suite (scan + fuzz)
+  describe Performs comprehensive security testing on target URL
+  shell echo "=== Starting Security Test Suite ==="
+  shell echo "Target: ${url:-http://localhost:8080}"
+  shell echo ""
+  shell echo "=== Phase 1: Security Scan ==="
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --verbose
+  shell echo ""
+  shell echo "=== Phase 2: Fuzzing ==="
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type all --verbose
+  shell echo ""
+  shell echo "=== Security Testing Complete ==="
+end
+
+task security-test-api
+  describe Run security tests specifically for REST API endpoints
+  shell echo "=== Testing API Security ==="
+  shell echo "API Base: ${url:-http://localhost:8080/api}"
+  shell echo ""
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080/api} --verbose
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type all --verbose
+end
+
+task security-test-dev
+  describe Run security tests against development server
+  describe Starts dev server and runs security tests, then stops server
+  shell echo "=== Starting Development Server ==="
+  shell node tools/api-server.mjs demos/pf-web-polyglot-demo-plus-c/web 8080 &
+  shell sleep 5
+  shell echo ""
+  shell echo "=== Running Security Tests ==="
+  shell node tools/security/scanner.mjs http://localhost:8080 --verbose
+  shell node tools/security/fuzzer.mjs http://localhost:8080 --type all --verbose
+  shell echo ""
+  shell echo "=== Stopping Server ==="
+  shell pkill -f "api-server.mjs" || true
+end
+
+task security-check-headers
+  describe Check security headers only
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --checks headers --verbose
+end
+
+task security-check-csrf
+  describe Check for CSRF protection
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --checks csrf --verbose
+end
+
+task security-check-auth
+  describe Check authentication and access control
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --checks auth --verbose
+end
+
+task security-report
+  describe Generate comprehensive security report in JSON
+  shell echo "=== Generating Security Report ==="
+  shell node tools/security/scanner.mjs ${url:-http://localhost:8080} --json > security-scan-report.json
+  shell node tools/security/fuzzer.mjs ${url:-http://localhost:8080/api} --type all --json > security-fuzz-report.json
+  shell echo "Reports saved:"
+  shell echo "  - security-scan-report.json"
+  shell echo "  - security-fuzz-report.json"
+end
+
+task security-help
+  describe Show security testing help and available commands
+  shell echo "Security Testing Framework"
+  shell echo "=========================="
+  shell echo ""
+  shell echo "Web Application Security:"
+  shell echo ""
+  shell echo "Scanning:"
+  shell echo "  pf security-scan [url=<url>]              - Run comprehensive security scan"
+  shell echo "  pf security-scan-verbose [url=<url>]      - Verbose security scan"
+  shell echo "  pf security-scan-json [url=<url>]         - JSON output"
+  shell echo "  pf security-scan-sqli [url=<url>]         - SQL injection scan only"
+  shell echo "  pf security-scan-xss [url=<url>]          - XSS scan only"
+  shell echo "  pf security-scan-critical [url=<url>]     - Critical vulnerabilities only"
+  shell echo ""
+  shell echo "Fuzzing:"
+  shell echo "  pf security-fuzz [url=<url>]              - Run web fuzzer"
+  shell echo "  pf security-fuzz-sqli [url=<url>]         - SQL injection fuzzing"
+  shell echo "  pf security-fuzz-xss [url=<url>]          - XSS fuzzing"
+  shell echo "  pf security-fuzz-traversal [url=<url>]    - Path traversal fuzzing"
+  shell echo "  pf security-fuzz-all [url=<url>]          - All fuzzing payloads"
+  shell echo ""
+  shell echo "Complete Testing:"
+  shell echo "  pf security-test-all [url=<url>]          - Run all security tests"
+  shell echo "  pf security-test-api [url=<url>]          - API security testing"
+  shell echo "  pf security-test-dev                      - Test dev server"
+  shell echo ""
+  shell echo "Specific Checks:"
+  shell echo "  pf security-check-headers [url=<url>]     - Security headers check"
+  shell echo "  pf security-check-csrf [url=<url>]        - CSRF protection check"
+  shell echo "  pf security-check-auth [url=<url>]        - Authentication check"
+  shell echo ""
+  shell echo "Binary Security Analysis:"
+  shell echo ""
+  shell echo "  pf checksec binary=<path>                 - Analyze binary security features"
+  shell echo "  pf checksec-json binary=<path>            - JSON output"
+  shell echo "  pf checksec-batch dir=<path>              - Analyze all binaries in directory"
+  shell echo "  pf checksec-report dir=<path>             - Generate comprehensive report"
+  shell echo "  pf checksec-demo                          - Demo with example binaries"
+  shell echo ""
+  shell echo "Exploit Development (pwntools):"
+  shell echo ""
+  shell echo "  pf install-pwntools                       - Install pwntools framework"
+  shell echo "  pf pwn-template output=<file>             - Generate exploit template"
+  shell echo "  pf pwn-checksec binary=<path>             - Check binary security (pwntools)"
+  shell echo "  pf pwn-cyclic length=<num>                - Generate cyclic pattern"
+  shell echo "  pf pwn-find-offset value=<hex>            - Find offset in cyclic pattern"
+  shell echo "  pf pwn-shellcode arch=<arch>              - Generate shellcode"
+  shell echo "  pf pwn-demo                               - Demo exploit development workflow"
+  shell echo ""
+  shell echo "ROP Exploitation (ROPgadget):"
+  shell echo ""
+  shell echo "  pf install-ropgadget                      - Install ROPgadget tool"
+  shell echo "  pf rop-find-gadgets binary=<path>         - Find ROP gadgets"
+  shell echo "  pf rop-search binary=<path> gadget=<term> - Search specific gadgets"
+  shell echo "  pf rop-chain-build binary=<path>          - Build ROP chain"
+  shell echo "  pf rop-analyze binary=<path>              - Analyze ROP potential"
+  shell echo "  pf rop-specific binary=<path> patterns=<> - Find specific patterns"
+  shell echo "  pf rop-demo                               - Demo ROP exploitation workflow"
+  shell echo ""
+  shell echo "Reporting:"
+  shell echo "  pf security-report [url=<url>]            - Generate JSON reports"
+  shell echo ""
+  shell echo "Examples:"
+  shell echo "  pf security-scan url=http://localhost:8080"
+  shell echo "  pf security-fuzz url=http://localhost:8080/search type=sqli"
+  shell echo "  pf security-test-all url=http://example.com"
+  shell echo "  pf checksec binary=/bin/ls"
+  shell echo "  pf checksec-batch dir=/usr/bin/"
+  shell echo "  pf checksec-report dir=/usr/bin/ output=report.json"
+  shell echo ""
+  shell echo "For more information, see: docs/SECURITY-TESTING.md"
+end
+
+task install-security-tools
+  describe Install additional security testing dependencies
+  describe Currently no additional dependencies needed (uses built-in Node.js fetch)
+  shell echo "✓ Security tools ready (no additional installation needed)"
+  shell echo "Security scanner: tools/security/scanner.mjs"
+  shell echo "Web fuzzer: tools/security/fuzzer.mjs"
+  shell echo "Binary security checker: tools/security/checksec.py"
+  shell echo "Documentation: docs/SECURITY-TESTING.md"
+end
+
+# ============================================================================
+# Binary Security Analysis Tasks (checksec implementation)
+# ============================================================================
+
+task checksec
+  describe Analyze binary security features (RELRO, Stack Canary, NX, PIE, etc.)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf checksec binary=/path/to/binary" && exit 1)
+  shell python3 tools/security/checksec.py ${binary}
+end
+
+task checksec-json
+  describe Analyze binary security features and output JSON
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf checksec-json binary=/path/to/binary" && exit 1)
+  shell python3 tools/security/checksec.py --json ${binary}
+end
+
+task checksec-batch
+  describe Analyze all binaries in a directory
+  shell test -n "${dir}" || (echo "Error: dir parameter required. Usage: pf checksec-batch dir=/path/to/directory" && exit 1)
+  shell python3 tools/security/checksec.py --batch ${dir} ${verbose:+--verbose}
+end
+
+task checksec-report
+  describe Generate comprehensive security report for directory
+  shell test -n "${dir}" || (echo "Error: dir parameter required. Usage: pf checksec-report dir=/path/to/directory" && exit 1)
+  shell python3 tools/security/checksec.py --report ${dir} ${output:+--output ${output}} ${verbose:+--verbose}
+end
+
+task checksec-demo
+  describe Demonstrate checksec on example binaries
+  shell echo "=== Binary Security Analysis Demo ==="
+  shell echo ""
+  shell echo "Analyzing system binaries..."
+  shell echo ""
+  shell echo "1. /bin/ls (system binary):"
+  shell python3 tools/security/checksec.py /bin/ls 2>/dev/null || echo "Binary not found, skipping"
+  shell echo ""
+  shell echo "2. /usr/bin/gcc (compiler):"
+  shell python3 tools/security/checksec.py /usr/bin/gcc 2>/dev/null || echo "Binary not found, skipping"
+  shell echo ""
+  shell echo "3. Built debugging examples (if available):"
+  shell test -f demos/debugging/examples/bin/vulnerable && python3 tools/security/checksec.py demos/debugging/examples/bin/vulnerable || echo "Build examples first with: pf build-debug-examples"
+  shell echo ""
+  shell echo "=== Demo Complete ==="
+  shell echo "Usage: pf checksec binary=/path/to/binary"
+  shell echo "       pf checksec-batch dir=/usr/bin/"
+  shell echo "       pf checksec-report dir=/usr/bin/ output=report.json"
+end
+
+# ============================================================================
+# Exploit Development Tasks (pwntools integration)
+# ============================================================================
+
+task install-pwntools
+  describe Install pwntools exploit development framework
+  shell python3 tools/exploit/pwntools_wrapper.py --install
+end
+
+task pwn-template
+  describe Generate exploit template (output=file.py, binary=path, remote_host=host, remote_port=port)
+  shell test -n "${output}" || (echo "Error: output parameter required. Usage: pf pwn-template output=exploit.py" && exit 1)
+  shell python3 tools/exploit/pwntools_wrapper.py --template ${output} ${binary:+--binary ${binary}} ${remote_host:+--remote-host ${remote_host}} ${remote_port:+--remote-port ${remote_port}}
+end
+
+task pwn-checksec
+  describe Check binary security features using pwntools
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf pwn-checksec binary=/path/to/binary" && exit 1)
+  shell python3 tools/exploit/pwntools_wrapper.py --checksec ${binary} ${json:+--json}
+end
+
+task pwn-cyclic
+  describe Generate cyclic pattern for buffer overflow testing (length=200, output=file)
+  shell python3 tools/exploit/pwntools_wrapper.py --cyclic ${length:-200} ${output:+--output ${output}}
+end
+
+task pwn-find-offset
+  describe Find offset in cyclic pattern (value=0x61616161 or string)
+  shell test -n "${value}" || (echo "Error: value parameter required. Usage: pf pwn-find-offset value=0x61616161" && exit 1)
+  shell python3 tools/exploit/pwntools_wrapper.py --find-offset ${value}
+end
+
+task pwn-shellcode
+  describe Generate shellcode (arch=amd64, no_shell=true for exit, output=file)
+  shell python3 tools/exploit/pwntools_wrapper.py --shellcode --arch ${arch:-amd64} ${no_shell:+--no-shell} ${output:+--output ${output}}
+end
+
+task pwn-demo
+  describe Demonstrate pwntools exploit development workflow
+  shell echo "=== pwntools Exploit Development Demo ==="
+  shell echo ""
+  shell echo "1. Generating exploit template..."
+  shell python3 tools/exploit/pwntools_wrapper.py --template demo_exploit.py --binary ./target
+  shell echo ""
+  shell echo "2. Generating cyclic pattern (100 bytes)..."
+  shell python3 tools/exploit/pwntools_wrapper.py --cyclic 100
+  shell echo ""
+  shell echo "3. Generating shellcode (amd64)..."
+  shell python3 tools/exploit/pwntools_wrapper.py --shellcode --arch amd64
+  shell echo ""
+  shell echo "4. Checking if example binary exists..."
+  shell test -f demos/debugging/examples/bin/vulnerable && echo "Found vulnerable binary, analyzing..." && python3 tools/exploit/pwntools_wrapper.py --checksec demos/debugging/examples/bin/vulnerable || echo "Build examples first with: pf build-debug-examples"
+  shell echo ""
+  shell echo "=== Demo Complete ==="
+  shell echo "Generated files:"
+  shell test -f demo_exploit.py && echo "  - demo_exploit.py (exploit template)" || true
+  shell echo ""
+  shell echo "Usage examples:"
+  shell echo "  pf pwn-template output=exploit.py binary=./target"
+  shell echo "  pf pwn-cyclic length=200 output=pattern.txt"
+  shell echo "  pf pwn-find-offset value=0x61616161"
+  shell echo "  pf pwn-shellcode arch=amd64 output=shellcode.bin"
+end
+
+# ============================================================================
+# ROP Exploitation Tasks (ROPgadget integration)
+# ============================================================================
+
+task install-ropgadget
+  describe Install ROPgadget ROP chain automation tool
+  shell python3 tools/exploit/ropgadget_wrapper.py --install
+end
+
+task rop-find-gadgets
+  describe Find ROP gadgets in binary (binary=path, output=file, type=rop|jop|sys, depth=10)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf rop-find-gadgets binary=/path/to/binary" && exit 1)
+  shell python3 tools/exploit/ropgadget_wrapper.py --find-gadgets ${binary} ${output:+--output ${output}} ${type:+--type ${type}} --depth ${depth:-10}
+end
+
+task rop-search
+  describe Search for specific gadgets (binary=path, gadget="pop rdi", output=file)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf rop-search binary=/path/to/binary gadget=\"pop rdi\"" && exit 1)
+  shell test -n "${gadget}" || (echo "Error: gadget parameter required. Usage: pf rop-search binary=/path/to/binary gadget=\"pop rdi\"" && exit 1)
+  shell python3 tools/exploit/ropgadget_wrapper.py --search ${binary} --search-term "${gadget}" ${output:+--output ${output}}
+end
+
+task rop-chain-build
+  describe Build ROP chain automatically (binary=path, output=file)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf rop-chain-build binary=/path/to/binary" && exit 1)
+  shell python3 tools/exploit/ropgadget_wrapper.py --build-chain ${binary} ${output:+--output ${output}}
+end
+
+task rop-analyze
+  describe Analyze binary for ROP exploitation potential (binary=path, json=true)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf rop-analyze binary=/path/to/binary" && exit 1)
+  shell python3 tools/exploit/ropgadget_wrapper.py --analyze ${binary} ${json:+--json}
+end
+
+task rop-specific
+  describe Find specific gadget patterns (binary=path, patterns="pop rdi,pop rsi", output=file)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf rop-specific binary=/path/to/binary patterns=\"pop rdi,pop rsi\"" && exit 1)
+  shell test -n "${patterns}" || (echo "Error: patterns parameter required. Usage: pf rop-specific binary=/path/to/binary patterns=\"pop rdi,pop rsi\"" && exit 1)
+  shell python3 tools/exploit/ropgadget_wrapper.py --specific ${binary} --patterns "${patterns}" ${output:+--output ${output}}
+end
+
+task rop-demo
+  describe Demonstrate ROP exploitation workflow
+  shell echo "=== ROP Exploitation Demo ==="
+  shell echo ""
+  shell echo "1. Checking if example binary exists..."
+  shell test -f demos/debugging/examples/bin/vulnerable && echo "Found vulnerable binary" || (echo "Building example binary..." && cd demos/debugging/examples && mkdir -p bin && gcc -g -O0 -fno-stack-protector -z execstack -no-pie vulnerable.c -o bin/vulnerable 2>/dev/null || echo "Failed to build - install gcc and try: pf build-debug-examples")
+  shell echo ""
+  shell echo "2. Analyzing ROP potential..."
+  shell test -f demos/debugging/examples/bin/vulnerable && python3 tools/exploit/ropgadget_wrapper.py --analyze demos/debugging/examples/bin/vulnerable || echo "Binary not available"
+  shell echo ""
+  shell echo "3. Finding common gadgets..."
+  shell test -f demos/debugging/examples/bin/vulnerable && python3 tools/exploit/ropgadget_wrapper.py --specific demos/debugging/examples/bin/vulnerable --patterns "pop rdi,pop rsi,pop rdx" || echo "Binary not available"
+  shell echo ""
+  shell echo "4. Searching for specific gadgets..."
+  shell test -f demos/debugging/examples/bin/vulnerable && python3 tools/exploit/ropgadget_wrapper.py --search demos/debugging/examples/bin/vulnerable --search-term "pop rdi" || echo "Binary not available"
+  shell echo ""
+  shell echo "=== Demo Complete ==="
+  shell echo ""
+  shell echo "Usage examples:"
+  shell echo "  pf rop-find-gadgets binary=./target"
+  shell echo "  pf rop-search binary=./target gadget=\"pop rdi\""
+  shell echo "  pf rop-chain-build binary=./target output=rop_chain.py"
+  shell echo "  pf rop-analyze binary=./target"
+  shell echo "  pf rop-specific binary=./target patterns=\"pop rdi,pop rsi,pop rdx\""
+end

@@ -1,0 +1,41 @@
+# API Server container - Node.js REST API and WebSocket server
+FROM localhost/pf-base:latest
+
+LABEL maintainer="pf-web-poly-compile-helper-runner"
+LABEL description="Node.js REST API server with WebSocket support"
+
+# Install Node.js 20 LTS
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy package files first for better layer caching
+COPY --chown=pfuser:pfuser package*.json /app/
+
+# Install npm dependencies
+RUN cd /app && npm ci --only=production
+
+# Copy application source
+COPY --chown=pfuser:pfuser tools /app/tools
+COPY --chown=pfuser:pfuser web /app/web
+COPY --chown=pfuser:pfuser demos /app/demos
+COPY --chown=pfuser:pfuser pf-runner /app/pf-runner
+
+# Create wasm output directories
+RUN mkdir -p /app/demos/pf-web-polyglot-demo-plus-c/web/wasm/{rust,c,fortran,asm} && \
+    mkdir -p /app/demos/pf-web-polyglot-demo-plus-c/web/llvm/{rust,c,fortran} && \
+    chown -R pfuser:pfuser /app/demos
+
+# Expose API port
+EXPOSE 8080
+
+USER pfuser
+WORKDIR /app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/api/health || exit 1
+
+# Start API server
+CMD ["node", "tools/api-server.mjs", "demos/pf-web-polyglot-demo-plus-c/web", "8080"]

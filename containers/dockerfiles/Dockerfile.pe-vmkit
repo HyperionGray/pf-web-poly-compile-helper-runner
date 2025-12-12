@@ -1,0 +1,323 @@
+# VMKit-based Lightweight VM Container for PE Execution
+# Uses QEMU/KVM with passthrough for running Windows PEs in a minimal VM
+# Reference: HyperionGray/HGWS/VMKit pattern with --all-the-passthru
+FROM ubuntu:22.04
+
+LABEL maintainer="pf-runner"
+LABEL description="VMKit lightweight VM container for PE execution with full passthrough"
+LABEL os.type="pe-vmkit"
+LABEL os.version="vmkit-passthru"
+LABEL execution.type="pe"
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install QEMU, KVM and essential tools for lightweight VM execution
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    qemu-system-x86 \
+    qemu-utils \
+    ovmf \
+    seabios \
+    wget \
+    curl \
+    ca-certificates \
+    xz-utils \
+    p7zip-full \
+    unzip \
+    file \
+    python3 \
+    python3-pip \
+    socat \
+    netcat-openbsd \
+    procps \
+    iproute2 \
+    bridge-utils \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create directories for VM images, PE files, and results
+RUN mkdir -p /vmkit/images /vmkit/pe-input /vmkit/pe-output /vmkit/shared \
+    /vmkit/scripts /vmkit/logs
+
+# Create the VMKit wrapper script for PE execution
+RUN cat > /vmkit/scripts/vmkit-run.sh << 'VMKIT_RUN'
+#!/bin/bash
+# VMKit PE Execution Wrapper
+# Runs PE files in a lightweight VM with full passthrough
+
+set -e
+
+# Configuration
+VM_IMAGE="${VM_IMAGE:-/vmkit/images/reactos.qcow2}"
+PE_FILE="${1:-}"
+MEMORY="${MEMORY:-2048}"
+CPUS="${CPUS:-2}"
+TIMEOUT="${TIMEOUT:-300}"
+ENABLE_KVM="${ENABLE_KVM:-true}"
+DISPLAY_MODE="${DISPLAY_MODE:-none}"
+
+usage() {
+    echo "Usage: vmkit-run.sh <pe_file> [options]"
+    echo ""
+    echo "Options (via environment variables):"
+    echo "  VM_IMAGE=path      Path to VM image (default: /vmkit/images/reactos.qcow2)"
+    echo "  MEMORY=MB          VM memory in MB (default: 2048)"
+    echo "  CPUS=N             Number of vCPUs (default: 2)"
+    echo "  TIMEOUT=seconds    Execution timeout (default: 300)"
+    echo "  ENABLE_KVM=bool    Use KVM acceleration (default: true)"
+    echo "  DISPLAY_MODE=mode  Display mode: none|vnc|spice (default: none)"
+}
+
+if [ -z "$PE_FILE" ]; then
+    usage
+    exit 1
+fi
+
+if [ ! -f "$PE_FILE" ]; then
+    echo "Error: PE file not found: $PE_FILE"
+    exit 1
+fi
+
+# Check file type
+FILE_TYPE=$(file -b "$PE_FILE")
+if ! echo "$FILE_TYPE" | grep -qiE "(PE32|MS-DOS|executable)"; then
+    echo "Warning: File may not be a valid PE: $FILE_TYPE"
+fi
+
+# Copy PE to shared directory
+PE_NAME=$(basename "$PE_FILE")
+cp "$PE_FILE" "/vmkit/shared/$PE_NAME"
+
+# Build QEMU command
+QEMU_CMD="qemu-system-x86_64"
+QEMU_ARGS=""
+
+# KVM acceleration if available
+if [ "$ENABLE_KVM" = "true" ] && [ -e /dev/kvm ]; then
+    QEMU_ARGS="$QEMU_ARGS -enable-kvm -cpu host"
+else
+    QEMU_ARGS="$QEMU_ARGS -cpu qemu64"
+fi
+
+# Memory and CPUs
+QEMU_ARGS="$QEMU_ARGS -m $MEMORY -smp $CPUS"
+
+# VM image
+if [ -f "$VM_IMAGE" ]; then
+    QEMU_ARGS="$QEMU_ARGS -drive file=$VM_IMAGE,format=qcow2,if=virtio"
+else
+    echo "Error: VM image not found: $VM_IMAGE"
+    echo "Please download or create a VM image first."
+    exit 1
+fi
+
+# Shared folder via 9p (for PE file transfer)
+QEMU_ARGS="$QEMU_ARGS -virtfs local,path=/vmkit/shared,mount_tag=hostshare,security_model=passthrough,id=hostshare"
+
+# Display configuration
+case "$DISPLAY_MODE" in
+    vnc)
+        QEMU_ARGS="$QEMU_ARGS -vnc :0"
+        ;;
+    spice)
+        QEMU_ARGS="$QEMU_ARGS -spice port=5930,disable-ticketing=on"
+        ;;
+    *)
+        QEMU_ARGS="$QEMU_ARGS -nographic"
+        ;;
+esac
+
+# Serial console for output
+QEMU_ARGS="$QEMU_ARGS -serial file:/vmkit/logs/serial.log"
+
+# Monitor for control
+QEMU_ARGS="$QEMU_ARGS -monitor unix:/vmkit/monitor.sock,server,nowait"
+
+# Networking (user mode for simplicity)
+QEMU_ARGS="$QEMU_ARGS -netdev user,id=net0 -device virtio-net-pci,netdev=net0"
+
+# UEFI if available
+if [ -f /usr/share/OVMF/OVMF_CODE.fd ]; then
+    QEMU_ARGS="$QEMU_ARGS -bios /usr/share/OVMF/OVMF_CODE.fd"
+fi
+
+echo "Starting VMKit VM..."
+echo "PE File: $PE_NAME"
+echo "Memory: ${MEMORY}MB, CPUs: $CPUS"
+echo "Timeout: ${TIMEOUT}s"
+
+# Run with timeout
+timeout "$TIMEOUT" $QEMU_CMD $QEMU_ARGS &
+QEMU_PID=$!
+
+# Wait for completion or timeout
+wait $QEMU_PID 2>/dev/null || true
+EXIT_CODE=$?
+
+# Collect results
+echo "VM execution completed with exit code: $EXIT_CODE"
+
+# Copy any output from shared folder
+if [ -d "/vmkit/shared/output" ]; then
+    cp -r /vmkit/shared/output/* /vmkit/pe-output/ 2>/dev/null || true
+fi
+
+# Output log
+if [ -f /vmkit/logs/serial.log ]; then
+    echo "=== Serial Output ==="
+    cat /vmkit/logs/serial.log
+fi
+
+exit $EXIT_CODE
+VMKIT_RUN
+
+RUN chmod +x /vmkit/scripts/vmkit-run.sh
+
+# Create the VMKit passthrough creation script (similar to vmkit create --all-the-passthru)
+RUN cat > /vmkit/scripts/vmkit-create.sh << 'VMKIT_CREATE'
+#!/bin/bash
+# VMKit VM Image Creation Script
+# Creates lightweight VM images with all passthrough enabled
+
+set -e
+
+IMAGE_TYPE="${1:-reactos}"
+IMAGE_SIZE="${IMAGE_SIZE:-8G}"
+OUTPUT_DIR="${OUTPUT_DIR:-/vmkit/images}"
+
+create_reactos_image() {
+    echo "Creating ReactOS VM image..."
+    
+    # Download ReactOS LiveCD if not present
+    REACTOS_ISO="${OUTPUT_DIR}/reactos-livecd.iso"
+    if [ ! -f "$REACTOS_ISO" ]; then
+        echo "Downloading ReactOS LiveCD..."
+        wget -q -O "$REACTOS_ISO" \
+            "https://sourceforge.net/projects/reactos/files/ReactOS/0.4.14/ReactOS-0.4.14-live.iso/download" || \
+        wget -q -O "$REACTOS_ISO" \
+            "https://downloads.sourceforge.net/project/reactos/ReactOS/0.4.14/ReactOS-0.4.14-live.iso" || \
+        echo "Warning: Could not download ReactOS ISO. Please download manually."
+    fi
+    
+    # Create QCOW2 image
+    qemu-img create -f qcow2 "${OUTPUT_DIR}/reactos.qcow2" "$IMAGE_SIZE"
+    
+    echo "ReactOS image created: ${OUTPUT_DIR}/reactos.qcow2"
+    echo "To install ReactOS, run:"
+    echo "  qemu-system-x86_64 -enable-kvm -m 2048 \\"
+    echo "    -cdrom $REACTOS_ISO \\"
+    echo "    -drive file=${OUTPUT_DIR}/reactos.qcow2,format=qcow2"
+}
+
+create_windows_core_image() {
+    echo "Creating Windows Server Core placeholder image..."
+    
+    # Create empty QCOW2 image for Windows Server Core
+    qemu-img create -f qcow2 "${OUTPUT_DIR}/windows-core.qcow2" "$IMAGE_SIZE"
+    
+    echo "Windows Server Core image placeholder created."
+    echo ""
+    echo "To complete setup, you need a Windows Server Core ISO."
+    echo "Install Windows Server Core with:"
+    echo "  qemu-system-x86_64 -enable-kvm -m 4096 -smp 2 \\"
+    echo "    -drive file=${OUTPUT_DIR}/windows-core.qcow2,format=qcow2 \\"
+    echo "    -cdrom /path/to/windows-server-core.iso \\"
+    echo "    -bios /usr/share/OVMF/OVMF_CODE.fd"
+}
+
+create_minimal_image() {
+    echo "Creating minimal VM image..."
+    
+    # Create small image for quick testing
+    qemu-img create -f qcow2 "${OUTPUT_DIR}/minimal.qcow2" "1G"
+    
+    echo "Minimal image created for testing: ${OUTPUT_DIR}/minimal.qcow2"
+}
+
+case "$IMAGE_TYPE" in
+    reactos)
+        create_reactos_image
+        ;;
+    windows-core|wincore)
+        create_windows_core_image
+        ;;
+    minimal)
+        create_minimal_image
+        ;;
+    --all-the-passthru)
+        echo "Creating images with full passthrough configuration..."
+        create_reactos_image
+        create_minimal_image
+        echo "All images created with passthrough-ready configuration."
+        ;;
+    *)
+        echo "Usage: vmkit-create.sh <image-type>"
+        echo ""
+        echo "Image types:"
+        echo "  reactos        ReactOS-based image for PE execution"
+        echo "  windows-core   Windows Server Core placeholder"
+        echo "  minimal        Minimal image for testing"
+        echo "  --all-the-passthru  Create all images with full passthrough"
+        ;;
+esac
+VMKIT_CREATE
+
+RUN chmod +x /vmkit/scripts/vmkit-create.sh
+
+# Create PE analysis helper
+RUN cat > /vmkit/scripts/pf-analyze-pe.sh << 'PF_ANALYZE'
+#!/bin/bash
+# Analyze PE file before execution
+
+PE_FILE="$1"
+
+if [ -z "$PE_FILE" ] || [ ! -f "$PE_FILE" ]; then
+    echo "Usage: pf-analyze-pe.sh <pe_file>"
+    exit 1
+fi
+
+echo "=== PE File Analysis ==="
+echo "File: $PE_FILE"
+echo ""
+
+# Basic file info
+echo "--- File Type ---"
+file "$PE_FILE"
+echo ""
+
+# Size info
+echo "--- Size ---"
+ls -lh "$PE_FILE" | awk '{print $5}'
+echo ""
+
+# Checksums
+echo "--- Checksums ---"
+echo "MD5: $(md5sum "$PE_FILE" | awk '{print $1}')"
+echo "SHA256: $(sha256sum "$PE_FILE" | awk '{print $1}')"
+echo ""
+
+# PE header info (if available)
+if command -v objdump &> /dev/null; then
+    echo "--- PE Headers (if parseable) ---"
+    objdump -p "$PE_FILE" 2>/dev/null | head -50 || echo "Unable to parse PE headers"
+fi
+PF_ANALYZE
+
+RUN chmod +x /vmkit/scripts/pf-analyze-pe.sh
+
+# Add scripts to PATH
+ENV PATH="/vmkit/scripts:${PATH}"
+
+# Set working directory
+WORKDIR /vmkit
+
+# Volume mounts for PE files and VM images
+VOLUME ["/vmkit/images", "/vmkit/pe-input", "/vmkit/pe-output", "/vmkit/shared"]
+
+# Default command shows help
+CMD ["vmkit-run.sh", "--help"]
+
+# Environment
+ENV OS_TYPE=pe-vmkit
+ENV VMKIT_VERSION=1.0
+ENV QEMU_AUDIO_DRV=none

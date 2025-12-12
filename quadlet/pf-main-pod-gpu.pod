@@ -1,0 +1,28 @@
+[Unit]
+Description=pf Development Environment Main Pod (GPU Enabled)
+Documentation=https://github.com/containers/podman/blob/main/docs/source/markdown/podman-systemd.unit.5.md
+Requires=pf-network.service
+After=pf-network.service
+Wants=pf-workspace.service pf-builds.service pf-cache.service
+
+[Pod]
+# Pod name
+PodName=pf-main-pod-gpu
+
+# Network configuration
+Network=pf-network
+
+# Port mappings for external access
+PublishPort=8080:8080
+PublishPort=8081:8081
+
+# Pod labels
+Label=app=pf-development
+Label=environment=main-gpu
+Label=gpu=enabled
+
+# Security context
+SecurityLabelDisable=false
+
+[Install]
+WantedBy=default.target

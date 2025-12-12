@@ -114,15 +114,4 @@ end
 # ============================================================================
 # Installation Tasks
 # ============================================================================
-
-task install
-  describe Install web/WASM development tools (Node.js, Playwright, Rust, Emscripten, WABT)
-  shell_lang bash
-  shell bash install.sh web
-end
-
-task install-all
-  describe Install everything - base pf runner and all web/WASM development tools
-  shell_lang bash
-  shell bash install.sh all
-end
+# Note: Install tasks are defined in main Pfyfile.pf

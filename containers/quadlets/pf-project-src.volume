@@ -1,0 +1,15 @@
+# Podman Volume for shared project source
+[Unit]
+Description=pf-web Project Source Volume
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+
+[Volume]
+VolumeName=pf-project-src
+Driver=local
+
+# Labels for identification
+Label=app=pf-web
+Label=type=source
+
+[Install]
+WantedBy=default.target

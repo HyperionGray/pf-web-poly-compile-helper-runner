@@ -1,0 +1,390 @@
+# macOS Container using QEMU with OSK Passthrough
+# Based on Docker-OSX pattern (https://github.com/sickcodes/Docker-OSX)
+# Allows running macOS applications in a containerized QEMU VM
+FROM ubuntu:22.04
+
+LABEL maintainer="pf-runner"
+LABEL description="macOS-like environment using QEMU virtualization"
+LABEL os.type="macos-qemu"
+LABEL os.version="ventura"
+LABEL execution.type="macos"
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install QEMU with full x86 support and utilities
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    qemu-system-x86 \
+    qemu-utils \
+    qemu-block-extra \
+    ovmf \
+    wget \
+    curl \
+    ca-certificates \
+    xz-utils \
+    p7zip-full \
+    unzip \
+    dmg2img \
+    hfsutils \
+    hfsprogs \
+    libguestfs-tools \
+    python3 \
+    python3-pip \
+    socat \
+    netcat-openbsd \
+    bridge-utils \
+    libvirt-clients \
+    virt-manager \
+    uuid-runtime \
+    procps \
+    iproute2 \
+    git \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create directories
+RUN mkdir -p /macos/images /macos/shared /macos/scripts /macos/logs \
+    /macos/efi /macos/input /macos/output
+
+# Create the OpenCore EFI configuration
+RUN cat > /macos/scripts/create-opencore-efi.sh << 'OPENCORE'
+#!/bin/bash
+# Create basic OpenCore EFI structure for QEMU macOS
+# This is a placeholder - actual OpenCore requires downloading from official sources
+
+EFI_DIR="/macos/efi"
+mkdir -p "$EFI_DIR/EFI/BOOT"
+mkdir -p "$EFI_DIR/EFI/OC/Drivers"
+mkdir -p "$EFI_DIR/EFI/OC/Kexts"
+mkdir -p "$EFI_DIR/EFI/OC/ACPI"
+mkdir -p "$EFI_DIR/EFI/OC/Resources"
+mkdir -p "$EFI_DIR/EFI/OC/Tools"
+
+echo "OpenCore EFI directory structure created at $EFI_DIR"
+echo ""
+echo "To use macOS in QEMU, you need:"
+echo "1. OpenCore bootloader from: https://github.com/acidanthera/OpenCorePkg"
+echo "2. A macOS recovery image"
+echo "3. Proper SMBIOS configuration"
+echo ""
+echo "For legal reasons, we cannot distribute macOS images."
+echo "Please refer to Docker-OSX documentation for setup instructions."
+OPENCORE
+
+RUN chmod +x /macos/scripts/create-opencore-efi.sh
+
+# Create the macOS VM launcher script
+RUN cat > /macos/scripts/run-macos.sh << 'RUNMACOS'
+#!/bin/bash
+# Launch macOS VM in QEMU
+# Based on Docker-OSX patterns
+
+set -e
+
+# Configuration
+MACOS_IMAGE="${MACOS_IMAGE:-/macos/images/macos.qcow2}"
+MEMORY="${MEMORY:-4096}"
+CPUS="${CPUS:-4}"
+HEADLESS="${HEADLESS:-true}"
+VNC_PORT="${VNC_PORT:-5901}"
+SSH_PORT="${SSH_PORT:-10022}"
+
+usage() {
+    cat << EOF
+Usage: run-macos.sh [options]
+
+Launch macOS VM in QEMU
+
+Options (via environment variables):
+  MACOS_IMAGE=path   Path to macOS disk image
+  MEMORY=MB          Memory in MB (default: 4096, recommended: 8192+)
+  CPUS=N             CPU cores (default: 4)
+  HEADLESS=bool      Run without display (default: true)
+  VNC_PORT=N         VNC port for display (default: 5901)
+  SSH_PORT=N         SSH forwarding port (default: 10022)
+
+Examples:
+  run-macos.sh
+  MEMORY=8192 CPUS=6 run-macos.sh
+  HEADLESS=false VNC_PORT=5900 run-macos.sh
+EOF
+}
+
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    usage
+    exit 0
+fi
+
+# Check for macOS image
+if [ ! -f "$MACOS_IMAGE" ]; then
+    echo "Error: macOS image not found at $MACOS_IMAGE"
+    echo ""
+    echo "To use this container, you need:"
+    echo "1. Create a macOS disk image using create-macos-image.sh"
+    echo "2. Mount it to /macos/images/macos.qcow2"
+    echo ""
+    echo "Or download a pre-configured image."
+    exit 1
+fi
+
+# Generate unique UUID for this VM
+VM_UUID=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid)
+
+# Build QEMU command
+QEMU_CMD="qemu-system-x86_64"
+QEMU_ARGS=""
+
+# KVM acceleration
+if [ -e /dev/kvm ]; then
+    QEMU_ARGS="$QEMU_ARGS -enable-kvm"
+    # Use host CPU with required features for macOS
+    QEMU_ARGS="$QEMU_ARGS -cpu Penryn,vendor=GenuineIntel,+invtsc,+aes,+xsave,+avx,vmware-cpuid-freq=on"
+else
+    echo "Warning: KVM not available, VM will be very slow"
+    QEMU_ARGS="$QEMU_ARGS -cpu Penryn"
+fi
+
+# Machine type for macOS compatibility
+QEMU_ARGS="$QEMU_ARGS -machine q35,vmport=off"
+
+# Memory and CPUs
+QEMU_ARGS="$QEMU_ARGS -m $MEMORY -smp cores=$CPUS,threads=1,sockets=1"
+
+# macOS requires specific SMC key (OSK)
+# ⚠️ WARNING: The OSK is a unique key embedded in Apple hardware.
+# This placeholder will NOT work for actual macOS execution.
+# Running macOS legally requires:
+#   1. Physical Apple hardware with the OSK, OR
+#   2. A valid macOS license and legitimate acquisition of the key
+# This container provides infrastructure only - not the ability to run macOS.
+QEMU_ARGS="$QEMU_ARGS -device isa-applesmc,osk=\"REPLACE-WITH-REAL-OSK-FROM-APPLE-HARDWARE\""
+
+# SMBIOS - emulate Mac hardware
+QEMU_ARGS="$QEMU_ARGS -smbios type=2"
+
+# UEFI firmware
+if [ -f /usr/share/OVMF/OVMF_CODE.fd ]; then
+    QEMU_ARGS="$QEMU_ARGS -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd"
+fi
+
+# OpenCore EFI if available
+if [ -f /macos/efi/EFI/BOOT/BOOTx64.efi ]; then
+    QEMU_ARGS="$QEMU_ARGS -drive id=OpenCore,if=none,format=raw,file=/macos/efi/OpenCore.img"
+    QEMU_ARGS="$QEMU_ARGS -device ide-hd,bus=sata.0,drive=OpenCore"
+fi
+
+# Main disk
+QEMU_ARGS="$QEMU_ARGS -drive id=MacHDD,if=none,format=qcow2,file=$MACOS_IMAGE"
+QEMU_ARGS="$QEMU_ARGS -device ide-hd,bus=sata.1,drive=MacHDD"
+
+# Networking
+QEMU_ARGS="$QEMU_ARGS -netdev user,id=net0,hostfwd=tcp::${SSH_PORT}-:22"
+QEMU_ARGS="$QEMU_ARGS -device e1000-82545em,netdev=net0,id=net0,mac=52:54:00:c9:18:27"
+
+# USB
+QEMU_ARGS="$QEMU_ARGS -usb -device usb-kbd -device usb-tablet"
+
+# Display
+if [ "$HEADLESS" = "true" ]; then
+    QEMU_ARGS="$QEMU_ARGS -vnc :${VNC_PORT#590}"
+    QEMU_ARGS="$QEMU_ARGS -nographic"
+else
+    QEMU_ARGS="$QEMU_ARGS -vga vmware"
+    QEMU_ARGS="$QEMU_ARGS -vnc :${VNC_PORT#590}"
+fi
+
+# Serial for debugging
+QEMU_ARGS="$QEMU_ARGS -serial file:/macos/logs/serial.log"
+
+# Monitor
+QEMU_ARGS="$QEMU_ARGS -monitor unix:/macos/monitor.sock,server,nowait"
+
+echo "╔════════════════════════════════════════════════════════════╗"
+echo "║                 Starting macOS VM                          ║"
+echo "╚════════════════════════════════════════════════════════════╝"
+echo ""
+echo "Configuration:"
+echo "  Memory: ${MEMORY}MB"
+echo "  CPUs: $CPUS"
+echo "  VNC: localhost:$VNC_PORT"
+echo "  SSH: localhost:$SSH_PORT"
+echo ""
+echo "To connect: vncviewer localhost:$VNC_PORT"
+echo "Or SSH: ssh -p $SSH_PORT user@localhost"
+echo ""
+
+# Launch QEMU
+exec $QEMU_CMD $QEMU_ARGS
+RUNMACOS
+
+RUN chmod +x /macos/scripts/run-macos.sh
+
+# Create image creation script
+RUN cat > /macos/scripts/create-macos-image.sh << 'CREATEIMG'
+#!/bin/bash
+# Create a blank macOS disk image
+
+IMAGE_SIZE="${1:-64G}"
+IMAGE_PATH="${2:-/macos/images/macos.qcow2}"
+
+echo "Creating macOS disk image..."
+echo "Size: $IMAGE_SIZE"
+echo "Path: $IMAGE_PATH"
+
+qemu-img create -f qcow2 "$IMAGE_PATH" "$IMAGE_SIZE"
+
+echo ""
+echo "Disk image created: $IMAGE_PATH"
+echo ""
+echo "Next steps:"
+echo "1. Download macOS recovery image or installation media"
+echo "2. Boot the VM with the installation media attached"
+echo "3. Install macOS to the disk image"
+echo ""
+echo "Example boot command with recovery:"
+echo "  qemu-system-x86_64 -enable-kvm -m 8192 -smp 4 \\"
+echo "    -drive file=$IMAGE_PATH,format=qcow2 \\"
+echo "    -cdrom /path/to/macOS-recovery.dmg \\"
+echo "    -boot d"
+CREATEIMG
+
+RUN chmod +x /macos/scripts/create-macos-image.sh
+
+# Create app execution script
+RUN cat > /macos/scripts/run-macos-app.sh << 'RUNAPP'
+#!/bin/bash
+# Run a macOS application via SSH into the VM
+
+APP_PATH="$1"
+SSH_PORT="${SSH_PORT:-10022}"
+SSH_USER="${SSH_USER:-user}"
+TIMEOUT="${TIMEOUT:-300}"
+
+if [ -z "$APP_PATH" ]; then
+    echo "Usage: run-macos-app.sh <app_path> [args...]"
+    echo ""
+    echo "Runs an application inside the macOS VM via SSH"
+    echo "Requires the macOS VM to be running with SSH enabled"
+    exit 1
+fi
+
+shift
+APP_ARGS="$*"
+
+echo "Running macOS app: $APP_PATH"
+echo "Arguments: $APP_ARGS"
+echo "SSH Port: $SSH_PORT"
+
+# Check if VM is reachable
+if ! nc -z localhost "$SSH_PORT" 2>/dev/null; then
+    echo "Error: Cannot connect to macOS VM on port $SSH_PORT"
+    echo "Make sure the VM is running: run-macos.sh"
+    exit 1
+fi
+
+# Copy app to VM if it's a local path
+if [ -f "$APP_PATH" ]; then
+    echo "Copying app to VM..."
+    scp -P "$SSH_PORT" -o StrictHostKeyChecking=no \
+        "$APP_PATH" "${SSH_USER}@localhost:~/app_to_run"
+    APP_PATH="~/app_to_run"
+fi
+
+# Execute app
+echo "Executing..."
+timeout "$TIMEOUT" ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no \
+    "${SSH_USER}@localhost" \
+    "chmod +x '$APP_PATH' 2>/dev/null; '$APP_PATH' $APP_ARGS"
+
+EXIT_CODE=$?
+echo "App exited with code: $EXIT_CODE"
+exit $EXIT_CODE
+RUNAPP
+
+RUN chmod +x /macos/scripts/run-macos-app.sh
+
+# Create help script
+RUN cat > /macos/scripts/pf-macos-help.sh << 'HELP'
+#!/bin/bash
+cat << 'EOF'
+╔════════════════════════════════════════════════════════════════════╗
+║           macOS QEMU Container                                     ║
+║      Based on Docker-OSX patterns (sickcodes/Docker-OSX)          ║
+╚════════════════════════════════════════════════════════════════════╝
+
+IMPORTANT NOTICE:
+  Running macOS requires legitimate Apple hardware or license.
+  This container provides the QEMU infrastructure only.
+  You are responsible for providing a legal macOS image.
+
+COMMANDS:
+  run-macos.sh            Start macOS VM
+  create-macos-image.sh   Create empty disk image
+  run-macos-app.sh        Run app via SSH in running VM
+  create-opencore-efi.sh  Create OpenCore EFI structure
+
+SETUP STEPS:
+  1. Create disk image:
+     create-macos-image.sh 64G /macos/images/macos.qcow2
+  
+  2. Obtain macOS installation (you must have legal access)
+  
+  3. Start VM with installation media and install macOS
+  
+  4. Run macOS:
+     run-macos.sh
+
+DOCKER RUN EXAMPLES:
+
+  # Start macOS VM (requires macOS image)
+  docker run -it --rm \
+    --device /dev/kvm \
+    -v ./macos-images:/macos/images \
+    -p 5901:5901 -p 10022:10022 \
+    localhost/pf-macos-qemu:latest \
+    run-macos.sh
+
+  # Create image
+  docker run -it --rm \
+    -v ./macos-images:/macos/images \
+    localhost/pf-macos-qemu:latest \
+    create-macos-image.sh 64G
+
+VOLUME MOUNTS:
+  /macos/images    macOS disk images
+  /macos/shared    Shared files with VM
+  /macos/input     Applications to run
+  /macos/output    Output/results
+
+PORTS:
+  5901    VNC display access
+  10022   SSH access into macOS VM
+
+RESOURCES:
+  - Docker-OSX: https://github.com/sickcodes/Docker-OSX
+  - OpenCore: https://github.com/acidanthera/OpenCorePkg
+  - QEMU macOS: https://www.qemu.org/
+
+EOF
+HELP
+
+RUN chmod +x /macos/scripts/pf-macos-help.sh
+
+# Add scripts to PATH
+ENV PATH="/macos/scripts:${PATH}"
+
+# Working directory
+WORKDIR /macos
+
+# Volumes
+VOLUME ["/macos/images", "/macos/shared", "/macos/input", "/macos/output"]
+
+# Expose VNC and SSH ports
+EXPOSE 5901 10022
+
+# Default shows help
+CMD ["pf-macos-help.sh"]
+
+# Environment
+ENV OS_TYPE=macos-qemu
+ENV QEMU_AUDIO_DRV=none

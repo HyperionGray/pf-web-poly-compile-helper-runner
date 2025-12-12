@@ -4,6 +4,10 @@ include "Pfyfile.cleanup.pf"
 include ./Pfyfile.shells.pf
 include ./Pfyfile.build-helpers.pf
 include ./Pfyfile.tests.pf
+include ./Pfyfile.pasm.pf
+include ./Pfyfile.dev.pf
+include ./Pfyfile.builds.pf
+# Note: Pfyfile.web-demo.pf excluded to avoid duplicates with main Pfyfile.web.pf
 
 task default-task
   describe This is a task from the default Pfyfile.pf
@@ -23,75 +27,16 @@ task setup-optional
 end
 
 task install-base
-  describe Install base pf runner, Python dependencies, and core build tools
-  shell cd .. && bash install.sh base
+  describe Build pf-runner container image and install pf wrapper
+  shell cd .. && bash install.sh
 end
 
 task install-web
-  describe Install web/WASM development tools (Node.js, Playwright, Rust, Emscripten, WABT)
-  shell cd .. && bash install.sh web
+  describe Build pf-runner container image and install pf wrapper for containerized web stack
+  shell cd .. && bash install.sh
 end
 
 task install
-  describe Install everything - base pf runner and all web/WASM development tools
-  shell cd .. && bash install.sh all
-end
-
-task ff3-dev
-  describe Start FastFiles3 dev server
-  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
-  shell cd /home/punk/Projects/ff3new/FastFiles3 && HOST=${HOST:-127.0.0.1} PORT=${PORT:-8000} RELOAD=${RELOAD:-1} BUILD_UI=${BUILD_UI:-1} RUN_DAEMONS=${RUN_DAEMONS:-0} FF3_VFS_MODE=${FF3_VFS_MODE:-windowed} FF3_RECEIVER_MODE=${FF3_RECEIVER_MODE:-windowed} bash scripts/dev_server.sh
-end
-
-task ff3-dev-all
-  describe Start FastFiles3 with QUIC/UDP/repair/integrity daemons
-  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
-  shell cd /home/punk/Projects/ff3new/FastFiles3 && HOST=${HOST:-127.0.0.1} PORT=${PORT:-8000} RELOAD=${RELOAD:-1} BUILD_UI=${BUILD_UI:-1} RUN_DAEMONS=1 FF3_VFS_MODE=${FF3_VFS_MODE:-windowed} FF3_RECEIVER_MODE=${FF3_RECEIVER_MODE:-windowed} bash scripts/dev_server.sh
-end
-
-task ff3-daemons-start
-  describe Start FF3 background daemons (QUIC, UDP, repair, integrity)
-  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
-  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf daemons-start
-end
-
-task ff3-daemons-stop
-  describe Stop FF3 background daemons
-  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf daemons-stop
-end
-
-task ff3-integrity-sender
-  describe Start integrity sender daemon (hash registry)
-  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
-  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf integrity-sender
-end
-
-task ff3-integrity-receiver
-  describe Start integrity receiver daemon (monitors manifests, triggers repairs)
-  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
-  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf integrity-receiver
-end
-
-task ff3-repaird
-  describe Start TCP repair daemon (receiver-side)
-  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
-  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf repaird
-end
-
-task ff3-quic
-  describe Start QUIC receiver (NDJSON BREF)
-  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
-  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf quic
-end
-
-task ff3-udp
-  describe Start UDP receiver (NDJSON BREF)
-  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
-  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf udp
-end
-
-task ff3-tests
-  describe Run FastFiles3 Playwright tests
-  shell if [ -d /home/punk/.venv ]; then . /home/punk/.venv/bin/activate; fi
-  shell cd /home/punk/Projects/ff3new/FastFiles3 && /home/punk/Projects/pf-runner/pf tests
+  describe Build pf-runner container image and install pf wrapper
+  shell cd .. && bash install.sh
 end

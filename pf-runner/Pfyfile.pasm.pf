@@ -1,0 +1,13 @@
+task pasm-sample
+  describe Compile the sample vec_add MLIR kernel to pASM and print a summary
+  env MLIR=examples/pasm/vec_add.mlir
+  shell if [ ! -f "$MLIR" ]; then echo "missing sample MLIR at $MLIR" >&2; exit 1; fi
+  shell PYTHONPATH=$PWD/addon ~/.venv/bin/python -m pasm_compiler.cli "$MLIR" --summary
+end
+
+task pasm-compile mlir=""
+  describe Compile an arbitrary MLIR file to pASM (sets --summary by default)
+  shell if [ -z "$mlir" ]; then echo "set mlir=/path/to/kernel.mlir" >&2; exit 1; fi
+  shell if [ ! -f "$mlir" ]; then echo "MLIR file not found: $mlir" >&2; exit 1; fi
+  shell PYTHONPATH=$PWD/addon ~/.venv/bin/python -m pasm_compiler.cli "$mlir" --summary
+end

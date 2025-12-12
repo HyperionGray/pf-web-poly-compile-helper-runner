@@ -23,20 +23,47 @@ comment: COMMENT
 // Used for setting repository-wide or project-level configuration
 env_var: "env" IDENTIFIER "=" STRING
 
-// Task definition with optional parameters
+// Task definition with optional parameters and aliases
 // Parameters can appear in any order before the task name or after it
+// Aliases provide short command names that can be used instead of the full task name
 // Examples: 
 //   task my-task param1="value" param2="value"
 //   task my-task
-task: "task" IDENTIFIER param* NEWLINE task_body+ "end"
+//   task long-command [alias cmd]
+//   task long-command [alias=cmd]
+task: "task" IDENTIFIER (param | alias_def)* NEWLINE task_body+ "end"
 
 // Task parameter: name="value"
 // These become available as $name within the task
 param: IDENTIFIER "=" STRING
 
+// Alias definition: [alias short-name] or [alias=short-name]
+// These provide short command names that map to the full task name
+// Both syntax forms are supported: [alias cmd] and [alias=cmd]
+alias_def: "[" "alias" (IDENTIFIER | "=" IDENTIFIER) "]"
+
 // Things that can appear inside a task body
 // These are the core DSL verbs for task definitions
-task_body: describe | shell | shell_lang | env_stmt | for_loop | if_stmt | sync_stmt
+task_body: describe 
+         | shell 
+         | shell_lang 
+         | env_stmt 
+         | for_loop 
+         | if_stmt 
+         | sync_stmt
+         | packages_stmt
+         | service_stmt
+         | directory_stmt
+         | copy_stmt
+         | makefile_stmt
+         | cmake_stmt
+         | meson_stmt
+         | cargo_stmt
+         | go_build_stmt
+         | configure_stmt
+         | justfile_stmt
+         | autobuild_stmt
+         | build_detect_stmt
 
 // Task description - displayed in 'pf list'
 describe: "describe" TEXT_LINE
@@ -98,20 +125,31 @@ sync_kv: IDENTIFIER "=" STRING
        | IDENTIFIER "=" array
        | IDENTIFIER           // flag, treated as true
 
-// Additional DSL verbs (not in grammar but supported by parser):
-// - packages install/remove <names...>
-// - service start/stop/enable/disable/restart <name>
-// - directory <path> [mode=0755]
-// - copy <local> <remote> [mode=0644] [user=...] [group=...]
-// - makefile <targets...> [jobs=N] [VAR=value...]
-// - cmake <source_dir> [build_dir=...] [build_type=...]
-// - meson <source_dir> [build_dir=...] [buildtype=...]
-// - cargo <subcommand> [release=true] [features=...]
-// - go_build [output=...] [tags=...] [race=true]
-// - configure [prefix=...] [feature=true/false...]
-// - justfile <recipe> [args...]
-// - autobuild [release=true] [jobs=N] [dir=<path>]
-// - build_detect (detect build system)
+// Package management: packages install/remove <names...>
+packages_stmt: "packages" packages_action package_name+
+packages_action: "install" | "remove"
+package_name: IDENTIFIER
+
+// Service management: service start/stop/enable/disable/restart <name>
+service_stmt: "service" service_action IDENTIFIER
+service_action: "start" | "stop" | "enable" | "disable" | "restart"
+
+// Directory creation: directory <path> [mode=0755]
+directory_stmt: "directory" TEXT_LINE
+
+// File copy: copy <local> <remote> [mode=0644] [user=...] [group=...]
+copy_stmt: "copy" TEXT_LINE
+
+// Build system helpers - these all follow a similar pattern: verb [args...] [key=value...]
+makefile_stmt: ("makefile" | "make") TEXT_LINE?
+cmake_stmt: "cmake" TEXT_LINE?
+meson_stmt: ("meson" | "ninja") TEXT_LINE?
+cargo_stmt: "cargo" TEXT_LINE?  // Made optional for consistency
+go_build_stmt: ("go_build" | "gobuild") TEXT_LINE?
+configure_stmt: "configure" TEXT_LINE?
+justfile_stmt: ("justfile" | "just") TEXT_LINE?
+autobuild_stmt: ("autobuild" | "auto_build") TEXT_LINE?
+build_detect_stmt: ("build_detect" | "detect_build")
 
 // Tokens
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_-]*/      // Task names, variables, parameters

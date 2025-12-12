@@ -1,3 +1,6 @@
+**.lzma
+**tar.gz
+**.tar
 **.code-workspace
 
 # Build artifacts
@@ -12,6 +15,21 @@ demos/**/Cargo.lock
 demos/debugging/examples/bin/
 demos/binary-lifting/examples/bin/
 demos/binary-lifting/examples/output/
+demos/rop-exploit/vulnerable_service
+demos/rop-exploit/vulnerable_service-nx
+demos/rop-exploit/*.bin
+demos/rop-exploit/core
+
+# Practice binaries (built, not committed)
+demos/practice-binaries/buffer-overflow/stack_overflow
+demos/practice-binaries/buffer-overflow/heap_overflow
+demos/practice-binaries/format-string/format_vuln
+demos/practice-binaries/heap-exploits/use_after_free
+demos/practice-binaries/heap-exploits/double_free
+demos/practice-binaries/integer-overflow/int_overflow
+demos/practice-binaries/race-condition/toctou_race
+demos/practice-binaries/command-injection/cmd_injection
+
 node_modules/
 *.log
 
@@ -26,3 +44,8 @@ _codeql_*
 pf-runner/build/
 pf-runner/dist/
 pf-runner/*.spec
+
+# Container artifacts (don't commit built images or runtime data)
+# Note: Dockerfiles and quadlet configs ARE committed
+pfail.fail.pf
+__pycache__/

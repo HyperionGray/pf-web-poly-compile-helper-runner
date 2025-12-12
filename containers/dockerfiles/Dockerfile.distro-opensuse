@@ -1,0 +1,32 @@
+# Lightweight openSUSE container for package management
+# Used for installing and extracting Zypper packages
+FROM docker.io/opensuse/tumbleweed:latest
+
+LABEL maintainer="pf-web-poly-compile-helper-runner"
+LABEL description="Lightweight openSUSE container for Zypper package management"
+LABEL pf.distro="opensuse"
+LABEL pf.package-manager="zypper"
+
+# Install minimal package management tools
+RUN zypper --non-interactive refresh && \
+    zypper --non-interactive install -y \
+    rpm-build \
+    findutils \
+    which \
+    && zypper clean --all
+
+# Create output directories for extracted binaries
+RUN mkdir -p /output/bin /output/lib /output/share /output/etc
+
+# Create non-root user
+RUN useradd -m -s /bin/bash pfuser && \
+    chown -R pfuser:pfuser /output
+
+# Script to extract installed package files
+COPY containers/scripts/distro-extract.sh /usr/local/bin/distro-extract
+RUN chmod +x /usr/local/bin/distro-extract
+
+USER pfuser
+WORKDIR /home/pfuser
+
+CMD ["/bin/bash"]

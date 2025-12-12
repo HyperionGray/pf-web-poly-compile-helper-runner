@@ -1,0 +1,53 @@
+# test_params.pf - Tests for parameter parsing with default values
+# This test file ensures that task parameter definitions work correctly
+
+task test-no-params
+  describe Task without any parameters
+  shell echo "No parameters defined"
+end
+
+task test-single-param x=10
+  describe Task with a single parameter having a default value
+  shell echo "x=$x"
+end
+
+task test-multiple-params p1=first p2=second p3=third
+  describe Task with multiple parameters
+  shell echo "p1=$p1, p2=$p2, p3=$p3"
+end
+
+task test-empty-default val=""
+  describe Task with empty string as default
+  shell echo "val='$val'"
+end
+
+task test-hyphenated-param remote-addr="" port=8080
+  describe Task with hyphenated parameter names
+  shell echo "remote-addr=$remote-addr, port=$port"
+end
+
+task test-quoted-default msg="Hello World" path="/tmp/test"
+  describe Task with quoted default values
+  shell echo "msg=$msg, path=$path"
+end
+
+task test-param-interpolation base="/data" subdir="logs" 
+  describe Task that uses parameters in other definitions
+  env FULL_PATH=$base/$subdir
+  shell echo "FULL_PATH=$FULL_PATH"
+end
+
+task test-override-one p1=default1 p2=default2
+  describe Test overriding only one parameter
+  shell echo "p1=$p1, p2=$p2"
+end
+
+task test-special-chars url="http://example.com:8080/path?query=value" name="test-app-v1.0"
+  describe Task with special characters in default values
+  shell echo "url=$url, name=$name"
+end
+
+task test-numeric-params count=100 timeout=30 retries=3
+  describe Task with numeric default values
+  shell echo "count=$count, timeout=$timeout, retries=$retries"
+end

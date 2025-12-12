@@ -1,8 +1,11 @@
 SHELL := /bin/bash
 
-# Central Python from the user's venv (per workspace conventions)
-PF_PY := /home/punk/.venv/bin/python
+REPO_VENV := $(abspath .)/.venv/bin/python
+
+# Central Python interpreter (override with PF_PY or activate a venv)
+PF_PY ?= $(shell if [ -n "$$VIRTUAL_ENV" ] && [ -x "$$VIRTUAL_ENV/bin/python" ]; then echo "$$VIRTUAL_ENV/bin/python"; elif [ -x "$(REPO_VENV)" ]; then echo "$(REPO_VENV)"; elif command -v python3 >/dev/null 2>&1; then command -v python3; else command -v python; fi)
 PF_SCRIPT := pf_parser.py
+PF_CLI := pf_universal
 PF_LINK := pf
 
 .PHONY: default help clean shebang perms symlink setup test distclean install-local uninstall-local build install install-completions uninstall-completions
@@ -39,10 +42,11 @@ shebang:
 perms:
 	@# Ensure executable bit for the CLI script
 	@if [ -f "$(PF_SCRIPT)" ]; then chmod +x "$(PF_SCRIPT)"; fi
+	@if [ -f "$(PF_CLI)" ]; then chmod +x "$(PF_CLI)"; fi
 
 symlink:
-	@# Create/refresh a repo-local 'pf' symlink pointing to the CLI
-	@ln -sfn ./$(PF_SCRIPT) $(PF_LINK)
+	@# Create/refresh a repo-local 'pf' symlink pointing to the CLI wrapper
+	@ln -sfn ./$(PF_CLI) $(PF_LINK)
 	@ls -l $(PF_LINK)
 
 test: setup
@@ -64,8 +68,8 @@ distclean: clean
 install-local: setup
 	@install -d "$(HOME)/.local/bin"
 	@# Install as a symlink so the wrapper can resolve back to the repo
-	@ln -sfn "$(abspath pf_parser.py)" "$(HOME)/.local/bin/pf"
-	@echo "Installed symlink: $(HOME)/.local/bin/pf -> $(abspath pf_parser.py)"
+	@ln -sfn "$(abspath $(PF_CLI))" "$(HOME)/.local/bin/pf"
+	@echo "Installed symlink: $(HOME)/.local/bin/pf -> $(abspath $(PF_CLI))"
 	@# Install pfuck
 	@ln -sfn "$(abspath pfuck)" "$(HOME)/.local/bin/pfuck"
 	@echo "Installed symlink: $(HOME)/.local/bin/pfuck -> $(abspath pfuck)"

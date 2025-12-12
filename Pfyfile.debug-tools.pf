@@ -1,0 +1,210 @@
+# Debugging Tools Installation and Integration
+# Tasks for installing and configuring debugging tools mentioned in the TUI issue
+
+task install-oryx
+  describe Install oryx - TUI for exploring binaries
+  shell echo "📦 Installing oryx..."
+  shell command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env)
+  shell cargo install --locked oryx
+  shell echo "✓ oryx installed via cargo"
+end
+
+task install-binsider
+  describe Install binsider - Binary analyzer with TUI
+  shell echo "📦 Installing binsider..."
+  shell command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env)
+  shell cargo install binsider
+  shell echo "✓ binsider installed via cargo"
+end
+
+task install-rustnet
+  describe Install rustnet - Network monitoring tool
+  shell echo "📦 Installing rustnet..."
+  shell command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env)
+  shell cargo install rustnet
+  shell echo "✓ rustnet installed via cargo"
+end
+
+task install-sysz
+  describe Install sysz - Systemd unit file viewer
+  shell echo "📦 Installing sysz..."
+  shell command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env)
+  shell cargo install sysz
+  shell echo "✓ sysz installed via cargo"
+end
+
+task install-radare2
+  describe Install Radare2 - Reverse engineering framework
+  shell echo "📦 Installing Radare2..."
+  shell [ -f /etc/debian_version ] && (sudo apt-get update && sudo apt-get install -y radare2) || [ -f /etc/redhat-release ] && sudo yum install -y radare2 || [ "$(uname)" = "Darwin" ] && brew install radare2 || (git clone https://github.com/radareorg/radare2 /tmp/radare2 && cd /tmp/radare2 && sys/install.sh && rm -rf /tmp/radare2)
+  shell echo "✓ Radare2 installed"
+end
+
+task install-ghidra
+  describe Install Ghidra - NSA's reverse engineering suite (automated)
+  shell echo "📦 Installing Ghidra..."
+  shell echo "Checking for Java..."
+  shell command -v java >/dev/null 2>&1 || (echo "Installing OpenJDK 17..." && ([ -f /etc/debian_version ] && sudo apt-get update && sudo apt-get install -y openjdk-17-jdk || [ -f /etc/redhat-release ] && sudo yum install -y java-17-openjdk || [ "$(uname)" = "Darwin" ] && brew install openjdk@17))
+  shell echo "Note: Ghidra requires manual download from GitHub releases"
+  shell echo "Visit: https://github.com/NationalSecurityAgency/ghidra/releases"
+  shell echo "Or run the automated installer with internet connection"
+end
+
+task install-snowman
+  describe Install Snowman decompiler - C++ decompiler (free/open source)
+  shell echo "📦 Installing Snowman decompiler..."
+  shell echo "Checking for build dependencies..."
+  shell [ -f /etc/debian_version ] && (sudo apt-get update && sudo apt-get install -y cmake g++ libboost-dev qt5-qmake qtbase5-dev) || [ -f /etc/redhat-release ] && (sudo yum groupinstall -y "Development Tools" && sudo yum install -y cmake boost-devel qt5-qtbase-devel) || [ "$(uname)" = "Darwin" ] && (brew install cmake boost qt@5)
+  shell echo "Cloning Snowman repository from verified x64dbg fork..."
+  shell cd /tmp && git clone --depth 1 https://github.com/x64dbg/snowman.git snowman-install || (echo "❌ Failed to clone repository" && exit 1)
+  shell cd /tmp/snowman-install && mkdir -p build && cd build || (echo "❌ Failed to create build directory" && exit 1)
+  shell echo "Building Snowman (this may take a few minutes)..."
+  shell cd /tmp/snowman-install/build && cmake .. || (echo "❌ CMake configuration failed" && exit 1)
+  shell cd /tmp/snowman-install/build && make -j$(nproc 2>/dev/null || echo 4) || (echo "❌ Compilation failed" && exit 1)
+  shell echo "Installing to ~/.local/bin..."
+  shell mkdir -p ~/.local/bin
+  shell if [ -f /tmp/snowman-install/build/nocode/nocode ]; then cp /tmp/snowman-install/build/nocode/nocode ~/.local/bin/snowman; elif [ -f /tmp/snowman-install/build/src/nocode/nocode ]; then cp /tmp/snowman-install/build/src/nocode/nocode ~/.local/bin/snowman; else echo "❌ Could not find compiled binary" && exit 1; fi
+  shell rm -rf /tmp/snowman-install
+  shell echo "✓ Snowman installed to ~/.local/bin/snowman"
+  shell echo "Note: Make sure ~/.local/bin is in your PATH"
+  shell echo "Note: Using x64dbg fork for active maintenance"
+end
+
+task install-binaryninja-info
+  describe Show information about Binary Ninja (commercial license required)
+  shell echo "📦 Binary Ninja Information"
+  shell echo ""
+  shell echo "Binary Ninja is a commercial reverse engineering platform."
+  shell echo "It requires a paid license to use."
+  shell echo ""
+  shell echo "Pricing:"
+  shell echo "  • Personal License: $299 USD"
+  shell echo "  • Commercial License: $1,299 USD"
+  shell echo "  • Enterprise License: $2,999 USD"
+  shell echo ""
+  shell echo "Website: https://binary.ninja/"
+  shell echo "Free alternative: Use Radare2 or Ghidra (run 'pf install-radare2' or 'pf install-ghidra')"
+  shell echo ""
+  shell echo "Note: This project prioritizes free and open-source tools."
+end
+
+task install-all-debug-tools
+  describe Install all debugging and RE tools (including Snowman)
+  shell echo "🚀 Installing all debugging tools..."
+  shell echo "This may take several minutes..."
+  shell echo ""
+  shell pf install-oryx
+  shell pf install-binsider
+  shell pf install-rustnet
+  shell pf install-sysz
+  shell pf install-radare2
+  shell pf install-snowman
+  shell echo ""
+  shell echo "✓ All debugging tools installed!"
+  shell echo ""
+  shell echo "Note: Ghidra requires manual installation. Run: pf install-ghidra"
+  shell echo "Note: Binary Ninja is commercial software. Run: pf install-binaryninja-info"
+end
+
+task check-debug-tools
+  describe Check installation status of debugging tools
+  shell echo "🔍 Checking debugging tool installation status..."
+  shell echo ""
+  shell echo "Binary Analysis:"
+  shell command -v oryx >/dev/null 2>&1 && echo "  ✓ oryx - installed" || echo "  ✗ oryx - not installed"
+  shell command -v binsider >/dev/null 2>&1 && echo "  ✓ binsider - installed" || echo "  ✗ binsider - not installed"
+  shell command -v r2 >/dev/null 2>&1 && echo "  ✓ radare2 - installed" || echo "  ✗ radare2 - not installed"
+  shell command -v ghidra >/dev/null 2>&1 && echo "  ✓ Ghidra - installed" || echo "  ✗ Ghidra - not installed"
+  shell command -v snowman >/dev/null 2>&1 && echo "  ✓ Snowman - installed" || echo "  ✗ Snowman - not installed"
+  shell echo ""
+  shell echo "Network Analysis:"
+  shell command -v rustnet >/dev/null 2>&1 && echo "  ✓ rustnet - installed" || echo "  ✗ rustnet - not installed"
+  shell echo ""
+  shell echo "System Analysis:"
+  shell command -v sysz >/dev/null 2>&1 && echo "  ✓ sysz - installed" || echo "  ✗ sysz - not installed"
+  shell command -v strace >/dev/null 2>&1 && echo "  ✓ strace - installed" || echo "  ✗ strace - not installed"
+  shell command -v ltrace >/dev/null 2>&1 && echo "  ✓ ltrace - installed" || echo "  ✗ ltrace - not installed"
+  shell echo ""
+  shell echo "Debuggers:"
+  shell command -v gdb >/dev/null 2>&1 && echo "  ✓ GDB - installed" || echo "  ✗ GDB - not installed"
+  shell command -v lldb >/dev/null 2>&1 && echo "  ✓ LLDB - installed" || echo "  ✗ LLDB - not installed"
+  shell command -v pwndbg >/dev/null 2>&1 && echo "  ✓ pwndbg - installed" || echo "  ✗ pwndbg - not installed"
+  shell echo ""
+  shell echo "Binary Manipulation:"
+  shell command -v patchelf >/dev/null 2>&1 && echo "  ✓ patchelf - installed" || echo "  ✗ patchelf - not installed"
+  shell echo ""
+  shell echo "Exploit Development:"
+  shell python3 -c "import pwn" >/dev/null 2>&1 && echo "  ✓ pwntools - installed" || echo "  ✗ pwntools - not installed"
+  shell command -v checksec >/dev/null 2>&1 && echo "  ✓ checksec - installed" || echo "  ✗ checksec - not installed"
+  shell command -v ROPgadget >/dev/null 2>&1 && echo "  ✓ ROPgadget - installed" || echo "  ✗ ROPgadget - not installed"
+  shell command -v ropper >/dev/null 2>&1 && echo "  ✓ ropper - installed" || echo "  ✗ ropper - not installed"
+end
+
+task run-oryx
+  describe Run oryx binary explorer on a file
+  shell echo "🔍 Running oryx..."
+  shell oryx ${binary}
+end
+
+task run-binsider
+  describe Run binsider binary analyzer on a file
+  shell echo "🔍 Running binsider..."
+  shell binsider ${binary}
+end
+
+task run-rustnet
+  describe Run rustnet network monitor
+  shell echo "🌐 Running rustnet..."
+  shell rustnet
+end
+
+task run-sysz
+  describe Run sysz systemd unit viewer
+  shell echo "⚙️  Running sysz..."
+  shell sysz
+end
+
+task run-snowman
+  describe Run Snowman decompiler on a binary file
+  shell echo "🔍 Running Snowman decompiler..."
+  shell snowman ${binary}
+end
+
+task debug-tools-help
+  describe Show help for debugging tools
+  shell echo "🛠️  Debugging Tools - Installation and Usage"
+  shell echo ""
+  shell echo "Installation:"
+  shell echo "  pf install-oryx              - Install oryx (binary explorer)"
+  shell echo "  pf install-binsider          - Install binsider (binary analyzer)"
+  shell echo "  pf install-rustnet           - Install rustnet (network monitor)"
+  shell echo "  pf install-sysz              - Install sysz (systemd viewer)"
+  shell echo "  pf install-radare2           - Install radare2 (RE framework)"
+  shell echo "  pf install-ghidra            - Install Ghidra (NSA RE suite)"
+  shell echo "  pf install-snowman           - Install Snowman (C++ decompiler)"
+  shell echo "  pf install-binaryninja-info  - Show Binary Ninja info (commercial)"
+  shell echo "  pf install-all-debug-tools   - Install all tools at once"
+  shell echo ""
+  shell echo "Status Check:"
+  shell echo "  pf check-debug-tools         - Check which tools are installed"
+  shell echo ""
+  shell echo "Usage:"
+  shell echo "  pf run-oryx binary=/path/to/file    - Explore binary with oryx"
+  shell echo "  pf run-binsider binary=/path/to/file - Analyze binary with binsider"
+  shell echo "  pf run-snowman binary=/path/to/file  - Decompile binary with Snowman"
+  shell echo "  pf run-rustnet                      - Monitor network with rustnet"
+  shell echo "  pf run-sysz                         - View systemd units with sysz"
+  shell echo ""
+  shell echo "Tool Information:"
+  shell echo "  • oryx      - https://github.com/pythops/oryx"
+  shell echo "  • binsider  - https://github.com/orhun/binsider"
+  shell echo "  • rustnet   - https://github.com/domcyrus/rustnet"
+  shell echo "  • sysz      - https://github.com/joehillen/sysz"
+  shell echo "  • radare2   - https://rada.re/"
+  shell echo "  • Ghidra    - https://ghidra-sre.org/"
+  shell echo "  • Snowman   - https://github.com/x64dbg/snowman"
+  shell echo ""
+  shell echo "TUI Integration:"
+  shell echo "  Launch the pf TUI to view all debugging tools:"
+  shell echo "  pf tui → Option 4 (View debugging tools)"
+end

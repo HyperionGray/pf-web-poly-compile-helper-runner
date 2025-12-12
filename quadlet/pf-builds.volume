@@ -1,0 +1,17 @@
+[Unit]
+Description=pf Build Artifacts Volume
+Documentation=https://github.com/containers/podman/blob/main/docs/source/markdown/podman-systemd.unit.5.md
+
+[Volume]
+# Volume name
+VolumeName=pf-builds
+
+# Mount point options
+Options=rw
+
+# Labels for identification
+Label=app=pf-development
+Label=component=builds
+
+[Install]
+WantedBy=default.target

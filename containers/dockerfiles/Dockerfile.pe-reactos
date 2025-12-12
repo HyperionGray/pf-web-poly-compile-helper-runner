@@ -1,0 +1,325 @@
+# ReactOS Container for PE Execution
+# Lightweight Windows-compatible OS for running Portable Executables
+# Uses ReactOS in QEMU for native PE execution without Wine
+FROM ubuntu:22.04
+
+LABEL maintainer="pf-runner"
+LABEL description="ReactOS-based container for native PE execution"
+LABEL os.type="pe-reactos"
+LABEL os.version="0.4.14"
+LABEL execution.type="pe"
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install QEMU and essential tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    qemu-system-x86 \
+    qemu-utils \
+    wget \
+    curl \
+    ca-certificates \
+    xz-utils \
+    p7zip-full \
+    unzip \
+    file \
+    python3 \
+    python3-pip \
+    socat \
+    netcat-openbsd \
+    expect \
+    screen \
+    tmux \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create directories
+RUN mkdir -p /reactos/images /reactos/pe-input /reactos/pe-output \
+    /reactos/shared /reactos/scripts /reactos/logs
+
+# Create ReactOS setup and execution scripts
+RUN cat > /reactos/scripts/setup-reactos.sh << 'SETUP'
+#!/bin/bash
+# Download and setup ReactOS for PE execution
+
+set -e
+
+REACTOS_VERSION="${REACTOS_VERSION:-0.4.14}"
+IMAGE_DIR="/reactos/images"
+ISO_URL="https://sourceforge.net/projects/reactos/files/ReactOS/${REACTOS_VERSION}/ReactOS-${REACTOS_VERSION}-live.iso/download"
+
+echo "Setting up ReactOS ${REACTOS_VERSION}..."
+
+# Download ReactOS LiveCD if not present
+if [ ! -f "${IMAGE_DIR}/reactos-live.iso" ]; then
+    echo "Downloading ReactOS LiveCD..."
+    wget -q --show-progress -O "${IMAGE_DIR}/reactos-live.iso" "$ISO_URL" || {
+        echo "Primary download failed, trying mirror..."
+        wget -q --show-progress -O "${IMAGE_DIR}/reactos-live.iso" \
+            "https://downloads.sourceforge.net/project/reactos/ReactOS/${REACTOS_VERSION}/ReactOS-${REACTOS_VERSION}-live.iso" || {
+            echo "Error: Could not download ReactOS ISO"
+            echo "Please download manually from: https://reactos.org/download"
+            exit 1
+        }
+    }
+fi
+
+# Create disk image for persistent storage
+if [ ! -f "${IMAGE_DIR}/reactos-disk.qcow2" ]; then
+    echo "Creating persistent disk image..."
+    qemu-img create -f qcow2 "${IMAGE_DIR}/reactos-disk.qcow2" 4G
+fi
+
+echo "ReactOS setup complete!"
+echo ""
+echo "Images available:"
+ls -lh "${IMAGE_DIR}/"
+SETUP
+
+RUN chmod +x /reactos/scripts/setup-reactos.sh
+
+# Create PE execution script for ReactOS
+RUN cat > /reactos/scripts/run-pe.sh << 'RUNPE'
+#!/bin/bash
+# Run PE file in ReactOS VM
+
+set -e
+
+PE_FILE="${1:-}"
+MEMORY="${MEMORY:-1024}"
+CPUS="${CPUS:-1}"
+TIMEOUT="${TIMEOUT:-120}"
+LIVE_MODE="${LIVE_MODE:-true}"
+
+usage() {
+    echo "Usage: run-pe.sh <pe_file> [options]"
+    echo ""
+    echo "Run a Windows PE executable in ReactOS"
+    echo ""
+    echo "Environment options:"
+    echo "  MEMORY=MB       Memory allocation (default: 1024)"
+    echo "  CPUS=N          CPU count (default: 1)"
+    echo "  TIMEOUT=sec     Execution timeout (default: 120)"
+    echo "  LIVE_MODE=bool  Use LiveCD mode (default: true)"
+}
+
+if [ -z "$PE_FILE" ]; then
+    usage
+    exit 1
+fi
+
+if [ ! -f "$PE_FILE" ]; then
+    echo "Error: PE file not found: $PE_FILE"
+    exit 1
+fi
+
+# Validate PE file
+FILE_INFO=$(file -b "$PE_FILE")
+echo "File type: $FILE_INFO"
+
+# Check if it looks like a PE file
+if ! echo "$FILE_INFO" | grep -qiE "(PE32|PE32\+|MS-DOS executable|executable.*windows)"; then
+    echo "Warning: File may not be a valid Windows PE executable"
+fi
+
+# Copy PE to shared directory
+mkdir -p /reactos/shared
+PE_BASENAME=$(basename "$PE_FILE")
+cp "$PE_FILE" "/reactos/shared/${PE_BASENAME}"
+
+# Prepare QEMU command
+QEMU_CMD="qemu-system-x86_64"
+QEMU_ARGS=""
+
+# Enable KVM if available
+if [ -e /dev/kvm ]; then
+    QEMU_ARGS="$QEMU_ARGS -enable-kvm -cpu host"
+else
+    QEMU_ARGS="$QEMU_ARGS -cpu qemu64"
+fi
+
+# Basic configuration
+QEMU_ARGS="$QEMU_ARGS -m $MEMORY -smp $CPUS"
+QEMU_ARGS="$QEMU_ARGS -nographic"
+
+# Boot from LiveCD or installed system
+if [ "$LIVE_MODE" = "true" ]; then
+    if [ -f /reactos/images/reactos-live.iso ]; then
+        QEMU_ARGS="$QEMU_ARGS -cdrom /reactos/images/reactos-live.iso -boot d"
+    else
+        echo "Error: ReactOS LiveCD not found. Run: setup-reactos.sh"
+        exit 1
+    fi
+else
+    if [ -f /reactos/images/reactos-disk.qcow2 ]; then
+        QEMU_ARGS="$QEMU_ARGS -drive file=/reactos/images/reactos-disk.qcow2,format=qcow2"
+    else
+        echo "Error: ReactOS disk image not found"
+        exit 1
+    fi
+fi
+
+# Add shared folder (FAT filesystem image for compatibility)
+# Create a FAT image with the PE file
+SHARED_IMG="/reactos/shared/shared.img"
+dd if=/dev/zero of="$SHARED_IMG" bs=1M count=32 2>/dev/null
+mkfs.vfat "$SHARED_IMG" 2>/dev/null || true
+# Mount and copy PE (if tools available)
+if command -v mcopy &> /dev/null; then
+    mcopy -i "$SHARED_IMG" "/reactos/shared/${PE_BASENAME}" "::${PE_BASENAME}"
+fi
+
+# Add shared drive
+QEMU_ARGS="$QEMU_ARGS -drive file=$SHARED_IMG,format=raw,if=floppy"
+
+# Serial output
+QEMU_ARGS="$QEMU_ARGS -serial file:/reactos/logs/serial.log"
+
+# Monitor socket
+QEMU_ARGS="$QEMU_ARGS -monitor unix:/reactos/monitor.sock,server,nowait"
+
+echo "Starting ReactOS VM..."
+echo "PE File: $PE_BASENAME"
+echo "Memory: ${MEMORY}MB, CPUs: $CPUS, Timeout: ${TIMEOUT}s"
+
+# Run with timeout
+timeout "$TIMEOUT" $QEMU_CMD $QEMU_ARGS &
+QEMU_PID=$!
+
+# Simple monitoring
+sleep 5
+if kill -0 $QEMU_PID 2>/dev/null; then
+    echo "ReactOS VM is running (PID: $QEMU_PID)"
+    wait $QEMU_PID 2>/dev/null || true
+else
+    echo "VM failed to start or completed quickly"
+fi
+
+EXIT_CODE=$?
+echo "VM exited with code: $EXIT_CODE"
+
+# Show output
+if [ -f /reactos/logs/serial.log ]; then
+    echo ""
+    echo "=== Serial Output ==="
+    cat /reactos/logs/serial.log
+fi
+
+exit $EXIT_CODE
+RUNPE
+
+RUN chmod +x /reactos/scripts/run-pe.sh
+
+# Create PE analysis script
+RUN cat > /reactos/scripts/analyze-pe.sh << 'ANALYZE'
+#!/bin/bash
+# Analyze PE file
+
+PE_FILE="$1"
+
+if [ -z "$PE_FILE" ] || [ ! -f "$PE_FILE" ]; then
+    echo "Usage: analyze-pe.sh <pe_file>"
+    exit 1
+fi
+
+echo "╔════════════════════════════════════════════════════════════╗"
+echo "║                    PE FILE ANALYSIS                        ║"
+echo "╚════════════════════════════════════════════════════════════╝"
+echo ""
+echo "File: $PE_FILE"
+echo ""
+
+echo "─── Basic Info ───"
+file "$PE_FILE"
+echo ""
+
+echo "─── Size ───"
+ls -lh "$PE_FILE" | awk '{print "Size: " $5}'
+stat --printf="Created: %w\nModified: %y\n" "$PE_FILE" 2>/dev/null || true
+echo ""
+
+echo "─── Checksums ───"
+echo "MD5:    $(md5sum "$PE_FILE" | awk '{print $1}')"
+echo "SHA1:   $(sha1sum "$PE_FILE" | awk '{print $1}')"
+echo "SHA256: $(sha256sum "$PE_FILE" | awk '{print $1}')"
+echo ""
+
+# Try to extract PE info using objdump
+if command -v objdump &> /dev/null; then
+    echo "─── PE Headers ───"
+    objdump -p "$PE_FILE" 2>/dev/null | head -100 || echo "Could not parse PE headers"
+fi
+
+# Strings analysis
+echo ""
+echo "─── Notable Strings (first 30) ───"
+strings "$PE_FILE" 2>/dev/null | grep -iE "(dll|exe|api|http|file|cmd|shell|exec|create|write|read|delete)" | head -30 || true
+ANALYZE
+
+RUN chmod +x /reactos/scripts/analyze-pe.sh
+
+# Create help script
+RUN cat > /reactos/scripts/pf-pe-help.sh << 'HELP'
+#!/bin/bash
+cat << 'EOF'
+╔════════════════════════════════════════════════════════════════════╗
+║           ReactOS PE Execution Container                           ║
+╚════════════════════════════════════════════════════════════════════╝
+
+COMMANDS:
+  setup-reactos.sh       Download and setup ReactOS images
+  run-pe.sh <file>       Execute PE file in ReactOS VM
+  analyze-pe.sh <file>   Analyze PE file before execution
+
+EXAMPLES:
+  # Setup ReactOS (first time)
+  setup-reactos.sh
+  
+  # Run a PE file
+  run-pe.sh /reactos/pe-input/myapp.exe
+  
+  # Run with more memory
+  MEMORY=2048 run-pe.sh /reactos/pe-input/myapp.exe
+  
+  # Analyze PE before running
+  analyze-pe.sh /reactos/pe-input/myapp.exe
+
+VOLUME MOUNTS:
+  /reactos/pe-input    Mount your PE files here
+  /reactos/pe-output   Execution results and artifacts
+  /reactos/images      VM images (can be persisted)
+
+DOCKER RUN EXAMPLE:
+  docker run -it --rm \
+    -v ./my-pe-files:/reactos/pe-input \
+    -v ./output:/reactos/pe-output \
+    localhost/pf-pe-reactos:latest \
+    run-pe.sh /reactos/pe-input/app.exe
+
+WITH KVM ACCELERATION:
+  docker run -it --rm --device /dev/kvm \
+    -v ./my-pe-files:/reactos/pe-input \
+    localhost/pf-pe-reactos:latest \
+    run-pe.sh /reactos/pe-input/app.exe
+
+EOF
+HELP
+
+RUN chmod +x /reactos/scripts/pf-pe-help.sh
+
+# Add scripts to PATH
+ENV PATH="/reactos/scripts:${PATH}"
+
+# Working directory
+WORKDIR /reactos
+
+# Volumes
+VOLUME ["/reactos/images", "/reactos/pe-input", "/reactos/pe-output"]
+
+# Default shows help
+CMD ["pf-pe-help.sh"]
+
+# Environment
+ENV OS_TYPE=pe-reactos
+ENV REACTOS_VERSION=0.4.14
+ENV QEMU_AUDIO_DRV=none

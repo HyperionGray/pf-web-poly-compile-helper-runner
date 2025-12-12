@@ -1,6 +1,6 @@
 task venv-clean
   describe "Removes corrupted package directories from the virtual environment."
-  shell rm -rf /home/punk/.venv/lib/python3.12/site-packages/~*
+  shell rm -rf ~/.venv/lib/python3.12/site-packages/~*
 end
 
 # Pfyfile.cleanup.pf - Cleanup and maintenance tasks

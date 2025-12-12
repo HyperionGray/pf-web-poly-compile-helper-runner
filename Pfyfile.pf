@@ -1,5 +1,8 @@
 # pf web plugin (minimal)
 
+# Include smart integrated workflows (NEW - combines tools intelligently)
+include Pfyfile.smart-workflows.pf
+
 # Include binary lifting tasks
 include Pfyfile.lifting.pf
 
@@ -7,6 +10,62 @@ include Pfyfile.lifting.pf
 include Pfyfile.injection.pf
 # Include debugging and reverse engineering tasks
 include Pfyfile.debugging.pf
+# Include ROP exploit demonstration tasks
+include Pfyfile.rop.pf
+# Include practice binaries tasks
+include Pfyfile.practice.pf
+
+# Include security testing tasks
+include Pfyfile.security.pf
+
+# Include fuzzing and sanitizer tasks
+include Pfyfile.fuzzing.pf
+
+# Include git cleanup tasks
+include Pfyfile.git-cleanup.pf
+
+# Include PR management tasks
+include Pfyfile.pr-management.pf
+
+# Include exploit development tasks
+include Pfyfile.exploit.pf
+# Include TUI tasks
+include Pfyfile.tui.pf
+
+# Include debugging tools tasks
+include Pfyfile.debug-tools.pf
+
+# Include container and quadlet tasks
+include Pfyfile.containers.pf
+
+# Include package manager translation tasks
+include Pfyfile.package-manager.pf
+
+# Include OS container management tasks
+include Pfyfile.os-containers.pf
+
+# Include OS switching tasks (DANGEROUS)
+include Pfyfile.os-switching.pf
+# Include distro container and OS switching tasks
+include Pfyfile.distro-switch.pf
+
+# Include PE execution and cross-platform binary execution tasks
+include Pfyfile.pe-execution.pf
+
+# Include PE container tasks
+include Pfyfile.pe-containers.pf
+
+# Include heap spray demonstration tasks
+include Pfyfile.heap-spray.pf
+
+# Include kernel debugging tasks
+include Pfyfile.kernel-debug.pf
+
+# Include web development and WASM build tasks
+include Pfyfile.web.pf
+
+# Include REST API management tasks
+include Pfyfile.rest-api.pf
 
 task web-dev
   describe Start development server with REST API support
@@ -133,21 +192,65 @@ task web-build-c-llvm-opt
 end
 
 task install-base
-  describe Install base pf runner, Python dependencies, and core build tools
-  
-  shell bash install.sh base
+  describe Install pf task runner directly to /usr/local/bin
+  shell bash install.sh
 end
 
 task install-web
-  describe Install web/WASM development tools (Node.js, Playwright, Rust, Emscripten, WABT)
-  
-  shell bash install.sh web
+  describe Install pf task runner (alias for install)
+  shell bash install.sh
 end
 
 task install
-  describe Install everything - base pf runner and all web/WASM development tools
+  describe Install pf task runner directly to /usr/local/bin
+  shell bash install.sh
+end
+
+task install-container
+  describe Build pf-runner container images (alternative to direct install)
+  shell bash install-container.sh
+end
+
+task install-full mode=container runtime=podman
+  describe Full setup (container-first): build images, install wrapper, install/enable quadlets, doctor
+  # Build images (container-first default). Users can override with mode=native to skip containers.
+  shell if [ "${mode:-container}" = "container" ]; then CONTAINER_RT=${runtime:-podman} ./containers/scripts/build-containers.sh all; else echo "[install-full] native mode: skipping container builds"; fi
+  # Install pf wrapper
+shell if [ "${mode:-container}" = "container" ]; then pf install; else ./containers/scripts/install-native.sh || { echo "native install failed"; exit 1; }; fi
+  # Quadlets (only meaningful in container mode)
+  shell if [ "${mode:-container}" = "container" ]; then pf quadlet-install; else true; fi
+  shell if [ "${mode:-container}" = "container" ]; then pf quadlet-reload; else true; fi
+  shell if [ "${mode:-container}" = "container" ]; then pf quadlet-enable-all; else true; fi
+  shell if [ "${mode:-container}" = "container" ]; then pf quadlet-status-all; else true; fi
+  # Doctor at the end
+  shell pf quadlet-doctor
+end
+
+# Back-compat alias
+task install-all
+  describe Alias for install-full (container-first)
+  shell pf install-full
+end
+
+task install-all-min
+  describe Install pf and quadlets only (no image build)
+  shell pf install
+  shell pf quadlet-install
+  shell pf quadlet-reload
+  shell pf quadlet-enable
+end
+
+task debug-check-podman
+  describe Show podman visibility from inside pf container
+  shell command -v podman || echo "podman not in PATH"
+  shell ls -l /usr/bin/podman || true
+  shell env | grep -E 'XDG_RUNTIME_DIR|CONTAINER_HOST' || true
+end
+
+task install-exploit
+  describe Install exploit development tools (pwntools, checksec, ROPgadget, ropper)
   
-  shell bash install.sh all
+  shell pf install-exploit-tools
 end
 
 task sync-demo
@@ -159,4 +262,17 @@ task sync-demo
   shell echo "  Excludes: sync src=./ dest=/backup/ excludes=[\"*.log\",\"*.tmp\"] delete dry"
   shell echo "  From file: sync src=./ dest=/backup/ exclude_file=.rsync-exclude"
   shell echo "See pf-runner/SYNC.md for full documentation"
+end
+
+# --- install aliases ---
+task install-native
+  describe Build pf natively via container and drop to ~/.local/bin/pf
+  shell_lang bash
+  shell ./containers/scripts/install-native.sh
+end
+
+task install-system
+  describe Install ~/.local/bin/pf to /usr/local/bin/pf (host; may prompt for sudo)
+  shell_lang bash
+  shell ./containers/scripts/install-system.sh
 end

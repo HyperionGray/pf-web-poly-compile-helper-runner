@@ -2,6 +2,19 @@
 
 A comprehensive polyglot WebAssembly development environment featuring the **pf** task runner (Fabric-based DSL) and multi-language WASM compilation demos.
 
+## Quick Start
+
+**New to pf?** Check out the [**QUICKSTART.md**](QUICKSTART.md) for a comprehensive guide with examples!
+
+The QUICKSTART covers:
+- All parameter passing formats (4 different ways!)
+- Task definitions with examples
+- Environment variables and defaults
+- Polyglot shell support
+- Build system helpers
+- Remote execution
+- And much more!
+
 ## Overview
 
 This repository provides:
@@ -20,14 +33,82 @@ This repository provides:
 - **Parallel execution**: Run tasks across multiple hosts via SSH
 - **Modular configuration**: Split tasks into multiple `.pf` files with `include`
 - **Parameter interpolation**: Pass runtime parameters to tasks
+- **Command aliases**: Define short command aliases with `[alias name]` syntax for quick access
 
-### REST API Server 🌐
+### pf REST API Server 🌐 (NEW!)
+Execute pf tasks remotely via HTTP with automatic API documentation:
+
+```bash
+# Start the REST API server (via systemd)
+pf rest-on         # or use the alias: pf ron
+
+# Stop the REST API server
+pf rest-off        # or use the alias: pf roff
+
+# Start in development mode (foreground with auto-reload)
+pf rest-dev        # or use the alias: pf rdev
+```
+
+**Features:**
+- **Auto-generated docs**: Swagger UI at `/docs` and ReDoc at `/redoc`
+- **Task execution**: Run any pf task via HTTP POST
+- **Alias routing**: Access tasks via their short aliases (e.g., `/ron` instead of `/pf/rest-on`)
+- **Task listing**: Get all available tasks with descriptions
+- **Configurable**: Set host, port, and worker count via environment variables
+
+**API Endpoints:**
+- `GET /pf/` - List all available tasks
+- `GET /pf/{task}` - Get task details
+- `POST /pf/{task}` - Execute a task
+- `GET /{alias}` - Access task by alias
+- `POST /{alias}` - Execute task by alias
+- `POST /reload` - Reload tasks from Pfyfile
+
+**Configuration (Environment Variables):**
+- `PF_API_HOST` - Bind address (default: 127.0.0.1)
+- `PF_API_PORT` - Port number (default: 8000)
+- `PF_API_WORKERS` - Number of workers (default: 4)
+
+### Node.js REST API Server 🌐
 - **Build Management**: Trigger WebAssembly builds via REST endpoints
 - **Real-time Updates**: WebSocket connections for live build status
 - **Project Management**: List projects, modules, and build artifacts
 - **Status Tracking**: Monitor build progress and retrieve detailed logs
 - **Backward Compatibility**: Maintains static file serving for existing web demo
 - **Multi-language Support**: API endpoints for Rust, C, Fortran, and WAT builds
+
+### Smart Integrated Workflows 🎯 (NEW!)
+**One command to do it all!** Smart workflows automatically combine multiple tools to accomplish complex tasks intelligently:
+
+- **smart-binary-analysis**: Complete binary analysis (checksec → lift → analyze → debug-prep)
+- **smart-exploit-dev**: Intelligent exploit development (checksec → ROP gadgets → strategy recommendation)
+- **smart-security-test**: Comprehensive security testing (web scan + binary analysis + fuzzing)
+- **smart-kernel-analysis**: Kernel module vulnerability analysis (lift → parse-detect → complexity → fuzzing)
+- **smart-package-install**: Auto-format detection and package conversion
+- **smart-web-dev**: Complete web dev workflow (build → test → security-check → serve)
+
+**Quick Examples:**
+```bash
+# Analyze any binary comprehensively
+pf smart-binary-analysis binary=/path/to/binary
+
+# Develop exploits intelligently
+pf smart-exploit-dev binary=/path/to/vulnerable
+
+# Complete security assessment
+pf smart-security-test url=http://target.com binary=/path/to/backend
+
+# Kernel vulnerability research
+pf smart-kernel-analysis binary=/path/to/driver.ko
+
+# Smart web development
+pf smart-web-dev port=8080
+
+# Show all smart workflows
+pf smart-workflows-help
+```
+
+These workflows intelligently combine tools like checksec, binary lifting, ROP gadgets, debuggers, fuzzers, and security scanners to accomplish complex tasks with minimal effort.
 
 ### Automagic Builder
 The **automagic builder** is an intelligent build system that automatically detects your project type and runs the appropriate build command - no configuration needed! Just run `pf autobuild` and it handles the rest.
@@ -77,6 +158,17 @@ pf build_detect
 - **Fortran**: Experimental WASM support via LFortran
 - **WAT**: Assemble WebAssembly text format with WABT
 
+### Container Infrastructure 🐳
+Run the entire development environment in containers using Podman:
+- **Podman Quadlets**: Systemd-integrated container management for production
+- **Podman Compose**: Development workflow with podman-compose.yml
+- **GPU Support**: Optional GPU-accelerated containers with CUDA
+- **Build Containers**: Pre-configured containers for Rust, C, Fortran compilation
+- **Debugger Container**: Full debugging suite with GDB, LLDB, pwndbg, radare2
+- **Ubuntu 24.04 Base**: All containers based on Ubuntu 24.04 with debugging tools
+
+See [Container Documentation](containers/README.md) for complete guide.
+
 ### Binary Injection & Advanced Debugging 🔧
 Compile code to shared libraries and inject into binaries for advanced debugging and analysis:
 - **Shared Library Compilation**: Build .so/.dylib from C, C++, Rust, Fortran
@@ -98,6 +190,37 @@ Convert compiled binaries back to LLVM IR for analysis, optimization, and transf
 - **Security Analysis**: Instrument and analyze binaries for vulnerabilities
 
 See [LLVM Lifting Guide](docs/LLVM-LIFTING.md) for complete documentation.
+
+### Fuzzing & Sanitizers 🔍
+Comprehensive fuzzing and memory safety testing with turnkey integration:
+- **🛡️ Sanitizers**: ASan, MSan, UBSan, TSan for detecting memory errors and undefined behavior
+- **⚡ libfuzzer**: In-process, coverage-guided fuzzing integrated with LLVM
+- **🎯 AFL++**: Advanced fuzzing with LLVM instrumentation for maximum coverage
+- **🔬 Binary Lifting + Fuzzing**: Fuzz black-box binaries by lifting to LLVM IR and instrumenting
+- **📊 Turnkey Workflows**: Single commands like `pf afl-fuzz` for complete fuzzing campaigns
+- **🚀 "Good Luck With That" Achievement**: Successfully instrument lifted binaries with AFL++ (they said it couldn't be done!)
+
+**Quick Start:**
+```bash
+# Build with sanitizers
+pf build-with-asan source=mycode.c
+pf build-with-msan source=mycode.c
+
+# libfuzzer
+pf generate-libfuzzer-template
+pf build-libfuzzer-target source=fuzz_target.c
+pf run-libfuzzer target=fuzzer time=60
+
+# AFL++
+pf build-afl-target source=target.c
+pf afl-fuzz target=target_afl time=1h
+
+# Fuzz black-box binaries!
+pf lift-and-instrument-binary binary=/path/to/binary
+pf afl-fuzz target=binary_afl_lifted time=30m
+```
+
+See [Fuzzing Guide](docs/FUZZING.md) for complete documentation.
 
 ### Advanced Kernel Debugging 🛡️
 Comprehensive kernel-mode debugging and security analysis capabilities:
@@ -130,6 +253,48 @@ pf kernel-fuzz-in-memory binary=/path/to/binary function=parse_input
 
 See [Kernel Debugging Guide](docs/KERNEL-DEBUGGING.md) for complete documentation.
 See [Automagic Demo](demos/kernel-debugging/AUTOMAGIC-DEMO.md) for hands-on examples.
+
+### Web Application Security Testing 🔒
+Comprehensive web application security scanning and fuzzing inspired by Burp Suite and massweb:
+- **Automated Vulnerability Detection**: Scan for SQL injection, XSS, CSRF, path traversal, command injection, XXE, SSRF
+- **Mass Fuzzing**: High-throughput fuzzing with multiple payload types and anomaly detection
+- **Security Headers**: Check for missing or misconfigured security headers
+- **Access Control Testing**: Identify broken authentication and authorization issues
+- **Multiple Output Formats**: Human-readable console output and JSON for CI/CD integration
+- **Extensible Framework**: Easy to add custom vulnerability checks and payloads
+
+**Quick Start:**
+```bash
+# Run comprehensive security scan
+pf security-scan url=http://localhost:8080
+
+# Run specific vulnerability checks
+pf security-scan url=http://localhost:8080 checks=sqli,xss
+
+# Fuzz an endpoint with all payloads
+pf security-fuzz url=http://localhost:8080/api
+
+# Fuzz with specific payload type
+pf security-fuzz url=http://localhost:8080/search type=sqli
+
+# Run complete security test suite
+pf security-test-all url=http://localhost:8080
+```
+
+**Vulnerability Types Detected:**
+- SQL Injection (error-based and blind)
+- Cross-Site Scripting (XSS)
+- Cross-Site Request Forgery (CSRF)
+- Path Traversal / Directory Traversal
+- OS Command Injection
+- XML External Entity (XXE)
+- Server-Side Request Forgery (SSRF)
+- Security Misconfigurations
+- Missing Security Headers
+- Broken Access Control
+
+See [Security Testing Guide](docs/SECURITY-TESTING.md) for complete documentation.
+
 ### Binary Injection 💉
 Inject compiled polyglot code into existing binaries and shared libraries:
 - **Multi-Language Payloads**: Create injectable libraries from Rust, C, Fortran, WASM, or LLVM IR
@@ -151,6 +316,146 @@ Interactive debugging and reverse engineering for ELF binaries (C/C++/Rust):
 
 See [Debugging Guide](demos/debugging/README.md) for complete documentation.
 
+### ROP (Return-Oriented Programming) Exploit Demo 💥
+End-to-end demonstration of exploiting buffer overflow vulnerabilities using ROP:
+- **Vulnerable Legacy Service**: Simulated old software with stack-based buffer overflow
+- **ROP Chain Generation**: Automated tools to build exploit chains
+- **NX Bypass**: Demonstrates bypassing non-executable stack protection
+- **Educational Framework**: Complete walkthrough from vulnerability to exploitation
+- **Analysis Tools**: Gadget finding, disassembly, and security checking
+- **Interactive Testing**: Build, analyze, and test exploits step-by-step
+
+See [ROP Exploit Demo](demos/rop-exploit/README.md) for complete documentation.
+### Git Repository Cleanup 🗑️
+Interactive tool for removing large files from git history with an intuitive TUI:
+- **Interactive TUI**: Beautiful terminal interface with checkbox selection
+- **Size Analysis**: Scan and visualize large files across entire git history
+- **Smart Filtering**: Set custom size thresholds (100KB - 50MB or custom)
+- **Automatic Backup**: Creates git bundle backup before any changes
+- **Safe Cleanup**: Uses git-filter-repo for efficient history rewriting
+- **Step-by-Step Guidance**: Clear instructions for post-cleanup actions
+
+**Quick Start:**
+```bash
+# Run interactive cleanup tool
+pf git-cleanup
+
+# Or analyze without removing
+pf git-analyze-large-files
+
+# Check repository size
+pf git-repo-size
+```
+
+See [Git Cleanup Guide](docs/GIT-CLEANUP.md) for complete documentation.
+
+### Interactive TUI 🎨
+Beautiful text-based user interface for managing tasks and debugging:
+- **Task Organization**: Browse tasks by category with rich formatting
+- **Interactive Execution**: Run tasks with parameter input
+- **Syntax Checking**: Validate task definitions before execution
+- **Debugging Tools**: View and manage reverse engineering tools
+- **Search Functionality**: Find tasks quickly by name or description
+
+**Quick Start:**
+```bash
+# Launch the interactive TUI
+pf tui
+
+# Install TUI dependencies (if needed)
+pf install-tui-deps
+
+# View TUI help
+pf tui-help
+```
+
+**Features:**
+- **11 Task Categories**: Web, Build, Security, Debugging, Kernel, and more
+- **178+ Tasks**: Full access to all pf tasks in an organized interface
+- **Tool Status**: Check installation status of debugging tools (including Snowman decompiler)
+- **Exploit Development**: Integration with pwntools, checksec, ROPgadget
+- **Rich Formatting**: Color-coded categories, tables, and progress bars
+
+See [TUI Documentation](docs/TUI.md) for complete guide.
+
+### Package Manager Translation 📦
+Translate packages between the 5 most common Linux package formats using a hub-and-spoke model:
+- **Supported Formats**: deb (Debian/Ubuntu), rpm (Red Hat/Fedora), flatpak, snap, pacman (Arch)
+- **Hub Architecture**: All conversions go through .deb as the hub format
+- **Dependency Management**: Proper dependency resolution across formats
+- **Batch Conversion**: Convert multiple packages at once
+- **Cross-Distro**: Create packages for any distro from any source
+
+**Quick Start:**
+```bash
+# Check available formats
+pf pkg-formats
+
+# Convert RPM to DEB
+pf pkg-convert source=package.rpm target=deb
+
+# Convert Flatpak to RPM (via .deb hub)
+pf pkg-convert source=app.flatpak target=rpm
+
+# Get package info
+pf pkg-info package=myapp.deb
+
+# Show conversion matrix
+pf pkg-matrix
+```
+
+See [Package Manager Guide](docs/PACKAGE-MANAGER.md) for complete documentation.
+
+### Multi-Distro Container Management 🐧
+Use lightweight containers for CentOS, Fedora, Arch, and openSUSE to install and manage packages without polluting your host system:
+- **Container Isolation**: Each distro runs in its own lightweight container
+- **Artifact Extraction**: Binaries are extracted to host directories using rshared mounts
+- **View Modes**: Unified (all distros in one PATH) or isolated (per-distro paths)
+- **Efficient**: Containers spin up only when needed, then clean up
+
+**Quick Start:**
+```bash
+# Install packages from Fedora
+pf distro-install-fedora packages="vim htop"
+
+# Install packages from Arch
+pf distro-install-arch packages="neovim tree"
+
+# Check status
+pf distro-status
+
+# Switch view mode
+pf distro-view-unified
+```
+
+See [Distro Container Management Guide](docs/DISTRO-CONTAINER-MANAGEMENT.md) for complete documentation.
+
+### OS Switching (Experimental) 🔄
+Switch between different Linux distributions using containers and kexec for rebootless kernel switching:
+- **MirrorOS Snapshots**: Automatic backups using btrfs/zfs/rsync
+- **Container-Based**: Target OS prepared in container, synced to partition
+- **kexec Integration**: Rebootless kernel switching for minimal downtime
+- **Safety First**: Dry-run mode and automatic backup before switch
+
+**Quick Start:**
+```bash
+# Check current OS and capabilities
+pf os-status
+
+# Create snapshot before changes
+pf os-snapshot name=before-upgrade
+
+# Test switching to Fedora (dry run)
+pf switch-os target=fedora dry_run=true
+
+# Full switch (requires partition)
+pf switch-os target=fedora partition=/dev/sda3
+```
+
+⚠️ **Warning**: OS switching is a powerful feature that modifies your system. Always have backups!
+
+See [Distro Container Management Guide](docs/DISTRO-CONTAINER-MANAGEMENT.md) for complete documentation.
+
 ### Testing & Development
 - **Live dev server**: Static HTTP server with CORS headers for WASM
 - **Playwright tests**: Automated browser testing for WASM modules
@@ -161,115 +466,103 @@ See [Debugging Guide](demos/debugging/README.md) for complete documentation.
 ### Minimum Requirements
 - Linux (Ubuntu/Debian recommended) or macOS
 - Git
-- Python 3.8+ with pip
-- sudo access (for system package installation)
+- Docker or Podman (for building/running the pf container)
 
-**Note:** The installer script (`./install.sh`) will automatically install most prerequisites. You only need Git and Python to get started.
+**Note:** The legacy host-based installer now lives in `bak/install-legacy.sh`. The default install path is container-first.
 
 ### Optional Prerequisites
-These will be installed automatically by the installer if you choose the "web" or "all" installation:
-
-- Node.js 18+ (for static server and Playwright tests)
-- Rust toolchain (for building Rust WASM modules)
-- Emscripten (for compiling C/C++ to WASM)
-- WABT (WebAssembly Binary Toolkit for WAT compilation)
-- LFortran (for Fortran WASM compilation - experimental)
+The container image already bundles the pf runtime; language toolchains are installed inside the containers defined under `containers/`.
 
 ## Installation
 
-### Recommended: One-Command Install
+### Recommended: Direct Install
 
-The easiest way to get started:
+The simplest way to get started:
 
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd pf-web-poly-compile-helper-runner
 
-# Run the installer (interactive mode)
-./install.sh
+# Install to /usr/local/bin (requires sudo)
+sudo ./install.sh
 
-# Or install everything directly
-./install.sh all
+# Or install to user directory (no sudo needed)
+./install.sh --prefix ~/.local
 ```
 
-The installer will:
-1. Install Python Fabric library (task runner framework)
-2. Set up the pf command-line tool
-3. Install shell completions (bash/zsh)
-4. Optionally install web/WASM development tools
+What this does:
+1. Installs Python dependencies (fabric, lark)
+2. Copies pf-runner library to `/usr/local/lib/pf-runner` (or your prefix)
+3. Creates `pf` executable in `/usr/local/bin` (or your prefix/bin)
 
-**Installation Modes:**
+### Container Install (Alternative)
 
-- `./install.sh base` - Install just pf runner and core dependencies
-- `./install.sh web` - Install web/WASM development tools only
-- `./install.sh all` - Install everything (recommended)
-- `./install.sh --help` - Show detailed help
+For containerized workflows or isolated environments:
+
+```bash
+# Build container images
+./install-container.sh
+
+# Pick a specific runtime/tag (optional)
+./install-container.sh --runtime podman --image pf-runner:latest
+```
 
 ### Using pf Tasks (After Initial Install)
 
 Once pf is installed, you can use these tasks:
 
 ```bash
-pf install-base  # Install/update base components
-pf install-web   # Install/update web tools
-pf install       # Install/update everything
+pf install       # Re-run installation
+pf install-web   # Alias to install (for web development)
+pf install-base  # Alias to install (for compatibility)
 ```
 
 ### What Gets Installed?
 
-**Base Installation:**
-- Python Fabric library (`fabric>=3.2,<4`)
-- pf runner CLI tool (installed to `~/.local/bin/pf`)
-- Shell completions for bash and zsh
-- Core build tools (gcc, make, git)
+**Direct install (./install.sh):**
+- `pf` executable in `/usr/local/bin` (or `~/.local/bin`)
+- `pf-runner` library in `/usr/local/lib/pf-runner` (or `~/.local/lib/pf-runner`)
+- Python dependencies (fabric, lark)
 
-**Web Installation:**
-- Node.js and npm (if not present)
-- Playwright for browser testing
-- Rust toolchain with wasm-pack
-- WABT (WebAssembly Binary Toolkit)
-- Emscripten info (manual installation guidance)
-- LFortran info (optional Fortran support)
+**Container install (./install-container.sh):**
+- `pf-base:latest` container image
+- `pf-runner:local` container image
 
 ## Quick Start
 
 ### 1. Install pf-runner
 
-The repository includes a **comprehensive installer script** that sets up everything you need:
+The repository includes a **simple installer script** that sets up everything you need:
 
 #### One-Command Installation (Recommended)
 
 ```bash
-# Interactive installer - choose what to install
-./install.sh
+# System-wide install (requires sudo)
+sudo ./install.sh
 
-# Or install everything directly
-./install.sh all
+# User install (no sudo needed)
+./install.sh --prefix ~/.local
 ```
 
-The installer provides three installation modes:
-
-- **Base** (`./install.sh base`): Install pf runner, Python dependencies, and core build tools
-- **Web** (`./install.sh web`): Install web/WASM development tools (Node.js, Playwright, Rust, Emscripten, WABT)
-- **All** (`./install.sh all`): Install everything (recommended)
+The installer copies pf directly to your system - no containers, no wrappers.
 
 #### Using pf Commands
 
 After initial installation, you can also use pf tasks:
 
 ```bash
-pf install-base  # Install base pf runner and dependencies
-pf install-web   # Install web/WASM development tools
-pf install       # Install everything
+pf install       # Re-run installation
+pf install-web   # Alias to install
+pf install-base  # Alias to install
 ```
 
 #### Legacy Installation (Alternative)
 
-The older installation script is still available:
+The older host-based installation script is preserved for compatibility:
 
 ```bash
-./start.sh  # Legacy setup script
+./bak/install-legacy.sh  # Legacy host installer
 ```
 
 #### Manual Installation
@@ -278,7 +571,7 @@ For manual control:
 
 ```bash
 cd pf-runner
-pip install --user "fabric>=3.2,<4"
+pip install --user "fabric>=3.2,<4" "lark>=1.1.0"
 make setup          # Creates ./pf symlink
 make install-local  # Installs to ~/.local/bin
 ```
@@ -726,14 +1019,29 @@ npx playwright show-report
 
 ## Documentation
 
+- **🚀 QUICKSTART Guide**: See [`QUICKSTART.md`](QUICKSTART.md) - **Start here!** Comprehensive guide with examples of all features
 - **pf-runner Documentation**: See [`pf-runner/README.md`](pf-runner/README.md) for comprehensive pf runner documentation
 - **REST API Guide**: See [`docs/REST-API.md`](docs/REST-API.md) for complete API documentation and examples
+- **Fuzzing & Sanitizers Guide**: See [`docs/FUZZING.md`](docs/FUZZING.md) for fuzzing, AFL++, and sanitizer documentation
+- **Security Testing Guide**: See [`docs/SECURITY-TESTING.md`](docs/SECURITY-TESTING.md) for web application security testing
 - **Binary Injection Guide**: See [`docs/BINARY-INJECTION.md`](docs/BINARY-INJECTION.md) for injection and hooking documentation
 - **LLVM Lifting Guide**: See [`docs/LLVM-LIFTING.md`](docs/LLVM-LIFTING.md) for binary lifting documentation
 - **Kernel Debugging Guide**: See [`docs/KERNEL-DEBUGGING.md`](docs/KERNEL-DEBUGGING.md) for advanced debugging features
+- **Interactive TUI Guide**: See [`docs/TUI.md`](docs/TUI.md) for text user interface documentation
+- **Package Manager Guide**: See [`docs/PACKAGE-MANAGER.md`](docs/PACKAGE-MANAGER.md) for package format translation
+
+### 🆕 Reverse Engineering Tools Roadmap
+- **Executive Summary**: See [`docs/RE-TOOLS-EXECUTIVE-SUMMARY.md`](docs/RE-TOOLS-EXECUTIVE-SUMMARY.md) - Quick overview of missing tools (start here!)
+- **Comprehensive Tool List**: See [`docs/MISSING-RE-DEBUG-EXPLOIT-TOOLS.md`](docs/MISSING-RE-DEBUG-EXPLOIT-TOOLS.md) - Detailed descriptions of 40+ tools to integrate
+- **Quick Reference**: See [`docs/RE-TOOLS-QUICK-REFERENCE.md`](docs/RE-TOOLS-QUICK-REFERENCE.md) - Fast lookup table and comparison charts
+- **Implementation Roadmap**: See [`docs/IMPLEMENTATION-ROADMAP.md`](docs/IMPLEMENTATION-ROADMAP.md) - Detailed implementation plan with timelines
+
+### Examples and Demos
 - **Kernel Debugging Demo**: See [`demos/kernel-debugging/README.md`](demos/kernel-debugging/README.md) for examples
 - **Binary Lifting Examples**: See [`demos/binary-lifting/README.md`](demos/binary-lifting/README.md) for lifting tutorials
 - **Debugging Guide**: See [`demos/debugging/README.md`](demos/debugging/README.md) for debugging and reverse engineering
+- **ROP Exploit Demo**: See [`demos/rop-exploit/README.md`](demos/rop-exploit/README.md) for ROP exploitation tutorial
+- **Git Cleanup Guide**: See [`docs/GIT-CLEANUP.md`](docs/GIT-CLEANUP.md) for removing large files from git history
 - **Web Demo Documentation**: See [`demos/pf-web-polyglot-demo-plus-c/README.md`](demos/pf-web-polyglot-demo-plus-c/README.md)
 - **WIT Components**: See [`pf/wit/README.md`](pf/wit/README.md)
 
@@ -747,6 +1055,15 @@ Additional documentation in `pf-runner/`:
 
 | Command | Description |
 |---------|-------------|
+| **Smart Integrated Workflows (NEW!)** | |
+| `pf smart-binary-analysis binary=<path>` | **Complete binary analysis** (checksec → lift → analyze → debug-prep) |
+| `pf smart-exploit-dev binary=<path>` | **Intelligent exploit development** (checksec → ROP gadgets → strategy) |
+| `pf smart-security-test url=<url> binary=<path>` | **Comprehensive security testing** (web + binary + fuzzing) |
+| `pf smart-kernel-analysis binary=<path>` | **Kernel vulnerability analysis** (lift → parse-detect → complexity → fuzz) |
+| `pf smart-package-install package=<path>` | **Auto package format conversion** and installation |
+| `pf smart-web-dev [port=8080]` | **Complete web dev workflow** (build → test → security → serve) |
+| `pf smart-workflows-help` | Show all smart workflows and usage |
+| **Build and Development** | |
 | `pf autobuild` | **Automagic builder** - auto-detect and build any project |
 | `pf autobuild release=true` | Build in release/optimized mode |
 | `pf build_detect` | Detect build system without building |
@@ -812,6 +1129,41 @@ Additional documentation in `pf-runner/`:
 | `pf kernel-parse-detect binary=<path>` | **Auto-detect parse functions in binary** |
 | `pf kernel-complexity-analyze binary=<path>` | **Find functions with many if/else, long functions, high complexity** |
 | `pf kernel-fuzz-in-memory binary=<path>` | **Fast in-memory fuzzing with loop-back (100-1000x faster)** |
+| **Fuzzing & Sanitizers** | |
+| `pf install-fuzzing-tools` | Install all fuzzing tools (AFL++, libfuzzer, sanitizers) |
+| `pf install-sanitizers` | Install LLVM sanitizer libraries |
+| `pf install-libfuzzer` | Install libfuzzer development files |
+| `pf install-aflplusplus` | Install AFL++ fuzzer |
+| `pf build-with-asan source=<file>` | Build with AddressSanitizer |
+| `pf build-with-msan source=<file>` | Build with MemorySanitizer |
+| `pf build-with-ubsan source=<file>` | Build with UndefinedBehaviorSanitizer |
+| `pf build-with-tsan source=<file>` | Build with ThreadSanitizer |
+| `pf build-with-all-sanitizers source=<file>` | Build with all sanitizers |
+| `pf generate-libfuzzer-template` | Generate libfuzzer harness template |
+| `pf build-libfuzzer-target source=<file>` | Build fuzzing target with libfuzzer |
+| `pf run-libfuzzer target=<fuzzer>` | Run libfuzzer on target |
+| `pf build-afl-target source=<file>` | Build target with AFL++ instrumentation |
+| `pf build-afl-llvm-target source=<file>` | Build target with AFL++ LLVM mode |
+| `pf afl-fuzz target=<binary>` | Run AFL++ fuzzer |
+| `pf afl-analyze-crashes` | Analyze AFL++ crash findings |
+| `pf afl-minimize-corpus` | Minimize AFL++ corpus |
+| `pf lift-and-instrument-binary binary=<path>` | Lift binary to LLVM IR and instrument with AFL++ |
+| `pf instrument-llvm-ir-afl input=<file.ll>` | Instrument LLVM IR with AFL++ |
+| `pf create-fuzzing-example` | Create example fuzzing target |
+| `pf demo-fuzzing` | Run complete fuzzing demonstration |
+| `pf fuzzing-help` | Show fuzzing and sanitizer help |
+| **ROP Exploit Demonstration** | |
+| `pf rop-build` | Build vulnerable binaries for ROP demonstration |
+| `pf rop-check` | Check security features of built binaries |
+| `pf rop-gadgets` | Find ROP gadgets in the vulnerable binary |
+| `pf rop-exploit` | Generate ROP exploit payload |
+| `pf rop-test` | Test the ROP exploit (will crash the program) |
+| `pf rop-demo` | Complete ROP demonstration workflow |
+| `pf rop-disasm` | Show disassembly of vulnerable function |
+| `pf rop-symbols` | Show symbol table of vulnerable binary |
+| `pf rop-install-tools` | Install ROP analysis tools (ROPgadget, ropper) |
+| `pf rop-clean` | Clean ROP demo build artifacts |
+| `pf rop-help` | Show ROP demo help and available commands |
 | **Debugging & Reverse Engineering** | |
 | `pf install-debuggers` | Install GDB, LLDB, and pwndbg |
 | `pf build-debug-examples` | Build C/C++/Rust debug examples |
@@ -822,32 +1174,149 @@ Additional documentation in `pf-runner/`:
 | `pf disassemble binary=<path>` | Disassemble binary |
 | `pf binary-info binary=<path>` | Show detailed binary info |
 | `pf debug-help` | Show debugging commands help |
+
+| **Git Repository Cleanup** | |
+| `pf git-cleanup` | **Interactive TUI for removing large files from git history** |
+| `pf git-analyze-large-files` | Analyze repository for large files without removal |
+| `pf git-repo-size` | Show current git repository size statistics |
+| `pf install-git-filter-repo` | Install git-filter-repo dependency |
+| `pf git-cleanup-help` | Show git cleanup commands help |
+
+| **Interactive TUI** | |
+| `pf tui` | **Launch interactive TUI for task management and debugging** |
+| `pf tui-with-file file=<path>` | Launch TUI with specific Pfyfile |
+| `pf install-tui-deps` | Install TUI dependencies (rich library) |
+| `pf tui-help` | Show TUI usage and features |
+
+| **Debugging Tools Installation** | |
+| `pf install-oryx` | Install oryx - TUI for exploring binaries |
+| `pf install-binsider` | Install binsider - Binary analyzer with TUI |
+| `pf install-rustnet` | Install rustnet - Network monitoring tool |
+| `pf install-sysz` | Install sysz - Systemd unit file viewer |
+| `pf install-radare2` | Install Radare2 - Reverse engineering framework |
+| `pf install-ghidra` | Install Ghidra - NSA's reverse engineering suite |
+| `pf install-snowman` | Install Snowman - C++ decompiler (open source) |
+| `pf install-binaryninja-info` | Show Binary Ninja information (commercial) |
+| `pf install-all-debug-tools` | Install all debugging and RE tools |
+| `pf check-debug-tools` | Check installation status of debugging tools |
+| `pf run-oryx binary=<path>` | Run oryx binary explorer on a file |
+| `pf run-binsider binary=<path>` | Run binsider binary analyzer on a file |
+| `pf run-snowman binary=<path>` | Run Snowman decompiler on a file |
+| `pf run-rustnet` | Run rustnet network monitor |
+| `pf run-sysz` | Run sysz systemd unit viewer |
+| `pf debug-tools-help` | Show help for debugging tools |
+
+| **Web Application Security Testing** | |
+| `pf security-scan [url=<url>]` | Run comprehensive security scan |
+| `pf security-scan-verbose [url=<url>]` | Security scan with verbose output |
+| `pf security-scan-json [url=<url>]` | Security scan with JSON output |
+| `pf security-scan-sqli [url=<url>]` | Scan for SQL injection only |
+| `pf security-scan-xss [url=<url>]` | Scan for XSS only |
+| `pf security-scan-critical [url=<url>]` | Scan for critical vulnerabilities |
+| `pf security-fuzz [url=<url>]` | Run web application fuzzer |
+| `pf security-fuzz-sqli [url=<url>]` | Fuzz with SQL injection payloads |
+| `pf security-fuzz-xss [url=<url>]` | Fuzz with XSS payloads |
+| `pf security-fuzz-traversal [url=<url>]` | Fuzz with path traversal payloads |
+| `pf security-fuzz-all [url=<url>]` | Fuzz with all payload types |
+| `pf security-test-all [url=<url>]` | Run complete security test suite |
+| `pf security-test-api [url=<url>]` | Test API security specifically |
+| `pf security-test-dev` | Test development server |
+| `pf security-check-headers [url=<url>]` | Check security headers |
+| `pf security-check-csrf [url=<url>]` | Check CSRF protection |
+| `pf security-check-auth [url=<url>]` | Check authentication/access control |
+| `pf security-report [url=<url>]` | Generate JSON security reports |
+| `pf security-help` | Show security testing help |
+
+| **Package Manager Translation** | |
+| `pf pkg-convert source=<pkg> target=<fmt>` | Convert package between formats (via .deb hub) |
+| `pf pkg-convert-to-deb source=<pkg>` | Convert any package to .deb |
+| `pf pkg-convert-to-rpm source=<pkg>` | Convert any package to .rpm |
+| `pf pkg-convert-to-flatpak source=<pkg>` | Convert any package to .flatpak |
+| `pf pkg-convert-to-snap source=<pkg>` | Convert any package to .snap |
+| `pf pkg-convert-to-pacman source=<pkg>` | Convert any package to .pkg.tar.zst |
+| `pf pkg-info package=<pkg>` | Display package information |
+| `pf pkg-deps package=<pkg> target=<fmt>` | Resolve dependencies for target format |
+| `pf pkg-formats` | Show available package formats |
+| `pf pkg-matrix` | Show conversion compatibility matrix |
+| `pf pkg-batch-convert packages=<pkgs> target=<fmt>` | Convert multiple packages |
+| `pf pkg-check-deps package=<pkg> target=<fmt>` | Check if dependencies are satisfied |
+| `pf pkg-install-deps package=<pkg> target=<fmt>` | Install missing dependencies |
+| `pf install-pkg-tools` | Install package conversion tools |
+| `pf install-flatpak` | Install Flatpak package manager |
+| `pf install-snap` | Install Snapd package manager |
+| `pf pkg-help` | Show package manager help |
+
+| **Multi-Distro Container Management** | |
+| `pf distro-install distro=<d> packages=<p>` | Install packages from specific distro container |
+| `pf distro-install-fedora packages=<p>` | Install packages from Fedora container |
+| `pf distro-install-centos packages=<p>` | Install packages from CentOS container |
+| `pf distro-install-arch packages=<p>` | Install packages from Arch container |
+| `pf distro-install-opensuse packages=<p>` | Install packages from openSUSE container |
+| `pf distro-switch distro=<d>` | Switch active distro for PATH (isolated mode) |
+| `pf distro-view-unified` | Enable unified view (all distros in one directory) |
+| `pf distro-view-isolated` | Enable isolated view (per-distro directories) |
+| `pf distro-status` | Show status and installed packages |
+| `pf distro-build-all` | Build all distro container images |
+| `pf distro-cleanup` | Remove distro images (keep artifacts) |
+| `pf distro-cleanup-all` | Remove distro images and artifacts |
+| `pf distro-help` | Show distro container help |
+
+| **OS Switching (Experimental)** | |
+| `pf switch-os target=<t> partition=<p>` | Switch to different OS using containers + kexec |
+| `pf switch-os-fedora partition=<p>` | Switch to Fedora Linux |
+| `pf switch-os-arch partition=<p>` | Switch to Arch Linux |
+| `pf switch-os-ubuntu partition=<p>` | Switch to Ubuntu Linux |
+| `pf switch-os-debian partition=<p>` | Switch to Debian Linux |
+| `pf os-snapshot name=<n>` | Create OS snapshot for recovery |
+| `pf os-snapshots` | List available OS snapshots |
+| `pf os-status` | Show OS switching status and capabilities |
+| `pf os-prepare target=<t>` | Prepare target OS container (no switch) |
+| `pf install-kexec` | Install kexec-tools for rebootless switching |
+| `pf switch-os-help` | Show OS switching help |
+
 | **Installation & Setup** | |
 | `pf install-base` | Install base pf runner and dependencies |
 | `pf install-web` | Install web/WASM development tools |
 | `pf install` | Install everything (base + web) |
 | `pf list` | List all available tasks |
 
+| **Container & Quadlet Commands** | |
+| `pf container-build-all` | Build all container images |
+| `pf container-build-base` | Build base Ubuntu 24.04 image |
+| `pf container-build-api` | Build API server images |
+| `pf container-build-compilers` | Build compiler images (Rust, C, Fortran) |
+| `pf container-build-debugger` | Build debugger images |
+| `pf compose-up` | Start API server using podman-compose |
+| `pf compose-down` | Stop all containers |
+| `pf compose-build-wasm` | Build all WASM modules using containers |
+| `pf compose-debugger` | Start debugging container interactively |
+| `pf compose-debugger-gpu` | Start GPU-enabled debugger |
+| `pf quadlet-install` | Install Podman quadlet files for systemd |
+| `pf quadlet-status` | Show status of quadlet services |
+| `pf dev-container` | Start development environment using containers |
+| `pf container-test` | Run container infrastructure tests |
+| `pf container-help` | Show help for container and quadlet commands |
+
 ## Troubleshooting
 
 ### Installation Issues
 
 #### pf command not found
-- Run `./install.sh base` to install pf-runner
-- Or run `source ~/.bashrc` to reload your shell configuration
-- Check that `~/.local/bin` is in your PATH
-- Legacy option: Run `./start.sh` to use the older installer
+- Run `sudo ./install.sh` to reinstall
+- For user install: `./install.sh --prefix ~/.local`
+- Run `source ~/.bashrc` (or `~/.zshrc`) to reload your shell configuration
+- Check that the install path is in your PATH
+- For legacy install, use `bak/install-legacy.sh`
 
 #### Fabric import error
-- Ensure Fabric is installed: `pip install --user "fabric>=3.2,<4"`
-- Verify with: `python3 -c "import fabric; print(fabric.__version__)"`
-- Re-run: `./install.sh base`
+- Run `pip install --user "fabric>=3.2,<4"` to install the dependency
+- Or reinstall with: `./install.sh` (dependencies are installed automatically)
 
 #### Installation script fails
-- Check that you have sudo access for system packages
-- Ensure internet connection is available
+- Ensure Python 3.10+ is installed: `python3 --version`
+- Ensure pip is available: `python3 -m pip --version`
+- For container install, ensure docker or podman is installed
 - Review error messages for specific missing dependencies
-- Try manual installation steps from README
 
 ### WASM build failures
 - **Rust**: Ensure `wasm-pack` is installed: `cargo install wasm-pack`

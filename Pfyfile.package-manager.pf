@@ -1,0 +1,134 @@
+# Package Manager Translation Tasks
+# Translates between 5 major package formats: deb, rpm, flatpak, snap, pacman
+# Uses .deb as the hub format for all cross-format conversions
+
+task pkg-convert
+  describe Convert a package between formats (source → deb → target)
+  shell_lang bash
+  shell node tools/package-manager.mjs convert "${source}" "${target}" ${output:-}
+end
+
+task pkg-convert-to-deb
+  describe Convert any package to .deb format
+  shell_lang bash
+  shell node tools/package-manager.mjs convert "${source}" deb ${output:-}
+end
+
+task pkg-convert-to-rpm
+  describe Convert any package to .rpm format
+  shell_lang bash
+  shell node tools/package-manager.mjs convert "${source}" rpm ${output:-}
+end
+
+task pkg-convert-to-flatpak
+  describe Convert any package to .flatpak format
+  shell_lang bash
+  shell node tools/package-manager.mjs convert "${source}" flatpak ${output:-}
+end
+
+task pkg-convert-to-snap
+  describe Convert any package to .snap format
+  shell_lang bash
+  shell node tools/package-manager.mjs convert "${source}" snap ${output:-}
+end
+
+task pkg-convert-to-pacman
+  describe Convert any package to Arch Linux .pkg.tar.zst format
+  shell_lang bash
+  shell node tools/package-manager.mjs convert "${source}" pacman ${output:-}
+end
+
+task pkg-info
+  describe Display information about a package file
+  shell_lang bash
+  shell node tools/package-manager.mjs info "${package}"
+end
+
+task pkg-deps
+  describe Resolve dependencies for a package in target format
+  shell_lang bash
+  shell node tools/package-manager.mjs deps "${package}" "${target}"
+end
+
+task pkg-formats
+  describe Show available package formats on this system
+  shell_lang bash
+  shell node tools/package-manager.mjs formats
+end
+
+task pkg-matrix
+  describe Show conversion compatibility matrix
+  shell_lang bash
+  shell node tools/package-manager.mjs matrix
+end
+
+task pkg-help
+  describe Show package manager tool help
+  shell_lang bash
+  shell node tools/package-manager.mjs --help
+end
+
+task install-pkg-tools
+  describe Install tools for package format conversion
+  shell_lang bash
+  shell echo "Installing package conversion tools..."
+  shell if command -v apt-get &>/dev/null; then sudo apt-get install -y dpkg-dev rpm alien squashfs-tools zstd; fi
+  shell if command -v dnf &>/dev/null; then sudo dnf install -y dpkg rpm-build alien squashfs-tools zstd; fi
+  shell if command -v pacman &>/dev/null; then sudo pacman -S --noconfirm dpkg rpm-tools squashfs-tools zstd; fi
+  shell echo "Package conversion tools installed!"
+end
+
+task install-flatpak
+  describe Install Flatpak package manager
+  shell_lang bash
+  shell if command -v apt-get &>/dev/null; then sudo apt-get install -y flatpak flatpak-builder; fi
+  shell if command -v dnf &>/dev/null; then sudo dnf install -y flatpak flatpak-builder; fi
+  shell if command -v pacman &>/dev/null; then sudo pacman -S --noconfirm flatpak flatpak-builder; fi
+  shell echo "Flatpak installed!"
+end
+
+task install-snap
+  describe Install Snapd (Snap package manager)
+  shell_lang bash
+  shell if command -v apt-get &>/dev/null; then sudo apt-get install -y snapd; fi
+  shell if command -v dnf &>/dev/null; then sudo dnf install -y snapd; fi
+  shell if command -v pacman &>/dev/null; then echo "Install snapd from AUR: yay -S snapd"; fi
+  shell echo "Snapd installed!"
+end
+
+# Batch conversion tasks
+task pkg-batch-convert
+  describe Convert multiple packages to a target format
+  shell_lang bash
+  shell |
+    for pkg in ${packages}; do
+      echo "Converting: $pkg"
+      node tools/package-manager.mjs convert "$pkg" "${target}"
+    done
+end
+
+# Dependency management tasks
+task pkg-check-deps
+  describe Check if all dependencies are satisfied for target format
+  shell_lang bash
+  shell node tools/package-manager.mjs deps "${package}" "${target}"
+end
+
+task pkg-install-deps
+  describe Install missing dependencies for a package
+  shell_lang bash
+  shell |
+    deps=$(node tools/package-manager.mjs deps "${package}" "${target}" 2>/dev/null | grep "^  - " | sed 's/^  - //')
+    if [ -n "$deps" ]; then
+      echo "Installing dependencies: $deps"
+      if command -v apt-get &>/dev/null; then
+        sudo apt-get install -y $deps
+      elif command -v dnf &>/dev/null; then
+        sudo dnf install -y $deps
+      elif command -v pacman &>/dev/null; then
+        sudo pacman -S --noconfirm $deps
+      fi
+    else
+      echo "All dependencies are satisfied!"
+    fi
+end

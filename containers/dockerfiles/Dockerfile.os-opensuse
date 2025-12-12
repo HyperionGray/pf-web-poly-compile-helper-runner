@@ -1,0 +1,138 @@
+# Lightweight openSUSE container for package management
+# Provides openSUSE environment with zypper package manager
+FROM opensuse/tumbleweed:latest
+
+LABEL maintainer="pf-runner"
+LABEL description="Lightweight openSUSE Tumbleweed container for package management"
+LABEL os.type="opensuse"
+LABEL os.version="tumbleweed"
+LABEL package.manager="zypper"
+
+# Update system and install essential tools
+RUN zypper refresh && \
+    zypper install -y \
+        patterns-devel-base-devel_basis \
+        wget \
+        curl \
+        git \
+        tar \
+        gzip \
+        unzip \
+        which \
+        file \
+        findutils \
+        procps \
+        util-linux \
+        coreutils \
+        binutils \
+        rpm-build \
+        createrepo_c \
+        zypper-aptitude \
+        && \
+    zypper clean -a
+
+# Create directories for artifact management
+RUN mkdir -p /artifacts/bin /artifacts/lib /artifacts/share /artifacts/etc
+
+# Create package management scripts
+RUN cat > /usr/local/bin/pf-install-package << 'EOF'
+#!/bin/bash
+# Install package and copy artifacts to /artifacts
+set -e
+PACKAGE="$1"
+if [ -z "$PACKAGE" ]; then
+    echo "Usage: pf-install-package <package-name>"
+    exit 1
+fi
+
+echo "Installing package: $PACKAGE"
+zypper install -y "$PACKAGE"
+
+echo "Extracting package files to /artifacts..."
+# Find package files and copy to artifacts
+rpm -ql "$PACKAGE" 2>/dev/null | while read -r file; do
+    if [ -f "$file" ]; then
+        case "$file" in
+            /usr/bin/*|/bin/*|/usr/local/bin/*)
+                mkdir -p /artifacts/bin
+                cp "$file" /artifacts/bin/ 2>/dev/null || true
+                ;;
+            /usr/lib/*|/lib/*|/usr/local/lib/*)
+                mkdir -p /artifacts/lib
+                cp "$file" /artifacts/lib/ 2>/dev/null || true
+                ;;
+            /usr/share/*|/usr/local/share/*)
+                mkdir -p /artifacts/share
+                cp -r "$file" /artifacts/share/ 2>/dev/null || true
+                ;;
+            /etc/*)
+                mkdir -p /artifacts/etc
+                cp "$file" /artifacts/etc/ 2>/dev/null || true
+                ;;
+        esac
+    fi
+done
+
+echo "Package $PACKAGE installed and artifacts extracted"
+EOF
+
+RUN chmod +x /usr/local/bin/pf-install-package
+
+# Create package search script
+RUN cat > /usr/local/bin/pf-search-package << 'EOF'
+#!/bin/bash
+# Search for packages
+QUERY="$1"
+if [ -z "$QUERY" ]; then
+    echo "Usage: pf-search-package <search-term>"
+    exit 1
+fi
+
+zypper search "$QUERY"
+EOF
+
+RUN chmod +x /usr/local/bin/pf-search-package
+
+# Create package info script
+RUN cat > /usr/local/bin/pf-package-info << 'EOF'
+#!/bin/bash
+# Get package information
+PACKAGE="$1"
+if [ -z "$PACKAGE" ]; then
+    echo "Usage: pf-package-info <package-name>"
+    exit 1
+fi
+
+zypper info "$PACKAGE"
+EOF
+
+RUN chmod +x /usr/local/bin/pf-package-info
+
+# Create repository management script
+RUN cat > /usr/local/bin/pf-add-repo << 'EOF'
+#!/bin/bash
+# Add repository
+REPO_URL="$1"
+REPO_NAME="$2"
+if [ -z "$REPO_URL" ] || [ -z "$REPO_NAME" ]; then
+    echo "Usage: pf-add-repo <repo-url> <repo-name>"
+    exit 1
+fi
+
+zypper addrepo "$REPO_URL" "$REPO_NAME"
+zypper refresh
+EOF
+
+RUN chmod +x /usr/local/bin/pf-add-repo
+
+# Set working directory
+WORKDIR /workspace
+
+# Default command
+CMD ["/bin/bash"]
+
+# Environment variables
+ENV OS_TYPE=opensuse
+ENV OS_VERSION=tumbleweed
+ENV PACKAGE_MANAGER=zypper
+ENV ARTIFACTS_DIR=/artifacts

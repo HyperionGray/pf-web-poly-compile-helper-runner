@@ -1,0 +1,21 @@
+# test_issue_scenario.pf - Test the exact scenario from the issue
+
+task vx-pfs-up remote-addr=""
+  describe Bring up vx-pfs vxlan over underlay (e.g. tailscale0)
+  env VX_UNDERLAY_DEV=tailscale0 VX_ID=42 VX_ADDR=192.168.50.1/24 VX_REMOTE_ADDR=$remote-addr
+  shell echo "Configured with:"
+  shell echo "  VX_UNDERLAY_DEV=$VX_UNDERLAY_DEV"
+  shell echo "  VX_ID=$VX_ID"
+  shell echo "  VX_ADDR=$VX_ADDR"
+  shell echo "  VX_REMOTE_ADDR=$VX_REMOTE_ADDR"
+end
+
+task vx-pfs-down
+  describe Bring down vx-pfs vxlan
+  shell echo "Bringing down vx-pfs"
+end
+
+task vx-pfs-blast-afpkt
+  describe Blast packets on afpkt
+  shell echo "Blasting packets"
+end

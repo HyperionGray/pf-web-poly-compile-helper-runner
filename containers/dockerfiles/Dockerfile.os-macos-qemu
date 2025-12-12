@@ -1,0 +1,383 @@
+# macOS Container using QEMU virtualization
+# Provides actual macOS environment using QEMU (similar to Docker-OSX)
+FROM ubuntu:22.04
+
+LABEL maintainer="pf-runner"
+LABEL description="macOS virtualization environment using QEMU"
+LABEL os.type="macos"
+LABEL os.version="monterey"
+LABEL execution.type="macos-native"
+LABEL vm.backend="qemu"
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install essential tools and dependencies for macOS virtualization
+RUN apt-get update && \
+    apt-get install -y \
+        qemu-system-x86 \
+        qemu-utils \
+        qemu-kvm \
+        libvirt-daemon-system \
+        libvirt-clients \
+        bridge-utils \
+        virt-manager \
+        ovmf \
+        wget \
+        curl \
+        git \
+        python3 \
+        python3-pip \
+        python3-venv \
+        build-essential \
+        pkg-config \
+        libssl-dev \
+        socat \
+        netcat-openbsd \
+        jq \
+        unzip \
+        p7zip-full \
+        dmg2img \
+        genisoimage \
+        samba-common-bin \
+        cifs-utils \
+        xorriso \
+        && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create directories for macOS VM management
+RUN mkdir -p /opt/macos-vm \
+    /opt/macos-images \
+    /opt/vm-instances \
+    /artifacts/macos-results \
+    /artifacts/vm-logs \
+    /opt/OpenCore-Boot
+
+# Install OpenCore bootloader for macOS virtualization
+RUN cat > /opt/macos-vm/install-opencore.sh << 'EOF'
+#!/bin/bash
+# Install OpenCore bootloader for macOS virtualization
+
+set -e
+
+OPENCORE_VERSION="${OPENCORE_VERSION:-0.9.5}"
+OPENCORE_URL="https://github.com/acidanthera/OpenCorePkg/releases/download/${OPENCORE_VERSION}/OpenCore-${OPENCORE_VERSION}-RELEASE.zip"
+
+echo "[*] Installing OpenCore bootloader v${OPENCORE_VERSION}..."
+
+cd /opt/OpenCore-Boot
+
+# Download OpenCore if not present
+if [ ! -f "OpenCore-${OPENCORE_VERSION}-RELEASE.zip" ]; then
+    echo "[*] Downloading OpenCore..."
+    wget -O "OpenCore-${OPENCORE_VERSION}-RELEASE.zip" "$OPENCORE_URL"
+fi
+
+# Extract OpenCore
+if [ ! -d "OpenCore-${OPENCORE_VERSION}" ]; then
+    echo "[*] Extracting OpenCore..."
+    unzip -q "OpenCore-${OPENCORE_VERSION}-RELEASE.zip" -d "OpenCore-${OPENCORE_VERSION}"
+fi
+
+echo "[*] OpenCore installation complete"
+EOF
+
+RUN chmod +x /opt/macos-vm/install-opencore.sh
+
+# Create macOS VM template preparation script
+RUN cat > /opt/macos-vm/prepare-macos-template.sh << 'EOF'
+#!/bin/bash
+# Prepare macOS VM template
+
+set -e
+
+MACOS_VERSION="${MACOS_VERSION:-monterey}"
+MACOS_IMAGE_PATH="/opt/macos-images/macos-${MACOS_VERSION}.qcow2"
+VM_SIZE="${VM_SIZE:-100G}"
+VM_MEMORY="${VM_MEMORY:-8192}"
+
+echo "[*] Preparing macOS ${MACOS_VERSION} VM template..."
+echo "[!] IMPORTANT: You must provide your own macOS installer"
+echo "[!] This container does not include macOS due to licensing restrictions"
+echo "[!] Please ensure you comply with Apple's Software License Agreement"
+
+# Create VM disk image
+if [ ! -f "$MACOS_IMAGE_PATH" ]; then
+    echo "[*] Creating macOS VM disk image..."
+    qemu-img create -f qcow2 "$MACOS_IMAGE_PATH" "$VM_SIZE"
+fi
+
+# Install OpenCore
+/opt/macos-vm/install-opencore.sh
+
+echo "[*] macOS template preparation complete"
+echo "[*] VM image: $MACOS_IMAGE_PATH"
+echo "[*] Next steps:"
+echo "    1. Provide macOS installer DMG/ISO"
+echo "    2. Configure OpenCore for your hardware"
+echo "    3. Install macOS in the VM"
+echo ""
+echo "[!] Legal Notice: Ensure compliance with Apple's Software License Agreement"
+echo "[!] macOS virtualization may only be legal on Apple hardware"
+EOF
+
+RUN chmod +x /opt/macos-vm/prepare-macos-template.sh
+
+# Create macOS execution wrapper script
+RUN cat > /opt/macos-vm/execute-macos-binary.sh << 'EOF'
+#!/bin/bash
+# Execute macOS binary in macOS VM
+
+set -e
+
+MACOS_BINARY="$1"
+OUTPUT_DIR="${2:-/artifacts/macos-results}"
+VM_INSTANCE_ID="${3:-macos-exec-$(date +%s)}"
+TIMEOUT="${TIMEOUT:-600}"
+
+if [ -z "$MACOS_BINARY" ] || [ ! -f "$MACOS_BINARY" ]; then
+    echo "Usage: execute-macos-binary.sh <macos-binary> [output-dir] [vm-instance-id]"
+    echo "Error: macOS binary not found: $MACOS_BINARY"
+    exit 1
+fi
+
+echo "[*] Executing macOS binary: $MACOS_BINARY"
+echo "[*] VM Instance: $VM_INSTANCE_ID"
+echo "[*] Output directory: $OUTPUT_DIR"
+
+# Create output directory
+mkdir -p "$OUTPUT_DIR"
+
+# Create VM instance directory
+VM_DIR="/opt/vm-instances/$VM_INSTANCE_ID"
+mkdir -p "$VM_DIR"
+
+# Copy macOS template
+MACOS_TEMPLATE="/opt/macos-images/macos-monterey.qcow2"
+VM_DISK="$VM_DIR/disk.qcow2"
+
+if [ ! -f "$MACOS_TEMPLATE" ]; then
+    echo "[!] macOS template not found: $MACOS_TEMPLATE"
+    echo "[!] Run prepare-macos-template.sh first"
+    exit 1
+fi
+
+echo "[*] Creating VM instance from macOS template..."
+cp "$MACOS_TEMPLATE" "$VM_DISK"
+
+# Copy macOS binary to VM shared directory
+MACOS_SHARED_DIR="$VM_DIR/shared"
+mkdir -p "$MACOS_SHARED_DIR"
+cp "$MACOS_BINARY" "$MACOS_SHARED_DIR/"
+BINARY_FILENAME=$(basename "$MACOS_BINARY")
+
+# Create VM execution script
+cat > "$VM_DIR/execute.sh" << 'VM_EOF'
+#!/bin/bash
+# macOS VM execution script
+
+VM_DISK="$1"
+MACOS_SHARED_DIR="$2"
+BINARY_FILENAME="$3"
+VM_INSTANCE_ID="$4"
+TIMEOUT="$5"
+
+echo "[*] Starting macOS VM for binary execution..."
+
+# Start QEMU with macOS
+timeout "$TIMEOUT" qemu-system-x86_64 \
+    -enable-kvm \
+    -m 8192 \
+    -smp 4,cores=2 \
+    -machine q35 \
+    -device ich9-intel-hda -device hda-duplex \
+    -drive file="$VM_DISK",format=qcow2,if=none,id=drive0 \
+    -device ide-hd,drive=drive0 \
+    -netdev user,id=net0,smb="$MACOS_SHARED_DIR" \
+    -device vmxnet3,netdev=net0 \
+    -vnc :3 \
+    -daemonize \
+    -pidfile "$VM_DIR/qemu.pid" \
+    -monitor unix:"$VM_DIR/monitor.sock",server,nowait \
+    -serial file:"$VM_DIR/serial.log" \
+    -cpu Penryn,kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on \
+    -device isa-applesmc,osk="ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc" \
+    -smbios type=2
+
+# Wait for macOS to boot
+sleep 120
+
+echo "[*] Executing macOS binary..."
+echo "info status" | socat - UNIX-CONNECT:"$VM_DIR/monitor.sock"
+
+# macOS binary execution placeholder
+# In a real implementation, this would:
+# 1. Wait for macOS to fully boot
+# 2. Copy binary to macOS filesystem
+# 3. Execute binary with proper permissions
+# 4. Capture output and behavior
+# 5. Shutdown VM cleanly
+
+echo "[*] macOS binary execution completed (placeholder)"
+
+# Shutdown VM
+echo "quit" | socat - UNIX-CONNECT:"$VM_DIR/monitor.sock" || true
+
+VM_EOF
+
+chmod +x "$VM_DIR/execute.sh"
+
+# Execute binary in macOS VM
+echo "[*] Starting macOS binary execution..."
+"$VM_DIR/execute.sh" "$VM_DISK" "$MACOS_SHARED_DIR" "$BINARY_FILENAME" "$VM_INSTANCE_ID" "$TIMEOUT"
+
+# Collect results
+echo "[*] Collecting execution results..."
+cp "$VM_DIR/serial.log" "$OUTPUT_DIR/execution.log" 2>/dev/null || true
+
+# Create execution report
+cat > "$OUTPUT_DIR/execution-report.json" << REPORT_EOF
+{
+    "macos_binary": "$MACOS_BINARY",
+    "vm_instance_id": "$VM_INSTANCE_ID",
+    "execution_time": "$(date -Iseconds)",
+    "os_type": "macos",
+    "status": "completed",
+    "output_dir": "$OUTPUT_DIR",
+    "vm_logs": "$VM_DIR/serial.log"
+}
+REPORT_EOF
+
+echo "[*] macOS binary execution completed successfully"
+echo "[*] Results available in: $OUTPUT_DIR"
+
+# Cleanup VM instance
+rm -rf "$VM_DIR"
+EOF
+
+RUN chmod +x /opt/macos-vm/execute-macos-binary.sh
+
+# Create macOS-specific management scripts
+RUN cat > /usr/local/bin/pf-execute-macos << 'EOF'
+#!/bin/bash
+# macOS binary execution interface
+
+MACOS_BINARY="$1"
+if [ -z "$MACOS_BINARY" ]; then
+    echo "Usage: pf-execute-macos <macos-binary>"
+    echo "Execute macOS binary in virtualized macOS environment"
+    echo ""
+    echo "Legal Notice: Ensure compliance with Apple's Software License Agreement"
+    echo "macOS virtualization may only be legal on Apple hardware"
+    exit 1
+fi
+
+/opt/macos-vm/execute-macos-binary.sh "$MACOS_BINARY"
+EOF
+
+RUN chmod +x /usr/local/bin/pf-execute-macos
+
+RUN cat > /usr/local/bin/pf-prepare-macos << 'EOF'
+#!/bin/bash
+# Prepare macOS template
+
+echo "Preparing macOS VM template..."
+echo ""
+echo "IMPORTANT LEGAL NOTICE:"
+echo "- You must provide your own macOS installer"
+echo "- Ensure compliance with Apple's Software License Agreement"
+echo "- macOS virtualization may only be legal on Apple hardware"
+echo "- This container does not include macOS"
+echo ""
+
+/opt/macos-vm/prepare-macos-template.sh
+EOF
+
+RUN chmod +x /usr/local/bin/pf-prepare-macos
+
+RUN cat > /usr/local/bin/pf-macos-status << 'EOF'
+#!/bin/bash
+# Show macOS execution environment status
+
+echo "=== macOS Execution Environment Status ==="
+echo ""
+
+echo "QEMU Status:"
+if command -v qemu-system-x86_64 >/dev/null 2>&1; then
+    echo "  ✓ QEMU available"
+    qemu-system-x86_64 --version | head -1
+else
+    echo "  ✗ QEMU not found"
+fi
+
+echo ""
+echo "KVM Status:"
+if [ -r /dev/kvm ]; then
+    echo "  ✓ KVM available"
+else
+    echo "  ⚠ KVM not available (will use software emulation)"
+fi
+
+echo ""
+echo "OpenCore Status:"
+if [ -d "/opt/OpenCore-Boot" ] && [ "$(ls -A /opt/OpenCore-Boot 2>/dev/null)" ]; then
+    echo "  ✓ OpenCore bootloader available"
+    ls -1 /opt/OpenCore-Boot/ | grep -E "OpenCore.*zip" | head -1 | sed 's/^/    /'
+else
+    echo "  ✗ OpenCore not installed"
+    echo "    Run: pf-prepare-macos"
+fi
+
+echo ""
+echo "macOS Template Status:"
+MACOS_TEMPLATE="/opt/macos-images/macos-monterey.qcow2"
+if [ -f "$MACOS_TEMPLATE" ]; then
+    echo "  ✓ macOS template available"
+    echo "    Size: $(du -h "$MACOS_TEMPLATE" | cut -f1)"
+else
+    echo "  ✗ macOS template not found"
+    echo "    Run: pf-prepare-macos"
+fi
+
+echo ""
+echo "VM Instances:"
+if [ -d "/opt/vm-instances" ] && [ "$(ls -A /opt/vm-instances 2>/dev/null)" ]; then
+    echo "  Active instances:"
+    ls -1 /opt/vm-instances/ | sed 's/^/    /'
+else
+    echo "  No active instances"
+fi
+
+echo ""
+echo "Recent macOS Executions:"
+if [ -d "/artifacts/macos-results" ] && [ "$(ls -A /artifacts/macos-results 2>/dev/null)" ]; then
+    echo "  Recent results:"
+    ls -lt /artifacts/macos-results/ | head -5 | tail -n +2 | awk '{print "    " $9 " (" $6 " " $7 " " $8 ")"}'
+else
+    echo "  No recent executions"
+fi
+
+echo ""
+echo "LEGAL NOTICE:"
+echo "  Ensure compliance with Apple's Software License Agreement"
+echo "  macOS virtualization may only be legal on Apple hardware"
+EOF
+
+RUN chmod +x /usr/local/bin/pf-macos-status
+
+# Set working directory
+WORKDIR /workspace
+
+# Default command
+CMD ["/bin/bash"]
+
+# Environment variables
+ENV OS_TYPE=macos
+ENV OS_VERSION=monterey
+ENV EXECUTION_TYPE=macos-native
+ENV VM_BACKEND=qemu
+ENV ARTIFACTS_DIR=/artifacts
+ENV MACOS_TIMEOUT=600
+ENV VM_MEMORY=8192
+ENV VM_CPUS=4

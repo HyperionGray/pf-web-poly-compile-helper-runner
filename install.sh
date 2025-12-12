@@ -1,14 +1,37 @@
 #!/usr/bin/env bash
-# install.sh - Single installer script for pf-web-poly-compile-helper-runner
-#
-# Usage:
-#   ./install.sh           # Interactive mode - prompts for installation type
-#   ./install.sh base      # Install base pf runner and dependencies
-#   ./install.sh web       # Install web/WASM development tools
-#   ./install.sh all       # Install everything
-#   ./install.sh --help    # Show this help message
+<<<<<<< HEAD
+# Container-based installer for pf
+# Builds the pf-runner image and installs the pf executable directly to /usr/local/bin.
+=======
+# Simple installer for pf
+# Installs pf directly to /usr/local/bin (or user-specified path) with dependencies.
+>>>>>>> main
 
 set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+<<<<<<< HEAD
+IMAGE_NAME="pf-runner:local"
+BASE_IMAGE="localhost/pf-base:latest"
+RUNTIME=""
+
+usage() {
+  cat <<'USAGE'
+Usage: ./install.sh [--image NAME] [--runtime docker|podman]
+
+Builds the pf-runner container image (Dockerfile.pf-runner) and installs the pf
+executable directly to /usr/local/bin using a privileged container with mounted volume.
+
+Options:
+  --image NAME       Image tag to build/use (default: pf-runner:local)
+  --runtime NAME     Container runtime to use (auto-detects docker then podman)
+  -h, --help         Show this help
+
+Note: This installation requires sudo privileges to write to /usr/local/bin.
+=======
+INSTALL_PATH="/usr/local/bin"
+INSTALL_DIR="/usr/local/lib/pf-runner"
+SKIP_DEPS=0
 
 # Color output helpers
 RED='\033[0;31m'
@@ -17,452 +40,242 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-log_info() {
-	echo -e "${BLUE}[INFO]${NC} $*"
+log_info() { echo -e "${BLUE}[pf-install]${NC} $*"; }
+log_success() { echo -e "${GREEN}[pf-install]${NC} $*"; }
+log_warn() { echo -e "${YELLOW}[pf-install]${NC} $*"; }
+log_error() { echo -e "${RED}[pf-install]${NC} $*"; }
+
+usage() {
+  cat <<'USAGE'
+Usage: ./install.sh [--prefix PATH] [--skip-deps]
+
+Installs the pf task runner directly to your system.
+
+Options:
+  --prefix PATH      Install prefix (default: /usr/local)
+                     Binary goes to PREFIX/bin/pf
+                     Library goes to PREFIX/lib/pf-runner
+  --skip-deps        Skip installing Python dependencies (fabric, lark)
+  -h, --help         Show this help
+
+Examples:
+  ./install.sh                    # Install to /usr/local/bin (requires sudo)
+  ./install.sh --prefix ~/.local  # Install to ~/.local/bin (no sudo needed)
+  sudo ./install.sh               # Install system-wide with sudo
+>>>>>>> main
+USAGE
 }
 
-log_success() {
-	echo -e "${GREEN}[SUCCESS]${NC} $*"
+check_python() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    log_error "python3 not found. Please install Python 3.10+ first."
+    exit 1
+  fi
+  
+  local py_version
+  py_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+  log_info "Found Python ${py_version}"
 }
 
-log_warn() {
-	echo -e "${YELLOW}[WARN]${NC} $*"
+install_deps() {
+  if [[ ${SKIP_DEPS} -eq 1 ]]; then
+    log_info "Skipping dependency installation (--skip-deps)"
+    return
+  fi
+
+  log_info "Installing Python dependencies..."
+  
+  # Check if pip is available
+  if ! python3 -m pip --version >/dev/null 2>&1; then
+    log_error "pip is not available. Please install python3-pip first."
+    exit 1
+  fi
+
+  # Install dependencies - use --break-system-packages if needed (Python 3.11+)
+  local pip_args=("fabric>=3.2,<4" "lark>=1.1.0")
+  
+  if python3 -m pip install --help 2>&1 | grep -q "break-system-packages"; then
+    python3 -m pip install --break-system-packages "${pip_args[@]}" || {
+      log_warn "System pip install failed, trying user install..."
+      python3 -m pip install --user "${pip_args[@]}"
+    }
+  else
+    python3 -m pip install "${pip_args[@]}" || {
+      log_warn "System pip install failed, trying user install..."
+      python3 -m pip install --user "${pip_args[@]}"
+    }
+  fi
+  
+  log_success "Dependencies installed"
 }
 
-log_error() {
-	echo -e "${RED}[ERROR]${NC} $*"
+<<<<<<< HEAD
+build_base_image() {
+  echo "[pf-install] Building base image '${BASE_IMAGE}' with ${RUNTIME}..."
+  ${RUNTIME} build -f "${ROOT_DIR}/containers/dockerfiles/Dockerfile.base" -t "${BASE_IMAGE}" "${ROOT_DIR}"
+  echo "[pf-install] Base image built: ${BASE_IMAGE}"
 }
 
-# Check if command exists
-command_exists() {
-	command -v "$1" >/dev/null 2>&1
-}
-
-# Show help message
-show_help() {
-	cat <<EOF
-pf-web-poly-compile-helper-runner Installer
-===========================================
-
-A comprehensive installer for the pf task runner and polyglot WebAssembly development environment.
-
-USAGE:
-    ./install.sh [OPTION]
-
-OPTIONS:
-    base        Install base pf runner, Python dependencies, and core build tools
-    web         Install web/WASM development tools (Node.js, Playwright, Rust, Emscripten, etc.)
-    all         Install everything (base + web)
-    --help      Show this help message
-
-INTERACTIVE MODE:
-    Running without options will enter interactive mode where you can choose what to install.
-
-EXAMPLES:
-    ./install.sh           # Interactive installation
-    ./install.sh base      # Install just the base pf runner
-    ./install.sh web       # Install just web development tools
-    ./install.sh all       # Install everything
-
-WHAT GETS INSTALLED:
-
-Base Installation:
-  - Python 3 and pip
-  - Fabric library (Python task runner)
-  - pf runner (CLI tool)
-  - Core build tools (gcc, make, git)
-  - Shell completions
-
-Web Installation:
-  - Node.js and npm
-  - Playwright (browser testing)
-  - Rust toolchain with wasm-pack
-  - Emscripten (C/C++ to WASM)
-  - WABT (WebAssembly Binary Toolkit)
-  - LFortran (optional, Fortran to WASM)
-
-REQUIREMENTS:
-  - Linux (Ubuntu/Debian) or macOS
-  - sudo access for system package installation
-  - Internet connection
-
-AFTER INSTALLATION:
-  - Verify: pf --version
-  - List tasks: pf list
-  - Get started: See README.md for usage examples
-
+install_executable() {
+  echo "[pf-install] Installing pf executable to /usr/local/bin..."
+  
+  # Check if we can write to /usr/local/bin
+  if [[ ! -w /usr/local/bin ]] && [[ $EUID -ne 0 ]]; then
+    echo "[pf-install] Warning: /usr/local/bin is not writable. You may need sudo privileges."
+    echo "[pf-install] Attempting installation with sudo..."
+    SUDO_CMD="sudo"
+  else
+    SUDO_CMD=""
+  fi
+  
+  # Create a temporary container to extract the executable
+  echo "[pf-install] Extracting pf executable from container..."
+  TEMP_CONTAINER=$(${RUNTIME} create "${IMAGE_NAME}")
+  
+  # Copy the main Python script from the container
+  if ! ${RUNTIME} cp "${TEMP_CONTAINER}:/app/pf-runner/pf_parser.py" /tmp/pf_parser.py; then
+    echo "Error: Failed to extract pf_parser.py from container" >&2
+    ${RUNTIME} rm "${TEMP_CONTAINER}" >/dev/null 2>&1 || true
+    exit 1
+  fi
+  
+  # Clean up the temporary container
+  ${RUNTIME} rm "${TEMP_CONTAINER}" >/dev/null 2>&1 || true
+  
+  # Create a proper executable script with shebang
+  cat > /tmp/pf-executable << 'EOF'
+#!/usr/bin/env python3
 EOF
-}
-
-# Check system prerequisites
-check_prerequisites() {
-	log_info "Checking system prerequisites..."
-
-	# Check for bash version
-	if [ "${BASH_VERSINFO:-0}" -lt 4 ]; then
-		log_warn "Bash 4.0+ recommended, but will attempt to continue"
-	fi
-
-	# Check for required commands
-	local missing_commands=()
-
-	if ! command_exists python3; then
-		missing_commands+=("python3")
-	fi
-
-	if ! command_exists git; then
-		missing_commands+=("git")
-	fi
-
-	if [ ${#missing_commands[@]} -gt 0 ]; then
-		log_error "Missing required commands: ${missing_commands[*]}"
-		log_info "Installing base system packages..."
-		install_base_system_packages
-	fi
-
-	log_success "Prerequisites check passed"
-}
-
-# Install base system packages (git, python3, build-essential)
-install_base_system_packages() {
-	log_info "Installing base system packages..."
-
-	if command_exists apt-get; then
-		sudo apt-get update -qq
-		sudo apt-get install -y -qq git python3 python3-pip python3-dev build-essential curl wget
-	elif command_exists brew; then
-		brew install git python3
-	else
-		log_error "Unsupported package manager. Please install git and python3 manually."
-		exit 1
-	fi
-
-	log_success "Base system packages installed"
-}
-
-# Install Python Fabric dependency
-install_fabric() {
-	log_info "Installing Python Fabric library..."
-
-	if ! python3 -m pip --version >/dev/null 2>&1; then
-		log_error "pip is not available. Please install python3-pip"
-		exit 1
-	fi
-
-	# Install fabric for the current user
-	python3 -m pip install "fabric>=3.2,<4" --upgrade
-
-	log_success "Fabric installed successfully"
-}
-
-# Install pf runner
-install_pf_runner() {
-	log_info "Installing pf runner..."
-
-	cd pf-runner
-
-	# Update shebang to use system python3
-	if [ -f "pf_parser.py" ]; then
-		# Create a wrapper that uses system python3
-		sed -i '1s|.*|#!/usr/bin/env python3|' pf_parser.py
-		chmod +x pf_parser.py
-	fi
-
-	# Create local symlink
-	ln -sf pf_parser.py pf
-
-	# Install to ~/.local/bin
-	mkdir -p "$HOME/.local/bin"
-	ln -sf "$(pwd)/pf_parser.py" "$HOME/.local/bin/pf"
-
-	# Ensure ~/.local/bin is in PATH
-	if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-		log_warn "Adding ~/.local/bin to PATH in your shell configuration"
-
-		# Detect shell and add to appropriate rc file
-		if [ -n "${BASH_VERSION:-}" ]; then
-			echo 'export PATH="$HOME/.local/bin:$PATH"' >>"$HOME/.bashrc"
-			log_info "Added to ~/.bashrc - restart your shell or run: source ~/.bashrc"
-		elif [ -n "${ZSH_VERSION:-}" ]; then
-			echo 'export PATH="$HOME/.local/bin:$PATH"' >>"$HOME/.zshrc"
-			log_info "Added to ~/.zshrc - restart your shell or run: source ~/.zshrc"
-		fi
-
-		# Add to current session
-		export PATH="$HOME/.local/bin:$PATH"
-	fi
-
-	cd ..
-
-	log_success "pf runner installed to ~/.local/bin/pf"
-}
-
-# Install shell completions
-install_completions() {
-	log_info "Installing shell completions..."
-
-	cd pf-runner
-
-	# Install bash completion
-	if [ -d "$HOME/.local/share/bash-completion/completions" ] || mkdir -p "$HOME/.local/share/bash-completion/completions" 2>/dev/null; then
-		if [ -f "completions/pf-completion.bash" ]; then
-			cp completions/pf-completion.bash "$HOME/.local/share/bash-completion/completions/pf"
-			log_success "Bash completion installed"
-		fi
-	fi
-
-	# Install zsh completion
-	if [ -n "${ZSH_VERSION:-}" ]; then
-		if [ -d "$HOME/.zsh/completions" ] || mkdir -p "$HOME/.zsh/completions" 2>/dev/null; then
-			if [ -f "completions/_pf" ]; then
-				cp completions/_pf "$HOME/.zsh/completions/_pf"
-				log_success "Zsh completion installed"
-				log_info "Add 'fpath=(~/.zsh/completions \$fpath)' to ~/.zshrc if not present"
-			fi
-		fi
-	fi
-
-	cd ..
-}
-
-# Install base components
-install_base() {
-	log_info "=== Installing Base Components ==="
-
-	check_prerequisites
-	install_fabric
-	install_pf_runner
-	install_completions
-
-	# Verify installation
-	if command_exists pf || [ -x "$HOME/.local/bin/pf" ]; then
-		log_success "Base installation complete!"
-		log_info "Run 'pf list' to see available tasks"
-		log_info "Run 'pf --version' to verify installation"
-	else
-		log_warn "pf command not immediately available - restart your shell or run: source ~/.bashrc"
-	fi
-}
-
-# Install web/WASM development tools
-install_web() {
-	log_info "=== Installing Web/WASM Development Tools ==="
-
-	# Node.js
-	if ! command_exists node; then
-		log_info "Installing Node.js..."
-		if command_exists apt-get; then
-			curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-			sudo apt-get install -y nodejs
-		elif command_exists brew; then
-			brew install node
-		else
-			log_warn "Please install Node.js 18+ manually from https://nodejs.org"
-		fi
-		log_success "Node.js installed"
-	else
-		log_info "Node.js already installed ($(node --version))"
-	fi
-
-	# Install Playwright
-	if command_exists npm; then
-		log_info "Installing Playwright..."
-		npm install --no-save @playwright/test
-		npx playwright install --with-deps chromium
-		log_success "Playwright installed"
-	fi
-
-	# Rust and wasm-pack
-	if ! command_exists rustc; then
-		log_info "Installing Rust toolchain..."
-		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-		source "$HOME/.cargo/env" 2>/dev/null || true
-		log_success "Rust installed"
-	else
-		log_info "Rust already installed ($(rustc --version))"
-	fi
-
-	if ! command_exists wasm-pack; then
-		log_info "Installing wasm-pack..."
-		if command_exists cargo; then
-			cargo install wasm-pack
-			log_success "wasm-pack installed"
-		else
-			log_warn "Cargo not available - please install wasm-pack manually"
-		fi
-	else
-		log_info "wasm-pack already installed"
-	fi
-
-	# WABT (WebAssembly Binary Toolkit)
-	if ! command_exists wat2wasm; then
-		log_info "Installing WABT..."
-		if command_exists apt-get; then
-			sudo apt-get install -y wabt
-			log_success "WABT installed"
-		elif command_exists brew; then
-			brew install wabt
-			log_success "WABT installed"
-		else
-			log_warn "Please install WABT manually"
-		fi
-	else
-		log_info "WABT already installed"
-	fi
-
-	# Emscripten (optional - complex installation)
-	if ! command_exists emcc; then
-		log_warn "Emscripten not found - this is optional but needed for C/C++ to WASM"
-		log_info "To install Emscripten:"
-		log_info "  git clone https://github.com/emscripten-core/emsdk.git"
-		log_info "  cd emsdk && ./emsdk install latest && ./emsdk activate latest"
-		log_info "  source ./emsdk_env.sh"
-	else
-		log_info "Emscripten already installed"
-	fi
-
-	log_success "Web/WASM development tools installation complete!"
-}
-
-# Install everything
-install_all() {
-	log_info "=== Full Installation ==="
-	install_base
-	echo ""
-	install_web
-	echo ""
-	log_success "Complete installation finished!"
-}
-
-# Interactive installation
-interactive_install() {
-	cat <<EOF
-
-${BLUE}╔════════════════════════════════════════════════════════╗
-║     pf-web-poly-compile-helper-runner Installer       ║
-╚════════════════════════════════════════════════════════╝${NC}
-
-This installer will help you set up the pf task runner and 
-optionally install web development tools.
-
-What would you like to install?
-
-  ${GREEN}1)${NC} Base only    - pf runner and core dependencies
-  ${GREEN}2)${NC} Web only     - Web/WASM development tools
-  ${GREEN}3)${NC} Everything   - Base + Web (recommended)
-  ${GREEN}4)${NC} Exit
-
+  
+  # Append the Python script content (skip the first line if it's a comment)
+  tail -n +2 /tmp/pf_parser.py >> /tmp/pf-executable
+  
+  # Install the executable
+  if [[ -n "${SUDO_CMD}" ]]; then
+    ${SUDO_CMD} cp /tmp/pf-executable /usr/local/bin/pf
+    ${SUDO_CMD} chmod +x /usr/local/bin/pf
+    ${SUDO_CMD} chown root:root /usr/local/bin/pf
+  else
+    cp /tmp/pf-executable /usr/local/bin/pf
+    chmod +x /usr/local/bin/pf
+  fi
+  
+  # Clean up temporary files
+  rm -f /tmp/pf-executable /tmp/pf_parser.py
+  
+  echo "[pf-install] pf executable installed to /usr/local/bin/pf"
+  
+  # Check if required Python packages are available
+  echo "[pf-install] Checking Python dependencies..."
+  if ! python3 -c "import fabric" >/dev/null 2>&1; then
+    echo "[pf-install] Warning: Python 'fabric' package not found."
+    echo "[pf-install] Install with: pip3 install 'fabric>=3.2,<4'"
+  fi
+  
+  if ! python3 -c "import lark" >/dev/null 2>&1; then
+    echo "[pf-install] Warning: Python 'lark' package not found."
+    echo "[pf-install] Install with: pip3 install lark"
+=======
+install_pf() {
+  log_info "Installing pf to ${INSTALL_PATH}/pf..."
+  
+  # Try to create directories first (will fail if no permission)
+  if ! mkdir -p "${INSTALL_DIR}" 2>/dev/null || ! mkdir -p "${INSTALL_PATH}" 2>/dev/null; then
+    if [[ $EUID -ne 0 ]]; then
+      log_error "Cannot create ${INSTALL_PATH} or ${INSTALL_DIR}. Run with sudo or use --prefix ~/.local"
+      exit 1
+    fi
+  fi
+  
+  # Check if we have write permission
+  if [[ ! -w "${INSTALL_PATH}" ]] || [[ ! -w "${INSTALL_DIR}" ]]; then
+    if [[ $EUID -ne 0 ]]; then
+      log_error "Cannot write to ${INSTALL_PATH}. Run with sudo or use --prefix ~/.local"
+      exit 1
+    fi
+  fi
+  
+  # Copy pf-runner source files
+  cp -r "${ROOT_DIR}/pf-runner/"* "${INSTALL_DIR}/"
+  
+  # Make the main script executable
+  chmod +x "${INSTALL_DIR}/pf_parser.py"
+  chmod +x "${INSTALL_DIR}/pf" 2>/dev/null || true
+  
+  # Create the pf executable in bin directory
+  cat > "${INSTALL_PATH}/pf" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+exec python3 "${INSTALL_DIR}/pf_parser.py" "\$@"
 EOF
-
-	read -p "Enter your choice [1-4]: " choice
-
-	case $choice in
-	1)
-		echo ""
-		install_base
-		;;
-	2)
-		echo ""
-		log_warn "Installing web tools only - you may need base installation too"
-		install_web
-		;;
-	3)
-		echo ""
-		install_all
-		;;
-	4)
-		log_info "Installation cancelled"
-		exit 0
-		;;
-	*)
-		log_error "Invalid choice. Please run the installer again."
-		exit 1
-		;;
-	esac
+  chmod +x "${INSTALL_PATH}/pf"
+  
+  log_success "pf installed to ${INSTALL_PATH}/pf"
 }
 
-# Post-installation instructions
-show_next_steps() {
-	cat <<EOF
-
-${GREEN}╔════════════════════════════════════════════════════════╗
-║              Installation Complete! 🎉                 ║
-╚════════════════════════════════════════════════════════╝${NC}
-
-${BLUE}Next Steps:${NC}
-
-1. Restart your shell or run:
-   ${YELLOW}source ~/.bashrc${NC}  (or ~/.zshrc for zsh)
-
-2. Verify installation:
-   ${YELLOW}pf --version${NC}
-
-3. List available tasks:
-   ${YELLOW}pf list${NC}
-
-4. Build the demo WebAssembly modules:
-   ${YELLOW}pf web-build-all${NC}
-
-5. Start the development server:
-   ${YELLOW}pf web-dev${NC}
-
-6. Run tests:
-   ${YELLOW}pf web-test${NC}
-
-${BLUE}Documentation:${NC}
-  - Main README: README.md
-  - pf runner docs: pf-runner/README.md
-  - Build helpers: pf-runner/BUILD-HELPERS.md
-
-${BLUE}Need Help?${NC}
-  - Run: ${YELLOW}pf --help${NC}
-  - File issues on GitHub
-  - Check documentation in pf-runner/ directory
-
-Happy coding! 🚀
-
-EOF
+verify_install() {
+  if [[ -x "${INSTALL_PATH}/pf" ]]; then
+    log_success "Installation complete!"
+    log_info ""
+    log_info "Verify with: ${INSTALL_PATH}/pf --version"
+    log_info "List tasks:  ${INSTALL_PATH}/pf list"
+    
+    # Check if install path is in PATH
+    if [[ ":${PATH}:" != *":${INSTALL_PATH}:"* ]]; then
+      log_warn ""
+      log_warn "Note: ${INSTALL_PATH} is not in your PATH."
+      log_warn "Add it with: export PATH=\"${INSTALL_PATH}:\$PATH\""
+    fi
+  else
+    log_error "Installation verification failed"
+    exit 1
+>>>>>>> main
+  fi
 }
 
-# Main installation logic
-main() {
-	# Change to repository root
-	SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-	cd "$SCRIPT_DIR"
+# Parse args
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+<<<<<<< HEAD
+    --image)
+      IMAGE_NAME="$2"; shift 2;;
+    --runtime)
+      RUNTIME="$2"; shift 2;;
+=======
+    --prefix)
+      INSTALL_PATH="$2/bin"
+      INSTALL_DIR="$2/lib/pf-runner"
+      shift 2;;
+    --skip-deps)
+      SKIP_DEPS=1; shift;;
+>>>>>>> main
+    -h|--help)
+      usage; exit 0;;
+    *)
+      echo "Unknown option: $1" >&2; usage; exit 1;;
+  esac
+done
 
-	log_info "Starting pf-web-poly-compile-helper-runner installer"
-	log_info "Installation directory: $SCRIPT_DIR"
+<<<<<<< HEAD
+choose_runtime
+build_base_image
+build_image
+install_executable
 
-	# Parse command line arguments
-	case "${1:-interactive}" in
-	--help | -h | help)
-		show_help
-		exit 0
-		;;
-	base)
-		install_base
-		show_next_steps
-		;;
-	web)
-		install_web
-		show_next_steps
-		;;
-	all)
-		install_all
-		show_next_steps
-		;;
-	interactive)
-		interactive_install
-		show_next_steps
-		;;
-	*)
-		log_error "Unknown option: $1"
-		echo ""
-		show_help
-		exit 1
-		;;
-	esac
-}
+echo "[pf-install] Installation complete!"
+echo "[pf-install] The 'pf' command is now available in /usr/local/bin"
+echo "[pf-install] Run 'pf list' to verify the installation."
+echo ""
+echo "[pf-install] Note: Make sure you have the required Python dependencies:"
+echo "[pf-install]   pip3 install 'fabric>=3.2,<4' lark"
+=======
+log_info "pf-web-poly-compile-helper-runner installer"
+log_info "============================================"
 
-# Run main function
-main "$@"
+check_python
+install_deps
+install_pf
+verify_install
+>>>>>>> main
+
+exit 0

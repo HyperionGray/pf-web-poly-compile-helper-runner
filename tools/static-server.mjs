@@ -29,17 +29,25 @@ const server = http.createServer((req, res) => {
   let filePath = path.join(ROOT, urlPath);
   if (filePath.endsWith('/')) filePath += 'index.html';
 
-  fs.stat(filePath, (err, stat) => {
+  // Security: Prevent path traversal attacks by ensuring resolved path is within ROOT
+  const resolvedPath = path.resolve(filePath);
+  if (!resolvedPath.startsWith(path.resolve(ROOT))) {
+    res.statusCode = 403;
+    res.end('Forbidden');
+    return;
+  }
+
+  fs.stat(resolvedPath, (err, stat) => {
     if (err || !stat.isFile()) {
       res.statusCode = 404;
       res.end('Not found');
       return;
     }
-    const ext = path.extname(filePath).toLowerCase();
+    const ext = path.extname(resolvedPath).toLowerCase();
     res.setHeader('Content-Type', MIME[ext] || 'application/octet-stream');
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-    fs.createReadStream(filePath).pipe(res);
+    fs.createReadStream(resolvedPath).pipe(res);
   });
 });
 

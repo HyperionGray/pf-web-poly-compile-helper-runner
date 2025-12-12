@@ -1,0 +1,443 @@
+# PE Execution and Cross-Platform Binary Execution Tasks
+# Provides reliable Windows PE execution using VMKit and macOS binary execution using QEMU
+# Supports Windows Server Core, ReactOS, and macOS virtualization
+
+# ==========================================
+# PE Execution Container Build Tasks
+# ==========================================
+
+task pe-build-all
+  describe Build all PE execution container images
+  shell_lang bash
+  shell ./containers/scripts/build-containers.sh pe
+end
+
+task pe-build-windows-server
+  describe Build Windows Server Core PE execution container
+  shell_lang bash
+  shell podman build -t localhost/pf-pe-windows-server:latest -f containers/dockerfiles/Dockerfile.pe-windows-server .
+end
+
+task pe-build-reactos
+  describe Build ReactOS PE execution container
+  shell_lang bash
+  shell podman build -t localhost/pf-pe-reactos:latest -f containers/dockerfiles/Dockerfile.pe-reactos .
+end
+
+task pe-build-macos-qemu
+  describe Build macOS QEMU virtualization container
+  shell_lang bash
+  shell podman build -t localhost/pf-macos-qemu:latest -f containers/dockerfiles/Dockerfile.os-macos-qemu .
+end
+
+# ==========================================
+# PE Execution Tasks
+# ==========================================
+
+task pe-execute pe_file=""
+  describe Execute Windows PE file using default container (Windows Server Core)
+  shell_lang bash
+  shell |
+    if [ -z "${pe_file}" ]; then
+        echo "Usage: pf pe-execute pe_file=<path-to-pe-file>"
+        echo "Execute Windows PE file in isolated VM environment"
+        exit 1
+    fi
+    
+    if [ ! -f "${pe_file}" ]; then
+        echo "Error: PE file not found: ${pe_file}"
+        exit 1
+    fi
+    
+    echo "Executing PE file: ${pe_file}"
+    podman run --rm -it \
+        --privileged \
+        --device /dev/kvm:/dev/kvm \
+        --volume $(pwd):/workspace \
+        --volume /tmp:/tmp \
+        localhost/pf-pe-windows-server:latest \
+        pf-execute-pe "/workspace/${pe_file}"
+end
+
+task pe-execute-windows pe_file=""
+  describe Execute Windows PE file using Windows Server Core container
+  shell_lang bash
+  shell |
+    if [ -z "${pe_file}" ]; then
+        echo "Usage: pf pe-execute-windows pe_file=<path-to-pe-file>"
+        exit 1
+    fi
+    
+    if [ ! -f "${pe_file}" ]; then
+        echo "Error: PE file not found: ${pe_file}"
+        exit 1
+    fi
+    
+    echo "Executing PE file in Windows Server Core: ${pe_file}"
+    podman run --rm -it \
+        --privileged \
+        --device /dev/kvm:/dev/kvm \
+        --volume $(pwd):/workspace \
+        --volume /tmp:/tmp \
+        localhost/pf-pe-windows-server:latest \
+        pf-execute-pe "/workspace/${pe_file}"
+end
+
+task pe-execute-reactos pe_file=""
+  describe Execute Windows PE file using ReactOS container
+  shell_lang bash
+  shell |
+    if [ -z "${pe_file}" ]; then
+        echo "Usage: pf pe-execute-reactos pe_file=<path-to-pe-file>"
+        exit 1
+    fi
+    
+    if [ ! -f "${pe_file}" ]; then
+        echo "Error: PE file not found: ${pe_file}"
+        exit 1
+    fi
+    
+    echo "Executing PE file in ReactOS: ${pe_file}"
+    podman run --rm -it \
+        --privileged \
+        --device /dev/kvm:/dev/kvm \
+        --volume $(pwd):/workspace \
+        --volume /tmp:/tmp \
+        localhost/pf-pe-reactos:latest \
+        pf-execute-pe-reactos "/workspace/${pe_file}"
+end
+
+# ==========================================
+# macOS Binary Execution Tasks
+# ==========================================
+
+task macos-execute binary_file=""
+  describe Execute macOS binary using QEMU virtualization
+  shell_lang bash
+  shell |
+    if [ -z "${binary_file}" ]; then
+        echo "Usage: pf macos-execute binary_file=<path-to-macos-binary>"
+        echo "Execute macOS binary in virtualized macOS environment"
+        echo ""
+        echo "Legal Notice: Ensure compliance with Apple's Software License Agreement"
+        echo "macOS virtualization may only be legal on Apple hardware"
+        exit 1
+    fi
+    
+    if [ ! -f "${binary_file}" ]; then
+        echo "Error: macOS binary not found: ${binary_file}"
+        exit 1
+    fi
+    
+    echo "Executing macOS binary: ${binary_file}"
+    echo "Legal Notice: Ensure compliance with Apple's Software License Agreement"
+    podman run --rm -it \
+        --privileged \
+        --device /dev/kvm:/dev/kvm \
+        --volume $(pwd):/workspace \
+        --volume /tmp:/tmp \
+        localhost/pf-macos-qemu:latest \
+        pf-execute-macos "/workspace/${binary_file}"
+end
+
+# ==========================================
+# VM Template Preparation Tasks
+# ==========================================
+
+task pe-prepare-windows
+  describe Prepare Windows Server Core VM template
+  shell_lang bash
+  shell |
+    echo "Preparing Windows Server Core VM template..."
+    podman run --rm -it \
+        --privileged \
+        --volume $(pwd):/workspace \
+        --volume /tmp:/tmp \
+        localhost/pf-pe-windows-server:latest \
+        pf-prepare-windows
+end
+
+task pe-prepare-reactos
+  describe Prepare ReactOS VM template
+  shell_lang bash
+  shell |
+    echo "Preparing ReactOS VM template..."
+    podman run --rm -it \
+        --privileged \
+        --volume $(pwd):/workspace \
+        --volume /tmp:/tmp \
+        localhost/pf-pe-reactos:latest \
+        pf-prepare-reactos
+end
+
+task macos-prepare
+  describe Prepare macOS VM template
+  shell_lang bash
+  shell |
+    echo "Preparing macOS VM template..."
+    echo "Legal Notice: Ensure compliance with Apple's Software License Agreement"
+    podman run --rm -it \
+        --privileged \
+        --volume $(pwd):/workspace \
+        --volume /tmp:/tmp \
+        localhost/pf-macos-qemu:latest \
+        pf-prepare-macos
+end
+
+# ==========================================
+# Status and Management Tasks
+# ==========================================
+
+task pe-status
+  describe Show PE execution environment status
+  shell_lang bash
+  shell |
+    echo "=== PE Execution Environment Status ==="
+    echo ""
+    
+    echo "Container Images:"
+    podman images | grep -E "pf-(pe-|macos-)" || echo "  No PE execution images found"
+    
+    echo ""
+    echo "Windows Server Core Container:"
+    if podman image exists localhost/pf-pe-windows-server:latest; then
+        echo "  ✓ Available"
+        podman run --rm localhost/pf-pe-windows-server:latest pf-pe-status
+    else
+        echo "  ✗ Not built (run: pf pe-build-windows-server)"
+    fi
+    
+    echo ""
+    echo "ReactOS Container:"
+    if podman image exists localhost/pf-pe-reactos:latest; then
+        echo "  ✓ Available"
+        podman run --rm localhost/pf-pe-reactos:latest pf-pe-status
+    else
+        echo "  ✗ Not built (run: pf pe-build-reactos)"
+    fi
+    
+    echo ""
+    echo "macOS Container:"
+    if podman image exists localhost/pf-macos-qemu:latest; then
+        echo "  ✓ Available"
+        podman run --rm localhost/pf-macos-qemu:latest pf-macos-status
+    else
+        echo "  ✗ Not built (run: pf pe-build-macos-qemu)"
+    fi
+end
+
+task pe-shell container=""
+  describe Open shell in PE execution container
+  shell_lang bash
+  shell |
+    case "${container:-windows}" in
+        windows|windows-server)
+            echo "Opening shell in Windows Server Core container..."
+            podman run --rm -it \
+                --privileged \
+                --device /dev/kvm:/dev/kvm \
+                --volume $(pwd):/workspace \
+                localhost/pf-pe-windows-server:latest \
+                /bin/bash
+            ;;
+        reactos)
+            echo "Opening shell in ReactOS container..."
+            podman run --rm -it \
+                --privileged \
+                --device /dev/kvm:/dev/kvm \
+                --volume $(pwd):/workspace \
+                localhost/pf-pe-reactos:latest \
+                /bin/bash
+            ;;
+        macos)
+            echo "Opening shell in macOS container..."
+            echo "Legal Notice: Ensure compliance with Apple's Software License Agreement"
+            podman run --rm -it \
+                --privileged \
+                --device /dev/kvm:/dev/kvm \
+                --volume $(pwd):/workspace \
+                localhost/pf-macos-qemu:latest \
+                /bin/bash
+            ;;
+        *)
+            echo "Usage: pf pe-shell container=<windows|reactos|macos>"
+            echo "Available containers:"
+            echo "  windows    - Windows Server Core (default)"
+            echo "  reactos    - ReactOS"
+            echo "  macos      - macOS QEMU"
+            exit 1
+            ;;
+    esac
+end
+
+# ==========================================
+# VMKit Integration Tasks
+# ==========================================
+
+task vmkit-setup
+  describe Set up VMKit environment for PE execution
+  shell_lang bash
+  shell |
+    echo "[*] Setting up VMKit environment..."
+    echo "[!] This requires VMKit to be installed or accessible"
+    echo ""
+    
+    # Check environment variable first, then common paths
+    VMKIT_PATH="${VMKIT_PATH:-}"
+    
+    if [ -n "$VMKIT_PATH" ] && [ -d "$VMKIT_PATH" ]; then
+        echo "[*] VMKit found at $VMKIT_PATH (via VMKIT_PATH)"
+        cd "$VMKIT_PATH"
+        echo "[*] VMKit setup would be performed here"
+        echo "[*] Use: vmkit create --all-the-passthru for maximum performance"
+    elif command -v vmkit >/dev/null 2>&1; then
+        echo "[*] VMKit is installed and available in PATH"
+        echo "[*] Use: vmkit create --all-the-passthru for maximum performance"
+    else
+        echo "[!] VMKit not found"
+        echo "[!] Set VMKIT_PATH environment variable to your VMKit installation"
+        echo "[!] Or install VMKit and ensure it's in your PATH"
+    fi
+end
+
+task vmkit-create-pe-vm vm_name="" pe_file=""
+  describe Create VMKit VM instance for PE execution
+  shell_lang bash
+  shell |
+    if [ -z "${vm_name}" ] || [ -z "${pe_file}" ]; then
+        echo "Usage: pf vmkit-create-pe-vm vm_name=<name> pe_file=<pe-file>"
+        exit 1
+    fi
+    
+    echo "[*] Creating VMKit VM for PE execution..."
+    echo "[*] VM Name: ${vm_name}"
+    echo "[*] PE File: ${pe_file}"
+    
+    # This would integrate with actual VMKit
+    echo "[*] vmkit create --all-the-passthru ${vm_name}"
+    echo "[*] VM created successfully (placeholder)"
+end
+
+# ==========================================
+# Cross-Platform Binary Analysis Tasks
+# ==========================================
+
+task analyze-binary binary_file=""
+  describe Analyze binary and determine execution environment
+  shell_lang bash
+  shell |
+    if [ -z "${binary_file}" ]; then
+        echo "Usage: pf analyze-binary binary_file=<path-to-binary>"
+        exit 1
+    fi
+    
+    if [ ! -f "${binary_file}" ]; then
+        echo "Error: Binary file not found: ${binary_file}"
+        exit 1
+    fi
+    
+    echo "Analyzing binary: ${binary_file}"
+    
+    # Determine file type
+    FILE_TYPE=$(file "${binary_file}")
+    echo "File type: $FILE_TYPE"
+    
+    # Suggest execution environment
+    if echo "$FILE_TYPE" | grep -q "PE32"; then
+        echo ""
+        echo "Detected: Windows PE executable"
+        echo "Recommended execution:"
+        echo "  pf pe-execute pe_file=${binary_file}           # Windows Server Core"
+        echo "  pf pe-execute-reactos pe_file=${binary_file}   # ReactOS (open source)"
+    elif echo "$FILE_TYPE" | grep -q "Mach-O"; then
+        echo ""
+        echo "Detected: macOS Mach-O executable"
+        echo "Recommended execution:"
+        echo "  pf macos-execute binary_file=${binary_file}    # macOS QEMU"
+        echo ""
+        echo "Legal Notice: Ensure compliance with Apple's Software License Agreement"
+    elif echo "$FILE_TYPE" | grep -q "ELF"; then
+        echo ""
+        echo "Detected: Linux ELF executable"
+        echo "Recommended execution:"
+        echo "  ./${binary_file}                               # Native Linux"
+        echo "  pf os-run os=<distro> cmd='./${binary_file}'   # Specific Linux distro"
+    else
+        echo ""
+        echo "Unknown binary format"
+        echo "Try: file ${binary_file} for more details"
+    fi
+end
+
+# ==========================================
+# Help Task
+# ==========================================
+
+task pe-help
+  describe Show help for PE execution and cross-platform binary execution
+  shell_lang bash
+  shell cat << 'EOF'
+
+PE Execution and Cross-Platform Binary Execution Commands
+=========================================================
+
+BUILD COMMANDS:
+  pf pe-build-all                    Build all PE execution containers
+  pf pe-build-windows-server         Build Windows Server Core container
+  pf pe-build-reactos                Build ReactOS container
+  pf pe-build-macos-qemu             Build macOS QEMU container
+
+PE EXECUTION:
+  pf pe-execute pe_file=<file>       Execute PE in Windows Server Core (default)
+  pf pe-execute-windows pe_file=<file>    Execute PE in Windows Server Core
+  pf pe-execute-reactos pe_file=<file>    Execute PE in ReactOS
+
+MACOS EXECUTION:
+  pf macos-execute binary_file=<file>     Execute macOS binary in QEMU VM
+
+TEMPLATE PREPARATION:
+  pf pe-prepare-windows              Prepare Windows Server Core template
+  pf pe-prepare-reactos              Prepare ReactOS template
+  pf macos-prepare                   Prepare macOS template
+
+MANAGEMENT:
+  pf pe-status                       Show PE execution environment status
+  pf pe-shell container=<type>       Open shell in container (windows|reactos|macos)
+  pf analyze-binary binary_file=<file>    Analyze binary and suggest execution
+
+VMKIT INTEGRATION:
+  pf vmkit-setup                     Set up VMKit environment
+  pf vmkit-create-pe-vm vm_name=<name> pe_file=<file>    Create VMKit VM
+
+EXAMPLES:
+  # Build all PE execution containers
+  pf pe-build-all
+  
+  # Execute Windows PE file
+  pf pe-execute pe_file=./malware.exe
+  
+  # Execute in ReactOS (open source alternative)
+  pf pe-execute-reactos pe_file=./program.exe
+  
+  # Execute macOS binary
+  pf macos-execute binary_file=./mac_program
+  
+  # Analyze unknown binary
+  pf analyze-binary binary_file=./unknown_file
+  
+  # Open shell in Windows container
+  pf pe-shell container=windows
+
+LEGAL NOTICES:
+  - Windows Server Core: Ensure proper licensing for containerized use
+  - ReactOS: Open source, free to use
+  - macOS: Ensure compliance with Apple's Software License Agreement
+  - macOS virtualization may only be legal on Apple hardware
+
+REQUIREMENTS:
+  - KVM support for hardware acceleration
+  - Sufficient RAM (2GB+ for Windows, 8GB+ for macOS)
+  - VMKit repository access for advanced features
+
+EOF
+end

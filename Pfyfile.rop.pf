@@ -1,0 +1,62 @@
+# ROP Exploit Demonstration Tasks
+
+task rop-build
+  describe Build vulnerable binaries for ROP demonstration
+  shell cd demos/rop-exploit && make all
+end
+
+task rop-check
+  describe Check security features of built binaries
+  shell cd demos/rop-exploit && make check
+end
+
+task rop-gadgets
+  describe Find ROP gadgets in the vulnerable binary
+  shell cd demos/rop-exploit && make gadgets
+end
+
+task rop-exploit
+  describe Generate ROP exploit payload
+  shell cd demos/rop-exploit && make exploit
+end
+
+task rop-test
+  describe Test the ROP exploit (will crash the program)
+  shell cd demos/rop-exploit && make test-exploit
+end
+
+task rop-disasm
+  describe Show disassembly of vulnerable function
+  shell cd demos/rop-exploit && make disasm
+end
+
+task rop-symbols
+  describe Show symbol table of vulnerable binary
+  shell cd demos/rop-exploit && make symbols
+end
+
+task rop-run
+  describe Run vulnerable service interactively (executable stack)
+  shell cd demos/rop-exploit && make run
+end
+
+task rop-run-nx
+  describe Run vulnerable service with NX protection
+  shell cd demos/rop-exploit && make run-nx
+end
+
+task rop-install-tools
+  describe Install ROP analysis tools (ROPgadget, ropper)
+  shell cd demos/rop-exploit && make install-tools
+end
+
+task rop-clean
+  describe Clean ROP demo build artifacts
+  shell cd demos/rop-exploit && make clean
+end
+
+
+task rop-help
+  describe Show ROP demo help and available commands
+  shell cd demos/rop-exploit && make help && echo "" && echo "For detailed documentation, see: demos/rop-exploit/README.md"
+end

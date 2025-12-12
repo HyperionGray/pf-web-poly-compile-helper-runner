@@ -1,19 +1,192 @@
 #!/usr/bin/env bash
-# Setup VMKit for microVM fuzzing swarm
+# Setup VMKit for PE execution and microVM fuzzing swarm
 
-echo "[*] VMKit Setup for MicroVM Swarm Fuzzing"
+# Function to find VMKit binary - returns path to vmkit or empty string
+find_vmkit_binary() {
+    if [ -n "$VMKIT_PATH" ] && [ -f "$VMKIT_PATH/vmkit" ]; then
+        echo "$VMKIT_PATH/vmkit"
+    elif command -v vmkit >/dev/null 2>&1; then
+        command -v vmkit
+    else
+        echo ""
+    fi
+}
+
+echo "[*] VMKit Setup for PE Execution and MicroVM Swarm Fuzzing"
 echo ""
-echo "[!] This is a stub implementation"
+
+# Check for VMKit - use environment variable or check if in PATH
+VMKIT_BIN=$(find_vmkit_binary)
+if [ -n "$VMKIT_BIN" ]; then
+    if [ -n "$VMKIT_PATH" ]; then
+        echo "[*] VMKit found at: $VMKIT_PATH (via VMKIT_PATH)"
+    else
+        echo "[*] VMKit found in PATH: $VMKIT_BIN"
+    fi
+    VMKIT_AVAILABLE=true
+else
+    echo "[!] VMKit not found"
+    echo "[!] Set VMKIT_PATH environment variable to your VMKit installation"
+    echo "[!] Or ensure vmkit is in your PATH"
+    VMKIT_AVAILABLE=false
+fi
+
 echo ""
-echo "VMKit integration would:"
-echo "  - Set up lightweight microVM infrastructure"
-echo "  - Configure networking for VM communication"
-echo "  - Install fuzzing tools in VM images"
-echo "  - Set up result collection pipeline"
+echo "VMKit integration provides:"
+echo "  - Lightweight microVM infrastructure for PE execution"
+echo "  - Hardware passthrough with --all-the-passthru option"
+echo "  - VM lifecycle management for container-like operations"
+echo "  - Parallel PE execution across multiple VMs"
+echo "  - Result collection and analysis pipeline"
 echo ""
-echo "For VM-based fuzzing, consider:"
+
+if [ "$VMKIT_AVAILABLE" = true ]; then
+    echo "[*] Setting up VMKit environment..."
+    
+    # Create VMKit configuration for PE execution
+    cat > /tmp/vmkit-pe-config.yaml << 'EOF'
+# VMKit Configuration for PE Execution
+pe_execution:
+  default_vm_config:
+    memory: 2048
+    cpus: 2
+    disk_size: 20G
+    passthrough: all
+  
+  windows_server_core:
+    base_image: "windows-server-core-2022"
+    memory: 2048
+    cpus: 2
+    timeout: 300
+  
+  reactos:
+    base_image: "reactos-0.4.15"
+    memory: 1024
+    cpus: 2
+    timeout: 300
+  
+  macos:
+    base_image: "macos-monterey"
+    memory: 8192
+    cpus: 4
+    timeout: 600
+
+vm_pool:
+  max_concurrent: 10
+  cleanup_timeout: 60
+  snapshot_enabled: true
+EOF
+    
+    echo "[*] VMKit PE execution configuration created"
+    
+    # Test VMKit functionality using the found binary
+    if [ -n "$VMKIT_BIN" ]; then
+        echo "[*] VMKit binary found: $VMKIT_BIN"
+        
+        echo "[*] Testing VMKit functionality..."
+        if "$VMKIT_BIN" --version >/dev/null 2>&1; then
+            echo "[✓] VMKit is functional"
+        else
+            echo "[!] VMKit test failed"
+            echo "[!] Try running: $VMKIT_BIN --version"
+            echo "[!] Check that VMKit dependencies are installed"
+            echo "[!] See VMKit documentation for troubleshooting"
+        fi
+    else
+        echo "[!] VMKit binary not found - installation may be incomplete"
+    fi
+    
+    # Create VMKit wrapper for PE execution
+    cat > ~/.local/bin/vmkit-pe << 'EOF'
+#!/bin/bash
+# VMKit wrapper for PE execution
+
+# Check for vmkit in PATH first, then use VMKIT_PATH
+if command -v vmkit >/dev/null 2>&1; then
+    VMKIT_BIN="vmkit"
+elif [ -n "$VMKIT_PATH" ] && [ -f "$VMKIT_PATH/vmkit" ]; then
+    VMKIT_BIN="$VMKIT_PATH/vmkit"
+else
+    echo "Error: VMKit not found"
+    echo "Set VMKIT_PATH environment variable or ensure vmkit is in your PATH"
+    exit 1
+fi
+
+case "$1" in
+    "create-pe-vm")
+        echo "[VMKit] Creating PE execution VM: $2"
+        "$VMKIT_BIN" create --all-the-passthru --config pe-execution "$2"
+        ;;
+    "execute-pe")
+        echo "[VMKit] Executing PE file: $3 in VM: $2"
+        "$VMKIT_BIN" exec "$2" --file "$3" --timeout "${4:-300}"
+        ;;
+    "cleanup-pe-vm")
+        echo "[VMKit] Cleaning up PE VM: $2"
+        "$VMKIT_BIN" destroy "$2"
+        ;;
+    *)
+        echo "Usage: vmkit-pe {create-pe-vm|execute-pe|cleanup-pe-vm} [args...]"
+        echo "  create-pe-vm <vm-name>              Create PE execution VM"
+        echo "  execute-pe <vm-name> <pe-file> [timeout]    Execute PE in VM"
+        echo "  cleanup-pe-vm <vm-name>             Destroy PE VM"
+        exit 1
+        ;;
+esac
+EOF
+    
+    chmod +x ~/.local/bin/vmkit-pe
+    echo "[*] VMKit PE execution wrapper installed to ~/.local/bin/vmkit-pe"
+    
+else
+    echo "[!] VMKit not available - using fallback QEMU implementation"
+    echo ""
+    echo "To enable VMKit integration:"
+    echo "  1. Install VMKit or build from source"
+    echo "  2. Ensure vmkit is in your PATH, or set VMKIT_PATH environment variable"
+    echo "  3. Re-run this setup script"
+fi
+
+echo ""
+echo "For VM-based PE execution, the system supports:"
+echo "  - VMKit with hardware passthrough (preferred)"
+echo "  - Direct QEMU with KVM acceleration (fallback)"
 echo "  - Firecracker microVMs: https://firecracker-microvm.github.io/"
 echo "  - Cloud Hypervisor: https://www.cloudhypervisor.org/"
-echo "  - QEMU with KVM acceleration"
 echo ""
-echo "See P4X-ng/HGWS repository for VMKit integration details"
+
+# Check system requirements
+echo "[*] Checking system requirements..."
+
+# Check KVM support
+if [ -r /dev/kvm ]; then
+    echo "[✓] KVM support available"
+else
+    echo "[!] KVM support not available - will use software emulation"
+fi
+
+# Check memory
+TOTAL_MEM=$(free -m | awk '/^Mem:/{print $2}')
+if [ "$TOTAL_MEM" -gt 8192 ]; then
+    echo "[✓] Sufficient memory available (${TOTAL_MEM}MB)"
+else
+    echo "[!] Limited memory (${TOTAL_MEM}MB) - may affect VM performance"
+fi
+
+# Check CPU cores
+CPU_CORES=$(nproc)
+if [ "$CPU_CORES" -gt 2 ]; then
+    echo "[✓] Sufficient CPU cores available ($CPU_CORES)"
+else
+    echo "[!] Limited CPU cores ($CPU_CORES) - may affect concurrent VM execution"
+fi
+
+echo ""
+echo "[*] VMKit setup complete"
+echo ""
+echo "Next steps:"
+echo "  1. Build PE execution containers: pf pe-build-all"
+echo "  2. Prepare VM templates: pf pe-prepare-windows && pf pe-prepare-reactos"
+echo "  3. Test PE execution: pf pe-execute pe_file=./test.exe"
+echo ""
+echo "See Pfyfile.pe-execution.pf for all available commands"

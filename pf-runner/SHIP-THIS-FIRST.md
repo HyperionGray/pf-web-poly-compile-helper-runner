@@ -7,12 +7,12 @@
 ### Installation
 
 ```bash
-# Install from repository
+# Build the pf-runner container image and wrapper
+cd .. && ./install.sh --runtime docker
+
+# Legacy host-only (optional)
 pip install --user "fabric>=3.2,<4"
 make install-local
-
-# Or use the installer script
-cd .. && ./install.sh base
 ```
 
 ### Basic Usage

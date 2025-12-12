@@ -1,0 +1,48 @@
+# Podman Quadlet file for PE execution using Windows Server Core
+# This creates a systemd service for the Windows Server Core PE execution container
+
+[Unit]
+Description=PE Execution Container - Windows Server Core
+Documentation=https://github.com/containers/podman/blob/main/docs/source/markdown/podman-systemd.unit.5.md
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=%t/containers
+
+[Container]
+Image=localhost/pf-pe-windows-server:latest
+ContainerName=pf-pe-windows-server
+
+# Privileged access for KVM and VM management
+SecurityLabelDisable=true
+AddDevice=/dev/kvm
+
+# Volume mounts
+Volume=%h/pf-workspace:/workspace:Z
+Volume=%h/pf-pe-results:/artifacts/pe-results:Z
+Volume=/tmp:/tmp:Z
+
+# Environment variables
+Environment=PE_TIMEOUT=300
+Environment=VM_MEMORY=2048
+Environment=VM_CPUS=2
+
+# Network configuration
+PublishPort=5901:5901
+PublishPort=5902:5902
+
+# Resource limits
+Memory=4G
+CPUs=2
+
+# Auto-restart policy
+Restart=on-failure
+RestartSec=30
+
+[Service]
+Type=notify
+NotifyAccess=all
+TimeoutStartSec=300
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target default.target
