@@ -67,6 +67,9 @@ include Pfyfile.web.pf
 # Include REST API management tasks
 include Pfyfile.rest-api.pf
 
+# Include smart workflows (NEW - intelligent tool integration)
+include Pfyfile.smart-workflows.pf
+
 task web-dev
   describe Start development server with REST API support
   shell_lang bash

@@ -1,27 +1,242 @@
-# Smart Workflows for Intelligent Tool Integration
-# Basic smart workflow tasks
+# Smart Workflows for Integrated Security Testing
+# Intelligent workflows that combine multiple tools automatically
+# Reduces cognitive load from 100+ individual tasks to smart, context-aware workflows
 
-task smart-detect
-  describe Intelligently detect target type and recommend workflow
-  shell python3 tools/smart-workflows/target_detector.py ${target} ${format:+--format $format}
-end
+# ============================================================================
+# Core Smart Workflows - The "Just Works" Tasks
+# ============================================================================
 
 task smart-analyze
-  describe Comprehensive smart analysis of any target
-  shell echo "Running smart analysis on ${target}"
-  shell python3 tools/smart-workflows/target_detector.py ${target} --format json > .smart_target_info.json
-  shell echo "Analysis complete"
+  describe 🧠 Smart binary analysis - automatically detects target type and runs appropriate analysis
+  describe Combines static analysis, dynamic analysis, and vulnerability detection
+  shell python3 tools/orchestration/smart_analyzer.py ${target} ${output:+--output $output} ${deep:+--deep-analysis} ${format:+--format $format}
 end
 
-task checksec-unified
-  describe Unified binary security analysis
-  shell python3 tools/smart-workflows/unified_checksec.py ${binary} ${json:+--json}
+task smart-exploit
+  describe 🎯 Smart exploit development - from binary to working exploit automatically
+  describe Combines checksec, ROP analysis, shellcode generation, and exploit templates
+  shell python3 tools/orchestration/smart_exploiter.py ${binary} ${output:+--output $output} ${arch:+--arch $arch} ${technique:+--technique $technique}
+end
+
+task smart-fuzz
+  describe 🚀 Smart fuzzing - automatically detects target type and uses optimal fuzzing strategy
+  describe Adapts between web fuzzing, binary fuzzing, and kernel fuzzing based on target
+  shell python3 tools/orchestration/smart_fuzzer.py ${target} ${duration:+--duration $duration} ${strategy:+--strategy $strategy} ${output:+--output $output}
+end
+
+task smart-security-test
+  describe 🔒 Smart security testing - comprehensive security assessment with intelligent tool selection
+  describe Combines web security, binary analysis, and vulnerability testing
+  shell python3 tools/orchestration/smart_security_tester.py ${target} ${scope:+--scope $scope} ${output:+--output $output} ${report:+--report $report}
+end
+
+task smart-build-and-test
+  describe 🏗️ Smart build and security test - builds project and runs comprehensive security testing
+  describe Integrates automagic build system with security analysis and vulnerability testing
+  shell python3 tools/orchestration/smart_build_tester.py ${project:-.} ${build_type:+--build-type $build_type} ${security_level:+--security-level $security_level} ${output:+--output $output}
+end
+
+# ============================================================================
+# Advanced Smart Workflows
+# ============================================================================
+
+task smart-vulnerability-research
+  describe 🔬 Smart vulnerability research - end-to-end vulnerability discovery workflow
+  describe Parse function detection → complexity analysis → targeted fuzzing → exploit development
+  shell python3 tools/orchestration/smart_vuln_researcher.py ${binary} ${source:+--source $source} ${output:+--output $output} ${techniques:+--techniques $techniques}
+end
+
+task smart-container-exploit-test
+  describe 🐳 Smart container exploit testing - tests exploits across multiple distros automatically
+  describe Combines exploit development with multi-distro container testing and result correlation
+  shell python3 tools/orchestration/smart_container_tester.py ${exploit} ${distros:+--distros $distros} ${output:+--output $output} ${parallel:+--parallel $parallel}
+end
+
+task smart-firmware-analysis
+  describe 🔧 Smart firmware analysis - comprehensive firmware security assessment
+  describe Combines firmware extraction, binary lifting, vulnerability analysis, and exploit development
+  shell python3 tools/orchestration/smart_firmware_analyzer.py ${device:+--device $device} ${firmware:+--firmware $firmware} ${output:+--output $output} ${deep:+--deep-analysis}
+end
+
+# ============================================================================
+# Workflow Management and Orchestration
+# ============================================================================
+
+task workflow-status
+  describe 📊 Show status of running smart workflows
+  shell python3 tools/orchestration/workflow_manager.py --status ${workflow_id:+--workflow-id $workflow_id}
+end
+
+task workflow-resume
+  describe ▶️ Resume interrupted smart workflow
+  shell python3 tools/orchestration/workflow_manager.py --resume ${workflow_id} ${step:+--from-step $step}
+end
+
+task workflow-cancel
+  describe ⏹️ Cancel running smart workflow
+  shell python3 tools/orchestration/workflow_manager.py --cancel ${workflow_id}
+end
+
+task workflow-history
+  describe 📜 Show workflow execution history and results
+  shell python3 tools/orchestration/workflow_manager.py --history ${limit:+--limit $limit} ${filter:+--filter $filter}
+end
+
+# ============================================================================
+# Smart Tool Selection and Adaptation
+# ============================================================================
+
+task smart-detect-target
+  describe 🎯 Detect target type and recommend appropriate workflows
+  shell python3 tools/orchestration/target_detector.py ${target} ${verbose:+--verbose} ${json:+--json}
+end
+
+task smart-recommend
+  describe 💡 Recommend optimal tools and workflows for given target
+  shell python3 tools/orchestration/smart_recommender.py ${target} ${goal:+--goal $goal} ${constraints:+--constraints $constraints}
+end
+
+task smart-benchmark
+  describe ⚡ Benchmark tool performance and update selection algorithms
+  shell python3 tools/orchestration/tool_benchmarker.py ${tools:+--tools $tools} ${targets:+--targets $targets} ${output:+--output $output}
+end
+
+# ============================================================================
+# Unified Tool Interfaces (Consolidation Layer)
+# ============================================================================
+
+task unified-checksec
+  describe 🛡️ Unified binary security analysis - smart checksec that chooses best approach
+  shell python3 tools/unified/unified_checksec.py ${binary} ${format:+--format $format} ${batch:+--batch} ${output:+--output $output}
+end
+
+task unified-debug
+  describe 🐛 Unified debugging interface - automatically selects GDB/LLDB and configures optimally
+  shell python3 tools/unified/unified_debugger.py ${binary} ${debugger:+--debugger $debugger} ${args:+--args "$args"} ${script:+--script $script}
+end
+
+task unified-fuzz
+  describe 🎲 Unified fuzzing interface - adapts fuzzing strategy to target type
+  shell python3 tools/unified/unified_fuzzer.py ${target} ${type:+--type $type} ${duration:+--duration $duration} ${output:+--output $output}
+end
+
+task unified-exploit
+  describe 💥 Unified exploit development - combines all exploit development tools intelligently
+  shell python3 tools/unified/unified_exploiter.py ${binary} ${technique:+--technique $technique} ${output:+--output $output} ${test:+--test}
+end
+
+# ============================================================================
+# Smart Workflow Configuration and Help
+# ============================================================================
+
+task smart-config
+  describe ⚙️ Configure smart workflow preferences and tool selection
+  shell python3 tools/orchestration/workflow_config.py ${setting:+--set $setting} ${value:+--value "$value"} ${list:+--list} ${reset:+--reset}
 end
 
 task smart-help
-  describe Show help for smart workflows
-  shell echo "Smart Workflows Help:"
-  shell echo "  pf smart-detect target=<target>    # Detect target type"
-  shell echo "  pf smart-analyze target=<target>   # Analyze target"
-  shell echo "  pf checksec-unified binary=<file>  # Security analysis"
+  describe ❓ Show smart workflows help and usage examples
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║                SMART WORKFLOWS HELP                       ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "🧠 CORE SMART WORKFLOWS (The \"Just Works\" Tasks):"
+  shell echo ""
+  shell echo "  pf smart-analyze target=<file>           # Smart binary analysis"
+  shell echo "  pf smart-exploit binary=<file>           # Automated exploit development"
+  shell echo "  pf smart-fuzz target=<file|url>          # Adaptive fuzzing"
+  shell echo "  pf smart-security-test target=<file|url> # Comprehensive security testing"
+  shell echo "  pf smart-build-and-test [project=<dir>]  # Build + security analysis"
+  shell echo ""
+  shell echo "🔬 ADVANCED WORKFLOWS:"
+  shell echo ""
+  shell echo "  pf smart-vulnerability-research binary=<file>  # End-to-end vuln discovery"
+  shell echo "  pf smart-container-exploit-test exploit=<file> # Multi-distro exploit testing"
+  shell echo "  pf smart-firmware-analysis device=<dev>       # Firmware security assessment"
+  shell echo ""
+  shell echo "🎯 TARGET DETECTION & RECOMMENDATIONS:"
+  shell echo ""
+  shell echo "  pf smart-detect-target target=<file>     # Detect target type"
+  shell echo "  pf smart-recommend target=<file>         # Get workflow recommendations"
+  shell echo ""
+  shell echo "🛠️ UNIFIED TOOL INTERFACES:"
+  shell echo ""
+  shell echo "  pf unified-checksec binary=<file>        # Smart binary security analysis"
+  shell echo "  pf unified-debug binary=<file>           # Smart debugging interface"
+  shell echo "  pf unified-fuzz target=<file>            # Smart fuzzing interface"
+  shell echo "  pf unified-exploit binary=<file>         # Smart exploit development"
+  shell echo ""
+  shell echo "📊 WORKFLOW MANAGEMENT:"
+  shell echo ""
+  shell echo "  pf workflow-status                       # Show running workflows"
+  shell echo "  pf workflow-resume workflow_id=<id>      # Resume interrupted workflow"
+  shell echo "  pf workflow-history                      # Show execution history"
+  shell echo ""
+  shell echo "⚙️ CONFIGURATION:"
+  shell echo ""
+  shell echo "  pf smart-config --list                   # Show current configuration"
+  shell echo "  pf smart-config setting=<name> value=<val> # Configure preferences"
+  shell echo ""
+  shell echo "💡 EXAMPLES:"
+  shell echo ""
+  shell echo "  # Analyze any binary intelligently"
+  shell echo "  pf smart-analyze target=/bin/ls"
+  shell echo ""
+  shell echo "  # Develop exploit automatically"
+  shell echo "  pf smart-exploit binary=./vulnerable"
+  shell echo ""
+  shell echo "  # Fuzz web application or binary"
+  shell echo "  pf smart-fuzz target=http://localhost:8080"
+  shell echo "  pf smart-fuzz target=./binary"
+  shell echo ""
+  shell echo "  # Complete security assessment"
+  shell echo "  pf smart-security-test target=./myapp"
+  shell echo ""
+  shell echo "  # Build and test project security"
+  shell echo "  pf smart-build-and-test project=./myproject"
+  shell echo ""
+  shell echo "For detailed documentation, see: docs/SMART-WORKFLOWS.md"
+end
+
+# ============================================================================
+# Legacy Compatibility and Migration
+# ============================================================================
+
+task migrate-to-smart
+  describe 🔄 Migrate from individual tools to smart workflows (shows migration guide)
+  shell python3 tools/orchestration/migration_helper.py ${show_mapping:+--show-mapping} ${interactive:+--interactive}
+end
+
+task smart-demo
+  describe 🎬 Demonstrate smart workflows with example targets
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║                SMART WORKFLOWS DEMO                       ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "Building demo targets..."
+  shell pf build-debug-examples
+  shell echo ""
+  shell echo "[1/4] Smart Analysis Demo:"
+  shell pf smart-analyze target=demos/debugging/examples/bin/vulnerable
+  shell echo ""
+  shell echo "[2/4] Smart Exploit Development Demo:"
+  shell pf smart-exploit binary=demos/debugging/examples/bin/vulnerable output=demo_exploit.py
+  shell echo ""
+  shell echo "[3/4] Smart Security Testing Demo:"
+  shell pf smart-security-test target=demos/debugging/examples/bin/vulnerable
+  shell echo ""
+  shell echo "[4/4] Smart Build and Test Demo:"
+  shell pf smart-build-and-test project=demos/debugging/examples
+  shell echo ""
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║                    DEMO COMPLETE                          ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "Generated files:"
+  shell test -f demo_exploit.py && echo "  - demo_exploit.py (automated exploit)" || true
+  shell echo ""
+  shell echo "Try these smart workflows:"
+  shell echo "  pf smart-analyze target=<your_binary>"
+  shell echo "  pf smart-exploit binary=<your_binary>"
+  shell echo "  pf smart-fuzz target=<your_target>"
 end
