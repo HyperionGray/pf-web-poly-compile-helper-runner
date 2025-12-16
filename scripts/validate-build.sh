@@ -2,7 +2,7 @@
 # Build validation script for CI/CD
 # Validates essential project files exist without requiring compilation
 
-set -e
+set -eu
 
 echo "✅ Build validation: Checking project structure..."
 
