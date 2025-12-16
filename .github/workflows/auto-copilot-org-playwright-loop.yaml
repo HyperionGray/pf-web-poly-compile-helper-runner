@@ -35,14 +35,19 @@ jobs:
       - name: Run Playwright Tests
         run: |
           pytest tests/ || exit 1
+        continue-on-error: false
+
+      # Add error handling and fix generation logic
+      - name: Analyze Test Failures and Generate Fixes
+        if: failure()
+        run: |
+          echo "Tests failed. Manual intervention required."
+          echo "Consider implementing custom fix logic or removing auto-fix workflow."
         continue-on-error: true
-
-
-
-
 
       # Create PR with fixes (if any)
       - name: Create Pull Request for Automated Fixes
+        if: success()
         uses: peter-evans/create-pull-request@main
         with:
           branch: "copilot/playwright-fixes"
@@ -53,6 +58,7 @@ jobs:
 
       # Automerge PR if passing
       - name: Automerge PR if checks pass
+        if: success()
         uses: pascalgn/automerge-action@main
         with:
           merge-method: squash
