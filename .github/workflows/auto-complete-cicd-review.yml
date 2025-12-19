@@ -222,6 +222,22 @@ jobs:
           go-version: 'stable'
         continue-on-error: true
 
+      - name: Install Python Dependencies
+        run: |
+          # Install pf task runner dependencies
+          pip install fabric lark || pip install --user fabric lark || true
+        continue-on-error: true
+
+      - name: Setup pf Command
+        run: |
+          # Create pf wrapper in /usr/local/bin for build tasks
+          sudo bash -c 'cat > /usr/local/bin/pf << EOF
+#!/usr/bin/env bash
+exec python3 $(pwd)/pf-runner/pf_parser.py "\$@"
+EOF'
+          sudo chmod +x /usr/local/bin/pf
+        continue-on-error: true
+
       - name: Build Project
         id: build
         run: |
