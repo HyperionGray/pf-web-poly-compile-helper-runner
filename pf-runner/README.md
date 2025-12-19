@@ -269,6 +269,68 @@ Place `#!lang:python` (or `#!lang:fish`) at the very top of a Pfyfile to set a r
 
 Because the snippets expand to real shell scripts, they inherit your `sudo=true`/remote host settings and obey per-task `env` just like regular `shell` lines. Treat this as a "test test runner" sandbox — there are zero safety guarantees when mixing exotic interpreters.
 
+#### Heredoc-Style Syntax for Multi-Line Code
+
+For multi-line polyglot code, you can use heredoc-style syntax similar to bash heredocs:
+
+```text
+task python-multi
+  describe Multi-line Python with heredoc syntax
+  shell [lang:python] << PYEOF
+def greet(name):
+    print(f"Hello, {name}!")
+    
+greet("World")
+greet("PF")
+PYEOF
+end
+```
+
+The heredoc syntax supports:
+- **Any language**: Works with all supported polyglot languages (python, node, go, rust, etc.)
+- **Output redirection**: `<< DELIM > output.txt` redirects the output to a file
+- **Custom delimiters**: Use any uppercase name (e.g., `EOF`, `PYEOF`, `PYTHON_CODE`, etc.)
+
+**Examples:**
+
+```text
+# Node.js with heredoc
+task node-example
+  shell [lang:node] << NODEOF
+console.log("Line 1");
+console.log("Line 2");
+for (let i = 0; i < 3; i++) {
+    console.log(`Count: ${i}`);
+}
+NODEOF
+end
+
+# Go with heredoc
+task go-example
+  shell [lang:go] << GOEOF
+package main
+import "fmt"
+func main() {
+    fmt.Println("Hello from Go!")
+}
+GOEOF
+end
+
+# Python with output redirect
+task python-to-file
+  shell [lang:python] << EOF > results.txt
+print("This goes to a file")
+print("Line 2")
+EOF
+  shell cat results.txt
+end
+```
+
+**Notes:**
+- The delimiter must be on its own line and match exactly (case-sensitive)
+- Heredoc syntax only works with polyglot languages (requires `[lang:xxx]` prefix)
+- For bash heredocs, use standard bash syntax without the `[lang:]` prefix
+
 ### Language Specification Rules
 
 **IMPORTANT**: When using polyglot shell features, you must specify the language in one of three ways:

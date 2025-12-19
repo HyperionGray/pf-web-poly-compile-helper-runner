@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Heredoc-Style Syntax for Polyglot Languages (2025-12-19)
+- **Heredoc syntax**: Multi-line polyglot code can now be written using heredoc-style delimiters
+  - Example: `shell [lang:python] << EOF` followed by code and closing `EOF`
+  - Works with all supported polyglot languages (python, node, go, rust, ruby, perl, etc.)
+  - Supports output redirection: `<< DELIM > output.txt`
+  - Custom delimiters: Use any uppercase identifier (EOF, PYEOF, PYTHON_CODE, etc.)
+- **Polyglot command execution**: Fixed polyglot language processing in shell commands
+  - `[lang:xxx]` syntax now properly renders polyglot commands at execution time
+  - Multi-line code blocks properly handled with `re.DOTALL` flag
+- Comprehensive test coverage for heredoc syntax with multiple languages
+- Updated README.md with heredoc syntax documentation and examples
+
 ### Added - Round 3 Integration Improvements (2025-12-08)
 - **Smart Integrated Workflows**: 6 new intelligent workflows that combine multiple tools automatically
   - `smart-binary-analysis`: Comprehensive binary analysis (checksec → lift → analyze → debug-prep)
