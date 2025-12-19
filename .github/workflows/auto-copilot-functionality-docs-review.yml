@@ -129,7 +129,8 @@ jobs:
           echo "### README.md Quality Check:" >> /tmp/doc-analysis.md
           
           if [ -f "README.md" ]; then
-            word_count=$(wc -w < README.md)
+            word_count=$(wc -w < README.md 2>/dev/null || echo 0)
+            word_count=${word_count:-0}
             echo "- Word count: $word_count" >> /tmp/doc-analysis.md
             
             if [ $word_count -lt 50 ]; then
@@ -181,6 +182,11 @@ jobs:
               class_count=$(grep -c "^class " "$file" 2>/dev/null || echo 0)
               docstring_count=$(grep -c '"""' "$file" 2>/dev/null || echo 0)
               
+              # Ensure variables are numeric
+              func_count=${func_count:-0}
+              class_count=${class_count:-0}
+              docstring_count=${docstring_count:-0}
+              
               total=$((func_count + class_count))
               if [ $total -gt 0 ] && [ $docstring_count -eq 0 ]; then
                 echo "⚠️ $file: $total definitions, no docstrings" >> /tmp/doc-analysis.md
@@ -201,6 +207,11 @@ jobs:
               func_count=$(grep -cE "(^function |^export function |^const .* = .*=>)" "$file" 2>/dev/null || echo 0)
               class_count=$(grep -c "^class " "$file" 2>/dev/null || echo 0)
               jsdoc_count=$(grep -c '/\*\*' "$file" 2>/dev/null || echo 0)
+              
+              # Ensure variables are numeric
+              func_count=${func_count:-0}
+              class_count=${class_count:-0}
+              jsdoc_count=${jsdoc_count:-0}
               
               total=$((func_count + class_count))
               if [ $total -gt 5 ] && [ $jsdoc_count -eq 0 ]; then
@@ -233,6 +244,20 @@ jobs:
           echo "" >> /tmp/doc-review-summary.md
           cat /tmp/doc-review-summary.md
         continue-on-error: true
+          echo "### Automated Documentation Analysis Completed" >> /tmp/doc-review-summary.md
+          echo "- README.md quality check: ✅ Completed" >> /tmp/doc-review-summary.md
+          echo "- Documentation file presence check: ✅ Completed" >> /tmp/doc-review-summary.md
+          echo "- Code documentation analysis: ✅ Completed" >> /tmp/doc-review-summary.md
+          echo "" >> /tmp/doc-review-summary.md
+          echo "### Recommendations:" >> /tmp/doc-review-summary.md
+          echo "1. Review README.md for completeness and clarity" >> /tmp/doc-review-summary.md
+          echo "2. Ensure all features are properly documented" >> /tmp/doc-review-summary.md
+          echo "3. Add inline code comments where needed" >> /tmp/doc-review-summary.md
+          echo "4. Verify installation and usage instructions" >> /tmp/doc-review-summary.md
+          echo "5. Check for missing documentation files" >> /tmp/doc-review-summary.md
+          echo "" >> /tmp/doc-review-summary.md
+          cat /tmp/doc-review-summary.md
+
 
       - name: Create Documentation Review Report
         uses: actions/github-script@main

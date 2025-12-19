@@ -1,5 +1,50 @@
 # Security Testing and Fuzzing Tasks
 # Web application security scanning inspired by Burp Suite and massweb
+# Now integrated with smart workflows for intelligent tool chaining
+
+# ============================================================================
+# SMART WORKFLOW INTEGRATION
+# ============================================================================
+
+task security-smart-scan
+  describe Smart security scanning (auto-detects target type and selects optimal tools)
+  shell pf smart-analyze target=${target}
+end
+
+task security-smart-exploit
+  describe Smart exploitation workflow (binary or web based on target detection)
+  shell pf smart-exploit target=${target}
+end
+
+task security-smart-all
+  describe Complete smart security workflow (detect → analyze → exploit)
+  shell pf hack target=${target} mode=${mode:-active}
+end
+
+# ============================================================================
+# UNIFIED BINARY SECURITY ANALYSIS (Consolidated checksec)
+# ============================================================================
+
+task checksec-unified
+  describe Unified binary security analysis (replaces all other checksec implementations)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf checksec-unified binary=/path/to/binary" && exit 1)
+  shell python3 tools/smart-workflows/unified_checksec.py ${binary} ${json:+--json} ${output:+--output $output}
+end
+
+# Backward compatibility aliases
+task checksec
+  describe Analyze binary security features (unified implementation)
+  shell pf checksec-unified binary=${binary} ${json:+json=true} ${output:+output=$output}
+end
+
+task checksec-json
+  describe Analyze binary security features and output JSON (unified implementation)
+  shell pf checksec-unified binary=${binary} json=true ${output:+output=$output}
+end
+
+# ============================================================================
+# WEB APPLICATION SECURITY (Enhanced with smart workflows)
+# ============================================================================
 
 task security-scan
   describe Run comprehensive security scan on web application

@@ -37,20 +37,9 @@ jobs:
           pytest tests/ || exit 1
         continue-on-error: true
 
-      # Copilot PR Agent auto-review (if available for org)
-      - name: Copilot PR Agent Review
-        uses: github/copilot-agent/pr@main
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
 
-      # Copilot Agent auto-fix (can loop up to N attempts if tests fail)
-      - name: Copilot Auto-fix Failing Playwright Tests
-        uses: github/copilot-agent/fix@main
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          max_attempts: 3               # Try up to 3 auto-fix loops!
-        continue-on-error: true
+
+
 
       # Create PR with fixes (if any)
       - name: Create Pull Request for Automated Fixes
