@@ -9,7 +9,7 @@ This module provides:
 - Verbose error messages with stack tracebacks
 - Debug mode toggle (pf debug-on / pf debug-off)
 
-File Structure (593 lines):
+File Structure (625 lines):
   - Constants (lines 42-43): Debug config file paths
   
   - Data Classes (lines 46-108):

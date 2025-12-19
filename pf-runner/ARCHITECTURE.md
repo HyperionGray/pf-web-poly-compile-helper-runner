@@ -8,8 +8,8 @@ The pf-runner codebase is organized into focused modules with clear responsibili
 
 | Module | Lines | Description | Status |
 |--------|-------|-------------|--------|
-| `pf_main.py` | 562 | Main entry point and CLI orchestration | Active |
-| `pf_parser.py` | 1924 | DSL parsing, task management, and polyglot execution | Active |
+| `pf_main.py` | 580 | Main entry point and CLI orchestration | Active |
+| `pf_parser.py` | 1939 | DSL parsing, task management, and polyglot execution | Active |
 | `pf_grammar.py` | 3558 | **Auto-generated** Lark parser (DO NOT EDIT) | Generated |
 | `pf_lark_parser.py` | - | Lark-based alternative parser | Active |
 | `pf_exceptions.py` | - | Custom exception types | Active |
@@ -19,9 +19,9 @@ The pf-runner codebase is organized into focused modules with clear responsibili
 
 | Module | Lines | Description | Status |
 |--------|-------|-------------|--------|
-| `pf_tui.py` | 1260 | Rich-based TUI for interactive task browsing | Active |
-| `pf_containerize.py` | 1225 | Auto-containerization with Docker/Podman | Active |
-| `pf_prune.py` | 593 | Syntax checking and validation | Active |
+| `pf_tui.py` | 1279 | Rich-based TUI for interactive task browsing | Active |
+| `pf_containerize.py` | 1267 | Auto-containerization with Docker/Podman | Active |
+| `pf_prune.py` | 625 | Syntax checking and validation | Active |
 | `pf_shell.py` | - | Shell validation utilities | Active |
 | `pf_api.py` | - | REST API server | Active |
 
@@ -59,7 +59,7 @@ To modify the grammar:
 
 ## Module Responsibilities
 
-### pf_parser.py (1924 lines)
+### pf_parser.py (1939 lines)
 
 **Primary responsibilities:**
 - Parse Pfyfile.pf and included files
@@ -76,7 +76,7 @@ To modify the grammar:
 - Polyglot language templates
 - Build system detection and execution
 
-### pf_tui.py (1260 lines)
+### pf_tui.py (1279 lines)
 
 **Primary responsibilities:**
 - Interactive terminal UI using Rich library
@@ -91,7 +91,7 @@ To modify the grammar:
 - Keyboard navigation
 - Task execution with live output
 
-### pf_containerize.py (1225 lines)
+### pf_containerize.py (1267 lines)
 
 **Primary responsibilities:**
 - Project language and build system detection
@@ -105,7 +105,7 @@ To modify the grammar:
 - `QuadletGenerator` class: Systemd integration
 - `ContainerBuilder` class: Build execution and retry
 
-### pf_prune.py (593 lines)
+### pf_prune.py (625 lines)
 
 **Primary responsibilities:**
 - Syntax validation for pf files

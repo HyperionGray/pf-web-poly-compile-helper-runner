@@ -8,7 +8,7 @@ This module provides:
 - Backward compatibility with existing usage
 - Integration with pfuck autocorrect
 
-File Structure (562 lines):
+File Structure (580 lines):
   - PfRunner class (lines 42-554): [512 lines]
     - Subcommand discovery
     - Task execution orchestration

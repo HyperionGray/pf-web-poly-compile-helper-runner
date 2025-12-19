@@ -9,7 +9,7 @@ This module provides a comprehensive Text User Interface for:
 4. Job status monitoring
 5. Keyboard-navigable file and task browser
 
-File Structure (1260 lines):
+File Structure (1279 lines):
   - Data classes (lines 54-74): TaskCategory, PfyFile
   - PfTUI class (lines 76-1247): Main TUI controller [1171 lines]
     - Initialization and configuration

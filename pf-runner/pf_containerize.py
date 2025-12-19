@@ -9,7 +9,7 @@ This module provides:
 - Quadlet file generation for systemd integration
 - Support for user hints (--install-hint-deps, --main-bin-hint, etc.)
 
-File Structure (1225 lines, organized by class):
+File Structure (1267 lines, organized by class):
   - Enums and Data Classes (lines 26-109):
     - ProjectLanguage: Detected languages
     - BuildSystem: Detected build systems

@@ -13,7 +13,7 @@ This module is the heart of the pf task runner, providing:
 - Flexible help: support help, --help, -h, hlep, hepl, heelp, hlp variations
 - Flexible parameters: --key=value, -k val, and key=value are equivalent
 
-File Structure (1924 lines, organized into sections):
+File Structure (1939 lines, organized into sections):
   - CONFIG (lines 58-73): Environment and configuration
   - Pfyfile discovery (lines 75-98): Find and locate Pfyfile.pf
   - Interpolation (lines 100-118): Variable substitution

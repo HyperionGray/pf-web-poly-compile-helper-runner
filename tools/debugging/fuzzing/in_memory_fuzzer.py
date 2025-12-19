@@ -11,7 +11,7 @@ This provides blazing fast fuzzing by:
 
 Much faster than traditional fuzzing since no process creation overhead.
 
-File Structure (536 lines):
+File Structure (564 lines):
   - InMemoryFuzzer class (lines 32-174): [142 lines]
     - Core fuzzing engine
     - Mutation strategies (bit flip, byte flip, arithmetic, etc.)
