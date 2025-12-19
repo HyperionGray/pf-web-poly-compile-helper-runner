@@ -225,7 +225,15 @@ jobs:
       - name: Install Python Dependencies
         run: |
           # Install pf task runner dependencies
-          pip install fabric lark || pip install --user fabric lark
+          echo "Installing Python dependencies (fabric, lark)..."
+          if pip install fabric lark; then
+            echo "✓ System-wide installation successful"
+          elif pip install --user fabric lark; then
+            echo "✓ User installation successful (fallback)"
+          else
+            echo "✗ Warning: Failed to install Python dependencies"
+            exit 1
+          fi
         continue-on-error: true
 
       - name: Setup pf Command
