@@ -225,16 +225,23 @@ jobs:
       - name: Install Python Dependencies
         run: |
           # Install pf task runner dependencies
-          pip install fabric lark || pip install --user fabric lark || true
+          pip install fabric lark || pip install --user fabric lark
         continue-on-error: true
 
       - name: Setup pf Command
         run: |
           # Create pf wrapper in /usr/local/bin for build tasks
-          sudo bash -c 'cat > /usr/local/bin/pf << EOF
+          sudo bash -c "cat > /usr/local/bin/pf << 'EOF'
 #!/usr/bin/env bash
-exec python3 $(pwd)/pf-runner/pf_parser.py "\$@"
-EOF'
+# Find pf-runner directory relative to the script
+SCRIPT_DIR=\"\$(dirname \"\$(readlink -f \"\$0\")\")\"
+if [ -f \"${GITHUB_WORKSPACE}/pf-runner/pf_parser.py\" ]; then
+  exec python3 \"${GITHUB_WORKSPACE}/pf-runner/pf_parser.py\" \"\$@\"
+else
+  echo \"Error: pf-runner/pf_parser.py not found\" >&2
+  exit 1
+fi
+EOF"
           sudo chmod +x /usr/local/bin/pf
         continue-on-error: true
 
