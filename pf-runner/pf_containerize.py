@@ -8,6 +8,48 @@ This module provides:
 - Retry mechanisms with error pattern matching
 - Quadlet file generation for systemd integration
 - Support for user hints (--install-hint-deps, --main-bin-hint, etc.)
+
+File Structure (1225 lines, organized by class):
+  - Enums and Data Classes (lines 26-109):
+    - ProjectLanguage: Detected languages
+    - BuildSystem: Detected build systems
+    - ProjectProfile: Project characteristics
+    - RetryConfig: Retry behavior
+    - ContainerBuildResult: Build results
+  
+  - Error Pattern Handlers (lines 114-191):
+    - Error pattern registry and fix functions
+    - Common build error handlers (apt, pip, npm, cargo, etc.)
+  
+  - ProjectDetector class (lines 193-608): [415 lines]
+    - Language detection heuristics
+    - Build system detection
+    - Dependency analysis
+    - Main binary detection
+  
+  - DockerfileGenerator class (lines 610-743): [133 lines]
+    - Smart Dockerfile generation
+    - Multi-stage builds
+    - Base image selection
+  
+  - QuadletGenerator class (lines 745-834): [89 lines]
+    - Systemd Quadlet file generation
+    - Service configuration
+  
+  - ContainerBuilder class (lines 836-989): [153 lines]
+    - Build execution with retry logic
+    - Error pattern matching
+    - Build logging
+  
+  - Public API functions (lines 991+):
+    - containerize(): Main entry point
+    - generate_dockerfile_only(): Dockerfile generation
+    - generate_quadlet_files(): Quadlet generation
+
+Design:
+  - Modular class-based architecture
+  - Extensible error pattern matching
+  - Heuristic-based intelligent defaults
 """
 
 import os

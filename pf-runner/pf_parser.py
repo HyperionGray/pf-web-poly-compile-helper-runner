@@ -1,5 +1,8 @@
 #!/home/punk/.venv/bin/python
 """
+pf_parser.py - Core DSL parser and task runner for pf
+
+This module is the heart of the pf task runner, providing:
 - Symbol-free DSL: shell, packages install/remove, service start/stop/enable/disable/restart, directory, copy
 - describe: one-line task description shows in `pf list`
 - include: top-level includes (outside tasks) to split stacks
@@ -9,6 +12,18 @@
 - Parallel SSH across hosts with prefixed live output
 - Flexible help: support help, --help, -h, hlep, hepl, heelp, hlp variations
 - Flexible parameters: --key=value, -k val, and key=value are equivalent
+
+File Structure (1924 lines, organized into sections):
+  - CONFIG (lines 58-73): Environment and configuration
+  - Pfyfile discovery (lines 75-98): Find and locate Pfyfile.pf
+  - Interpolation (lines 100-118): Variable substitution
+  - Polyglot shell helpers (lines 120-586): 40+ language support [467 lines]
+  - DSL parsing (lines 586-920): Task definition parsing
+  - Embedded sample (lines 922-929): Default task examples
+  - Hosts parsing (lines 931-964): SSH host management
+  - Executors (lines 966-1202): Fabric-based execution
+  - Built-ins (lines 1204-1230): Default tasks
+  - CLI (lines 1232+): Command-line interface
 
 Install
   pip install "fabric>=3.2,<4"

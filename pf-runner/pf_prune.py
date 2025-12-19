@@ -8,6 +8,38 @@ This module provides:
 - Writing failed tasks to pfail.fail.pf for correction
 - Verbose error messages with stack tracebacks
 - Debug mode toggle (pf debug-on / pf debug-off)
+
+File Structure (593 lines):
+  - Constants (lines 42-43): Debug config file paths
+  
+  - Data Classes (lines 46-108):
+    - SyntaxError: Error representation with context [62 lines]
+    - ValidationResult: Validation summary
+  
+  - PfSyntaxChecker class (lines 111-432): [321 lines]
+    - Syntax validation engine
+    - Error detection and reporting
+    - Context extraction
+    - Lark-based parsing (when available)
+    - Fallback text-based validation
+  
+  - Debug Mode Functions (lines 434-468): [34 lines]
+    - is_debug_enabled(): Check debug state
+    - set_debug_mode(): Enable/disable debug
+    - lock_debug_mode(): Prevent changes
+  
+  - Public API (lines 470-548): [78 lines]
+    - prune_tasks(): Main validation function
+    - Failed task isolation to pfail.fail.pf
+  
+  - CLI Entry Point (lines 551+):
+    - main(): Command-line interface
+
+Features:
+  - Rich error context with line numbers
+  - Optional verbose/debug output
+  - Integration with Lark parser
+  - Graceful fallback parsing
 """
 
 import os

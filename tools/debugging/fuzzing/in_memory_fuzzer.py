@@ -10,6 +10,34 @@ This provides blazing fast fuzzing by:
 4. Repeating for thousands of iterations in-process
 
 Much faster than traditional fuzzing since no process creation overhead.
+
+File Structure (536 lines):
+  - InMemoryFuzzer class (lines 32-174): [142 lines]
+    - Core fuzzing engine
+    - Mutation strategies (bit flip, byte flip, arithmetic, etc.)
+    - Interesting value injection
+    - LLDB-based memory manipulation
+  
+  - Helper Functions (lines 176-240): [64 lines]
+    - mutate_bytes(): Standalone mutation function
+    - fuzz_in_memory(): LLDB command integration
+  
+  - LLDB Integration (lines 243-489): [246 lines]
+    - LLDB module initialization
+    - Breakpoint handling
+    - Memory manipulation
+    - Crash detection and logging
+  
+  - Main Entry Point (lines 491+):
+    - CLI interface
+    - Fuzzing orchestration
+
+Dependencies:
+  - LLDB Python bindings (optional, falls back to command-line)
+  - Target binary with debug symbols (recommended)
+
+Usage:
+  python in_memory_fuzzer.py --binary ./target --function main --iterations 10000
 """
 
 import sys
