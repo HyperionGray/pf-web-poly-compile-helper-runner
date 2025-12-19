@@ -805,13 +805,34 @@ end
 task demo-inline-file
   shell [lang:go] @examples/hello.go -- arg1 arg2
 end
+
+task demo-python-multiline
+  describe Multi-line Python with heredoc syntax
+  shell [lang:python] << EOF
+def greet(name):
+    print(f"Hello, {name}!")
+
+for person in ["World", "PF", "You"]:
+    greet(person)
+EOF
+end
 ```
 
 Then run:
 ```bash
 pf demo-python
 pf demo-rust
+pf demo-python-multiline
 ```
+
+**Heredoc-style syntax** allows you to write multi-line code blocks inline:
+- Use `<< DELIMITER` to start a heredoc block
+- Write your code on subsequent lines
+- Close with the same DELIMITER on its own line
+- Works with all supported languages (Python, Node, Go, Rust, Ruby, etc.)
+- Supports output redirection: `<< EOF > output.txt`
+
+See [pf-runner/README.md](pf-runner/README.md) for complete polyglot documentation.
 
 ### Automagic Builder Examples
 
