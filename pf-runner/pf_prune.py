@@ -10,29 +10,29 @@ This module provides:
 - Debug mode toggle (pf debug-on / pf debug-off)
 
 File Structure (625 lines):
-  - Constants (lines 42-43): Debug config file paths
+  - Constants (lines 74-75): Debug config file paths
   
-  - Data Classes (lines 46-108):
-    - SyntaxError: Error representation with context [62 lines]
+  - Data Classes (lines 78-141):
+    - SyntaxError: Error representation with context
     - ValidationResult: Validation summary
   
-  - PfSyntaxChecker class (lines 111-432): [321 lines]
+  - PfSyntaxChecker class (lines 143+):
     - Syntax validation engine
     - Error detection and reporting
     - Context extraction
     - Lark-based parsing (when available)
     - Fallback text-based validation
   
-  - Debug Mode Functions (lines 434-468): [34 lines]
+  - Debug Mode Functions:
     - is_debug_enabled(): Check debug state
     - set_debug_mode(): Enable/disable debug
     - lock_debug_mode(): Prevent changes
   
-  - Public API (lines 470-548): [78 lines]
+  - Public API:
     - prune_tasks(): Main validation function
     - Failed task isolation to pfail.fail.pf
   
-  - CLI Entry Point (lines 551+):
+  - CLI Entry Point:
     - main(): Command-line interface
 
 Features:
