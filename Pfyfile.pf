@@ -21,9 +21,6 @@ include Pfyfile.security.pf
 # Include unified security assessment framework
 include Pfyfile.unified-security.pf
 
-# Include fuzzing and sanitizer tasks
-include Pfyfile.fuzzing.pf
-
 # Include git cleanup tasks
 include Pfyfile.git-cleanup.pf
 
@@ -69,12 +66,6 @@ include Pfyfile.web.pf
 
 # Include REST API management tasks
 include Pfyfile.rest-api.pf
-
-# Include smart workflows and intelligent tool integration
-include Pfyfile.smart-workflows.pf
-
-# Include enhanced tool integration (smart combinations)
-include Pfyfile.enhanced-integration.pf
 
 # Include smart workflows (NEW - intelligent tool integration)
 include Pfyfile.smart-workflows.pf

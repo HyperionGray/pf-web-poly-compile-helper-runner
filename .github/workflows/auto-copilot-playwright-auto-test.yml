@@ -46,6 +46,7 @@ jobs:
         continue-on-error: true
 
       - name: Create PR with passing tests or attempted fixes
+        if: success()
         uses: peter-evans/create-pull-request@main
         with:
           branch: "copilot/playwright-auto-tests"
@@ -55,6 +56,7 @@ jobs:
         continue-on-error: true
 
       - name: Auto-merge if passing
+        if: success()
         uses: pascalgn/automerge-action@main
         with:
           merge-method: squash
