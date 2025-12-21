@@ -1230,6 +1230,9 @@ def _exec_line_fabric(
         apt_cmd = " ".join(["apt", "-y", action] + names)
         return run(apt_cmd)
 
+    rc=<path> dest=<path> [host=<host>] [user=<user>] [port=<port>]
+
+
     if verb == "sync":
         # sync src=<path> dest=<path> [host=<host>] [user=<user>] [port=<port>]
         #      [excludes=["pattern1","pattern2"]] [exclude_file=<path>]
