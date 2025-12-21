@@ -33,10 +33,13 @@ Single-file **Fabric** runner with a tiny, readable DSL, parallel SSH, and live 
 - Symbol-free DSL: `shell`, `packages install/remove`, `service start/stop/enable/disable/restart`, `directory`, `copy`, `sync`
 - Task metadata: `describe` shows in `pf list`
 - Project split: `include` other `.pf` files from `Pfyfile.pf`
+- **Subcommands**: Automatically generated from included files for organized task grouping
 - Per-task params: `pf run-tls tls_cert=... port=9443` → use `$tls_cert`, `$port` in DSL
 - **Per-task env**: line `env KEY=VAL KEY2=VAL2` applies to the rest of the task
 - Host args: `env=prod`, `hosts=user@ip:port,...`, repeatable `host=...`
 - **Shell completions**: Automatic task and option completion for bash and zsh
+
+**See [SUBCOMMANDS.md](../docs/SUBCOMMANDS.md) for complete guide to organizing tasks with subcommands!**
 
 ## What's New! 🎉
 
