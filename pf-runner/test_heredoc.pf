@@ -1,0 +1,40 @@
+# Test file for heredoc-style syntax
+# Testing heredoc syntax for polyglot languages
+
+task test-python-heredoc
+  describe Test Python heredoc syntax
+  shell [lang:python] << PYEOF
+print("Hello from Python heredoc!")
+print("Line 2")
+print("Line 3")
+PYEOF
+end
+
+task test-python-heredoc-with-redirect
+  describe Test Python heredoc with file redirect
+  shell [lang:python] << PYEOF > /tmp/python_output.txt
+print("This should go to a file")
+print("Second line")
+PYEOF
+  shell cat /tmp/python_output.txt
+end
+
+task test-node-heredoc
+  describe Test Node.js heredoc syntax
+  shell [lang:node] << NODEOF
+console.log("Hello from Node heredoc!");
+console.log("Line 2");
+NODEOF
+end
+
+task test-go-heredoc
+  describe Test Go heredoc syntax
+  shell [lang:go] << GOEOF
+package main
+import "fmt"
+func main() {
+    fmt.Println("Hello from Go heredoc!")
+    fmt.Println("Line 2")
+}
+GOEOF
+end

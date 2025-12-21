@@ -1,0 +1,32 @@
+# Example file showing heredoc syntax as described in the issue
+
+task example-from-issue
+  describe Example matching the issue description syntax
+  shell [lang:python] << PYOF > /tmp/output.txt
+print("This matches the issue example")
+print("shell [lang:python] << PYOF > output.txt")
+PYOF
+  shell cat /tmp/output.txt
+  shell rm -f /tmp/output.txt
+end
+
+task node-example
+  describe Node.js heredoc example
+  shell [lang:node] << NODEOF
+console.log("Hello from Node!");
+console.log("Using heredoc syntax");
+NODEOF
+end
+
+task go-example
+  describe Go heredoc example  
+  shell [lang:go] << GOEOF
+package main
+import "fmt"
+
+func main() {
+    fmt.Println("Hello from Go!")
+    fmt.Println("Multi-line heredoc works!")
+}
+GOEOF
+end

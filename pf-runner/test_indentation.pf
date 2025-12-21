@@ -1,0 +1,10 @@
+task test-indentation
+  describe Test that indentation is preserved
+  shell [lang:python] << EOF
+def greet(name):
+    print(f"Hello, {name}!")
+    
+for person in ["Alice", "Bob"]:
+    greet(person)
+EOF
+end

@@ -516,7 +516,35 @@ def _canonical_lang(lang_hint: str) -> str:
 
 
 # Regex to parse [lang:xxx] syntax from shell command
-_LANG_BRACKET_RE = re.compile(r"^\s*\[lang:([^\]]+)\]\s*(.*)$", re.IGNORECASE)
+# re.DOTALL makes . match newlines, allowing multi-line code blocks
+_LANG_BRACKET_RE = re.compile(r"^\s*\[lang:([^\]]+)\]\s*(.*)$", re.IGNORECASE | re.DOTALL)
+
+# Regex to parse heredoc syntax: << DELIMITER [> output_file]
+# Allow uppercase or mixed case delimiters (following bash convention)
+_HEREDOC_RE = re.compile(r"<<\s*([A-Za-z][A-Za-z0-9_]*)\s*(?:>\s*([^\s]+))?$")
+
+
+def _parse_heredoc_syntax(cmd: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Parse heredoc syntax from a command line.
+    
+    Args:
+        cmd: The command string that may contain << DELIMITER [> output_file]
+    
+    Returns:
+        Tuple of (delimiter or None, output_file or None)
+    
+    Examples:
+        "<< PYEOF" -> ("PYEOF", None)
+        "<< PYEOF > output.txt" -> ("PYEOF", "output.txt")
+        "print('hello')" -> (None, None)
+    """
+    match = _HEREDOC_RE.search(cmd)
+    if match:
+        delimiter = match.group(1)
+        output_file = match.group(2) if match.group(2) else None
+        return delimiter, output_file
+    return None, None
 
 
 def _parse_lang_bracket(cmd: str) -> Tuple[Optional[str], str]:
@@ -839,14 +867,50 @@ def parse_pfyfile_text(
 
     Supports bash-style backslash line continuation: lines ending with '\\'
     are joined with following lines until a line without trailing backslash.
+    
+    Also supports heredoc-style syntax for polyglot languages:
+        shell [lang:python] << PYEOF
+        print("line 1")
+        print("line 2")
+        PYEOF
     """
     tasks: Dict[str, Task] = {}
     cur: Optional[Task] = None
     # Accumulator for lines being continued with backslash
     pending_continuation: Optional[str] = None
+    # Heredoc state: (command_prefix, delimiter, output_file, lines)
+    heredoc_state: Optional[Tuple[str, str, Optional[str], List[str]]] = None
 
     for raw in text.splitlines():
         line = raw.strip()
+        
+        # Handle heredoc collection - check if we're collecting heredoc lines
+        if heredoc_state is not None:
+            cmd_prefix, delimiter, output_file, collected_lines = heredoc_state
+            # Check if this line is the closing delimiter (compare stripped version)
+            if line == delimiter:
+                # End of heredoc - construct the full command
+                heredoc_content = "\n".join(collected_lines)
+                
+                # Build the command with heredoc content inline
+                # Use a unique marker for output redirection (unlikely to appear in user code)
+                if output_file:
+                    # Marker will be detected and handled at execution time
+                    full_cmd = f"{cmd_prefix} {heredoc_content} \x00__PF_HEREDOC_OUTPUT__\x00{output_file}"
+                else:
+                    # No output redirection, just run the polyglot code
+                    full_cmd = f"{cmd_prefix} {heredoc_content}"
+                
+                if cur is not None:
+                    cur.add(full_cmd)
+                heredoc_state = None
+                continue
+            else:
+                # Still collecting heredoc lines - preserve original formatting
+                # Strip only leading whitespace that's common to all task lines (task indentation)
+                # Keep the code's relative indentation intact
+                collected_lines.append(raw.rstrip())
+                continue
 
         # Handle backslash line continuation inside task bodies
         if cur is not None and pending_continuation is not None:
@@ -902,6 +966,25 @@ def parse_pfyfile_text(
             # Start accumulating: remove trailing backslash
             pending_continuation = line[:-1].rstrip()
             continue
+        
+        # Check for heredoc syntax (shell [lang:xxx] << DELIMITER [> output])
+        # Only process heredoc for polyglot commands, not regular bash heredocs
+        delimiter, output_file = _parse_heredoc_syntax(line)
+        if delimiter is not None:
+            # Extract the command prefix (everything before << DELIMITER)
+            heredoc_start = line.find("<<")
+            cmd_prefix = line[:heredoc_start].strip()
+            
+            # Only process as polyglot heredoc if there's a [lang:xxx] marker
+            # Remove the 'shell' verb if present to check for language marker
+            check_cmd = cmd_prefix
+            if check_cmd.startswith("shell "):
+                check_cmd = check_cmd[6:]  # Remove "shell "
+            lang_detected, _ = _parse_lang_bracket(check_cmd)
+            if lang_detected is not None:
+                # This is a polyglot heredoc - start collecting content
+                heredoc_state = (cmd_prefix, delimiter, output_file, [])
+                continue
 
         cur.add(line)
     return tasks
@@ -1095,7 +1178,37 @@ def _exec_line_fabric(
 
     # Dispatch by verb
     if verb == "shell":
-        return run(rest_of_line)
+        # Check for polyglot [lang:xxx] syntax
+        lang, remaining_cmd = _parse_lang_bracket(rest_of_line)
+        if lang is not None:
+            # This is a polyglot command - render it
+            # First check if there's a heredoc redirect marker (null bytes make it unique)
+            output_redirect = None
+            marker = "\x00__PF_HEREDOC_OUTPUT__\x00"
+            if marker in remaining_cmd:
+                parts = remaining_cmd.split(marker, 1)
+                remaining_cmd = parts[0]
+                output_redirect = parts[1].strip()
+            
+            try:
+                rendered_cmd, _ = _render_polyglot_command(lang, remaining_cmd, working_dir=os.getcwd())
+                if rendered_cmd:
+                    # If there's output redirection, wrap the command
+                    if output_redirect:
+                        rendered_cmd = f"({rendered_cmd}) > {output_redirect}"
+                    return run(rendered_cmd)
+                else:
+                    # Fallback to original if render returns None
+                    return run(rest_of_line)
+            except Exception as e:
+                raise PFExecutionError(
+                    message=f"Polyglot command failed: {e}",
+                    command=line,
+                    suggestion="Check language syntax and that the language is supported"
+                )
+        else:
+            # Regular shell command
+            return run(rest_of_line)
 
     # Parse args once for other ops
     args = shlex.split(rest_of_line) if rest_of_line else []
