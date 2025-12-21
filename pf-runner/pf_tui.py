@@ -8,6 +8,25 @@ This module provides a comprehensive Text User Interface for:
 3. Syntax checking and validation
 4. Job status monitoring
 5. Keyboard-navigable file and task browser
+
+File Structure (1279 lines):
+  - Data classes (lines 73-93): TaskCategory, PfyFile
+  - PfTUI class (lines 95+): Main TUI controller
+    - Initialization and configuration
+    - File discovery and task loading
+    - Task browser and navigation
+    - Task execution and output display
+    - Debugging integration
+    - Syntax validation
+    - Keyboard event handling
+  - Main entry point (line 1268+): CLI interface
+
+Key Features:
+  - Rich-based terminal UI with colors and formatting
+  - Category-based task organization
+  - Live output during task execution
+  - Keyboard shortcuts for navigation
+  - Integration with pf_parser for task management
 """
 
 import sys

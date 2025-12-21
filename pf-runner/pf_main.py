@@ -7,6 +7,24 @@ This module provides:
 - Subcommand support with auto-discovery
 - Backward compatibility with existing usage
 - Integration with pfuck autocorrect
+
+File Structure (580 lines):
+  - PfRunner class (lines 42-554): [512 lines]
+    - Subcommand discovery
+    - Task execution orchestration
+    - Error handling and autocorrect
+    - Built-in task dispatching
+    - Remote execution management
+  
+  - Main Entry Point (lines 556+):
+    - CLI interface
+    - Exception handling
+
+This module acts as the orchestrator, delegating to:
+  - pf_parser: Core DSL parsing and task management
+  - pf_args: Argument parsing
+  - pf_shell: Shell command execution
+  - pfuck: Autocorrect functionality
 """
 
 import os
