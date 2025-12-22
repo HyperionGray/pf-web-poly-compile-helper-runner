@@ -18,17 +18,17 @@ const __dirname = path.dirname(__filename);
 const SECRET_PATTERNS = [
   {
     name: 'Generic API Key',
-    pattern: /(?:api[_-]?key|apikey)[\s]*[:=][\s]*['"]([a-zA-Z0-9_\-]{20,})['"]/gi,
+    pattern: /(?:api[_-]?key|apikey)[ \t]*[:=][ \t]*['"]([a-zA-Z0-9_\-]{20,})['"]/gi,
     severity: 'high'
   },
   {
     name: 'Generic Secret',
-    pattern: /(?:secret|token)[\s]*[:=][\s]*['"]([a-zA-Z0-9_\-]{20,})['"]/gi,
+    pattern: /(?:secret|token)[ \t]*[:=][ \t]*['"]([a-zA-Z0-9_\-]{20,})['"]/gi,
     severity: 'high'
   },
   {
     name: 'Password',
-    pattern: /(?:password|passwd|pwd)[\s]*[:=][\s]*['"]([^'"]{4,})['"]/gi,
+    pattern: /(?:password|passwd|pwd)[ \t]*[:=][ \t]*['"]([^'"\n]{4,})['"]/gi,
     severity: 'critical'
   },
   {
@@ -38,7 +38,7 @@ const SECRET_PATTERNS = [
   },
   {
     name: 'AWS Secret Key',
-    pattern: /aws[_-]?secret[_-]?access[_-]?key[\s]*[:=][\s]*['"]([a-zA-Z0-9/+=]{40})['"]/gi,
+    pattern: /aws[_-]?secret[_-]?access[_-]?key[ \t]*[:=][ \t]*['"]([a-zA-Z0-9/+=]{40})['"]/gi,
     severity: 'critical'
   },
   {
@@ -58,7 +58,7 @@ const SECRET_PATTERNS = [
   },
   {
     name: 'Database Connection String',
-    pattern: /(?:mysql|postgresql|mongodb|redis):\/\/[^\s'"]+:[^\s'"]+@[^\s'"]+/gi,
+    pattern: /(?:mysql|postgresql|mongodb|redis):\/\/[^\s'"\n]+:[^\s'"\n]+@[^\s'"\n]+/gi,
     severity: 'critical'
   },
   {
@@ -88,7 +88,7 @@ const SECRET_PATTERNS = [
   },
   {
     name: 'Basic Auth in URL',
-    pattern: /https?:\/\/[^:]+:[^@]+@[^\s'"]+/gi,
+    pattern: /https?:\/\/[^:\s\n]+:[^@\s\n]+@[^\s'"\n]+/gi,
     severity: 'high'
   }
 ];
