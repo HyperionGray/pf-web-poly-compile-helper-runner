@@ -901,32 +901,51 @@ def _process_line_continuation(lines: List[str], start_idx: int) -> Tuple[str, i
     Process backslash line continuation starting from the given index.
 
     Args:
-        dry_run = True
-            elif arg in ("-v", "--verbose"):
-                verbose = True
-            elif arg.startswith("-o=") or arg.startswith("--output="):
-                output_file = arg.split("=", 1)[1]
-        passed, failed, failed_tasks = prune_tasks(
-            file_arg=pfy_file_arg,
-            dry_run=dry_run,
-            verbose=verbose,
-            output_file=output_file,
-        )
-        return 0 if failed == 0 else 1
+        lines: List of all lines (stripped)
+        start_idx: Index of the first line to process
 
-    # Handle debug-on command
-    if tasks[0] == "debug-on":
-        try:
-            from pf_prune import set_debug_mode
+    Returns:
+        Tuple of (combined_line, next_index_to_process)
+    """
+    combined_parts = []
+    current_idx = start_idx
 
-            set_debug_mode(True)
-            return 0
-        except PermissionError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            return 1
-        except Exception as e:
-            print(f"Error enabling debug mode: {e}", file=sys.stderr)
-            return 1
+    while current_idx < len(lines):
+        line = lines[current_idx]
+
+        # Skip empty lines and comments during continuation
+        if not line or line.startswith("#"):
+            current_idx += 1
+            continue
+
+        # Check if this line ends with backslash (line continuation)
+        if line.endswith("\\"):
+            # Remove the backslash and add to combined parts
+            line_without_backslash = line[:-1].rstrip()
+            if line_without_backslash:  # Only add non-empty parts
+                combined_parts.append(line_without_backslash)
+            current_idx += 1
+            continue
+        else:
+            # This line doesn't end with backslash, add it and we're done
+            if line:  # Only add non-empty lines
+                combined_parts.append(line)
+            current_idx += 1
+            break
+
+    # Join all parts with single space, preserving the structure
+    combined_line = " ".join(combined_parts) if combined_parts else ""
+    return combined_line, current_idx
+
+
+def parse_pfyfile_text(
+    text: str, task_sources: Optional[Dict[str, str]] = None
+) -> Dict[str, Task]:
+    """Parse Pfyfile text into Task objects with optional source tracking.
+
+    Supports bash-style backslash line continuation: lines ending with '\\'
+    are joined with following lines until a line without trailing backeturn 1
+    """
 
     # Handle debug-off command
     if tasks[0] == "debug-off":
