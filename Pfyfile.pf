@@ -1,5 +1,8 @@
 # pf web plugin (minimal)
 
+# Include always-available tasks (general OS tasks that don't require specific files/directories)
+include Pfyfile.always-available.pf
+
 # Include smart workflows for intelligent tool integration
 include Pfyfile.smart-workflows.pf
 

@@ -1,0 +1,680 @@
+# Always Available pf Tasks - Organized by Category
+# General OS tasks that don't require reading files from directories
+# These tasks are available in any context to reduce cognitive load
+
+# ============================================================================
+# 📦 INSTALLATION & SETUP
+# Tool installation, dependency management, and system setup
+# ============================================================================
+
+task category-installation-help
+  describe Show help for Installation & Setup category
+  shell echo "📦 INSTALLATION & SETUP CATEGORY"
+  shell echo ""
+  shell echo "Tool Installation:"
+  shell echo "  pf install-exploit-tools     # Install all exploit development tools"
+  shell echo "  pf install-checksec          # Install checksec binary protection checker"
+  shell echo "  pf install-pwntools          # Install pwntools Python library"
+  shell echo "  pf install-ropgadget         # Install ROPgadget tool"
+  shell echo "  pf install-ropper            # Install ropper ROP tool"
+  shell echo ""
+  shell echo "Debugging Tools:"
+  shell echo "  pf install-all-debug-tools   # Install all debugging tools"
+  shell echo "  pf install-oryx              # Install oryx binary explorer"
+  shell echo "  pf install-binsider          # Install binsider binary analyzer"
+  shell echo "  pf install-radare2           # Install Radare2 RE framework"
+  shell echo "  pf install-ghidra            # Install Ghidra (NSA RE suite)"
+  shell echo "  pf install-snowman           # Install Snowman decompiler"
+  shell echo ""
+  shell echo "System Setup:"
+  shell echo "  pf install                   # Install pf task runner"
+  shell echo "  pf install-container         # Build pf-runner container images"
+  shell echo "  pf install-full              # Full setup (container-first)"
+  shell echo "  pf install-native            # Build pf natively"
+  shell echo "  pf install-system            # Install to /usr/local/bin"
+  shell echo ""
+  shell echo "Package Management:"
+  shell echo "  pf install-pkg-tools         # Install package conversion tools"
+  shell echo "  pf install-flatpak           # Install Flatpak package manager"
+  shell echo "  pf install-snap              # Install Snapd (Snap packages)"
+  shell echo ""
+  shell echo "Interface Dependencies:"
+  shell echo "  pf install-tui-deps          # Install TUI dependencies (rich library)"
+end
+
+# Exploit Development Tools Installation
+task install-exploit-tools
+  describe Install all exploit development tools (pwntools, checksec, ROPgadget, ropper)
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║         INSTALLING EXPLOIT DEVELOPMENT TOOLS              ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell pf install-pwntools
+  shell echo ""
+  shell pf install-checksec
+  shell echo ""
+  shell pf install-ropgadget
+  shell echo ""
+  shell pf install-ropper
+  shell echo ""
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║         ALL EXPLOIT TOOLS INSTALLED                       ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+end
+
+task install-checksec
+  describe Install checksec binary protection checker
+  shell echo "Installing checksec..."
+  shell mkdir -p ~/.local/bin
+  shell curl -s https://raw.githubusercontent.com/slimm609/checksec.sh/main/checksec -o ~/.local/bin/checksec
+  shell chmod +x ~/.local/bin/checksec
+  shell echo "✅ checksec installed successfully"
+  shell echo "Test with: checksec --version"
+end
+
+task install-ropper
+  describe Install ropper as alternative ROP tool
+  shell echo "Installing ropper..."
+  shell pip3 install --user ropper
+  shell echo "✅ ropper installed successfully"
+  shell echo "Test with: ropper --version"
+end
+
+task install-pwntools
+  describe Install pwntools exploit development framework
+  shell python3 tools/exploit/pwntools_wrapper.py --install
+end
+
+task install-ropgadget
+  describe Install ROPgadget for ROP chain building
+  shell python3 tools/exploit/ropgadget_wrapper.py --install
+end
+
+# Debugging Tools Installation
+task install-all-debug-tools
+  describe Install all debugging and RE tools (including Snowman)
+  shell echo "🚀 Installing all debugging tools..."
+  shell echo "This may take several minutes..."
+  shell echo ""
+  shell pf install-oryx
+  shell pf install-binsider
+  shell pf install-rustnet
+  shell pf install-sysz
+  shell pf install-radare2
+  shell pf install-snowman
+  shell echo ""
+  shell echo "✓ All debugging tools installed!"
+  shell echo ""
+  shell echo "Note: Ghidra requires manual installation. Run: pf install-ghidra"
+  shell echo "Note: Binary Ninja is commercial software. Run: pf install-binaryninja-info"
+end
+
+task install-oryx
+  describe Install oryx - TUI for exploring binaries
+  shell echo "📦 Installing oryx..."
+  shell command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env)
+  shell cargo install --locked oryx
+  shell echo "✓ oryx installed via cargo"
+end
+
+task install-binsider
+  describe Install binsider - Binary analyzer with TUI
+  shell echo "📦 Installing binsider..."
+  shell command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env)
+  shell cargo install binsider
+  shell echo "✓ binsider installed via cargo"
+end
+
+task install-radare2
+  describe Install Radare2 - Reverse engineering framework
+  shell echo "📦 Installing Radare2..."
+  shell [ -f /etc/debian_version ] && (sudo apt-get update && sudo apt-get install -y radare2) || [ -f /etc/redhat-release ] && sudo yum install -y radare2 || [ "$(uname)" = "Darwin" ] && brew install radare2 || (git clone https://github.com/radareorg/radare2 /tmp/radare2 && cd /tmp/radare2 && sys/install.sh && rm -rf /tmp/radare2)
+  shell echo "✓ Radare2 installed"
+end
+
+# System Setup Tasks
+task install
+  describe Install pf task runner directly to /usr/local/bin
+  shell bash install.sh
+end
+
+task install-container
+  describe Build pf-runner container images (alternative to direct install)
+  shell bash install-container.sh
+end
+
+task install-native
+  describe Build pf natively via container and drop to ~/.local/bin/pf
+  shell_lang bash
+  shell ./containers/scripts/install-native.sh
+end
+
+# Package Management Tools
+task install-pkg-tools
+  describe Install tools for package format conversion
+  shell_lang bash
+  shell echo "Installing package conversion tools..."
+  shell if command -v apt-get &>/dev/null; then sudo apt-get install -y dpkg-dev rpm alien squashfs-tools zstd; fi
+  shell if command -v dnf &>/dev/null; then sudo dnf install -y dpkg rpm-build alien squashfs-tools zstd; fi
+  shell if command -v pacman &>/dev/null; then sudo pacman -S --noconfirm dpkg rpm-tools squashfs-tools zstd; fi
+  shell echo "Package conversion tools installed!"
+end
+
+# TUI Dependencies
+task install-tui-deps
+  describe Install TUI dependencies (rich library)
+  shell pip3 install --user rich || pip install --user rich
+  shell echo "✓ TUI dependencies installed"
+end
+
+# ============================================================================
+# 🎨 INTERACTIVE TOOLS & INTERFACES
+# TUI, help systems, and interactive interfaces
+# ============================================================================
+
+task category-interface-help
+  describe Show help for Interactive Tools & Interfaces category
+  shell echo "🎨 INTERACTIVE TOOLS & INTERFACES CATEGORY"
+  shell echo ""
+  shell echo "Text User Interface:"
+  shell echo "  pf tui                       # Launch interactive TUI for task management"
+  shell echo "  pf tui-with-file file=<path> # Launch TUI with specific Pfyfile"
+  shell echo "  pf tui-help                  # Show comprehensive TUI help and features"
+  shell echo ""
+  shell echo "Help Systems:"
+  shell echo "  pf category-help             # Show all available categories"
+  shell echo "  pf exploit-help              # Show exploit development help"
+  shell echo "  pf debug-tools-help          # Show debugging tools help"
+  shell echo "  pf smart-help                # Show smart workflows help"
+  shell echo ""
+  shell echo "System Information:"
+  shell echo "  pf check-debug-tools         # Check installation status of debugging tools"
+  shell echo "  pf exploit-test-tools        # Test all exploit development tools"
+  shell echo "  pf pkg-formats               # Show available package formats"
+  shell echo "  pf pkg-matrix                # Show conversion compatibility matrix"
+end
+
+# TUI Tasks
+task tui
+  describe Launch interactive TUI for task management and debugging
+  shell cd pf-runner && python3 pf_tui.py
+end
+
+task tui-with-file
+  describe Launch TUI with a specific Pfyfile
+  shell cd pf-runner && python3 pf_tui.py ${file}
+end
+
+task tui-help
+  describe Show TUI usage and features
+  shell echo "🎨 pf Interactive TUI"
+  shell echo ""
+  shell echo "A comprehensive Text User Interface for managing pf tasks with rich library"
+  shell echo ""
+  shell echo "Features:"
+  shell echo "  ✓ Task browsing organized by categories (15+ categories)"
+  shell echo "  ✓ Interactive task execution with parameter input"
+  shell echo "  ✓ Syntax checking for task definitions"
+  shell echo "  ✓ Debugging tools status and information"
+  shell echo "  ✓ Exploit development tools menu with quick actions"
+  shell echo "  ✓ Task search functionality"
+  shell echo "  ✓ Beautiful terminal UI with colors and tables"
+  shell echo ""
+  shell echo "Usage:"
+  shell echo "  pf tui                    # Launch TUI with default Pfyfile"
+  shell echo "  pf tui-with-file file=custom.pf  # Launch with specific file"
+  shell echo ""
+  shell echo "Navigation:"
+  shell echo "  [1] List all tasks by category"
+  shell echo "  [2] Run a task interactively"
+  shell echo "  [3] Check task syntax"
+  shell echo "  [4] View debugging tools"
+  shell echo "  [5] Search tasks"
+  shell echo "  [6] Exploit Development Tools (NEW!)"
+  shell echo "  [q] Quit"
+end
+
+# Help Systems
+task category-help
+  describe Show all available always-available task categories
+  shell echo "📚 ALWAYS-AVAILABLE TASK CATEGORIES"
+  shell echo ""
+  shell echo "Available Categories:"
+  shell echo "  📦 Installation & Setup      - pf category-installation-help"
+  shell echo "  🎨 Interactive Tools         - pf category-interface-help"
+  shell echo "  🛡️  Security & Exploit       - pf category-security-help"
+  shell echo "  🧠 Smart Workflows          - pf category-smart-help"
+  shell echo "  ⚙️  System Utilities         - pf category-system-help"
+  shell echo "  🔧 Development Tools         - pf category-development-help"
+  shell echo "  🔍 Analysis & Debugging      - pf category-analysis-help"
+  shell echo ""
+  shell echo "Usage:"
+  shell echo "  Run any category help command to see available tasks in that category"
+  shell echo "  Example: pf category-security-help"
+  shell echo ""
+  shell echo "Note: These tasks are always available and don't require specific files or directories"
+end
+
+task check-debug-tools
+  describe Check installation status of debugging tools
+  shell echo "🔍 Checking debugging tool installation status..."
+  shell echo ""
+  shell echo "Binary Analysis:"
+  shell command -v oryx >/dev/null 2>&1 && echo "  ✓ oryx - installed" || echo "  ✗ oryx - not installed"
+  shell command -v binsider >/dev/null 2>&1 && echo "  ✓ binsider - installed" || echo "  ✗ binsider - not installed"
+  shell command -v r2 >/dev/null 2>&1 && echo "  ✓ radare2 - installed" || echo "  ✗ radare2 - not installed"
+  shell command -v ghidra >/dev/null 2>&1 && echo "  ✓ Ghidra - installed" || echo "  ✗ Ghidra - not installed"
+  shell command -v snowman >/dev/null 2>&1 && echo "  ✓ Snowman - installed" || echo "  ✗ Snowman - not installed"
+  shell echo ""
+  shell echo "Exploit Development:"
+  shell python3 -c "import pwn" >/dev/null 2>&1 && echo "  ✓ pwntools - installed" || echo "  ✗ pwntools - not installed"
+  shell command -v checksec >/dev/null 2>&1 && echo "  ✓ checksec - installed" || echo "  ✗ checksec - not installed"
+  shell command -v ROPgadget >/dev/null 2>&1 && echo "  ✓ ROPgadget - installed" || echo "  ✗ ROPgadget - not installed"
+  shell command -v ropper >/dev/null 2>&1 && echo "  ✓ ropper - installed" || echo "  ✗ ropper - not installed"
+end
+
+task exploit-test-tools
+  describe Test all exploit development tools
+  shell echo "Testing exploit development tools..."
+  shell echo ""
+  shell echo "1. Testing pwntools..."
+  shell python3 -c "import pwn; print('✅ pwntools version:', pwn.__version__)"
+  shell echo ""
+  shell echo "2. Testing checksec..."
+  shell checksec --version
+  shell echo ""
+  shell echo "3. Testing ROPgadget..."
+  shell ROPgadget --version
+  shell echo ""
+  shell echo "4. Testing ropper..."
+  shell ropper --version
+  shell echo ""
+  shell echo "All tools working correctly! ✅"
+end
+
+# Package Management Information
+task pkg-formats
+  describe Show available package formats on this system
+  shell_lang bash
+  shell node tools/package-manager.mjs formats
+end
+
+task pkg-matrix
+  describe Show conversion compatibility matrix
+  shell_lang bash
+  shell node tools/package-manager.mjs matrix
+end
+
+# ============================================================================
+# 🛡️ SECURITY & EXPLOIT DEVELOPMENT
+# Pattern generation, exploit templates, and security utilities
+# ============================================================================
+
+task category-security-help
+  describe Show help for Security & Exploit Development category
+  shell echo "🛡️ SECURITY & EXPLOIT DEVELOPMENT CATEGORY"
+  shell echo ""
+  shell echo "Pattern Generation:"
+  shell echo "  pf pwn-cyclic length=300     # Generate cyclic pattern for buffer overflow"
+  shell echo "  pf pwn-cyclic-find pattern=<pattern> # Find offset in cyclic pattern"
+  shell echo "  pf buffer-overflow-pattern length=300 # Generate pattern for analysis"
+  shell echo ""
+  shell echo "Assembly & Disassembly:"
+  shell echo "  pf pwn-asm code='<asm>' arch=amd64    # Assemble code using pwntools"
+  shell echo "  pf pwn-disasm bytecode='<hex>' arch=amd64 # Disassemble bytecode"
+  shell echo ""
+  shell echo "Security Scanning:"
+  shell echo "  pf security-smart-scan target=<url>   # Smart security scanning"
+  shell echo "  pf security-smart-exploit target=<url> # Smart exploitation workflow"
+  shell echo "  pf security-smart-all target=<url>    # Complete smart security workflow"
+  shell echo ""
+  shell echo "Exploit Development:"
+  shell echo "  pf exploit-demo              # Run exploit development demo"
+  shell echo "  pf exploit-help              # Show comprehensive exploit help"
+  shell echo ""
+  shell echo "Note: Many security tasks require specific targets (binary files or URLs)"
+  shell echo "      The tasks listed here are general utilities available anywhere"
+end
+
+# Pattern Generation Tasks
+task pwn-cyclic
+  describe Generate cyclic pattern for buffer overflow analysis
+  shell python3 -c "import pwn; print(pwn.cyclic(${length:-300}))" ${output:+> $output}
+end
+
+task pwn-cyclic-find
+  describe Find offset in cyclic pattern
+  shell python3 -c "import pwn; print('Offset:', pwn.cyclic_find('${pattern}'))"
+end
+
+task buffer-overflow-pattern
+  describe Generate pattern for buffer overflow analysis
+  shell python3 -c "import pwn; print(pwn.cyclic(${length:-300}))" ${output:+> $output}
+end
+
+# Assembly and Disassembly
+task pwn-asm
+  describe Assemble assembly code using pwntools
+  shell python3 -c "import pwn; pwn.context.arch='${arch:-amd64}'; print(pwn.asm('${code}').hex())"
+end
+
+task pwn-disasm
+  describe Disassemble bytecode using pwntools
+  shell python3 -c "import pwn; pwn.context.arch='${arch:-amd64}'; print(pwn.disasm(bytes.fromhex('${bytecode}')))"
+end
+
+# Security Scanning (Smart Workflows)
+task security-smart-scan
+  describe Smart security scanning (auto-detects target type and selects optimal tools)
+  shell pf smart-analyze target=${target}
+end
+
+task security-smart-exploit
+  describe Smart exploitation workflow (binary or web based on target detection)
+  shell pf smart-exploit target=${target}
+end
+
+task security-smart-all
+  describe Complete smart security workflow (detect → analyze → exploit)
+  shell pf hack target=${target} mode=${mode:-active}
+end
+
+# Exploit Development Help and Demo
+task exploit-demo
+  describe Run exploit development demo with vulnerable binary
+  shell echo "Building vulnerable demo binary..."
+  shell gcc -o /tmp/vuln_demo -fno-stack-protector -z execstack -no-pie tools/exploit/demo/vulnerable.c
+  shell echo "Running exploit workflow on demo binary..."
+  shell pf exploit-workflow binary=/tmp/vuln_demo output=demo_exploit.py
+  shell echo "Demo complete! Check demo_exploit.py for generated exploit."
+end
+
+task exploit-help
+  describe Show exploit development commands help
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║         EXPLOIT DEVELOPMENT TOOLS HELP                    ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell echo "INSTALLATION:"
+  shell echo "  pf install-exploit-tools     # Install all tools"
+  shell echo "  pf install-pwntools          # Install pwntools only"
+  shell echo "  pf install-checksec          # Install checksec only"
+  shell echo "  pf install-ropgadget         # Install ROPgadget only"
+  shell echo ""
+  shell echo "PATTERN GENERATION:"
+  shell echo "  pf pwn-cyclic length=200     # Generate cyclic pattern"
+  shell echo "  pf pwn-cyclic-find pattern=<pattern> # Find offset"
+  shell echo ""
+  shell echo "ASSEMBLY/DISASSEMBLY:"
+  shell echo "  pf pwn-asm code='mov rax, 0' arch=amd64 # Assemble code"
+  shell echo "  pf pwn-disasm bytecode='4889e5' arch=amd64 # Disassemble"
+  shell echo ""
+  shell echo "TESTING:"
+  shell echo "  pf exploit-test-tools         # Test all tools"
+  shell echo "  pf exploit-demo               # Run demo with vulnerable binary"
+  shell echo ""
+  shell echo "For more help: https://docs.pwntools.com/"
+end
+
+# ============================================================================
+# 🧠 SMART WORKFLOWS & ENHANCED TASKS
+# Intelligent tool integration and meta-workflows
+# ============================================================================
+
+task category-smart-help
+  describe Show help for Smart Workflows & Enhanced Tasks category
+  shell echo "🧠 SMART WORKFLOWS & ENHANCED TASKS CATEGORY"
+  shell echo ""
+  shell echo "Smart Analysis:"
+  shell echo "  pf smart-analyze target=<target>     # Comprehensive smart analysis"
+  shell echo "  pf smart-verify-tools                # Verify all tools are working"
+  shell echo "  pf smart-help                        # Show smart workflows help"
+  shell echo ""
+  shell echo "Enhanced Workflows (require targets):"
+  shell echo "  pf autopwn binary=<file>             # Complete binary exploitation"
+  shell echo "  pf autoweb url=<url>                 # Complete web security assessment"
+  shell echo "  pf autokernel target=<module>        # Complete kernel analysis"
+  shell echo ""
+  shell echo "Smart Combinations:"
+  shell echo "  pf smart-binary-complete binary=<file> # Complete binary analysis"
+  shell echo "  pf smart-web-complete url=<url>       # Complete web assessment"
+  shell echo "  pf smart-full-stack target=<target>   # Full-stack security analysis"
+  shell echo ""
+  shell echo "Quick Aliases:"
+  shell echo "  pf apwn   # Alias for autopwn"
+  shell echo "  pf aweb   # Alias for autoweb"
+  shell echo "  pf sbc    # Alias for smart-binary-complete"
+  shell echo "  pf swc    # Alias for smart-web-complete"
+  shell echo ""
+  shell echo "Note: Enhanced workflows require specific targets but provide intelligent"
+  shell echo "      tool selection and automated workflow execution"
+end
+
+# Smart Analysis Tasks
+task smart-analyze
+  describe Comprehensive smart analysis of any target
+  shell echo "Running smart analysis on ${target}"
+  shell python3 tools/smart-workflows/target_detector.py ${target} --format json > .smart_target_info.json
+  shell echo "Analysis complete"
+end
+
+task smart-verify-tools
+  describe Verify all tools are working correctly
+  shell node tools/orchestration/tool-detector.mjs --verify --format table
+end
+
+task smart-help
+  describe Show help for smart workflows
+  shell echo "Smart Workflows Help:"
+  shell echo "  pf smart-detect target=<target>    # Detect target type"
+  shell echo "  pf smart-analyze target=<target>   # Analyze target"
+  shell echo "  pf checksec-unified binary=<file>  # Security analysis"
+end
+
+# Enhanced Workflow Tasks (these require parameters but are general enough to be always available)
+task autopwn
+  describe Complete binary exploitation: analysis + vulnerability discovery + exploit generation (binary=path/to/binary)
+  shell test -n "${binary}" || (echo "❌ Error: binary parameter required" && exit 1)
+  shell echo "🎯 AutoPwn: Complete binary exploitation workflow"
+  shell echo "Target: ${binary}"
+  shell echo ""
+  
+  # Phase 1: Basic Analysis
+  shell echo "📋 Phase 1: Basic Analysis"
+  shell pf checksec-analyze binary="${binary}"
+  shell file "${binary}"
+  shell echo ""
+  
+  # Phase 2: Vulnerability Discovery
+  shell echo "🔍 Phase 2: Vulnerability Discovery"
+  shell pf debug-analyze-binary binary="${binary}" quick=true
+  shell strings "${binary}" | grep -E "(password|admin|flag|key)" | head -10 || true
+  shell echo ""
+  
+  # Phase 3: Exploitation Prep
+  shell echo "💥 Phase 3: Exploitation Preparation"
+  shell pf rop-find-gadgets binary="${binary}" limit=20
+  shell pf create-exploit-template binary="${binary}" type=buffer_overflow
+  shell echo ""
+  
+  shell echo "✅ AutoPwn complete! Check generated exploit template and ROP gadgets."
+end
+
+task autoweb
+  describe Complete web security assessment: discovery + scanning + exploitation (url=http://target)
+  shell test -n "${url}" || (echo "❌ Error: url parameter required" && exit 1)
+  shell echo "🌐 AutoWeb: Complete web security assessment"
+  shell echo "Target: ${url}"
+  shell echo ""
+  
+  # Phase 1: Discovery
+  shell echo "📋 Phase 1: Service Discovery"
+  shell curl -I "${url}" 2>/dev/null | head -10 || echo "Basic HTTP check failed"
+  shell echo ""
+  
+  # Phase 2: Security Scanning
+  shell echo "🔍 Phase 2: Security Scanning"
+  shell pf security-scan url="${url}" checks=sqli,xss,cmdi
+  shell echo ""
+  
+  # Phase 3: Fuzzing
+  shell echo "💥 Phase 3: Vulnerability Fuzzing"
+  shell pf security-fuzz url="${url}" type=all
+  shell echo ""
+  
+  shell echo "✅ AutoWeb complete! Review security scan and fuzzing results."
+end
+
+# Quick Aliases
+task apwn
+  describe Alias for autopwn (Complete binary exploitation)
+  shell pf autopwn binary=${binary}
+end
+
+task aweb
+  describe Alias for autoweb (Complete web security assessment)
+  shell pf autoweb url=${url}
+end
+
+# ============================================================================
+# ⚙️ SYSTEM UTILITIES & MONITORING
+# System monitoring, network tools, and package management
+# ============================================================================
+
+task category-system-help
+  describe Show help for System Utilities & Monitoring category
+  shell echo "⚙️ SYSTEM UTILITIES & MONITORING CATEGORY"
+  shell echo ""
+  shell echo "System Monitoring:"
+  shell echo "  pf run-rustnet               # Run rustnet network monitor"
+  shell echo "  pf run-sysz                  # Run sysz systemd unit viewer"
+  shell echo ""
+  shell echo "Package Management:"
+  shell echo "  pf pkg-formats               # Show available package formats"
+  shell echo "  pf pkg-matrix                # Show conversion compatibility matrix"
+  shell echo "  pf pkg-help                  # Show package manager tool help"
+  shell echo ""
+  shell echo "Package Conversion (require source files):"
+  shell echo "  pf pkg-convert source=<file> target=<format> # Convert packages"
+  shell echo "  pf pkg-convert-to-deb source=<file>          # Convert to .deb"
+  shell echo "  pf pkg-convert-to-rpm source=<file>          # Convert to .rpm"
+  shell echo ""
+  shell echo "System Information:"
+  shell echo "  pf debug-check-podman        # Show podman visibility from container"
+  shell echo ""
+  shell echo "Note: Some package conversion tasks require source package files"
+end
+
+# System Monitoring Tools
+task run-rustnet
+  describe Run rustnet network monitor
+  shell echo "🌐 Running rustnet..."
+  shell rustnet
+end
+
+task run-sysz
+  describe Run sysz systemd unit viewer
+  shell echo "⚙️  Running sysz..."
+  shell sysz
+end
+
+# Package Management Help
+task pkg-help
+  describe Show package manager tool help
+  shell_lang bash
+  shell node tools/package-manager.mjs --help
+end
+
+# System Information
+task debug-check-podman
+  describe Show podman visibility from inside pf container
+  shell command -v podman || echo "podman not in PATH"
+  shell ls -l /usr/bin/podman || true
+  shell env | grep -E 'XDG_RUNTIME_DIR|CONTAINER_HOST' || true
+end
+
+# ============================================================================
+# 🔧 DEVELOPMENT TOOLS & BUILD SYSTEMS
+# Development servers, build tools, and compilation utilities
+# ============================================================================
+
+task category-development-help
+  describe Show help for Development Tools & Build Systems category
+  shell echo "🔧 DEVELOPMENT TOOLS & BUILD SYSTEMS CATEGORY"
+  shell echo ""
+  shell echo "Development Servers:"
+  shell echo "  pf web-dev dir=<path> port=8080      # Start development server with REST API"
+  shell echo "  pf web-dev-static dir=<path> port=8080 # Start basic static file server"
+  shell echo "  pf api-server dir=<path> port=8080   # Start REST API server"
+  shell echo ""
+  shell echo "Build Tools (WebAssembly):"
+  shell echo "  pf web-build-all-wasm                # Build all languages to WebAssembly"
+  shell echo "  pf web-build-all-asm                 # Build all languages to asm.js"
+  shell echo "  pf web-build-all-llvm                # Build all languages to LLVM IR"
+  shell echo ""
+  shell echo "Testing:"
+  shell echo "  pf web-test                          # Run Playwright tests"
+  shell echo ""
+  shell echo "Sync & Deployment:"
+  shell echo "  pf sync-demo                         # Demo of sync command with rsync"
+  shell echo ""
+  shell echo "Note: Most build tasks require specific project directories"
+  shell echo "      Listed here are the general development utilities"
+end
+
+# Development Servers
+task web-dev
+  describe Start development server with REST API support
+  shell_lang bash
+  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+end
+
+task web-dev-static
+  describe Start basic static file server (legacy)
+  shell_lang bash
+  shell node tools/static-server.mjs ${dir:-web} ${port:-8080}
+end
+
+task api-server
+  describe Start REST API server
+  shell_lang bash
+  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+end
+
+# Build Tools
+task web-build-all-wasm
+  describe Build all languages to WebAssembly
+  shell pf web-build-rust-wasm
+  shell pf web-build-c-wasm
+  shell pf web-build-fortran-wasm
+  shell pf web-build-wat-wasm
+end
+
+task web-build-all-asm
+  describe Build all languages to asm.js where supported
+  shell pf web-build-c-asm
+end
+
+task web-build-all-llvm
+  describe Build all languages to LLVM IR where supported (with O3 by default, use opt_level= and parallel=true as needed)
+  shell pf web-build-rust-llvm opt_level=${opt_level:-3}
+  shell pf web-build-c-llvm opt_level=${opt_level:-3} parallel=${parallel:-false}
+  shell pf web-build-fortran-llvm opt_level=${opt_level:-3} parallel=${parallel:-false}
+end
+
+# Testing
+task web-test
+  describe Run Playwright tests
+  shell npx playwright test --reporter=list
+end
+
+# Sync and Deployment
+task sync-demo
+  describe Demo of sync command - sync files with rsync
+  shell echo "Sync command examples:"
+  shell echo "  Local:  sync src=/path/src/ dest=/path/dest/ verbose"
+  shell echo "  Remote: sync src=/local/ dest=/remote/ host=server.com user=deploy port=22"
+  shell echo "  Excludes: sync src=./ dest=/backup/ excludes=[\"*.log\",\"*.tmp\"] delete dry"
+  shell echo "  From file: sync src=./ dest=/backup/ exclude_file=.rsync-exclude"
+  shell echo "See pf-runner/SYNC.md for full documentation"
+end
