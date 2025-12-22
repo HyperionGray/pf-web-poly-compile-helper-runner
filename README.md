@@ -1076,11 +1076,16 @@ npx playwright show-report
 - **REST API Guide**: See [`docs/REST-API.md`](docs/REST-API.md) for complete API documentation and examples
 - **Fuzzing & Sanitizers Guide**: See [`docs/FUZZING.md`](docs/FUZZING.md) for fuzzing, AFL++, and sanitizer documentation
 - **Security Testing Guide**: See [`docs/SECURITY-TESTING.md`](docs/SECURITY-TESTING.md) for web application security testing
+- **Security Configuration Guide**: See [`docs/SECURITY-CONFIGURATION.md`](docs/SECURITY-CONFIGURATION.md) - **NEW!** Production security setup and best practices
 - **Binary Injection Guide**: See [`docs/BINARY-INJECTION.md`](docs/BINARY-INJECTION.md) for injection and hooking documentation
 - **LLVM Lifting Guide**: See [`docs/LLVM-LIFTING.md`](docs/LLVM-LIFTING.md) for binary lifting documentation
 - **Kernel Debugging Guide**: See [`docs/KERNEL-DEBUGGING.md`](docs/KERNEL-DEBUGGING.md) for advanced debugging features
 - **Interactive TUI Guide**: See [`docs/TUI.md`](docs/TUI.md) for text user interface documentation
 - **Package Manager Guide**: See [`docs/PACKAGE-MANAGER.md`](docs/PACKAGE-MANAGER.md) for package format translation
+
+### 🔒 Code Quality & Security Reviews
+- **Amazon Q Review Response**: See [`AMAZON_Q_REVIEW_RESPONSE.md`](AMAZON_Q_REVIEW_RESPONSE.md) - Comprehensive code quality and security analysis
+- **Amazon Q Implementation Summary**: See [`AMAZON_Q_IMPLEMENTATION_SUMMARY.md`](AMAZON_Q_IMPLEMENTATION_SUMMARY.md) - Summary of implemented improvements
 
 ### 🆕 Reverse Engineering Tools Roadmap
 - **Executive Summary**: See [`docs/RE-TOOLS-EXECUTIVE-SUMMARY.md`](docs/RE-TOOLS-EXECUTIVE-SUMMARY.md) - Quick overview of missing tools (start here!)
