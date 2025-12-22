@@ -108,26 +108,95 @@ jobs:
         continue-on-error: true
 
       - name: Run Tests - ${{ matrix.test-type }}
+        id: run_tests
         run: |
           echo "Running ${{ matrix.test-type }} tests..."
+          TEST_STATUS="not-found"
+          TEST_OUTPUT=""
           
           case "${{ matrix.test-type }}" in
             unit)
               if [ -f "package.json" ] && grep -q '"test"' package.json; then
-                npm test -- --testPathPattern="unit" || npm test || echo "Unit tests not configured"
+                echo "📝 Running Node.js unit tests..."
+                if npm test -- --testPathPattern="unit" 2>&1 | tee /tmp/test-output.txt || npm test 2>&1 | tee /tmp/test-output.txt; then
+                  TEST_STATUS="passed"
+                  TEST_OUTPUT="Unit tests: ✅ Passed"
+                else
+                  TEST_STATUS="failed"
+                  TEST_OUTPUT="Unit tests: ❌ Failed (see artifacts for details)"
+                fi
               fi
-              pytest tests/unit/ 2>/dev/null || echo "Python unit tests not configured"
+              if command -v pytest &> /dev/null && [ -d "tests/unit/" ]; then
+                echo "🐍 Running Python unit tests..."
+                if pytest tests/unit/ 2>&1 | tee -a /tmp/test-output.txt; then
+                  TEST_STATUS="passed"
+                  TEST_OUTPUT="${TEST_OUTPUT}\nPython unit tests: ✅ Passed"
+                else
+                  TEST_STATUS="failed"
+                  TEST_OUTPUT="${TEST_OUTPUT}\nPython unit tests: ❌ Failed"
+                fi
+              fi
               ;;
             integration)
-              pytest tests/integration/ 2>/dev/null || echo "Integration tests not configured"
-              npm test -- --testPathPattern="integration" 2>/dev/null || echo "JS integration tests not configured"
+              if command -v pytest &> /dev/null && [ -d "tests/integration/" ]; then
+                echo "🐍 Running Python integration tests..."
+                if pytest tests/integration/ 2>&1 | tee /tmp/test-output.txt; then
+                  TEST_STATUS="passed"
+                  TEST_OUTPUT="Python integration tests: ✅ Passed"
+                else
+                  TEST_STATUS="failed"
+                  TEST_OUTPUT="Python integration tests: ❌ Failed"
+                fi
+              fi
+              if [ -f "package.json" ]; then
+                echo "📝 Running JS integration tests..."
+                if npm test -- --testPathPattern="integration" 2>&1 | tee -a /tmp/test-output.txt; then
+                  TEST_STATUS="passed"
+                  TEST_OUTPUT="${TEST_OUTPUT}\nJS integration tests: ✅ Passed"
+                else
+                  [ "$TEST_STATUS" = "not-found" ] && TEST_STATUS="failed"
+                  TEST_OUTPUT="${TEST_OUTPUT}\nJS integration tests: ❌ Failed"
+                fi
+              fi
               ;;
             e2e)
-              # Playwright tests
-              npx playwright test 2>/dev/null || echo "Playwright JS tests not configured"
-              pytest tests/e2e/ 2>/dev/null || pytest --browser chromium 2>/dev/null || echo "Playwright Python tests not configured"
+              if command -v npx &> /dev/null; then
+                echo "🎭 Running Playwright tests..."
+                if npx playwright test 2>&1 | tee /tmp/test-output.txt; then
+                  TEST_STATUS="passed"
+                  TEST_OUTPUT="Playwright tests: ✅ Passed"
+                else
+                  TEST_STATUS="failed"
+                  TEST_OUTPUT="Playwright tests: ❌ Failed"
+                fi
+              fi
+              if command -v pytest &> /dev/null && [ -d "tests/e2e/" ]; then
+                echo "🐍 Running Python E2E tests..."
+                if pytest tests/e2e/ 2>&1 | tee -a /tmp/test-output.txt || pytest --browser chromium 2>&1 | tee -a /tmp/test-output.txt; then
+                  TEST_STATUS="passed"
+                  TEST_OUTPUT="${TEST_OUTPUT}\nPython E2E tests: ✅ Passed"
+                else
+                  [ "$TEST_STATUS" = "not-found" ] && TEST_STATUS="failed"
+                  TEST_OUTPUT="${TEST_OUTPUT}\nPython E2E tests: ❌ Failed"
+                fi
+              fi
               ;;
           esac
+          
+          echo "TEST_STATUS=$TEST_STATUS" >> $GITHUB_OUTPUT
+          echo "TEST_OUTPUT<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$TEST_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Create Test Summary
+        run: |
+          mkdir -p /tmp/review-results
+          echo "## Test Results - ${{ matrix.test-type }}" > /tmp/review-results/test-summary-${{ matrix.test-type }}.md
+          echo "" >> /tmp/review-results/test-summary-${{ matrix.test-type }}.md
+          echo "**Status:** ${{ steps.run_tests.outputs.TEST_STATUS }}" >> /tmp/review-results/test-summary-${{ matrix.test-type }}.md
+          echo "" >> /tmp/review-results/test-summary-${{ matrix.test-type }}.md
+          echo "${{ steps.run_tests.outputs.TEST_OUTPUT }}" >> /tmp/review-results/test-summary-${{ matrix.test-type }}.md
         continue-on-error: true
 
       - name: Upload Test Results
@@ -140,6 +209,8 @@ jobs:
             playwright-report/
             .pytest_cache/
             coverage/
+            /tmp/test-output.txt
+            /tmp/review-results/
           retention-days: 30
         continue-on-error: true
 
@@ -225,27 +296,59 @@ jobs:
       - name: Build Project
         id: build
         run: |
-          echo "BUILD_SUCCESS=false" >> $GITHUB_OUTPUT
+          BUILD_STATUS="not-attempted"
+          BUILD_DETAILS=""
           
           # Node.js
           if [ -f "package.json" ]; then
-            npm install
-            if grep -q '"build"' package.json; then
-              npm run build && echo "BUILD_SUCCESS=true" >> $GITHUB_OUTPUT
-            else
-              echo "BUILD_SUCCESS=no-build-script" >> $GITHUB_OUTPUT
+            echo "📦 Found Node.js project (package.json)"
+            npm install || { echo "⚠️ npm install failed"; BUILD_STATUS="install-failed"; }
+            
+            if [ "$BUILD_STATUS" != "install-failed" ]; then
+              if grep -q '"build"' package.json; then
+                echo "🔨 Running npm build..."
+                if npm run build; then
+                  BUILD_STATUS="success"
+                  BUILD_DETAILS="${BUILD_DETAILS}Node.js build: ✅ Success\n"
+                else
+                  BUILD_STATUS="build-failed"
+                  BUILD_DETAILS="${BUILD_DETAILS}Node.js build: ❌ Failed\n"
+                fi
+              else
+                BUILD_STATUS="no-build-script"
+                BUILD_DETAILS="${BUILD_DETAILS}Node.js: ⚠️ No build script found in package.json\n"
+              fi
             fi
           fi
           
           # Python
           if [ -f "requirements.txt" ]; then
-            pip install -r requirements.txt && echo "BUILD_SUCCESS=true" >> $GITHUB_OUTPUT
+            echo "🐍 Found Python project (requirements.txt)"
+            if pip install -r requirements.txt; then
+              BUILD_STATUS="success"
+              BUILD_DETAILS="${BUILD_DETAILS}Python dependencies: ✅ Installed\n"
+            else
+              [ "$BUILD_STATUS" = "not-attempted" ] && BUILD_STATUS="build-failed"
+              BUILD_DETAILS="${BUILD_DETAILS}Python dependencies: ❌ Failed\n"
+            fi
           fi
           
           # Go
           if [ -f "go.mod" ]; then
-            go build ./... && echo "BUILD_SUCCESS=true" >> $GITHUB_OUTPUT
+            echo "🐹 Found Go project (go.mod)"
+            if go build ./...; then
+              BUILD_STATUS="success"
+              BUILD_DETAILS="${BUILD_DETAILS}Go build: ✅ Success\n"
+            else
+              [ "$BUILD_STATUS" = "not-attempted" ] && BUILD_STATUS="build-failed"
+              BUILD_DETAILS="${BUILD_DETAILS}Go build: ❌ Failed\n"
+            fi
           fi
+          
+          echo "BUILD_SUCCESS=$BUILD_STATUS" >> $GITHUB_OUTPUT
+          echo "BUILD_DETAILS<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$BUILD_DETAILS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
         continue-on-error: true
 
       - name: Upload Build Status
@@ -253,7 +356,11 @@ jobs:
           mkdir -p /tmp/review-results
           echo "## Build Status" > /tmp/review-results/build.md
           echo "" >> /tmp/review-results/build.md
-          echo "Build result: ${{ steps.build.outputs.BUILD_SUCCESS }}" >> /tmp/review-results/build.md
+          echo "**Overall Status:** ${{ steps.build.outputs.BUILD_SUCCESS }}" >> /tmp/review-results/build.md
+          echo "" >> /tmp/review-results/build.md
+          echo "### Build Details:" >> /tmp/review-results/build.md
+          echo "" >> /tmp/review-results/build.md
+          echo "${{ steps.build.outputs.BUILD_DETAILS }}" >> /tmp/review-results/build.md
 
       - name: Upload Build Report
         uses: actions/upload-artifact@main
