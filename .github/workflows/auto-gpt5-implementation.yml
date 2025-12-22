@@ -1,5 +1,11 @@
 name: "GPT-5 Implementation Action"
 
+# REQUIREMENTS:
+# - A GitHub Personal Access Token with Copilot access must be created and stored as a repository secret named COPILOT_TOKEN
+# - The default GITHUB_TOKEN does not have Copilot access and cannot be used
+# - To create the token: GitHub Settings -> Developer settings -> Personal access tokens -> Generate new token
+# - The token needs the 'copilot' scope enabled
+
 on:
   push:
     branches:
@@ -58,10 +64,10 @@ jobs:
         continue-on-error: true
 
       - name: GPT-5 Advanced Code Analysis
-        uses: github/copilot-cli-actions@v1
+        uses: austenstone/copilot-cli-action@v2
         with:
-          model: gpt-5
-          query: |
+          copilot-token: ${{ secrets.COPILOT_TOKEN }}
+          prompt: |
             Perform a comprehensive code analysis of this repository using GPT-5's advanced capabilities:
             
             1. **Code Quality & Architecture**
@@ -90,15 +96,13 @@ jobs:
                - Suggest improvements for code readability
             
             Provide specific, actionable recommendations with file names and line numbers where applicable.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
       - name: GPT-5 Test Coverage Analysis
-        uses: github/copilot-cli-actions@v1
+        uses: austenstone/copilot-cli-action@v2
         with:
-          model: gpt-5
-          query: |
+          copilot-token: ${{ secrets.COPILOT_TOKEN }}
+          prompt: |
             Analyze the test coverage and testing strategy:
             
             1. Identify files that lack adequate test coverage
@@ -108,8 +112,6 @@ jobs:
             5. Suggest integration and end-to-end test scenarios
             
             Focus on critical paths and business logic.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
       - name: Create GPT-5 Analysis Report
