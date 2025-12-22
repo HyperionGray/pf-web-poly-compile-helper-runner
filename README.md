@@ -6,6 +6,8 @@ A comprehensive polyglot WebAssembly development environment featuring the **pf*
 
 **New to pf?** Check out the [**QUICKSTART.md**](QUICKSTART.md) for a comprehensive guide with examples!
 
+**Want to organize tasks with subcommands?** See [**SUBCOMMANDS.md**](docs/SUBCOMMANDS.md) for grouping and organizing your tasks!
+
 **Want powerful combined workflows?** See [**SMART-WORKFLOWS.md**](docs/SMART-WORKFLOWS.md) for intelligent tool combinations!
 
 The QUICKSTART covers:
@@ -57,6 +59,7 @@ This repository provides:
 - **Build system helpers**: Native support for Make, CMake, Meson, Cargo, Go, Autotools, and Just
 - **Parallel execution**: Run tasks across multiple hosts via SSH
 - **Modular configuration**: Split tasks into multiple `.pf` files with `include`
+- **Subcommand support**: Automatically organize tasks by domain with subcommands from included files
 - **Parameter interpolation**: Pass runtime parameters to tasks
 - **Command aliases**: Define short command aliases with `[alias name]` syntax for quick access
 
@@ -1066,6 +1069,7 @@ npx playwright show-report
 ## Documentation
 
 - **🚀 QUICKSTART Guide**: See [`QUICKSTART.md`](QUICKSTART.md) - **Start here!** Comprehensive guide with examples of all features
+- **🎯 SUBCOMMANDS Guide**: See [`docs/SUBCOMMANDS.md`](docs/SUBCOMMANDS.md) - **Organize your tasks!** Complete guide to subcommands and task organization
 - **🔥 SMART WORKFLOWS Guide**: See [`docs/SMART-WORKFLOWS.md`](docs/SMART-WORKFLOWS.md) - **NEW!** Powerful tool combinations for efficient workflows
 - **pf-runner Documentation**: See [`pf-runner/README.md`](pf-runner/README.md) for comprehensive pf runner documentation
 - **REST API Guide**: See [`docs/REST-API.md`](docs/REST-API.md) for complete API documentation and examples
