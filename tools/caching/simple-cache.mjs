@@ -11,6 +11,7 @@ export class SimpleCache {
     this.defaultTTL = options.defaultTTL || 300000; // Default TTL: 5 minutes
     this.cleanupInterval = options.cleanupInterval || 60000; // Cleanup every minute
     this.cache = new Map();
+    this.pendingFactories = new Map(); // Track in-flight factory calls
     this.stats = {
       hits: 0,
       misses: 0,
@@ -116,6 +117,7 @@ export class SimpleCache {
 
   /**
    * Get or set a value (cache-aside pattern)
+   * Prevents duplicate factory calls for the same key by tracking in-flight operations
    * @param {string} key - Cache key
    * @param {Function} factory - Async function to generate value if not cached
    * @param {number} ttl - Time to live in milliseconds (optional)
@@ -128,10 +130,23 @@ export class SimpleCache {
       return cached;
     }
     
+    // Check if factory is already running for this key
+    if (this.pendingFactories.has(key)) {
+      return this.pendingFactories.get(key);
+    }
+    
     // Generate value and cache it
-    const value = await factory();
-    this.set(key, value, ttl);
-    return value;
+    const factoryPromise = factory().then(value => {
+      this.set(key, value, ttl);
+      this.pendingFactories.delete(key);
+      return value;
+    }).catch(error => {
+      this.pendingFactories.delete(key);
+      throw error;
+    });
+    
+    this.pendingFactories.set(key, factoryPromise);
+    return factoryPromise;
   }
 
   /**
@@ -189,13 +204,24 @@ export class SimpleCache {
   }
 
   /**
-   * Stop automatic cleanup timer
+   * Stop automatic cleanup timer and clean up resources
+   * Call this when the cache instance is no longer needed to prevent memory leaks
    */
   stopCleanup() {
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
       this.cleanupTimer = null;
     }
+  }
+  
+  /**
+   * Destroy the cache instance and release all resources
+   * Stops cleanup timer and clears all cached data
+   */
+  destroy() {
+    this.stopCleanup();
+    this.cache.clear();
+    this.pendingFactories.clear();
   }
 
   /**

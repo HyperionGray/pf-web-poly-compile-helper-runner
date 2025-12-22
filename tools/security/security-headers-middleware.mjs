@@ -35,15 +35,19 @@ export function securityHeaders(options = {}) {
       res.setHeader('X-Content-Type-Options', 'nosniff');
     }
 
-    // Enable browser XSS protection
+    // Note: X-XSS-Protection is deprecated and may introduce vulnerabilities in older browsers
+    // Modern browsers rely on CSP for XSS protection. Only enable if needed for legacy browser support.
     if (enableXSSProtection) {
       res.setHeader('X-XSS-Protection', '1; mode=block');
     }
 
     // Content Security Policy
+    // WARNING: Default CSP includes 'unsafe-inline' and 'unsafe-eval' for development convenience
+    // These directives significantly weaken XSS protection and should NOT be used in production
+    // Use productionSecurityHeaders() for production deployments
     const defaultCSP = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Adjust for production
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // REMOVE unsafe-* for production!
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "font-src 'self' data:",
@@ -74,9 +78,6 @@ export function securityHeaders(options = {}) {
 
     // Remove X-Powered-By header to hide server information
     res.removeHeader('X-Powered-By');
-
-    // Add custom security header to identify security middleware is active
-    res.setHeader('X-Security-Middleware', 'enabled');
 
     next();
   };

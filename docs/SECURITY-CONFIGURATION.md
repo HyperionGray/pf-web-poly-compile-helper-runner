@@ -568,7 +568,7 @@ The repository includes TruffleHog for secret scanning:
 
 ## Support
 
-If you discover a security vulnerability, please email security@yourdomain.com or open a private security advisory on GitHub.
+If you discover a security vulnerability, please open a private security advisory on GitHub.
 
 **Do not open public issues for security vulnerabilities.**
 
