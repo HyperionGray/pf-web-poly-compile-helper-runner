@@ -235,23 +235,30 @@ if (process.env.NODE_ENV === 'production') {
  * @returns {boolean} - True if origin is valid
  */
 function isValidOrigin(origin) {
+  // Validate input is a non-empty string
+  if (typeof origin !== 'string' || origin.trim() === '') {
+    return false;
+  }
+  
+  const trimmedOrigin = origin.trim();
+  
   // Allow wildcard
-  if (origin === '*') {
+  if (trimmedOrigin === '*') {
     return true;
   }
   
   try {
-    const url = new URL(origin);
+    const url = new URL(trimmedOrigin);
     // Only allow http and https protocols
     // Reject dangerous protocols like javascript:, data:, file:
     const allowedProtocols = ['http:', 'https:'];
     if (!allowedProtocols.includes(url.protocol)) {
-      logger.warn('Invalid CORS origin protocol', { origin, protocol: url.protocol });
+      logger.warn('Invalid CORS origin protocol', { origin: trimmedOrigin, protocol: url.protocol });
       return false;
     }
     return true;
   } catch (error) {
-    logger.warn('Invalid CORS origin URL format', { origin, error: error.message });
+    logger.warn('Invalid CORS origin URL format', { origin: trimmedOrigin, error: error.message });
     return false;
   }
 }
@@ -268,7 +275,11 @@ function parseCorsOrigin(envVar) {
   
   // Check if multiple origins (comma-separated)
   if (envVar.includes(',')) {
-    const origins = envVar.split(',').map(o => o.trim());
+    const origins = envVar
+      .split(',')
+      .map(o => o.trim())
+      .filter(o => o.length > 0); // Remove empty strings from double commas or trailing commas
+    
     // Validate each origin
     const validOrigins = origins.filter(isValidOrigin);
     
@@ -293,7 +304,7 @@ function parseCorsOrigin(envVar) {
     return '*';
   }
   
-  return envVar;
+  return envVar.trim();
 }
 
 // CORS Configuration - Environment-specific
@@ -304,9 +315,14 @@ function parseCorsOrigin(envVar) {
 //   - Development: CORS_ORIGIN=* (default)
 const corsOrigin = parseCorsOrigin(process.env.CORS_ORIGIN);
 
-// Warn if using wildcard CORS in production
+// SECURITY ALERT: Wildcard CORS in production is a significant security risk
 if (process.env.NODE_ENV === 'production' && corsOrigin === '*') {
-  logger.warn('WARNING: CORS is set to wildcard (*) in production. Set CORS_ORIGIN environment variable for security.');
+  logger.error('SECURITY ALERT: CORS is set to wildcard (*) in production! This allows ANY domain to access your API.');
+  logger.error('Set CORS_ORIGIN environment variable to specific allowed domains immediately.');
+  logger.error('Example: CORS_ORIGIN=https://yourdomain.com,https://app.yourdomain.com');
+  
+  // Optional: Uncomment to prevent server startup with wildcard CORS in production
+  // throw new Error('Refusing to start server with wildcard CORS in production. Set CORS_ORIGIN environment variable.');
 }
 
 // Check if credentials should be enabled
