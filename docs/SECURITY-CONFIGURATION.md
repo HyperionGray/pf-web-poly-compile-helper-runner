@@ -51,12 +51,28 @@ PORT=8080
 CORS_ORIGIN=*
 ```
 
-### Production Mode (Recommended)
+⚠️ **Warning**: The server will log a warning if wildcard CORS is used in production.
+
+### Production Mode - Single Origin (Recommended)
 
 ```javascript
-// Restrict to specific domains
-CORS_ORIGIN=https://yourdomain.com,https://api.yourdomain.com
+// Restrict to a specific domain
+CORS_ORIGIN=https://yourdomain.com
 ```
+
+### Production Mode - Multiple Origins (New!)
+
+```javascript
+// Comma-separated list of allowed origins
+CORS_ORIGIN=https://yourdomain.com,https://api.yourdomain.com,https://app.yourdomain.com
+```
+
+The server automatically parses comma-separated origins and enables credentials when specific origins are configured.
+
+### Credentials Handling
+
+- When `CORS_ORIGIN=*`: Credentials are **disabled** (security best practice)
+- When `CORS_ORIGIN` is set to specific origin(s): Credentials are **enabled**
 
 ### Advanced CORS Configuration
 
@@ -210,6 +226,38 @@ for (const envVar of requiredEnvVars) {
 ---
 
 ## Security Headers
+
+### Automatic Security Headers
+
+The API server now automatically applies comprehensive security headers based on the environment:
+
+```javascript
+// Security headers are automatically applied via middleware
+import { securityHeaders, productionSecurityHeaders, developmentSecurityHeaders } 
+  from './security/security-headers-middleware.mjs';
+
+// In tools/api-server.mjs
+if (process.env.NODE_ENV === 'production') {
+  app.use(productionSecurityHeaders());
+} else {
+  app.use(developmentSecurityHeaders());
+}
+```
+
+### Applied Security Headers
+
+**Development Mode:**
+- `X-Frame-Options: DENY`
+- `X-Content-Type-Options: nosniff`
+- `X-XSS-Protection: 1; mode=block`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: geolocation=(), microphone=(), camera=()...`
+- CSP with `unsafe-inline` and `unsafe-eval` for development convenience
+
+**Production Mode (Additional):**
+- Strict CSP without `unsafe-inline` or `unsafe-eval`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` (HTTPS only)
+- `upgrade-insecure-requests` directive in CSP
 
 ### Recommended Headers
 
@@ -538,21 +586,51 @@ The repository includes TruffleHog for secret scanning:
 
 ## Checklist for Production Deployment
 
-- [ ] Set `NODE_ENV=production`
-- [ ] Configure `CORS_ORIGIN` to specific domain(s)
-- [ ] Enable `TRUST_PROXY` if behind load balancer
-- [ ] Set appropriate rate limits
+### Security Configuration
+- [ ] Set `NODE_ENV=production` (enables production security headers)
+- [ ] Configure `CORS_ORIGIN` to specific domain(s) (comma-separated for multiple)
+- [ ] Enable `TRUST_PROXY=true` if behind load balancer
+- [ ] Verify security headers are applied (automatic in production mode)
 - [ ] Configure HTTPS with valid certificates
+- [ ] Verify HSTS header is applied (automatic when using HTTPS)
+
+### Rate Limiting and Resource Management
+- [ ] Review and adjust rate limits if needed (default: 100 req/min)
+- [ ] Test rate limiting with expected traffic patterns
+- [ ] Configure request size limits (default: 10mb)
+- [ ] Set up build cleanup intervals (automatic)
+
+### Authentication and Authorization
 - [ ] Implement authentication if needed
-- [ ] Add security headers middleware
+- [ ] Set up API key management
+- [ ] Configure JWT secrets if using JWT
+- [ ] Review access control policies
+
+### Monitoring and Logging
 - [ ] Enable structured logging
 - [ ] Set up monitoring and alerting
-- [ ] Run security scans
-- [ ] Review and audit dependencies
-- [ ] Test error handling
+- [ ] Configure log aggregation
+- [ ] Set up error tracking (e.g., Sentry)
+- [ ] Monitor rate limit hits
+
+### Security Testing
+- [ ] Run security scans: `npm run security:all`
+- [ ] Review and audit dependencies: `npm audit`
+- [ ] Check for hardcoded credentials: `npm run security:scan`
+- [ ] Validate security headers: `npm run security:headers`
+- [ ] Test error handling and edge cases
+
+### CI/CD Integration
 - [ ] Set up automated security scanning in CI/CD
+- [ ] Add dependency vulnerability checks
+- [ ] Configure automated testing
+- [ ] Set up deployment rollback procedures
+
+### Documentation and Training
 - [ ] Document security procedures
 - [ ] Train team on security practices
+- [ ] Document incident response procedures
+- [ ] Create security runbooks
 
 ---
 

@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { securityHeaders, productionSecurityHeaders, developmentSecurityHeaders } from './security/security-headers-middleware.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,7 +68,12 @@ const logger = {
   debug(message, meta) { this.log('debug', message, meta); }
 };
 
-// Input validation helpers
+/**
+ * Sanitize a string by removing potentially dangerous characters
+ * @param {string} str - The string to sanitize
+ * @param {number} maxLength - Maximum allowed length (default: 255)
+ * @returns {string} - Sanitized string
+ */
 function sanitizeString(str, maxLength = 255) {
   if (typeof str !== 'string') return '';
   // Remove or escape potentially dangerous characters for logs/responses
@@ -77,23 +83,41 @@ function sanitizeString(str, maxLength = 255) {
     .replace(/[\x00-\x1F\x7F]/g, ''); // Remove control characters
 }
 
+/**
+ * Validate if a language is supported
+ * @param {string} language - The language to validate
+ * @returns {boolean} - True if language is supported
+ */
 function isValidLanguage(language) {
   const supportedLanguages = ['rust', 'c', 'fortran', 'wat'];
   return typeof language === 'string' && supportedLanguages.includes(language);
 }
 
+/**
+ * Validate if a build target is supported
+ * @param {string} target - The build target to validate
+ * @returns {boolean} - True if target is supported
+ */
 function isValidTarget(target) {
   const supportedTargets = ['wasm', 'llvm', 'asm'];
   return typeof target === 'string' && supportedTargets.includes(target);
 }
 
+/**
+ * Validate if a project name contains only safe characters
+ * @param {string} project - The project name to validate
+ * @returns {boolean} - True if project name is valid
+ */
 function isValidProjectName(project) {
   // Handle null/undefined inputs and only allow alphanumeric, hyphens, and underscores
   if (typeof project !== 'string' || project.length === 0) return false;
   return /^[a-zA-Z0-9_-]+$/.test(project);
 }
 
-// Cleanup old builds to prevent memory leaks
+/**
+ * Clean up old builds to prevent memory leaks
+ * Removes the oldest builds when MAX_BUILDS is exceeded
+ */
 function cleanupOldBuilds() {
   if (buildStatus.size > MAX_BUILDS) {
     const entries = Array.from(buildStatus.entries());
@@ -129,6 +153,11 @@ const rateLimitCleanupInterval = setInterval(() => {
   }
 }, 300000); // 5 minutes
 
+/**
+ * Get the client IP address, handling proxy scenarios
+ * @param {Object} req - Express request object
+ * @returns {string} - Client IP address or 'unknown'
+ */
 function getClientIp(req) {
   // Properly handle IP detection behind proxies
   // Express populates req.ip when trust proxy is enabled
@@ -148,6 +177,13 @@ function getClientIp(req) {
   return req.socket?.remoteAddress || 'unknown';
 }
 
+/**
+ * Rate limiting middleware to prevent abuse
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ * @returns {void}
+ */
 function rateLimitMiddleware(req, res, next) {
   const clientIp = getClientIp(req);
   const now = Date.now();
@@ -183,18 +219,54 @@ function rateLimitMiddleware(req, res, next) {
 // Set TRUST_PROXY=true only when behind verified proxy infrastructure
 app.set('trust proxy', process.env.TRUST_PROXY === 'true');
 
+// Security Headers - Apply before other middleware
+// Use production headers if NODE_ENV=production, otherwise development headers
+if (process.env.NODE_ENV === 'production') {
+  app.use(productionSecurityHeaders());
+  logger.info('Using production security headers');
+} else {
+  app.use(developmentSecurityHeaders());
+  logger.info('Using development security headers');
+}
+
+// CORS Configuration - Environment-specific
+// SECURITY: In production, set CORS_ORIGIN to specific allowed origins
+// Examples:
+//   - Single origin: CORS_ORIGIN=https://example.com
+//   - Multiple origins: CORS_ORIGIN=https://example.com,https://app.example.com
+//   - Development: CORS_ORIGIN=* (default)
+const corsOrigin = process.env.CORS_ORIGIN 
+  ? (process.env.CORS_ORIGIN.includes(',') 
+      ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+      : process.env.CORS_ORIGIN)
+  : '*';
+
+// Warn if using wildcard CORS in production
+if (process.env.NODE_ENV === 'production' && corsOrigin === '*') {
+  logger.warn('WARNING: CORS is set to wildcard (*) in production. Set CORS_ORIGIN environment variable for security.');
+}
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: corsOrigin,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false
+  credentials: corsOrigin !== '*' // Only allow credentials when origin is restricted
 }));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(rateLimitMiddleware);
 
-// Utility function to execute pf commands with timeout and resource limits
+/**
+ * Execute a pf command with timeout and resource limits
+ * @param {string} command - The pf command to execute
+ * @param {Array<string>} args - Command arguments
+ * @param {Object} options - Execution options
+ * @param {number} options.timeout - Timeout in milliseconds (default: 300000)
+ * @param {string} options.cwd - Working directory
+ * @param {Object} options.env - Environment variables
+ * @returns {Promise<Object>} - Promise resolving to {stdout, stderr, code}
+ */
 function executePfCommand(command, args = [], options = {}) {
   return new Promise((resolve, reject) => {
     const pfPath = path.resolve(__dirname, '../pf-runner/pf');
@@ -260,7 +332,10 @@ function executePfCommand(command, args = [], options = {}) {
   });
 }
 
-// Broadcast to all WebSocket clients
+/**
+ * Broadcast a message to all connected WebSocket clients
+ * @param {Object} message - The message to broadcast
+ */
 function broadcast(message) {
   wss.clients.forEach((client) => {
     if (client.readyState === client.OPEN) {
