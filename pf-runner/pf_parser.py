@@ -753,7 +753,7 @@ def _load_pfy_source_with_includes(
             always_available_text,
             os.path.dirname(always_available_path),
             always_visited,
-            always_available_path
+            always_available_path  # current_file parameter
         )
     
     # Now load the user's Pfyfile (or fallback)
