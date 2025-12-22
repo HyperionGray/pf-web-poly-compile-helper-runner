@@ -222,37 +222,6 @@ jobs:
           go-version: 'stable'
         continue-on-error: true
 
-      - name: Install Python Dependencies
-        run: |
-          # Install pf task runner dependencies
-          echo "Installing Python dependencies (fabric, lark)..."
-          if pip install fabric lark; then
-            echo "✓ System-wide installation successful"
-          elif pip install --user fabric lark; then
-            echo "✓ User installation successful (fallback)"
-          else
-            echo "✗ Warning: Failed to install Python dependencies"
-            exit 1
-          fi
-        continue-on-error: true
-
-      - name: Setup pf Command
-        run: |
-          # Create pf wrapper in /usr/local/bin for build tasks
-          sudo bash -c "cat > /usr/local/bin/pf << 'EOF'
-#!/usr/bin/env bash
-# Find pf-runner directory relative to the script
-SCRIPT_DIR=\"\$(dirname \"\$(readlink -f \"\$0\")\")\"
-if [ -f \"${GITHUB_WORKSPACE}/pf-runner/pf_parser.py\" ]; then
-  exec python3 \"${GITHUB_WORKSPACE}/pf-runner/pf_parser.py\" \"\$@\"
-else
-  echo \"Error: pf-runner/pf_parser.py not found\" >&2
-  exit 1
-fi
-EOF"
-          sudo chmod +x /usr/local/bin/pf
-        continue-on-error: true
-
       - name: Build Project
         id: build
         run: |
