@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { securityHeaders, productionSecurityHeaders, developmentSecurityHeaders } from './security/security-headers-middleware.mjs';
+import { productionSecurityHeaders, developmentSecurityHeaders } from './security/security-headers-middleware.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -230,6 +230,33 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 /**
+ * Validate a CORS origin URL
+ * @param {string} origin - The origin to validate
+ * @returns {boolean} - True if origin is valid
+ */
+function isValidOrigin(origin) {
+  // Allow wildcard
+  if (origin === '*') {
+    return true;
+  }
+  
+  try {
+    const url = new URL(origin);
+    // Only allow http, https, and localhost protocols
+    // Reject dangerous protocols like javascript:, data:, file:
+    const allowedProtocols = ['http:', 'https:'];
+    if (!allowedProtocols.includes(url.protocol)) {
+      logger.warn('Invalid CORS origin protocol', { origin, protocol: url.protocol });
+      return false;
+    }
+    return true;
+  } catch (error) {
+    logger.warn('Invalid CORS origin URL format', { origin, error: error.message });
+    return false;
+  }
+}
+
+/**
  * Parse CORS origin configuration from environment variable
  * @param {string} envVar - Environment variable value for CORS_ORIGIN
  * @returns {string|Array<string>} - Single origin string, array of origins, or '*'
@@ -241,10 +268,31 @@ function parseCorsOrigin(envVar) {
   
   // Check if multiple origins (comma-separated)
   if (envVar.includes(',')) {
-    return envVar.split(',').map(o => o.trim());
+    const origins = envVar.split(',').map(o => o.trim());
+    // Validate each origin
+    const validOrigins = origins.filter(isValidOrigin);
+    
+    if (validOrigins.length === 0) {
+      logger.error('No valid CORS origins found in configuration, falling back to wildcard');
+      return '*';
+    }
+    
+    if (validOrigins.length !== origins.length) {
+      logger.warn('Some CORS origins were invalid and ignored', { 
+        total: origins.length, 
+        valid: validOrigins.length 
+      });
+    }
+    
+    return validOrigins;
   }
   
-  // Single origin
+  // Single origin - validate it
+  if (!isValidOrigin(envVar)) {
+    logger.error('Invalid CORS origin in configuration, falling back to wildcard', { origin: envVar });
+    return '*';
+  }
+  
   return envVar;
 }
 
