@@ -1,0 +1,31 @@
+[Unit]
+Description=pf Log Aggregator Service
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=/opt/pf-runner
+ExecStart=/bin/bash -c 'LOG_DIR="${PF_LOG_DIR:-/var/log/pf}"; mkdir -p "$LOG_DIR"; echo "Aggregating logs to $LOG_DIR"; if command -v journalctl >/dev/null 2>&1; then echo "Collecting systemd logs..."; journalctl --user -f --output=json | while read -r line; do echo "$line" >> "$LOG_DIR/systemd.log"; done & fi; echo "Monitoring application logs..."; tail -f /var/log/syslog 2>/dev/null | while read -r line; do if echo "$line" | grep -q "pf-"; then echo "$line" >> "$LOG_DIR/pf-services.log"; fi; done 2>/dev/null || echo "syslog not accessible, monitoring local logs only"'
+Restart=on-failure
+RestartSec=10
+
+# Environment configuration
+Environment=PF_LOG_DIR=/var/log/pf
+EnvironmentFile=-/etc/default/pf-log-aggregator
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/log/pf
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target

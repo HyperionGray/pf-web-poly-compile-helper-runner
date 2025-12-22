@@ -62,6 +62,63 @@ task install-exploit-tools
   shell echo "╚════════════════════════════════════════════════════════════╝"
 end
 
+# Always-Available PF Tasks
+# These tasks are general OS-level commands that work anywhere,
+# independent of the current working directory or project context.
+# They are organized by category to improve discoverability.
+
+# ============================================================================
+# TUI & Interface Tasks
+# ============================================================================
+
+task tui
+  describe Launch interactive TUI for task management and debugging
+  shell cd pf-runner && python3 pf_tui.py
+end
+
+task tui-help
+  describe Show TUI usage and features
+  shell echo "🎨 pf Interactive TUI"
+  shell echo ""
+  shell echo "A comprehensive Text User Interface for managing pf tasks with rich library"
+  shell echo ""
+  shell echo "Features:"
+  shell echo "  ✓ Task browsing organized by categories (15+ categories)"
+  shell echo "  ✓ Interactive task execution with parameter input"
+  shell echo "  ✓ Syntax checking for task definitions"
+  shell echo "  ✓ Debugging tools status and information"
+  shell echo "  ✓ Exploit development tools menu with quick actions"
+  shell echo "  ✓ Task search functionality"
+  shell echo "  ✓ Beautiful terminal UI with colors and tables"
+  shell echo ""
+  shell echo "Usage:"
+  shell echo "  pf tui                    # Launch TUI with default Pfyfile"
+  shell echo "  pf tui-with-file file=custom.pf  # Launch with specific file"
+  shell echo ""
+  shell echo "Navigation:"
+  shell echo "  [1] List all tasks by category"
+  shell echo "  [2] Run a task interactively"
+  shell echo "  [3] Check task syntax"
+  shell echo "  [4] View debugging tools"
+  shell echo "  [5] Search tasks"
+  shell echo "  [6] Exploit Development Tools (NEW!)"
+  shell echo "  [q] Quit"
+  shell echo ""
+  shell echo "Requirements:"
+  shell echo "  - Python 3.8+"
+  shell echo "  - rich library (install with: pf install-tui-deps)"
+end
+
+task install-tui-deps
+  describe Install TUI dependencies (rich library)
+  shell pip3 install --user rich || pip install --user rich
+  shell echo "✓ TUI dependencies installed"
+end
+
+# ============================================================================
+# Exploit Development - Tool Installation
+# ============================================================================
+
 task install-checksec
   describe Install checksec binary protection checker
   shell echo "Installing checksec..."
@@ -109,6 +166,43 @@ task install-all-debug-tools
   shell echo "Note: Binary Ninja is commercial software. Run: pf install-binaryninja-info"
 end
 
+  shell echo "Installing pwntools..."
+  shell pip3 install --user pwntools
+  shell echo "✅ pwntools installed successfully"
+  shell echo "Test with: python3 -c 'import pwn; print(pwn.__version__)'"
+end
+
+task install-ropgadget
+  describe Install ROPgadget ROP chain automation tool
+  shell echo "Installing ROPgadget..."
+  shell pip3 install --user ROPgadget
+  shell echo "✅ ROPgadget installed successfully"
+  shell echo "Test with: ROPgadget --version"
+end
+
+task install-exploit-tools
+  describe Install all exploit development tools (pwntools, checksec, ROPgadget, ropper)
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║         INSTALLING EXPLOIT DEVELOPMENT TOOLS              ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
+  shell pf install-pwntools
+  shell echo ""
+  shell pf install-checksec
+  shell echo ""
+  shell pf install-ropgadget
+  shell echo ""
+  shell pf install-ropper
+  shell echo ""
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║         ALL EXPLOIT TOOLS INSTALLED                       ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+end
+
+# ============================================================================
+# Debugging & Reverse Engineering - Tool Installation
+# ============================================================================
+
 task install-oryx
   describe Install oryx - TUI for exploring binaries
   shell echo "📦 Installing oryx..."
@@ -123,6 +217,22 @@ task install-binsider
   shell command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env)
   shell cargo install binsider
   shell echo "✓ binsider installed via cargo"
+end
+
+task install-rustnet
+  describe Install rustnet - Network monitoring tool
+  shell echo "📦 Installing rustnet..."
+  shell command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env)
+  shell cargo install rustnet
+  shell echo "✓ rustnet installed via cargo"
+end
+
+task install-sysz
+  describe Install sysz - Systemd unit file viewer
+  shell echo "📦 Installing sysz..."
+  shell command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env)
+  shell cargo install sysz
+  shell echo "✓ sysz installed via cargo"
 end
 
 task install-radare2
@@ -253,6 +363,70 @@ task category-help
   shell echo "  Example: pf category-security-help"
   shell echo ""
   shell echo "Note: These tasks are always available and don't require specific files or directories"
+task install-ghidra
+  describe Install Ghidra - NSA's reverse engineering suite (automated)
+  shell echo "📦 Installing Ghidra..."
+  shell echo "Checking for Java..."
+  shell command -v java >/dev/null 2>&1 || (echo "Installing OpenJDK 17..." && ([ -f /etc/debian_version ] && sudo apt-get update && sudo apt-get install -y openjdk-17-jdk || [ -f /etc/redhat-release ] && sudo yum install -y java-17-openjdk || [ "$(uname)" = "Darwin" ] && brew install openjdk@17))
+  shell echo "Note: Ghidra requires manual download from GitHub releases"
+  shell echo "Visit: https://github.com/NationalSecurityAgency/ghidra/releases"
+  shell echo "Or run the automated installer with internet connection"
+end
+
+task install-snowman
+  describe Install Snowman decompiler - C++ decompiler (free/open source)
+  shell echo "📦 Installing Snowman decompiler..."
+  shell echo "Checking for build dependencies..."
+  shell [ -f /etc/debian_version ] && (sudo apt-get update && sudo apt-get install -y cmake g++ libboost-dev qt5-qmake qtbase5-dev) || [ -f /etc/redhat-release ] && (sudo yum groupinstall -y "Development Tools" && sudo yum install -y cmake boost-devel qt5-qtbase-devel) || [ "$(uname)" = "Darwin" ] && (brew install cmake boost qt@5)
+  shell echo "Cloning Snowman repository from verified x64dbg fork..."
+  shell cd /tmp && git clone --depth 1 https://github.com/x64dbg/snowman.git snowman-install || (echo "❌ Failed to clone repository" && exit 1)
+  shell cd /tmp/snowman-install && mkdir -p build && cd build || (echo "❌ Failed to create build directory" && exit 1)
+  shell echo "Building Snowman (this may take a few minutes)..."
+  shell cd /tmp/snowman-install/build && cmake .. || (echo "❌ CMake configuration failed" && exit 1)
+  shell cd /tmp/snowman-install/build && make -j$(nproc 2>/dev/null || echo 4) || (echo "❌ Compilation failed" && exit 1)
+  shell echo "Installing to ~/.local/bin..."
+  shell mkdir -p ~/.local/bin
+  shell if [ -f /tmp/snowman-install/build/nocode/nocode ]; then cp /tmp/snowman-install/build/nocode/nocode ~/.local/bin/snowman; elif [ -f /tmp/snowman-install/build/src/nocode/nocode ]; then cp /tmp/snowman-install/build/src/nocode/nocode ~/.local/bin/snowman; else echo "❌ Could not find compiled binary" && exit 1; fi
+  shell rm -rf /tmp/snowman-install
+  shell echo "✓ Snowman installed to ~/.local/bin/snowman"
+  shell echo "Note: Make sure ~/.local/bin is in your PATH"
+  shell echo "Note: Using x64dbg fork for active maintenance"
+end
+
+task install-binaryninja-info
+  describe Show information about Binary Ninja (commercial license required)
+  shell echo "📦 Binary Ninja Information"
+  shell echo ""
+  shell echo "Binary Ninja is a commercial reverse engineering platform."
+  shell echo "It requires a paid license to use."
+  shell echo ""
+  shell echo "Pricing:"
+  shell echo "  • Personal License: $299 USD"
+  shell echo "  • Commercial License: $1,299 USD"
+  shell echo "  • Enterprise License: $2,999 USD"
+  shell echo ""
+  shell echo "Website: https://binary.ninja/"
+  shell echo "Free alternative: Use Radare2 or Ghidra (run 'pf install-radare2' or 'pf install-ghidra')"
+  shell echo ""
+  shell echo "Note: This project prioritizes free and open-source tools."
+end
+
+task install-all-debug-tools
+  describe Install all debugging and RE tools (including Snowman)
+  shell echo "🚀 Installing all debugging tools..."
+  shell echo "This may take several minutes..."
+  shell echo ""
+  shell pf install-oryx
+  shell pf install-binsider
+  shell pf install-rustnet
+  shell pf install-sysz
+  shell pf install-radare2
+  shell pf install-snowman
+  shell echo ""
+  shell echo "✓ All debugging tools installed!"
+  shell echo ""
+  shell echo "Note: Ghidra requires manual installation. Run: pf install-ghidra"
+  shell echo "Note: Binary Ninja is commercial software. Run: pf install-binaryninja-info"
 end
 
 task check-debug-tools
@@ -466,6 +640,83 @@ end
 task smart-help
   describe Show help for smart workflows
   shell echo "Smart Workflows Help:"
+  shell echo "Network Analysis:"
+  shell command -v rustnet >/dev/null 2>&1 && echo "  ✓ rustnet - installed" || echo "  ✗ rustnet - not installed"
+  shell echo ""
+  shell echo "System Analysis:"
+  shell command -v sysz >/dev/null 2>&1 && echo "  ✓ sysz - installed" || echo "  ✗ sysz - not installed"
+  shell command -v strace >/dev/null 2>&1 && echo "  ✓ strace - installed" || echo "  ✗ strace - not installed"
+  shell command -v ltrace >/dev/null 2>&1 && echo "  ✓ ltrace - installed" || echo "  ✗ ltrace - not installed"
+  shell echo ""
+  shell echo "Debuggers:"
+  shell command -v gdb >/dev/null 2>&1 && echo "  ✓ GDB - installed" || echo "  ✗ GDB - not installed"
+  shell command -v lldb >/dev/null 2>&1 && echo "  ✓ LLDB - installed" || echo "  ✗ LLDB - not installed"
+  shell command -v pwndbg >/dev/null 2>&1 && echo "  ✓ pwndbg - installed" || echo "  ✗ pwndbg - not installed"
+  shell echo ""
+  shell echo "Binary Manipulation:"
+  shell command -v patchelf >/dev/null 2>&1 && echo "  ✓ patchelf - installed" || echo "  ✗ patchelf - not installed"
+  shell echo ""
+  shell echo "Exploit Development:"
+  shell python3 -c "import pwn" >/dev/null 2>&1 && echo "  ✓ pwntools - installed" || echo "  ✗ pwntools - not installed"
+  shell command -v checksec >/dev/null 2>&1 && echo "  ✓ checksec - installed" || echo "  ✗ checksec - not installed"
+  shell command -v ROPgadget >/dev/null 2>&1 && echo "  ✓ ROPgadget - installed" || echo "  ✗ ROPgadget - not installed"
+  shell command -v ropper >/dev/null 2>&1 && echo "  ✓ ropper - installed" || echo "  ✗ ropper - not installed"
+end
+
+task run-rustnet
+  describe Run rustnet network monitor
+  shell echo "🌐 Running rustnet..."
+  shell rustnet
+end
+
+task run-sysz
+  describe Run sysz systemd unit viewer
+  shell echo "⚙️  Running sysz..."
+  shell sysz
+end
+
+task debug-tools-help
+  describe Show help for debugging tools
+  shell echo "🛠️  Debugging Tools - Installation and Usage"
+  shell echo ""
+  shell echo "Installation:"
+  shell echo "  pf install-oryx              - Install oryx (binary explorer)"
+  shell echo "  pf install-binsider          - Install binsider (binary analyzer)"
+  shell echo "  pf install-rustnet           - Install rustnet (network monitor)"
+  shell echo "  pf install-sysz              - Install sysz (systemd viewer)"
+  shell echo "  pf install-radare2           - Install radare2 (RE framework)"
+  shell echo "  pf install-ghidra            - Install Ghidra (NSA RE suite)"
+  shell echo "  pf install-snowman           - Install Snowman (C++ decompiler)"
+  shell echo "  pf install-binaryninja-info  - Show Binary Ninja info (commercial)"
+  shell echo "  pf install-all-debug-tools   - Install all tools at once"
+  shell echo ""
+  shell echo "Status Check:"
+  shell echo "  pf check-debug-tools         - Check which tools are installed"
+  shell echo ""
+  shell echo "Usage:"
+  shell echo "  pf run-rustnet                      - Monitor network with rustnet"
+  shell echo "  pf run-sysz                         - View systemd units with sysz"
+  shell echo ""
+  shell echo "Tool Information:"
+  shell echo "  • oryx      - https://github.com/pythops/oryx"
+  shell echo "  • binsider  - https://github.com/orhun/binsider"
+  shell echo "  • rustnet   - https://github.com/GyulyVGC/rustnet"
+  shell echo "  • sysz      - https://github.com/joehillen/sysz"
+  shell echo "  • radare2   - https://github.com/radareorg/radare2"
+  shell echo "  • Snowman   - https://github.com/x64dbg/snowman"
+  shell echo "  • Ghidra    - https://github.com/NationalSecurityAgency/ghidra"
+end
+
+# ============================================================================
+# Smart Workflows - Help & Verification
+# ============================================================================
+
+task smart-help
+  describe Show help for smart workflows
+  shell echo "Smart Workflows Help:"
+  shell echo "  pf smart-verify-tools          # Verify all tools are working"
+  shell echo ""
+  shell echo "Context-Dependent Tasks (require project files):"
   shell echo "  pf smart-detect target=<target>    # Detect target type"
   shell echo "  pf smart-analyze target=<target>   # Analyze target"
   shell echo "  pf checksec-unified binary=<file>  # Security analysis"
@@ -677,4 +928,147 @@ task sync-demo
   shell echo "  Excludes: sync src=./ dest=/backup/ excludes=[\"*.log\",\"*.tmp\"] delete dry"
   shell echo "  From file: sync src=./ dest=/backup/ exclude_file=.rsync-exclude"
   shell echo "See pf-runner/SYNC.md for full documentation"
+end
+task smart-verify-tools
+  describe Verify all tools are working correctly
+  shell echo "🔍 Verifying installed tools..."
+  shell echo ""
+  shell echo "Checking Python..."
+  shell python3 --version || echo "❌ Python 3 not found"
+  shell echo ""
+  shell echo "Checking Node.js..."
+  shell node --version || echo "❌ Node.js not found"
+  shell echo ""
+  shell echo "Checking pf installation..."
+  shell command -v pf >/dev/null 2>&1 && echo "✓ pf installed" || echo "❌ pf not found in PATH"
+  shell echo ""
+  shell echo "Run 'pf check-debug-tools' for detailed tool status"
+end
+
+# ============================================================================
+# Package Management - OS Level Tasks
+# ============================================================================
+
+task pkg-formats
+  describe Show available package formats on this system
+  shell echo "📦 Available Package Formats"
+  shell echo ""
+  shell echo "Checking installed package managers..."
+  shell command -v dpkg >/dev/null 2>&1 && echo "  ✓ dpkg (Debian/Ubuntu .deb)" || echo "  ✗ dpkg"
+  shell command -v rpm >/dev/null 2>&1 && echo "  ✓ rpm (Red Hat/Fedora .rpm)" || echo "  ✗ rpm"
+  shell command -v flatpak >/dev/null 2>&1 && echo "  ✓ flatpak (.flatpak)" || echo "  ✗ flatpak"
+  shell command -v snap >/dev/null 2>&1 && echo "  ✓ snap (.snap)" || echo "  ✗ snap"
+  shell command -v pacman >/dev/null 2>&1 && echo "  ✓ pacman (Arch .pkg.tar.zst)" || echo "  ✗ pacman"
+  shell echo ""
+  shell echo "Context-dependent package conversion tasks are available in project directories."
+end
+
+task pkg-matrix
+  describe Show conversion compatibility matrix
+  shell echo "📊 Package Format Conversion Matrix"
+  shell echo ""
+  shell echo "From →      │ .deb │ .rpm │ .flatpak │ .snap │ .pkg.tar.zst"
+  shell echo "────────────┼──────┼──────┼──────────┼───────┼──────────────"
+  shell echo ".deb        │  -   │  ✓   │    ✓     │   ✓   │      ✓"
+  shell echo ".rpm        │  ✓   │  -   │    ✓     │   ✓   │      ✓"
+  shell echo ".flatpak    │  ✓   │  ✓   │    -     │   ✓   │      ✓"
+  shell echo ".snap       │  ✓   │  ✓   │    ✓     │   -   │      ✓"
+  shell echo ".pkg.tar.zst│  ✓   │  ✓   │    ✓     │   ✓   │      -"
+  shell echo ""
+  shell echo "Note: All conversions use .deb as the hub format"
+  shell echo "Context-dependent conversion tasks are available in project directories."
+end
+
+task pkg-help
+  describe Show package manager tool help
+  shell echo "📦 Package Manager Tools"
+  shell echo ""
+  shell echo "Available commands:"
+  shell echo "  pf pkg-formats             - Show available package formats"
+  shell echo "  pf pkg-matrix              - Show conversion compatibility"
+  shell echo "  pf install-pkg-tools       - Install package conversion tools"
+  shell echo "  pf install-flatpak         - Install Flatpak"
+  shell echo "  pf install-snap            - Install Snapd"
+  shell echo ""
+  shell echo "Context-dependent tasks (require project files):"
+  shell echo "  pf pkg-convert source=<file> target=<format>"
+  shell echo "  pf pkg-info package=<file>"
+  shell echo "  pf pkg-deps package=<file> target=<format>"
+end
+
+task install-pkg-tools
+  describe Install tools for package format conversion
+  shell echo "Installing package conversion tools..."
+  shell if command -v apt-get &>/dev/null; then sudo apt-get install -y dpkg-dev rpm alien squashfs-tools zstd; fi
+  shell if command -v dnf &>/dev/null; then sudo dnf install -y dpkg rpm-build alien squashfs-tools zstd; fi
+  shell if command -v pacman &>/dev/null; then sudo pacman -S --noconfirm dpkg rpm-tools squashfs-tools zstd; fi
+  shell echo "Package conversion tools installed!"
+end
+
+task install-flatpak
+  describe Install Flatpak package manager
+  shell echo "Installing Flatpak..."
+  shell if command -v apt-get &>/dev/null; then sudo apt-get install -y flatpak flatpak-builder; fi
+  shell if command -v dnf &>/dev/null; then sudo dnf install -y flatpak flatpak-builder; fi
+  shell if command -v pacman &>/dev/null; then sudo pacman -S --noconfirm flatpak flatpak-builder; fi
+  shell echo "Flatpak installed!"
+end
+
+task install-snap
+  describe Install Snapd (Snap package manager)
+  shell echo "Installing Snapd..."
+  shell if command -v apt-get &>/dev/null; then sudo apt-get install -y snapd; fi
+  shell if command -v dnf &>/dev/null; then sudo dnf install -y snapd; fi
+  shell if command -v pacman &>/dev/null; then echo "Install snapd from AUR: yay -S snapd"; fi
+  shell echo "Snapd installed!"
+end
+
+# ============================================================================
+# Help & Information
+# ============================================================================
+
+task always-available-help
+  describe Show help for always-available tasks
+  shell echo "🌟 Always-Available PF Tasks"
+  shell echo ""
+  shell echo "These tasks work from any directory without requiring a Pfyfile.pf"
+  shell echo ""
+  shell echo "Categories:"
+  shell echo ""
+  shell echo "  📱 TUI & Interface"
+  shell echo "    pf tui                      - Launch interactive TUI"
+  shell echo "    pf tui-help                 - Show TUI documentation"
+  shell echo "    pf install-tui-deps         - Install TUI dependencies"
+  shell echo ""
+  shell echo "  💥 Exploit Development"
+  shell echo "    pf install-exploit-tools    - Install all exploit tools"
+  shell echo "    pf install-pwntools         - Install pwntools"
+  shell echo "    pf install-checksec         - Install checksec"
+  shell echo "    pf install-ropgadget        - Install ROPgadget"
+  shell echo "    pf install-ropper           - Install ropper"
+  shell echo ""
+  shell echo "  🔍 Debugging & RE Tools"
+  shell echo "    pf install-all-debug-tools  - Install all debug tools"
+  shell echo "    pf install-radare2          - Install Radare2"
+  shell echo "    pf install-ghidra           - Install Ghidra"
+  shell echo "    pf install-oryx             - Install oryx (binary TUI)"
+  shell echo "    pf install-binsider         - Install binsider"
+  shell echo "    pf check-debug-tools        - Check tool status"
+  shell echo "    pf debug-tools-help         - Show debug tools help"
+  shell echo "    pf run-rustnet              - Run rustnet network monitor"
+  shell echo "    pf run-sysz                 - Run sysz systemd viewer"
+  shell echo ""
+  shell echo "  🧠 Smart Workflows"
+  shell echo "    pf smart-help               - Show smart workflows help"
+  shell echo "    pf smart-verify-tools       - Verify tool installations"
+  shell echo ""
+  shell echo "  📦 Package Management"
+  shell echo "    pf pkg-help                 - Show package manager help"
+  shell echo "    pf pkg-formats              - Show available formats"
+  shell echo "    pf pkg-matrix               - Show conversion matrix"
+  shell echo "    pf install-pkg-tools        - Install conversion tools"
+  shell echo "    pf install-flatpak          - Install Flatpak"
+  shell echo "    pf install-snap             - Install Snapd"
+  shell echo ""
+  shell echo "For project-specific tasks, navigate to a directory with a Pfyfile.pf"
 end

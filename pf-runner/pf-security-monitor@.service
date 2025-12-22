@@ -1,0 +1,31 @@
+[Unit]
+Description=pf Security Monitor Service
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=/opt/pf-runner
+ExecStart=/bin/bash -c 'while true; do echo "[$(date)] Running security scan..."; pf security-scan url=http://localhost:8080 >/dev/null 2>&1 || echo "No web service to scan"; echo "[$(date)] Security scan complete"; sleep 30; done'
+Restart=on-failure
+RestartSec=10
+
+# Environment configuration
+Environment=PF_SECURITY_SCAN_INTERVAL=30
+EnvironmentFile=-/etc/default/pf-security-monitor
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/log/pf
+
+# Resource limits
+MemoryMax=256M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

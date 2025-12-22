@@ -731,13 +731,51 @@ def _expand_includes_from_text(
 def _load_pfy_source_with_includes(
     file_arg: Optional[str] = None,
 ) -> Tuple[str, Dict[str, str]]:
-    """Load Pfyfile with includes expanded, return (text, task_sources)"""
+    """Load Pfyfile with includes expanded, return (text, task_sources)
+    
+    Always includes Pfyfile.always-available.pf which contains context-free
+    tasks that work from any directory (TUI, tool installation, etc.)
+    """
+    # Load always-available tasks first
+    # Find the always-available file relative to this script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    always_available_path = os.path.join(
+        os.path.dirname(script_dir), "Pfyfile.always-available.pf"
+    )
+    
+    always_available_text = ""
+    always_available_sources = {}
+    if os.path.exists(always_available_path):
+        always_available_text = _read_text_file(always_available_path)
+        # Expand includes within always-available file
+        always_visited: set[str] = {os.path.abspath(always_available_path)}
+        always_available_text, always_available_sources = _expand_includes_from_text(
+            always_available_text,
+            os.path.dirname(always_available_path),
+            always_visited,
+            always_available_path  # current_file parameter
+        )
+    
+    # Now load the user's Pfyfile (or fallback)
     pfy_resolved = _find_pfyfile(file_arg=file_arg)
     if os.path.exists(pfy_resolved):
         base_dir = os.path.dirname(os.path.abspath(pfy_resolved)) or "."
         visited: set[str] = {os.path.abspath(pfy_resolved)}
         main_text = _read_text_file(pfy_resolved)
-        return _expand_includes_from_text(main_text, base_dir, visited)
+        user_text, user_sources = _expand_includes_from_text(main_text, base_dir, visited)
+        
+        # Merge task sources
+        combined_sources = {}
+        combined_sources.update(always_available_sources)
+        combined_sources.update(user_sources)
+        
+        # Combine texts: always-available first, then user's tasks
+        combined_text = always_available_text + "\n\n" + user_text
+        return combined_text, combined_sources
+    
+    # No Pfyfile found - return always-available tasks only (or PFY_EMBED if that doesn't exist)
+    if always_available_text:
+        return always_available_text, always_available_sources
     return PFY_EMBED, {}
 
 
@@ -1229,9 +1267,6 @@ def _exec_line_fabric(
             )
         apt_cmd = " ".join(["apt", "-y", action] + names)
         return run(apt_cmd)
-
-    rc=<path> dest=<path> [host=<host>] [user=<user>] [port=<port>]
-
 
     if verb == "sync":
         # sync src=<path> dest=<path> [host=<host>] [user=<user>] [port=<port>]

@@ -1,0 +1,517 @@
+# Pfyfile.always-on.pf - Always-On Task Management
+# 
+# This file provides tasks for managing always-on services that should be
+# continuously available during development and production workflows.
+#
+# Always-on services include:
+#   - Security monitoring and scanning
+#   - Build watching and auto-compilation
+#   - Container health monitoring
+#   - Development proxy services
+#   - Log aggregation
+#   - File system watching
+#
+# Usage:
+#   pf always-on-status     - Show status of all always-on services
+#   pf always-on-start-all  - Start all always-on services
+#   pf always-on-stop-all   - Stop all always-on services
+#   pf security-monitor-on  - Start security monitoring service
+#   pf build-watch-on       - Start build watching service
+#   pf container-health-on  - Start container health monitoring
+#   pf dev-proxy-on         - Start development proxy service
+#   pf log-aggregator-on    - Start log aggregation service
+#   pf file-watch-on        - Start file watching service
+
+# =============================================================================
+# Always-On Service Registry and Management
+# =============================================================================
+
+task always-on-status [alias=aos]
+  describe Show status of all always-on services
+  shell_lang bash
+  shell echo "=== Always-On Services Status ==="; \
+        echo ""; \
+        services=("pf-rest-api@$USER" "pf-security-monitor@$USER" "pf-build-watch@$USER" "pf-container-health@$USER" "pf-dev-proxy@$USER" "pf-log-aggregator@$USER" "pf-file-watch@$USER"); \
+        for service in "${services[@]}"; do \
+          if command -v systemctl >/dev/null 2>&1; then \
+            status=$(systemctl is-active "$service" 2>/dev/null || echo "inactive"); \
+            enabled=$(systemctl is-enabled "$service" 2>/dev/null || echo "disabled"); \
+            printf "%-25s: %s (%s)\n" "$service" "$status" "$enabled"; \
+          else \
+            echo "$service: systemd not available"; \
+          fi; \
+        done; \
+        echo ""; \
+        echo "Use 'pf always-on-start-all' to start all services"; \
+        echo "Use 'pf always-on-stop-all' to stop all services"
+end
+
+task always-on-start-all [alias=aosa]
+  describe Start all always-on services
+  shell_lang bash
+  shell echo "Starting all always-on services..."; \
+        if ! command -v systemctl >/dev/null 2>&1; then \
+          echo "systemd not available. Cannot start services."; \
+          exit 1; \
+        fi; \
+        services=("pf-rest-api@$USER" "pf-security-monitor@$USER" "pf-build-watch@$USER" "pf-container-health@$USER" "pf-dev-proxy@$USER" "pf-log-aggregator@$USER" "pf-file-watch@$USER"); \
+        for service in "${services[@]}"; do \
+          echo "Starting $service..."; \
+          if systemctl --user enable --now "$service" 2>/dev/null; then \
+            echo "  ✓ $service started"; \
+          else \
+            echo "  ✗ Failed to start $service (may not be installed)"; \
+          fi; \
+        done; \
+        echo ""; \
+        echo "Use 'pf always-on-status' to check service status"
+end
+
+task always-on-stop-all [alias=aosa]
+  describe Stop all always-on services
+  shell_lang bash
+  shell echo "Stopping all always-on services..."; \
+        if ! command -v systemctl >/dev/null 2>&1; then \
+          echo "systemd not available. Cannot stop services."; \
+          exit 1; \
+        fi; \
+        services=("pf-rest-api@$USER" "pf-security-monitor@$USER" "pf-build-watch@$USER" "pf-container-health@$USER" "pf-dev-proxy@$USER" "pf-log-aggregator@$USER" "pf-file-watch@$USER"); \
+        for service in "${services[@]}"; do \
+          echo "Stopping $service..."; \
+          if systemctl --user disable --now "$service" 2>/dev/null; then \
+            echo "  ✓ $service stopped"; \
+          else \
+            echo "  ✗ Failed to stop $service (may not be running)"; \
+          fi; \
+        done; \
+        echo ""; \
+        echo "All always-on services stopped"
+end
+
+task always-on-restart-all [alias=aora]
+  describe Restart all always-on services
+  shell_lang bash
+  shell echo "Restarting all always-on services..."; \
+        pf always-on-stop-all; \
+        sleep 2; \
+        pf always-on-start-all
+end
+
+task always-on-install-all [alias=aoia]
+  describe Install all always-on service units
+  shell_lang bash
+  shell echo "Installing always-on service units..."; \
+        PF_RUNNER_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || PF_RUNNER_DIR="$(pwd)/pf-runner"; \
+        services=("pf-security-monitor@.service" "pf-build-watch@.service" "pf-container-health@.service" "pf-dev-proxy@.service" "pf-log-aggregator@.service" "pf-file-watch@.service"); \
+        for service in "${services[@]}"; do \
+          if [ -f "$PF_RUNNER_DIR/$service" ]; then \
+            echo "Installing $service..."; \
+            sudo cp "$PF_RUNNER_DIR/$service" /etc/systemd/system/ && \
+            echo "  ✓ $service installed"; \
+          else \
+            echo "  ✗ $service not found in $PF_RUNNER_DIR"; \
+          fi; \
+        done; \
+        sudo systemctl daemon-reload; \
+        echo ""; \
+        echo "Service units installed. Use 'pf always-on-start-all' to start services."
+end
+
+# =============================================================================
+# Security Monitor Service
+# =============================================================================
+
+task security-monitor-on [alias=smon]
+  describe Start security monitoring service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl enable --now pf-security-monitor@$USER.service && \
+          echo "Security monitor started. Monitoring for vulnerabilities..."; \
+        else \
+          echo "systemd not available. Use 'pf security-monitor-dev' for foreground mode."; \
+          exit 1; \
+        fi
+end
+
+task security-monitor-off [alias=smoff]
+  describe Stop security monitoring service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl disable --now pf-security-monitor@$USER.service && \
+          echo "Security monitor stopped."; \
+        else \
+          echo "systemd not available."; \
+          exit 1; \
+        fi
+end
+
+task security-monitor-dev [alias=smdev]
+  describe Start security monitor in development mode (foreground)
+  shell_lang bash
+  shell echo "Starting security monitor in development mode..."; \
+        echo "Monitoring for security issues every 30 seconds..."; \
+        while true; do \
+          echo "[$(date)] Running security scan..."; \
+          pf security-scan url=http://localhost:8080 >/dev/null 2>&1 || echo "  No web service to scan"; \
+          echo "[$(date)] Security scan complete"; \
+          sleep 30; \
+        done
+end
+
+# =============================================================================
+# Build Watch Service
+# =============================================================================
+
+task build-watch-on [alias=bwon]
+  describe Start build watching service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl enable --now pf-build-watch@$USER.service && \
+          echo "Build watcher started. Monitoring for file changes..."; \
+        else \
+          echo "systemd not available. Use 'pf build-watch-dev' for foreground mode."; \
+          exit 1; \
+        fi
+end
+
+task build-watch-off [alias=bwoff]
+  describe Stop build watching service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl disable --now pf-build-watch@$USER.service && \
+          echo "Build watcher stopped."; \
+        else \
+          echo "systemd not available."; \
+          exit 1; \
+        fi
+end
+
+task build-watch-dev [alias=bwdev]
+  describe Start build watcher in development mode (foreground)
+  shell_lang bash
+  shell echo "Starting build watcher in development mode..."; \
+        if command -v inotifywait >/dev/null 2>&1; then \
+          echo "Watching for changes in current directory..."; \
+          while inotifywait -r -e modify,create,delete --exclude '\.git|node_modules|target|build' . 2>/dev/null; do \
+            echo "[$(date)] File change detected, triggering build..."; \
+            pf autobuild >/dev/null 2>&1 && echo "  ✓ Build successful" || echo "  ✗ Build failed"; \
+          done; \
+        else \
+          echo "inotifywait not available. Install inotify-tools package."; \
+          echo "Falling back to polling mode..."; \
+          while true; do \
+            echo "[$(date)] Checking for changes..."; \
+            pf autobuild >/dev/null 2>&1 && echo "  ✓ Build check complete" || echo "  ✗ Build issues detected"; \
+            sleep 10; \
+          done; \
+        fi
+end
+
+# =============================================================================
+# Container Health Monitor Service
+# =============================================================================
+
+task container-health-on [alias=chon]
+  describe Start container health monitoring service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl enable --now pf-container-health@$USER.service && \
+          echo "Container health monitor started. Monitoring container status..."; \
+        else \
+          echo "systemd not available. Use 'pf container-health-dev' for foreground mode."; \
+          exit 1; \
+        fi
+end
+
+task container-health-off [alias=choff]
+  describe Stop container health monitoring service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl disable --now pf-container-health@$USER.service && \
+          echo "Container health monitor stopped."; \
+        else \
+          echo "systemd not available."; \
+          exit 1; \
+        fi
+end
+
+task container-health-dev [alias=chdev]
+  describe Start container health monitor in development mode (foreground)
+  shell_lang bash
+  shell echo "Starting container health monitor in development mode..."; \
+        if command -v podman >/dev/null 2>&1; then \
+          echo "Monitoring Podman containers every 60 seconds..."; \
+          while true; do \
+            echo "[$(date)] Checking container health..."; \
+            unhealthy=$(podman ps --filter "health=unhealthy" --format "{{.Names}}" 2>/dev/null || true); \
+            if [ -n "$unhealthy" ]; then \
+              echo "  ⚠️  Unhealthy containers: $unhealthy"; \
+              echo "  Attempting restart..."; \
+              echo "$unhealthy" | xargs -r podman restart; \
+            else \
+              echo "  ✓ All containers healthy"; \
+            fi; \
+            sleep 60; \
+          done; \
+        elif command -v docker >/dev/null 2>&1; then \
+          echo "Monitoring Docker containers every 60 seconds..."; \
+          while true; do \
+            echo "[$(date)] Checking container health..."; \
+            unhealthy=$(docker ps --filter "health=unhealthy" --format "{{.Names}}" 2>/dev/null || true); \
+            if [ -n "$unhealthy" ]; then \
+              echo "  ⚠️  Unhealthy containers: $unhealthy"; \
+              echo "  Attempting restart..."; \
+              echo "$unhealthy" | xargs -r docker restart; \
+            else \
+              echo "  ✓ All containers healthy"; \
+            fi; \
+            sleep 60; \
+          done; \
+        else \
+          echo "Neither Podman nor Docker available. Cannot monitor containers."; \
+          exit 1; \
+        fi
+end
+
+# =============================================================================
+# Development Proxy Service
+# =============================================================================
+
+task dev-proxy-on [alias=dpon]
+  describe Start development proxy service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl enable --now pf-dev-proxy@$USER.service && \
+          echo "Development proxy started on port ${PF_PROXY_PORT:-3000}..."; \
+        else \
+          echo "systemd not available. Use 'pf dev-proxy-dev' for foreground mode."; \
+          exit 1; \
+        fi
+end
+
+task dev-proxy-off [alias=dpoff]
+  describe Stop development proxy service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl disable --now pf-dev-proxy@$USER.service && \
+          echo "Development proxy stopped."; \
+        else \
+          echo "systemd not available."; \
+          exit 1; \
+        fi
+end
+
+task dev-proxy-dev [alias=dpdev]
+  describe Start development proxy in development mode (foreground)
+  shell_lang bash
+  shell echo "Starting development proxy in development mode..."; \
+        PROXY_PORT="${PF_PROXY_PORT:-3000}"; \
+        API_PORT="${PF_API_PORT:-8000}"; \
+        WEB_PORT="${PF_WEB_PORT:-8080}"; \
+        echo "Proxy listening on port $PROXY_PORT"; \
+        echo "Routing /api/* to localhost:$API_PORT"; \
+        echo "Routing /* to localhost:$WEB_PORT"; \
+        if command -v socat >/dev/null 2>&1; then \
+          echo "Using socat for simple proxy..."; \
+          socat TCP-LISTEN:$PROXY_PORT,fork,reuseaddr TCP:localhost:$WEB_PORT; \
+        elif command -v nc >/dev/null 2>&1; then \
+          echo "Using netcat for simple proxy..."; \
+          while true; do \
+            nc -l -p $PROXY_PORT -c "nc localhost $WEB_PORT" 2>/dev/null || sleep 1; \
+          done; \
+        else \
+          echo "No proxy tools available (socat, nc). Install socat for proxy functionality."; \
+          echo "Alternatively, use nginx or another reverse proxy."; \
+          exit 1; \
+        fi
+end
+
+# =============================================================================
+# Log Aggregator Service
+# =============================================================================
+
+task log-aggregator-on [alias=lagn]
+  describe Start log aggregation service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl enable --now pf-log-aggregator@$USER.service && \
+          echo "Log aggregator started. Collecting logs to ${PF_LOG_DIR:-/var/log/pf}..."; \
+        else \
+          echo "systemd not available. Use 'pf log-aggregator-dev' for foreground mode."; \
+          exit 1; \
+        fi
+end
+
+task log-aggregator-off [alias=lagoff]
+  describe Stop log aggregation service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl disable --now pf-log-aggregator@$USER.service && \
+          echo "Log aggregator stopped."; \
+        else \
+          echo "systemd not available."; \
+          exit 1; \
+        fi
+end
+
+task log-aggregator-dev [alias=lagdev]
+  describe Start log aggregator in development mode (foreground)
+  shell_lang bash
+  shell echo "Starting log aggregator in development mode..."; \
+        LOG_DIR="${PF_LOG_DIR:-./logs}"; \
+        mkdir -p "$LOG_DIR"; \
+        echo "Aggregating logs to $LOG_DIR"; \
+        if command -v journalctl >/dev/null 2>&1; then \
+          echo "Collecting systemd logs..."; \
+          journalctl --user -f --output=json | while read -r line; do \
+            echo "$line" >> "$LOG_DIR/systemd.log"; \
+            echo "[$(date)] Logged systemd entry"; \
+          done & \
+        fi; \
+        echo "Monitoring application logs..."; \
+        tail -f /var/log/syslog 2>/dev/null | while read -r line; do \
+          if echo "$line" | grep -q "pf-"; then \
+            echo "$line" >> "$LOG_DIR/pf-services.log"; \
+            echo "[$(date)] Logged pf service entry"; \
+          fi; \
+        done 2>/dev/null || echo "syslog not accessible, monitoring local logs only"
+end
+
+# =============================================================================
+# File Watch Service
+# =============================================================================
+
+task file-watch-on [alias=fwon]
+  describe Start file watching service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl enable --now pf-file-watch@$USER.service && \
+          echo "File watcher started. Monitoring ${PF_WATCH_DIR:-$(pwd)} for changes..."; \
+        else \
+          echo "systemd not available. Use 'pf file-watch-dev' for foreground mode."; \
+          exit 1; \
+        fi
+end
+
+task file-watch-off [alias=fwoff]
+  describe Stop file watching service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl disable --now pf-file-watch@$USER.service && \
+          echo "File watcher stopped."; \
+        else \
+          echo "systemd not available."; \
+          exit 1; \
+        fi
+end
+
+task file-watch-dev [alias=fwdev]
+  describe Start file watcher in development mode (foreground)
+  shell_lang bash
+  shell echo "Starting file watcher in development mode..."; \
+        WATCH_DIR="${PF_WATCH_DIR:-$(pwd)}"; \
+        echo "Watching directory: $WATCH_DIR"; \
+        if command -v inotifywait >/dev/null 2>&1; then \
+          echo "Using inotifywait for file monitoring..."; \
+          inotifywait -m -r -e modify,create,delete,move --exclude '\.git|node_modules|target|build|\.log' "$WATCH_DIR" | \
+          while read -r path action file; do \
+            echo "[$(date)] $action: $path$file"; \
+            # Trigger custom actions based on file types
+            case "$file" in \
+              *.rs|*.c|*.cpp|*.h) echo "  → Source code changed, consider rebuilding" ;; \
+              *.pf) echo "  → pf task file changed, consider reloading" ;; \
+              *.md|*.txt) echo "  → Documentation changed" ;; \
+              *) echo "  → File system change detected" ;; \
+            esac; \
+          done; \
+        else \
+          echo "inotifywait not available. Install inotify-tools package."; \
+          echo "Falling back to polling mode..."; \
+          last_check=$(date +%s); \
+          while true; do \
+            current_check=$(date +%s); \
+            if find "$WATCH_DIR" -newer /tmp/pf-watch-marker 2>/dev/null | head -1 | grep -q .; then \
+              echo "[$(date)] Changes detected in $WATCH_DIR"; \
+            fi; \
+            touch /tmp/pf-watch-marker; \
+            sleep 5; \
+          done; \
+        fi
+end
+
+# =============================================================================
+# Service Health and Diagnostics
+# =============================================================================
+
+task always-on-health [alias=aoh]
+  describe Check health of all always-on services
+  shell_lang bash
+  shell echo "=== Always-On Services Health Check ==="; \
+        echo ""; \
+        services=("pf-rest-api@$USER" "pf-security-monitor@$USER" "pf-build-watch@$USER" "pf-container-health@$USER" "pf-dev-proxy@$USER" "pf-log-aggregator@$USER" "pf-file-watch@$USER"); \
+        healthy=0; \
+        total=0; \
+        for service in "${services[@]}"; do \
+          total=$((total + 1)); \
+          if command -v systemctl >/dev/null 2>&1; then \
+            if systemctl is-active "$service" >/dev/null 2>&1; then \
+              echo "✓ $service: healthy"; \
+              healthy=$((healthy + 1)); \
+            else \
+              echo "✗ $service: not running"; \
+            fi; \
+          else \
+            echo "? $service: systemd not available"; \
+          fi; \
+        done; \
+        echo ""; \
+        echo "Health Summary: $healthy/$total services healthy"; \
+        if [ $healthy -eq $total ]; then \
+          echo "🎉 All always-on services are healthy!"; \
+        elif [ $healthy -eq 0 ]; then \
+          echo "⚠️  No always-on services are running. Use 'pf always-on-start-all' to start them."; \
+        else \
+          echo "⚠️  Some services need attention. Use 'pf always-on-status' for details."; \
+        fi
+end
+
+task always-on-logs [alias=aol]
+  describe View logs from all always-on services
+  shell_lang bash
+  shell echo "=== Always-On Services Logs ==="; \
+        if command -v journalctl >/dev/null 2>&1; then \
+          echo "Showing recent logs from all pf services..."; \
+          journalctl --user -u "pf-*" --since "1 hour ago" --no-pager -n 50; \
+        else \
+          echo "journalctl not available. Checking local logs..."; \
+          LOG_DIR="${PF_LOG_DIR:-./logs}"; \
+          if [ -d "$LOG_DIR" ]; then \
+            echo "Recent logs from $LOG_DIR:"; \
+            find "$LOG_DIR" -name "*.log" -exec tail -n 10 {} + 2>/dev/null || echo "No log files found"; \
+          else \
+            echo "No log directory found at $LOG_DIR"; \
+          fi; \
+        fi
+end
+
+task always-on-config [alias=aoc]
+  describe Show always-on services configuration
+  shell_lang bash
+  shell echo "=== Always-On Services Configuration ==="; \
+        echo ""; \
+        echo "Environment Variables:"; \
+        echo "  PF_API_HOST=${PF_API_HOST:-127.0.0.1} (REST API bind address)"; \
+        echo "  PF_API_PORT=${PF_API_PORT:-8000} (REST API port)"; \
+        echo "  PF_PROXY_PORT=${PF_PROXY_PORT:-3000} (Development proxy port)"; \
+        echo "  PF_WEB_PORT=${PF_WEB_PORT:-8080} (Web service port)"; \
+        echo "  PF_LOG_DIR=${PF_LOG_DIR:-./logs} (Log aggregation directory)"; \
+        echo "  PF_WATCH_DIR=${PF_WATCH_DIR:-$(pwd)} (File watch directory)"; \
+        echo ""; \
+        echo "Service Files:"; \
+        echo "  /etc/systemd/system/pf-*@.service (systemd service templates)"; \
+        echo "  ~/.config/containers/systemd/ (Quadlet container services)"; \
+        echo ""; \
+        echo "Configuration Files:"; \
+        echo "  /etc/default/pf-* (service environment overrides)"; \
+        echo "  Pfyfile.always-on.pf (task definitions)"
+end

@@ -70,6 +70,9 @@ include Pfyfile.web.pf
 # Include REST API management tasks
 include Pfyfile.rest-api.pf
 
+# Include always-on task management
+include Pfyfile.always-on.pf
+
 # Include smart workflows (NEW - intelligent tool integration)
 include Pfyfile.smart-workflows.pf
 
