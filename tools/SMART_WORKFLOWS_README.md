@@ -176,9 +176,9 @@ Use `pf smart-detect-tools` to see what's installed and what's missing.
 ### Questions?
 
 See the main project documentation:
-- `COMBINED_PRS_SUMMARY.md` - How this system was created
+- `docs/reviews/COMBINED_PRS_SUMMARY.md` - How this system was created
 - `README.md` - Overall project documentation
-- `CONTRIBUTING.md` - How to contribute enhancements
+- `docs/development/CONTRIBUTING.md` - How to contribute enhancements
 
 ### License
 

@@ -115,9 +115,20 @@ jobs:
           echo "## Documentation Analysis" > /tmp/doc-analysis.md
           echo "" >> /tmp/doc-analysis.md
           
-          # Check for main documentation files
+          # Check for main documentation files (root files)
           echo "### Main Documentation Files:" >> /tmp/doc-analysis.md
-          for doc in README.md CONTRIBUTING.md LICENSE.md CHANGELOG.md CODE_OF_CONDUCT.md SECURITY.md; do
+          for doc in README.md QUICKSTART.md LICENSE.md LICENSE; do
+            if [ -f "$doc" ]; then
+              echo "✅ $doc exists" >> /tmp/doc-analysis.md
+            else
+              echo "❌ $doc is missing" >> /tmp/doc-analysis.md
+            fi
+          done
+          
+          # Check for documentation in docs/ directory
+          echo "" >> /tmp/doc-analysis.md
+          echo "### Documentation Files (in docs/):" >> /tmp/doc-analysis.md
+          for doc in docs/CHANGELOG.md docs/development/CONTRIBUTING.md docs/development/CODE_OF_CONDUCT.md docs/security/SECURITY.md docs/installation/INSTALL.md; do
             if [ -f "$doc" ]; then
               echo "✅ $doc exists" >> /tmp/doc-analysis.md
             else

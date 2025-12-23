@@ -324,4 +324,4 @@ sudo pf install-podman
 
 - [QUICKSTART.md](../QUICKSTART.md) - General pf quickstart guide
 - [pf-runner/README.md](../pf-runner/README.md) - pf-runner documentation
-- [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
+- [CONTRIBUTING.md](development/CONTRIBUTING.md) - Contribution guidelines

@@ -233,7 +233,22 @@ jobs:
           
           # Check for essential files
           echo "### Essential Documentation Files:" >> /tmp/review-results/documentation.md
-          for doc in README.md CONTRIBUTING.md LICENSE.md CHANGELOG.md CODE_OF_CONDUCT.md SECURITY.md; do
+          
+          # Check root files
+          echo "#### Root Documentation:" >> /tmp/review-results/documentation.md
+          for doc in README.md QUICKSTART.md LICENSE.md LICENSE; do
+            if [ -f "$doc" ]; then
+              word_count=$(wc -w < "$doc" 2>/dev/null || echo 0)
+              echo "✅ $doc ($word_count words)" >> /tmp/review-results/documentation.md
+            else
+              echo "❌ $doc (missing)" >> /tmp/review-results/documentation.md
+            fi
+          done
+          
+          # Check docs/ directory files
+          echo "" >> /tmp/review-results/documentation.md
+          echo "#### Documentation in docs/:" >> /tmp/review-results/documentation.md
+          for doc in docs/CHANGELOG.md docs/development/CONTRIBUTING.md docs/development/CODE_OF_CONDUCT.md docs/security/SECURITY.md docs/installation/INSTALL.md; do
             if [ -f "$doc" ]; then
               word_count=$(wc -w < "$doc" 2>/dev/null || echo 0)
               echo "✅ $doc ($word_count words)" >> /tmp/review-results/documentation.md
