@@ -43,8 +43,7 @@ RUN python3 -m pip install --break-system-packages \
     ropgadget \
     pefile \
     lief \
-    angr \
-    && python3 -m pip cache purge
+    angr
 
 # Install pwndbg for enhanced GDB
 RUN git clone https://github.com/pwndbg/pwndbg /opt/pwndbg && \

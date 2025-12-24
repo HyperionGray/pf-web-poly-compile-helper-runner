@@ -8,8 +8,7 @@ LABEL description="pf task runner with Python Fabric"
 RUN python3 -m pip install --break-system-packages \
     "fabric>=3.2,<4" \
     invoke \
-    paramiko \
-    && python3 -m pip cache purge
+    paramiko
 
 # Install podman client (remote) for talking to host podman via socket
 RUN apt-get update && apt-get install -y --no-install-recommends podman && \

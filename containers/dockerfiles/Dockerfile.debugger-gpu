@@ -17,8 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install GPU-accelerated tools
 RUN python3 -m pip install --break-system-packages \
     cupy-cuda12x \
-    numba \
-    && python3 -m pip cache purge
+    numba
 
 USER pfuser
 WORKDIR /app/workspace
