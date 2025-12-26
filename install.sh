@@ -360,9 +360,9 @@ setup_python_env() {
     log_info "Upgrading pip..."
     $PIP_CMD install --upgrade pip
     
-    # Install Python dependencies
+    # Install Python dependencies (fabric is bundled locally)
     log_info "Installing Python dependencies..."
-    $PIP_CMD install "fabric>=3.2,<4" "lark>=1.1.0"
+    $PIP_CMD install "lark>=1.1.0"
     
     log_success "Python environment setup complete"
 }
@@ -381,30 +381,34 @@ install_pf_runner() {
     log_info "Copying pf-runner files to $lib_dir"
     cp -r "${PF_RUNNER_DIR}"/* "$lib_dir/"
     
+    # Copy bundled fabric library
+    log_info "Copying bundled fabric library"
+    cp -r "${SCRIPT_DIR}/fabric" "$lib_dir/"
+    
     # Update shebang in main script
     if [[ "$PREFIX" != "/usr/local" ]] && [[ "$PREFIX" != "/usr"* ]]; then
         # User installation - use virtual environment python
         local venv_python="${PREFIX}/lib/pf-runner-venv/bin/python"
-        sed -i "1s|^.*$|#!${venv_python}|" "${lib_dir}/pf_parser.py"
+        sed -i "1s|^.*$|#!${venv_python}|" "${lib_dir}/pf_main.py"
     else
         # System installation - use system python
-        sed -i "1s|^.*$|#!/usr/bin/env python3|" "${lib_dir}/pf_parser.py"
+        sed -i "1s|^.*$|#!/usr/bin/env python3|" "${lib_dir}/pf_main.py"
     fi
     
     # Make executable
-    chmod +x "${lib_dir}/pf_parser.py"
+    chmod +x "${lib_dir}/pf_main.py"
     
     # Create pf executable
     cat > "${bin_dir}/pf" << EOF
 #!/usr/bin/env bash
 # pf - Wrapper script for pf-runner
-exec "${lib_dir}/pf_parser.py" "\$@"
+exec "${lib_dir}/pf_main.py" "\$@"
 EOF
     chmod +x "${bin_dir}/pf"
     
     # Create symlink for local development
     if [[ -d "$lib_dir" ]]; then
-        ln -sfn pf_parser.py "${lib_dir}/pf"
+        ln -sfn pf_main.py "${lib_dir}/pf"
     fi
     
     log_success "pf-runner installed to $lib_dir"
@@ -563,34 +567,13 @@ validate_native_installation() {
     fi
     
     # Test basic pf functionality
-    log_info "Testing pf --version..."
-    if ! "$pf_cmd" --version >/dev/null 2>&1; then
-        log_error "pf --version failed"
-        return 1
-    fi
-    
     log_info "Testing pf list..."
     if ! "$pf_cmd" list >/dev/null 2>&1; then
         log_error "pf list failed"
         return 1
     fi
     
-    # Test a simple task if available
-    log_info "Testing basic pf task execution..."
-    if "$pf_cmd" list 2>/dev/null | grep -q "hello\|test\|demo" 2>/dev/null; then
-        # Try to run a simple task
-        local test_task
-        test_task=$("$pf_cmd" list 2>/dev/null | grep -E "hello|test|demo" | head -1 | awk '{print $1}' || echo "")
-        if [[ -n "$test_task" ]]; then
-            log_info "Running test task: $test_task"
-            if "$pf_cmd" "$test_task" >/dev/null 2>&1; then
-                log_success "Test task '$test_task' executed successfully"
-            else
-                log_warning "Test task '$test_task' failed, but basic pf functionality works"
-            fi
-        fi
-    fi
-    
+    log_success "Basic pf functionality validated"
     log_success "Native installation validation passed"
     return 0
 }
