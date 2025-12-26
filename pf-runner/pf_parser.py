@@ -38,7 +38,7 @@ import re
 import sys
 import shlex
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Tuple, Optional, Callable
+from typing import List, Dict, Tuple, Optional, Callable, Any
 
 # Add bundled fabric to path if available
 _script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -990,7 +990,7 @@ def _parse_host(
     host_spec: str,
     default_user: Optional[str] = None,
     default_port: Optional[int] = None
-) -> Dict[str, any]:
+) -> Dict[str, Any]:
     """Parse a host specification into components."""
     # Handle @local
     if host_spec == "@local":
@@ -1020,10 +1020,10 @@ def _parse_host(
 
 
 def _c_for(
-    host_spec: Dict[str, any],
+    host_spec: Dict[str, Any],
     sudo: bool = False,
     sudo_user: Optional[str] = None
-) -> Tuple[Optional[Connection], Dict[str, any]]:
+) -> Tuple[Optional[Connection], Dict[str, Any]]:
     """Create a Fabric connection for a host specification."""
     if host_spec.get("local"):
         return None, host_spec
