@@ -89,7 +89,9 @@ Project planning and architectural documentation:
 
 Historical implementation summaries and review documents (in `reviews/` subdirectory):
 
-- [reviews/AMAZON_Q_REVIEW_2025_12_23.md](reviews/AMAZON_Q_REVIEW_2025_12_23.md) - Latest Amazon Q comprehensive review ⭐
+- [reviews/AMAZON_Q_REVIEW_2025_12_24.md](reviews/AMAZON_Q_REVIEW_2025_12_24.md) - Latest Amazon Q comprehensive review ⭐ (2025-12-24)
+- [reviews/AMAZON_Q_ACTION_SUMMARY_2025_12_24.md](reviews/AMAZON_Q_ACTION_SUMMARY_2025_12_24.md) - Action items summary (2025-12-24)
+- [reviews/AMAZON_Q_REVIEW_2025_12_23.md](reviews/AMAZON_Q_REVIEW_2025_12_23.md) - Previous Amazon Q review (2025-12-23)
 - [reviews/COMBINED_PRS_SUMMARY.md](reviews/COMBINED_PRS_SUMMARY.md) - Combined PR summaries
 - [reviews/AMAZON_Q_FINAL_SUMMARY.md](reviews/AMAZON_Q_FINAL_SUMMARY.md) - Amazon Q integration
 - [reviews/SMART_WORKFLOWS_INTEGRATION_SUMMARY.md](reviews/SMART_WORKFLOWS_INTEGRATION_SUMMARY.md) - Smart workflows integration
