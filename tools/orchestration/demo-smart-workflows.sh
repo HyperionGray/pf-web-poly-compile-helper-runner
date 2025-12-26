@@ -15,7 +15,8 @@ echo ""
 # Check if pf is available
 if ! command -v pf &> /dev/null; then
     echo "❌ pf command not found. Please install pf first:"
-    echo "   sudo ./install.sh"
+    echo "   ./install.sh --runtime podman"
+    echo "   # Or native install: sudo ./install.sh --mode native"
     exit 1
 fi
 

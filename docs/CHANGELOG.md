@@ -98,7 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Simplified installation to container-first approach with `./install.sh`
-- Legacy host-based installer moved to `bak/install-legacy.sh`
+- Legacy host-based installer accessible via `./install.sh --mode native`
 
 ### Documentation
 - Comprehensive README with examples

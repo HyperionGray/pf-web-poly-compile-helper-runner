@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Smoke test for pf-web-poly-compile-helper-runner install script
-# Tests both the direct install and container install methods
+# Tests both the native install and container install methods
 
 set -euo pipefail
 
@@ -30,7 +30,7 @@ test_direct_install() {
   cd "${PROJECT_ROOT}"
   
   # Run install with test prefix and skip deps (to speed up test)
-  ./install.sh --prefix "${TEST_PREFIX}" --skip-deps
+  ./install.sh --mode native --prefix "${TEST_PREFIX}" --skip-deps
   
   # Verify pf executable exists
   if [[ -x "${TEST_PREFIX}/bin/pf" ]]; then
@@ -65,7 +65,7 @@ test_container_install() {
   log_info "Testing container install with podman (image=${test_image})..."
 
   # Build container images
-  ./install-container.sh --runtime podman --image "${test_image}" >/dev/null 2>&1 || {
+  ./install.sh --mode container --runtime podman --image "${test_image}" --build-only >/dev/null 2>&1 || {
     log_warn "Container build failed (may be expected in CI without full podman setup)"
     return 0
   }

@@ -201,23 +201,23 @@ task web-build-c-llvm-opt
 end
 
 task install-base
-  describe Install pf task runner directly to /usr/local/bin
+  describe Install pf wrapper (container-first)
   shell bash install.sh
 end
 
 task install-web
-  describe Install pf task runner (alias for install)
+  describe Install pf wrapper (alias for install)
   shell bash install.sh
 end
 
 task install
-  describe Install pf task runner directly to /usr/local/bin
+  describe Install pf wrapper (container-first)
   shell bash install.sh
 end
 
-task install-container
-  describe Build pf-runner container images (alternative to direct install)
-  shell bash install-container.sh
+task install-container runtime=podman image=localhost/pf-runner:latest
+  describe Build pf-runner container image and install wrapper
+  shell bash install.sh --mode container --runtime ${runtime} --image ${image}
 end
 
 task install-full mode=container runtime=podman

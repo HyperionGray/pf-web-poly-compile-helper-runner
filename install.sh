@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# install.sh - One-command installation for pf-runner
-# Usage: ./install.sh [--prefix PATH] [--skip-deps] [--help]
+# install.sh - Cohesive installer for pf-runner (container-first with native option)
+# Usage: ./install.sh [--mode container|native] [--runtime podman|docker] [--image NAME] [--prefix PATH] [--skip-deps] [--skip-build] [--no-wrapper] [--help]
 
 set -euo pipefail
 
 # Configuration
-DEFAULT_PREFIX="/usr/local"
+DEFAULT_PREFIX_NATIVE="/usr/local"
+DEFAULT_PREFIX_CONTAINER="${HOME:-/usr/local}/.local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PF_RUNNER_DIR="${SCRIPT_DIR}/pf-runner"
+BASE_IMAGE_DEFAULT="localhost/pf-base:latest"
+RUNNER_IMAGE_DEFAULT="localhost/pf-runner:latest"
 
 # Colors for output
 RED='\033[0;31m'
@@ -17,22 +20,86 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Parse command line arguments
-PREFIX="${DEFAULT_PREFIX}"
+MODE="container"
+PREFIX=""
+PREFIX_SET=false
 SKIP_DEPS=false
 SHOW_HELP=false
+CONTAINER_RT="podman"
+CONTAINER_RT_SET=false
+CONTAINER_IMAGE="${RUNNER_IMAGE_DEFAULT}"
+SKIP_BUILD=false
+NO_WRAPPER=false
+BUILD_ONLY=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --mode)
+            MODE="$2"
+            shift 2
+            ;;
+        --mode=*)
+            MODE="${1#*=}"
+            shift
+            ;;
+        --container)
+            MODE="container"
+            shift
+            ;;
+        --native|--host)
+            MODE="native"
+            shift
+            ;;
         --prefix)
             PREFIX="$2"
+            PREFIX_SET=true
             shift 2
             ;;
         --prefix=*)
             PREFIX="${1#*=}"
+            PREFIX_SET=true
+            shift
+            ;;
+        --runtime)
+            CONTAINER_RT="$2"
+            CONTAINER_RT_SET=true
+            MODE="container"
+            shift 2
+            ;;
+        --runtime=*)
+            CONTAINER_RT="${1#*=}"
+            CONTAINER_RT_SET=true
+            MODE="container"
+            shift
+            ;;
+        --image)
+            CONTAINER_IMAGE="$2"
+            MODE="container"
+            shift 2
+            ;;
+        --image=*)
+            CONTAINER_IMAGE="${1#*=}"
+            MODE="container"
             shift
             ;;
         --skip-deps)
             SKIP_DEPS=true
+            shift
+            ;;
+        --skip-build)
+            SKIP_BUILD=true
+            MODE="container"
+            shift
+            ;;
+        --build-only)
+            BUILD_ONLY=true
+            NO_WRAPPER=true
+            MODE="container"
+            shift
+            ;;
+        --no-wrapper)
+            NO_WRAPPER=true
+            MODE="container"
             shift
             ;;
         --help|-h)
@@ -50,35 +117,54 @@ done
 # Help function
 show_help() {
     cat << EOF
-pf-runner Installation Script
+pf-runner Installation Script (Container-first)
 
 USAGE:
     ./install.sh [OPTIONS]
 
 OPTIONS:
-    --prefix PATH     Install to PATH (default: /usr/local)
-                     Use --prefix ~/.local for user installation
-    --skip-deps      Skip system dependency installation
-    --help, -h       Show this help message
+    --mode MODE       Install mode: container (default) or native
+    --container       Alias for --mode container
+    --native          Alias for --mode native
+
+    --runtime RUNTIME Container runtime (podman|docker). Implies container mode
+    --image IMAGE     pf-runner image name:tag (default: ${RUNNER_IMAGE_DEFAULT})
+    --skip-build      Skip container image build (assumes images exist)
+    --build-only      Build container images only (skip wrapper install)
+    --no-wrapper      Skip installing the pf wrapper (container mode)
+
+    --prefix PATH     Install prefix
+                     Default: ${DEFAULT_PREFIX_NATIVE} for native,
+                              ${DEFAULT_PREFIX_CONTAINER} for container (non-root)
+    --skip-deps       Skip system dependency installation (native mode)
+    --help, -h        Show this help message
 
 EXAMPLES:
-    # System-wide installation (requires sudo)
-    sudo ./install.sh
+    # Container-first install (user prefix by default)
+    ./install.sh --runtime podman
 
-    # User installation (no sudo required)
-    ./install.sh --prefix ~/.local
+    # Native system-wide install (requires sudo)
+    sudo ./install.sh --mode native
 
-    # Install without system dependencies
-    ./install.sh --skip-deps
+    # Native user install
+    ./install.sh --mode native --prefix ~/.local
 
-WHAT THIS SCRIPT DOES:
+    # Build container images only
+    ./install.sh --mode container --build-only
+
+WHAT THIS SCRIPT DOES (container mode):
+    1. Builds pf base + pf-runner images (optional)
+    2. Installs the pf wrapper script
+    3. Sets up shell completions (optional)
+
+WHAT THIS SCRIPT DOES (native mode):
     1. Checks prerequisites (Python 3, Git)
     2. Installs system dependencies (optional)
     3. Sets up Python virtual environment
     4. Installs Python dependencies (fabric, lark)
     5. Installs pf-runner to specified prefix
     6. Sets up shell completions (optional)
-    7. Validates installation by running basic pf tasks
+    7. Validates installation
 
 EOF
 }
@@ -105,13 +191,47 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
+normalize_settings() {
+    if [[ "$MODE" != "container" && "$MODE" != "native" ]]; then
+        log_error "Invalid --mode: $MODE (expected 'container' or 'native')"
+        exit 1
+    fi
+
+    if [[ "$BUILD_ONLY" == true && "$SKIP_BUILD" == true ]]; then
+        log_error "--build-only and --skip-build cannot be used together"
+        exit 1
+    fi
+
+    if [[ "$MODE" == "native" ]]; then
+        if [[ "$SKIP_BUILD" == true || "$NO_WRAPPER" == true || "$BUILD_ONLY" == true ]]; then
+            log_warning "Container-specific options ignored in native mode"
+        fi
+    else
+        if [[ "$SKIP_DEPS" == true ]]; then
+            log_warning "--skip-deps has no effect in container mode"
+        fi
+    fi
+
+    if [[ "$PREFIX_SET" == false ]]; then
+        if [[ "$MODE" == "container" ]]; then
+            if [[ $EUID -eq 0 ]]; then
+                PREFIX="$DEFAULT_PREFIX_NATIVE"
+            else
+                PREFIX="$DEFAULT_PREFIX_CONTAINER"
+            fi
+        else
+            PREFIX="$DEFAULT_PREFIX_NATIVE"
+        fi
+    fi
+}
+
 # Check if running as root when needed
 check_permissions() {
     if [[ "$PREFIX" == "/usr/local" ]] || [[ "$PREFIX" == "/usr"* ]]; then
         if [[ $EUID -ne 0 ]]; then
-            log_error "System-wide installation requires root privileges."
-            log_info "Try: sudo ./install.sh"
-            log_info "Or use user installation: ./install.sh --prefix ~/.local"
+            log_error "Installation to ${PREFIX} requires root privileges."
+            log_info "Try: sudo ./install.sh --mode ${MODE}"
+            log_info "Or use user installation: ./install.sh --mode ${MODE} --prefix ~/.local"
             exit 1
         fi
     fi
@@ -291,6 +411,104 @@ EOF
     log_success "pf executable created at ${bin_dir}/pf"
 }
 
+check_container_runtime() {
+    if command -v "${CONTAINER_RT}" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if [[ "$CONTAINER_RT_SET" == false ]]; then
+        if command -v podman >/dev/null 2>&1; then
+            CONTAINER_RT="podman"
+            return 0
+        fi
+        if command -v docker >/dev/null 2>&1; then
+            CONTAINER_RT="docker"
+            log_warning "podman not found; using docker instead"
+            return 0
+        fi
+    fi
+
+    log_error "Container runtime '${CONTAINER_RT}' not found."
+    log_info "Install podman or docker, or run: ./install.sh --mode native"
+    exit 1
+}
+
+image_exists() {
+    local image="$1"
+    if [[ "$CONTAINER_RT" == "podman" ]]; then
+        podman image exists "$image" >/dev/null 2>&1
+    else
+        docker image inspect "$image" >/dev/null 2>&1
+    fi
+}
+
+build_container_images() {
+    if [[ "$SKIP_BUILD" == true ]]; then
+        log_info "Skipping container image build (--skip-build)"
+        return 0
+    fi
+
+    log_info "Building base image (${BASE_IMAGE_DEFAULT})..."
+    "${CONTAINER_RT}" build -t "${BASE_IMAGE_DEFAULT}" -f "containers/dockerfiles/Dockerfile.base" "${SCRIPT_DIR}"
+
+    log_info "Building pf-runner image (${CONTAINER_IMAGE})..."
+    "${CONTAINER_RT}" build -t "${CONTAINER_IMAGE}" -f "containers/dockerfiles/Dockerfile.pf-runner" "${SCRIPT_DIR}"
+
+    log_success "Container images built successfully"
+}
+
+install_container_wrapper() {
+    if [[ "$NO_WRAPPER" == true ]]; then
+        log_info "Skipping wrapper install (--no-wrapper)"
+        return 0
+    fi
+
+    local lib_dir="${PREFIX}/lib/pf-runner"
+    local bin_dir="${PREFIX}/bin"
+
+    mkdir -p "$lib_dir" "$bin_dir"
+
+    log_info "Installing pf wrapper..."
+    cp "${PF_RUNNER_DIR}/pf_universal" "${lib_dir}/pf_universal"
+    chmod +x "${lib_dir}/pf_universal"
+
+    cat > "${bin_dir}/pf" << EOF
+#!/usr/bin/env bash
+if [[ -z "\${PF_IMAGE:-}" ]]; then
+  export PF_IMAGE="${CONTAINER_IMAGE}"
+fi
+if [[ -z "\${PF_RUNTIME:-}" ]]; then
+  export PF_RUNTIME="${CONTAINER_RT}"
+fi
+exec "${lib_dir}/pf_universal" "\$@"
+EOF
+    chmod +x "${bin_dir}/pf"
+
+    log_success "pf wrapper installed to ${bin_dir}/pf"
+}
+
+validate_container_installation() {
+    log_info "Validating container installation..."
+
+    if [[ "$NO_WRAPPER" != true ]]; then
+        local pf_cmd="${PREFIX}/bin/pf"
+        if [[ ! -x "$pf_cmd" ]]; then
+            log_error "pf wrapper not found or not executable at $pf_cmd"
+            return 1
+        fi
+    fi
+
+    if [[ "$SKIP_BUILD" != true ]]; then
+        if ! image_exists "${CONTAINER_IMAGE}"; then
+            log_error "Container image not found: ${CONTAINER_IMAGE}"
+            return 1
+        fi
+    fi
+
+    log_success "Container installation validation passed"
+    return 0
+}
+
 # Install shell completions
 install_completions() {
     log_info "Installing shell completions..."
@@ -332,9 +550,9 @@ install_completions() {
     fi
 }
 
-# Validate installation
-validate_installation() {
-    log_info "Validating installation..."
+# Validate native installation
+validate_native_installation() {
+    log_info "Validating native installation..."
     
     local pf_cmd="${PREFIX}/bin/pf"
     
@@ -373,7 +591,7 @@ validate_installation() {
         fi
     fi
     
-    log_success "Installation validation passed"
+    log_success "Native installation validation passed"
     return 0
 }
 
@@ -408,33 +626,86 @@ main() {
         exit 1
     fi
     
+    normalize_settings
+
     # Check permissions
     check_permissions
-    
-    # Run installation steps
+
+    if [[ "$MODE" == "container" ]]; then
+        check_container_runtime
+        log_info "Container runtime: ${CONTAINER_RT}"
+        log_info "pf-runner image: ${CONTAINER_IMAGE}"
+
+        build_container_images
+
+        if [[ "$NO_WRAPPER" != true ]]; then
+            install_container_wrapper
+            install_completions
+        else
+            log_info "Wrapper installation skipped"
+        fi
+
+        if validate_container_installation; then
+            echo ""
+            log_success "🎉 pf-runner container installation completed successfully!"
+            echo ""
+            log_info "Installation summary:"
+            echo "  • container runtime: ${CONTAINER_RT}"
+            echo "  • base image: ${BASE_IMAGE_DEFAULT}"
+            echo "  • pf-runner image: ${CONTAINER_IMAGE}"
+            if [[ "$NO_WRAPPER" != true ]]; then
+                echo "  • pf wrapper: ${PREFIX}/bin/pf"
+                echo "  • wrapper script: ${PREFIX}/lib/pf-runner/pf_universal"
+                echo ""
+                update_path_info
+                echo ""
+                log_info "Next steps:"
+                echo "  1. Restart your shell or run: source ~/.bashrc"
+                echo "  2. Try: pf --version"
+                echo "  3. Try: pf list"
+                echo "  4. Build full container suite: pf install-full runtime=${CONTAINER_RT}"
+            else
+                echo "  • pf wrapper: skipped (--no-wrapper)"
+                echo ""
+                log_info "Next steps:"
+                echo "  1. Install the wrapper later with:"
+                echo "     ./install.sh --mode container --runtime ${CONTAINER_RT}"
+                echo "  2. Or run directly with:"
+                echo "     PF_IMAGE=${CONTAINER_IMAGE} PF_RUNTIME=${CONTAINER_RT} ${PF_RUNNER_DIR}/pf_universal"
+            fi
+            echo ""
+            log_success "Happy task running! 🚀"
+        else
+            log_error "Container installation validation failed"
+            exit 1
+        fi
+        return 0
+    fi
+
+    # Native installation steps
     check_prerequisites
-    
+
     if [[ "$SKIP_DEPS" == false ]]; then
         install_system_deps
     fi
-    
+
     setup_python_env
     install_pf_runner
     install_completions
-    
+
     # Validate installation
-    if validate_installation; then
+    if validate_native_installation; then
         echo ""
-        log_success "🎉 pf-runner installation completed successfully!"
+        log_success "🎉 pf-runner native installation completed successfully!"
         echo ""
         log_info "Installation summary:"
         echo "  • pf-runner library: ${PREFIX}/lib/pf-runner"
         echo "  • pf executable: ${PREFIX}/bin/pf"
         echo "  • Python dependencies: fabric, lark"
         echo ""
-        
+
         update_path_info
-        
+
         echo ""
         log_info "Next steps:"
         echo "  1. Restart your shell or run: source ~/.bashrc"
@@ -444,7 +715,7 @@ main() {
         echo ""
         log_success "Happy task running! 🚀"
     else
-        log_error "Installation validation failed"
+        log_error "Native installation validation failed"
         exit 1
     fi
 }

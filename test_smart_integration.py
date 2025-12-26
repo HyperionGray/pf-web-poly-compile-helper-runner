@@ -184,7 +184,8 @@ def main():
     else:
         print("⚠️  Some tests failed. Check the output above for details.")
         print("\n🔧 Common fixes:")
-        print("   - Run: sudo ./install.sh")
+        print("   - Run: ./install.sh --runtime podman")
+        print("   - Or native install: sudo ./install.sh --mode native")
         print("   - Check that all Pfyfiles are in the correct location")
         print("   - Verify Node.js is installed for orchestration tools")
         return 1

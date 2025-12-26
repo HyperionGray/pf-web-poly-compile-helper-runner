@@ -27,8 +27,8 @@ task category-installation-help
   shell echo "  pf install-snowman           # Install Snowman decompiler"
   shell echo ""
   shell echo "System Setup:"
-  shell echo "  pf install                   # Install pf task runner"
-  shell echo "  pf install-container         # Build pf-runner container images"
+  shell echo "  pf install                   # Install pf wrapper (container-first)"
+  shell echo "  pf install-container         # Build pf-runner image + install wrapper"
   shell echo "  pf install-full              # Full setup (container-first)"
   shell echo "  pf install-native            # Build pf natively"
   shell echo "  pf install-system            # Install to /usr/local/bin"
@@ -244,13 +244,13 @@ end
 
 # System Setup Tasks
 task install
-  describe Install pf task runner directly to /usr/local/bin
+  describe Install pf wrapper (container-first)
   shell bash install.sh
 end
 
-task install-container
-  describe Build pf-runner container images (alternative to direct install)
-  shell bash install-container.sh
+task install-container runtime=podman image=localhost/pf-runner:latest
+  describe Build pf-runner container image and install wrapper
+  shell bash install.sh --mode container --runtime ${runtime} --image ${image}
 end
 
 task install-native

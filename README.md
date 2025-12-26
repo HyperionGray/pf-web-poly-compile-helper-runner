@@ -496,45 +496,50 @@ See [Distro Container Management Guide](docs/DISTRO-CONTAINER-MANAGEMENT.md) for
 - Git
 - Docker or Podman (for building/running the pf container)
 
-**Note:** The legacy host-based installer now lives in `bak/install-legacy.sh`. The default install path is container-first.
+**Note:** For a host-only install, use `./install.sh --mode native`. The default install path is container-first.
 
 ### Optional Prerequisites
 The container image already bundles the pf runtime; language toolchains are installed inside the containers defined under `containers/`.
 
 ## Installation
 
-### Recommended: Direct Install
+### Recommended: Container-First Install
 
-The simplest way to get started:
+The simplest way to get started (builds images and installs the wrapper):
 
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd pf-web-poly-compile-helper-runner
 
-# Install to /usr/local/bin (requires sudo)
-sudo ./install.sh
+# Build base + pf-runner images and install ~/.local/bin/pf
+./install.sh --runtime podman
+
+# Or install system-wide (requires sudo)
+sudo ./install.sh --runtime podman --prefix /usr/local
+```
+
+What this does:
+1. Builds `localhost/pf-base:latest`
+2. Builds `localhost/pf-runner:latest`
+3. Installs the `pf` wrapper at `~/.local/bin/pf` (or your prefix)
+
+### Native Host Install (Alternative)
+
+For a host-only install (no containers):
+
+```bash
+# System-wide install (requires sudo)
+sudo ./install.sh --mode native
 
 # Or install to user directory (no sudo needed)
-./install.sh --prefix ~/.local
+./install.sh --mode native --prefix ~/.local
 ```
 
 What this does:
 1. Installs Python dependencies (fabric, lark)
 2. Copies pf-runner library to `/usr/local/lib/pf-runner` (or your prefix)
 3. Creates `pf` executable in `/usr/local/bin` (or your prefix/bin)
-
-### Container Install (Alternative)
-
-For containerized workflows or isolated environments:
-
-```bash
-# Build container images
-./install-container.sh
-
-# Pick a specific runtime/tag (optional)
-./install-container.sh --runtime podman --image pf-runner:latest
-```
 
 ### Using pf Tasks (After Initial Install)
 
@@ -548,14 +553,15 @@ pf install-base  # Alias to install (for compatibility)
 
 ### What Gets Installed?
 
-**Direct install (./install.sh):**
+**Container install (default `./install.sh`):**
+- `localhost/pf-base:latest` container image
+- `localhost/pf-runner:latest` container image
+- `pf` wrapper in `~/.local/bin` (or your prefix)
+
+**Native install (`./install.sh --mode native`):**
 - `pf` executable in `/usr/local/bin` (or `~/.local/bin`)
 - `pf-runner` library in `/usr/local/lib/pf-runner` (or `~/.local/lib/pf-runner`)
 - Python dependencies (fabric, lark)
-
-**Container install (./install-container.sh):**
-- `pf-base:latest` container image
-- `pf-runner:local` container image
 
 ## Quick Start
 
@@ -566,14 +572,14 @@ The repository includes a **simple installer script** that sets up everything yo
 #### One-Command Installation (Recommended)
 
 ```bash
-# System-wide install (requires sudo)
-sudo ./install.sh
+# Container-first install (builds images and installs wrapper)
+./install.sh --runtime podman
 
-# User install (no sudo needed)
-./install.sh --prefix ~/.local
+# System-wide wrapper install (requires sudo)
+sudo ./install.sh --runtime podman --prefix /usr/local
 ```
 
-The installer copies pf directly to your system - no containers, no wrappers.
+The installer sets up the `pf` wrapper to run inside the pf-runner container.
 
 #### Using pf Commands
 
@@ -585,12 +591,16 @@ pf install-web   # Alias to install
 pf install-base  # Alias to install
 ```
 
-#### Legacy Installation (Alternative)
+#### Native Installation (Alternative)
 
-The older host-based installation script is preserved for compatibility:
+For a host-only install (no containers):
 
 ```bash
-./bak/install-legacy.sh  # Legacy host installer
+# System-wide install (requires sudo)
+sudo ./install.sh --mode native
+
+# User install (no sudo needed)
+./install.sh --mode native --prefix ~/.local
 ```
 
 #### Manual Installation
@@ -1359,15 +1369,15 @@ Additional documentation in `pf-runner/`:
 ### Installation Issues
 
 #### pf command not found
-- Run `sudo ./install.sh` to reinstall
-- For user install: `./install.sh --prefix ~/.local`
+- Run `./install.sh --runtime podman` to reinstall the container wrapper
+- For native user install: `./install.sh --mode native --prefix ~/.local`
+- For native system install: `sudo ./install.sh --mode native`
 - Run `source ~/.bashrc` (or `~/.zshrc`) to reload your shell configuration
 - Check that the install path is in your PATH
-- For legacy install, use `bak/install-legacy.sh`
 
 #### Fabric import error
 - Run `pip install --user "fabric>=3.2,<4"` to install the dependency
-- Or reinstall with: `./install.sh` (dependencies are installed automatically)
+- Or reinstall with: `./install.sh --mode native` (dependencies are installed automatically)
 
 #### Installation script fails
 - Ensure Python 3.10+ is installed: `python3 --version`

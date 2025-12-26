@@ -29,15 +29,12 @@ From the repository root:
 
 ```bash
 # Build base + pf-runner images and install ~/.local/bin/pf using podman
-./install --runtime podman
-
-# or explicitly
 ./install.sh --runtime podman
 ```
 
 This will:
 - Build `localhost/pf-base:latest`
-- Build `pf-runner:local` (used by the `pf` wrapper)
+- Build `localhost/pf-runner:latest` (used by the `pf` wrapper)
 - Install the wrapper at `~/.local/bin/pf` (unless you pass `--no-wrapper`)
 
 Verify installation:
@@ -66,13 +63,12 @@ For interactive development with containers:
 ./containers/scripts/run-dev.sh build
 ```
 
-### 3. Manual host-only installation (legacy)
+### 3. Native host-only installation (legacy)
 
 If you prefer a pure host install without containers:
 
 ```bash
-pip install --user "fabric>=3.2,<4"
-cd pf-runner && make install-local
+./install.sh --mode native --prefix ~/.local
 ```
 
 In that mode, `pf` runs directly on the host Python instead of inside a container.

@@ -44,11 +44,12 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 4. **Install pf-runner**:
    ```bash
-   # System-wide installation (requires sudo)
-   sudo ./install.sh
-   
-   # Or user-level installation (recommended for development)
-   ./install.sh --prefix ~/.local
+   # Container-first install (recommended)
+   ./install.sh --runtime podman
+
+   # Native host install (optional)
+   sudo ./install.sh --mode native
+   ./install.sh --mode native --prefix ~/.local
    ```
 
 5. **Install development dependencies**:

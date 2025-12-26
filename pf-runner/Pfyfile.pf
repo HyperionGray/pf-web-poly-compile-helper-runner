@@ -8,6 +8,7 @@ include ./Pfyfile.pasm.pf
 include ./Pfyfile.dev.pf
 include ./Pfyfile.builds.pf
 # Note: Pfyfile.web-demo.pf excluded to avoid duplicates with main Pfyfile.web.pf
+image alpine:latest
 
 # Always-on tasks: General OS-level tasks that don't require project-specific files
 # These tasks should be available system-wide regardless of current directory

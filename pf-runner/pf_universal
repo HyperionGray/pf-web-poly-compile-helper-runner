@@ -1,13 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
-DEFAULT_IMAGE="__DEFAULT_IMAGE__"
-DEFAULT_RUNTIME="__DEFAULT_RUNTIME__"
+
+# Default container image/runtime for the pf wrapper.
+# Override with:
+#   PF_IMAGE=... PF_RUNTIME=... pf ...
+DEFAULT_IMAGE="localhost/pf-runner:latest"
+DEFAULT_RUNTIME="podman"
+
 IMAGE="${PF_IMAGE:-$DEFAULT_IMAGE}"
 RUNTIME="${PF_RUNTIME:-$DEFAULT_RUNTIME}"
 
 if ! command -v "$RUNTIME" >/dev/null 2>&1; then
-  echo "Error: container runtime '$RUNTIME' not found. Set PF_RUNTIME or install docker/podman." >&2
+  echo "Error: container runtime '$RUNTIME' not found. Set PF_RUNTIME or install podman." >&2
   exit 1
+fi
+
+# If the user did not override PF_IMAGE, avoid confusing 'trying to pull localhost/...'
+# behavior by checking for the local image first.
+if [[ -z "${PF_IMAGE:-}" ]] && [[ "$RUNTIME" = "podman" ]]; then
+  if ! podman image exists "$IMAGE" >/dev/null 2>&1; then
+    echo "Error: container image '$IMAGE' not found locally." >&2
+    echo "Build it from the repo root, for example:" >&2
+    echo "  ./install.sh --runtime podman" >&2
+    echo "  # or: ./containers/scripts/build-containers.sh api" >&2
+    echo "Or install the native runner:" >&2
+    echo "  sudo ./install.sh --mode native" >&2
+    exit 1
+  fi
 fi
 
 WORKDIR="${PWD}"
