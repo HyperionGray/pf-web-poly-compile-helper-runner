@@ -1,4 +1,4 @@
-#!/home/punk/projects/pf-web-poly-compile-helper-runner/venv/bin/python
+#!/usr/bin/env python3
 """
 pf_parser.py - Core DSL parser and task runner for pf
 
@@ -39,6 +39,12 @@ import sys
 import shlex
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Tuple, Optional, Callable
+
+# Add bundled fabric to path if available
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_bundled_fabric = os.path.join(_script_dir, "fabric")
+if os.path.isdir(_bundled_fabric) and _bundled_fabric not in sys.path:
+    sys.path.insert(0, os.path.dirname(_bundled_fabric))
 
 from fabric import Connection
 
@@ -1237,7 +1243,3 @@ def parse_pfyfile_text(
             rc_total = rc_total or rc
 
     return rc_total
-
-
-if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))

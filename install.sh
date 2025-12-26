@@ -381,30 +381,34 @@ install_pf_runner() {
     log_info "Copying pf-runner files to $lib_dir"
     cp -r "${PF_RUNNER_DIR}"/* "$lib_dir/"
     
+    # Copy bundled fabric library
+    log_info "Copying bundled fabric library"
+    cp -r "${SCRIPT_DIR}/fabric" "$lib_dir/"
+    
     # Update shebang in main script
     if [[ "$PREFIX" != "/usr/local" ]] && [[ "$PREFIX" != "/usr"* ]]; then
         # User installation - use virtual environment python
         local venv_python="${PREFIX}/lib/pf-runner-venv/bin/python"
-        sed -i "1s|^.*$|#!${venv_python}|" "${lib_dir}/pf_parser.py"
+        sed -i "1s|^.*$|#!${venv_python}|" "${lib_dir}/pf_main.py"
     else
         # System installation - use system python
-        sed -i "1s|^.*$|#!/usr/bin/env python3|" "${lib_dir}/pf_parser.py"
+        sed -i "1s|^.*$|#!/usr/bin/env python3|" "${lib_dir}/pf_main.py"
     fi
     
     # Make executable
-    chmod +x "${lib_dir}/pf_parser.py"
+    chmod +x "${lib_dir}/pf_main.py"
     
     # Create pf executable
     cat > "${bin_dir}/pf" << EOF
 #!/usr/bin/env bash
 # pf - Wrapper script for pf-runner
-exec "${lib_dir}/pf_parser.py" "\$@"
+exec "${lib_dir}/pf_main.py" "\$@"
 EOF
     chmod +x "${bin_dir}/pf"
     
     # Create symlink for local development
     if [[ -d "$lib_dir" ]]; then
-        ln -sfn pf_parser.py "${lib_dir}/pf"
+        ln -sfn pf_main.py "${lib_dir}/pf"
     fi
     
     log_success "pf-runner installed to $lib_dir"
