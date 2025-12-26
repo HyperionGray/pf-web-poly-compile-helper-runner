@@ -64,54 +64,17 @@ jobs:
         continue-on-error: true
 
       - name: GPT-5 Advanced Code Analysis
-        uses: austenstone/copilot-cli-action@v2
-        with:
-          copilot-token: ${{ secrets.COPILOT_TOKEN }}
-          prompt: |
-            Perform a comprehensive code analysis of this repository using GPT-5's advanced capabilities:
-            
-            1. **Code Quality & Architecture**
-               - Analyze overall code structure and organization
-               - Identify architectural patterns and anti-patterns
-               - Suggest improvements for maintainability and scalability
-            
-            2. **Security Analysis**
-               - Detect potential security vulnerabilities
-               - Identify unsafe coding patterns
-               - Recommend security best practices
-            
-            3. **Performance Optimization**
-               - Identify performance bottlenecks
-               - Suggest optimization opportunities
-               - Recommend efficient algorithms and data structures
-            
-            4. **Best Practices**
-               - Verify adherence to language-specific best practices
-               - Check for proper error handling
-               - Ensure code follows SOLID principles
-            
-            5. **Documentation & Maintainability**
-               - Assess code documentation quality
-               - Identify areas needing better comments
-               - Suggest improvements for code readability
-            
-            Provide specific, actionable recommendations with file names and line numbers where applicable.
+        run: |
+          echo "GPT-5 advanced code analysis would be performed here."
+          echo "The austenstone/copilot-cli-action is currently unavailable."
+          echo "Manual code analysis should be performed instead."
         continue-on-error: true
 
       - name: GPT-5 Test Coverage Analysis
-        uses: austenstone/copilot-cli-action@v2
-        with:
-          copilot-token: ${{ secrets.COPILOT_TOKEN }}
-          prompt: |
-            Analyze the test coverage and testing strategy:
-            
-            1. Identify files that lack adequate test coverage
-            2. Suggest missing test cases for critical functionality
-            3. Recommend improvements to existing tests
-            4. Identify edge cases that should be tested
-            5. Suggest integration and end-to-end test scenarios
-            
-            Focus on critical paths and business logic.
+        run: |
+          echo "GPT-5 test coverage analysis would be performed here."
+          echo "The austenstone/copilot-cli-action is currently unavailable."
+          echo "Manual test coverage analysis should be performed instead."
         continue-on-error: true
 
       - name: Create GPT-5 Analysis Report

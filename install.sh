@@ -360,9 +360,9 @@ setup_python_env() {
     log_info "Upgrading pip..."
     $PIP_CMD install --upgrade pip
     
-    # Install Python dependencies
+    # Install Python dependencies (fabric is bundled locally)
     log_info "Installing Python dependencies..."
-    $PIP_CMD install "fabric>=3.2,<4" "lark>=1.1.0"
+    $PIP_CMD install "lark>=1.1.0"
     
     log_success "Python environment setup complete"
 }
@@ -380,6 +380,15 @@ install_pf_runner() {
     # Copy pf-runner files
     log_info "Copying pf-runner files to $lib_dir"
     cp -r "${PF_RUNNER_DIR}"/* "$lib_dir/"
+    
+    # Copy bundled fabric library
+    log_info "Copying bundled fabric library to $lib_dir"
+    if [[ -d "${SCRIPT_DIR}/fabric" ]]; then
+        cp -r "${SCRIPT_DIR}/fabric" "$lib_dir/"
+        log_success "Bundled fabric library copied successfully"
+    else
+        log_warning "Bundled fabric directory not found at ${SCRIPT_DIR}/fabric"
+    fi
     
     # Update shebang in main script
     if [[ "$PREFIX" != "/usr/local" ]] && [[ "$PREFIX" != "/usr"* ]]; then
