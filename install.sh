@@ -196,7 +196,7 @@ WHAT THIS SCRIPT DOES (native mode):
     1. Checks prerequisites (Python 3, Git)
     2. Installs system dependencies (optional)
     3. Sets up Python virtual environment
-    4. Installs Python dependencies (fabric, lark)
+    4. Installs Python dependencies (lark, decorator, invoke, paramiko, deprecated)
     5. Installs pf-runner to specified prefix
     6. Sets up shell completions (optional)
     7. Validates installation
@@ -406,9 +406,9 @@ setup_python_env() {
     log_info "Upgrading pip..."
     $PIP_CMD install --upgrade pip
     
-    # Install Python dependencies (fabric is bundled locally)
+    # Install Python dependencies (fabric is bundled locally but requires external deps)
     log_info "Installing Python dependencies..."
-    $PIP_CMD install "lark>=1.1.0"
+    $PIP_CMD install "lark>=1.1.0" "decorator>=5" "invoke>=2.0" "paramiko>=2.4" "deprecated>=1.2"
     
     log_success "Python environment setup complete"
 }
@@ -612,9 +612,9 @@ validate_native_installation() {
         return 1
     fi
     
-    # Test basic pf functionality
+    # Test basic pf functionality (run from /tmp to avoid parsing issues with local Pfyfiles)
     log_info "Testing pf list..."
-    if ! "$pf_cmd" list >/dev/null 2>&1; then
+    if ! (cd /tmp && "$pf_cmd" list >/dev/null 2>&1); then
         log_error "pf list failed"
         return 1
     fi
@@ -730,7 +730,7 @@ main() {
         log_info "Installation summary:"
         echo "  • pf-runner library: ${PREFIX}/lib/pf-runner"
         echo "  • pf executable: ${PREFIX}/bin/pf"
-        echo "  • Python dependencies: fabric, lark"
+        echo "  • Python dependencies: lark, decorator, invoke, paramiko, deprecated"
         echo ""
 
         update_path_info
