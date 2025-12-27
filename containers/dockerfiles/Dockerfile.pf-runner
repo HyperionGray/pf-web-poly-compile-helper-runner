@@ -23,9 +23,9 @@ COPY --chown=pfuser:pfuser Pfyfile*.pf /app/
 
 # Make pf executable and create symlinks (ensure user bin dir exists)
 RUN mkdir -p /home/pfuser/.local/bin && \
-    chmod +x /app/pf-runner/pf_parser.py && \
-    ln -sf /app/pf-runner/pf_parser.py /home/pfuser/.local/bin/pf && \
-    ln -sf /app/pf-runner/pf_parser.py /usr/local/bin/pf
+    chmod +x /app/pf-runner/pf_main.py && \
+    ln -sf /app/pf-runner/pf_main.py /home/pfuser/.local/bin/pf && \
+    ln -sf /app/pf-runner/pf_main.py /usr/local/bin/pf
 
 # Set environment
 ENV PFY_FILE=/app/Pfyfile.pf
