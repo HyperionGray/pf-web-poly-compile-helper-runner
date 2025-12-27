@@ -200,12 +200,11 @@ def execute_shell_command(cmd_line: str, task_env: Optional[Dict[str, str]] = No
         # For local execution, we can pass env directly to subprocess
         try:
             # Determine if we need shell=True based on command content
-            # When using sudo, check the full_command; otherwise check the base command
-            cmd_to_check = full_command if sudo else command
-            needs_shell = _has_shell_metacharacters(cmd_to_check)
+            # Check the original command for shell features, not the sudo-wrapped version
+            needs_shell = _has_shell_metacharacters(command) or sudo
             
             if needs_shell:
-                # Use shell=True for commands that need shell features
+                # Use shell=True for commands that need shell features or sudo
                 # All user inputs are already sanitized via shlex.quote() in build_shell_command()
                 if sudo:
                     p = subprocess.Popen(full_command, shell=True, env=proc_env)

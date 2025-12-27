@@ -252,7 +252,8 @@ async function listSnapshots() {
   const snapshotsDir = path.join(CONFIG.switchBase, 'snapshots');
   
   try {
-    await fsPromises.access(snapshotsDir, fs.constants.F_OK);
+    // Check if directory exists (access() defaults to checking existence)
+    await fsPromises.access(snapshotsDir);
   } catch (error) {
     // Only handle ENOENT (directory doesn't exist), report other errors
     if (error.code === 'ENOENT') {
@@ -450,12 +451,15 @@ async function switchOS(targetOS, options = {}) {
       // Copy kernel and initrd
       const kernelSrcPath = path.join(stagingDir, osConfig.kernel.slice(1));
       try {
-        await fsPromises.access(kernelSrcPath);
+        await fsPromises.access(kernelSrcPath, fs.constants.R_OK);
         console.log(chalk.gray('  Copying kernel and initrd...'));
         const kernelDstPath = path.join(mountPoint, osConfig.kernel.slice(1));
         execCommand(`cp -r ${shellEscape(kernelSrcPath)} ${shellEscape(kernelDstPath)}`);
-      } catch {
-        // Kernel not found, skip
+      } catch (error) {
+        // Kernel not found or not readable, skip
+        if (error.code !== 'ENOENT' && error.code !== 'EACCES') {
+          console.log(chalk.yellow(`  Warning: Could not access kernel: ${error.message}`));
+        }
       }
       
       // Unmount
@@ -480,13 +484,23 @@ async function switchOS(targetOS, options = {}) {
   let kernelExists = false;
   let initrdExists = false;
   try {
-    await fsPromises.access(kernelPath);
+    await fsPromises.access(kernelPath, fs.constants.R_OK);
     kernelExists = true;
-  } catch {}
+  } catch (error) {
+    // File doesn't exist or isn't readable - expected in some cases
+    if (error.code !== 'ENOENT' && error.code !== 'EACCES') {
+      console.log(chalk.yellow(`  Warning: Kernel access error: ${error.message}`));
+    }
+  }
   try {
-    await fsPromises.access(initrdPath);
+    await fsPromises.access(initrdPath, fs.constants.R_OK);
     initrdExists = true;
-  } catch {}
+  } catch (error) {
+    // File doesn't exist or isn't readable - expected in some cases
+    if (error.code !== 'ENOENT' && error.code !== 'EACCES') {
+      console.log(chalk.yellow(`  Warning: Initrd access error: ${error.message}`));
+    }
+  }
   
   if (kernelExists && initrdExists) {
     if (!options.dryRun) {
