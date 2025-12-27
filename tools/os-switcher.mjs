@@ -14,6 +14,7 @@
 
 import { spawn, execSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { promises as fsPromises } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
@@ -57,6 +58,19 @@ const CONFIG = {
   // Snapshot methods in order of preference
   snapshotMethods: ['btrfs', 'zfs', 'rsync']
 };
+
+/**
+ * Shell-escape a string for safe use in shell commands
+ * Similar to Python's shlex.quote()
+ */
+function shellEscape(str) {
+  // If the string doesn't contain special characters, return as-is
+  if (/^[a-zA-Z0-9_\-\/\.]+$/.test(str)) {
+    return str;
+  }
+  // Otherwise, wrap in single quotes and escape any existing single quotes
+  return "'" + str.replace(/'/g, "'\\''") + "'";
+}
 
 /**
  * Execute command with error handling
@@ -139,7 +153,7 @@ function getContainerRuntime() {
 /**
  * Initialize switch directories
  */
-function initSwitchDirs() {
+async function initSwitchDirs() {
   const dirs = [
     CONFIG.switchBase,
     path.join(CONFIG.switchBase, 'snapshots'),
@@ -149,7 +163,7 @@ function initSwitchDirs() {
   ];
   
   for (const dir of dirs) {
-    fs.mkdirSync(dir, { recursive: true });
+    await fsPromises.mkdir(dir, { recursive: true });
   }
   
   return CONFIG.switchBase;
@@ -181,7 +195,7 @@ async function createSnapshot(name = null) {
           execCommand(`btrfs subvolume snapshot / ${snapshotDir}`);
         } else {
           // Fallback to rsync for non-subvolume root
-          fs.mkdirSync(snapshotDir, { recursive: true });
+          await fsPromises.mkdir(snapshotDir, { recursive: true });
           execCommand(`rsync -axHAWXS --numeric-ids --info=progress2 / ${snapshotDir}/ --exclude=/proc --exclude=/sys --exclude=/dev --exclude=/run --exclude=/tmp --exclude="${CONFIG.switchBase}"`);
         }
         break;
@@ -201,7 +215,7 @@ async function createSnapshot(name = null) {
       
       case 'rsync': {
         // rsync backup
-        fs.mkdirSync(snapshotDir, { recursive: true });
+        await fsPromises.mkdir(snapshotDir, { recursive: true });
         execCommand(`rsync -axHAWXS --numeric-ids / ${snapshotDir}/ --exclude=/proc --exclude=/sys --exclude=/dev --exclude=/run --exclude=/tmp --exclude="${CONFIG.switchBase}"`, {
           stdio: 'inherit'
         });
@@ -218,7 +232,7 @@ async function createSnapshot(name = null) {
       hostname: execCommand('hostname', { throwOnError: false })
     };
     
-    fs.writeFileSync(
+    await fsPromises.writeFile(
       path.join(CONFIG.switchBase, 'snapshots', `${snapshotName}.json`),
       JSON.stringify(metadata, null, 2)
     );
@@ -234,23 +248,30 @@ async function createSnapshot(name = null) {
 /**
  * List available snapshots
  */
-function listSnapshots() {
+async function listSnapshots() {
   const snapshotsDir = path.join(CONFIG.switchBase, 'snapshots');
   
-  if (!fs.existsSync(snapshotsDir)) {
-    console.log(chalk.yellow('No snapshots found.'));
-    return [];
+  try {
+    // Check if directory exists (access() defaults to checking existence)
+    await fsPromises.access(snapshotsDir);
+  } catch (error) {
+    // Only handle ENOENT (directory doesn't exist), report other errors
+    if (error.code === 'ENOENT') {
+      console.log(chalk.yellow('No snapshots found.'));
+      return [];
+    }
+    // Re-throw other errors (permission issues, etc.)
+    throw error;
   }
   
   const snapshots = [];
-  const files = fs.readdirSync(snapshotsDir);
+  const files = await fsPromises.readdir(snapshotsDir);
   
   for (const file of files) {
     if (file.endsWith('.json')) {
       try {
-        const metadata = JSON.parse(
-          fs.readFileSync(path.join(snapshotsDir, file), 'utf-8')
-        );
+        const content = await fsPromises.readFile(path.join(snapshotsDir, file), 'utf-8');
+        const metadata = JSON.parse(content);
         snapshots.push(metadata);
       } catch {}
     }
@@ -293,7 +314,7 @@ async function prepareTargetOS(targetOS, targetPartition) {
     
     // Create staging area
     const stagingDir = path.join(CONFIG.switchBase, 'staging', targetOS);
-    fs.mkdirSync(stagingDir, { recursive: true });
+    await fsPromises.mkdir(stagingDir, { recursive: true });
     
     // Export container filesystem
     spinner.text = `Exporting ${targetOS} filesystem...`;
@@ -340,7 +361,7 @@ async function performKexec(kernelPath, initrdPath, cmdline = null) {
   
   // Get current kernel cmdline if not specified
   if (!cmdline) {
-    cmdline = fs.readFileSync('/proc/cmdline', 'utf-8').trim();
+    cmdline = (await fsPromises.readFile('/proc/cmdline', 'utf-8')).trim();
   }
   
   try {
@@ -375,7 +396,7 @@ async function switchOS(targetOS, options = {}) {
   console.log(chalk.bold('═══════════════════════════════════════════════\n'));
   
   checkRoot();
-  initSwitchDirs();
+  await initSwitchDirs();
   
   const targetConfig = CONFIG.targetOS[targetOS];
   if (!targetConfig) {
@@ -416,33 +437,37 @@ async function switchOS(targetOS, options = {}) {
     console.log(chalk.cyan('\n[4/5] Syncing filesystem to target partition...'));
     
     const mountPoint = path.join(CONFIG.switchBase, 'mnt');
-    fs.mkdirSync(mountPoint, { recursive: true });
+    await fsPromises.mkdir(mountPoint, { recursive: true });
     
     try {
       // Mount target partition
-      execCommand(`mount ${options.partition} ${mountPoint}`);
+      execCommand(`mount ${shellEscape(options.partition)} ${shellEscape(mountPoint)}`);
       
       // Sync with rsync
-      execCommand(`rsync -axHAWXS --numeric-ids --delete ${stagingDir}/ ${mountPoint}/`, {
+      execCommand(`rsync -axHAWXS --numeric-ids --delete ${shellEscape(stagingDir + '/')} ${shellEscape(mountPoint + '/')}`, {
         stdio: 'inherit'
       });
       
       // Copy kernel and initrd
-      if (fs.existsSync(path.join(stagingDir, osConfig.kernel.slice(1)))) {
+      const kernelSrcPath = path.join(stagingDir, osConfig.kernel.slice(1));
+      try {
+        await fsPromises.access(kernelSrcPath, fs.constants.R_OK);
         console.log(chalk.gray('  Copying kernel and initrd...'));
-        fs.cpSync(
-          path.join(stagingDir, osConfig.kernel.slice(1)),
-          path.join(mountPoint, osConfig.kernel.slice(1)),
-          { recursive: true }
-        );
+        const kernelDstPath = path.join(mountPoint, osConfig.kernel.slice(1));
+        execCommand(`cp -r ${shellEscape(kernelSrcPath)} ${shellEscape(kernelDstPath)}`);
+      } catch (error) {
+        // Kernel not found or not readable, skip
+        if (error.code !== 'ENOENT' && error.code !== 'EACCES') {
+          console.log(chalk.yellow(`  Warning: Could not access kernel: ${error.message}`));
+        }
       }
       
       // Unmount
-      execCommand(`umount ${mountPoint}`);
+      execCommand(`umount ${shellEscape(mountPoint)}`);
       
       console.log(chalk.green('  ✓ Filesystem synced to target partition'));
     } catch (error) {
-      execCommand(`umount ${mountPoint}`, { throwOnError: false });
+      execCommand(`umount ${shellEscape(mountPoint)}`, { throwOnError: false });
       console.error(chalk.red(`  Sync failed: ${error.message}`));
     }
   } else {
@@ -455,7 +480,29 @@ async function switchOS(targetOS, options = {}) {
   const kernelPath = path.join(stagingDir, osConfig.kernel.slice(1));
   const initrdPath = path.join(stagingDir, osConfig.initrd.slice(1));
   
-  if (fs.existsSync(kernelPath) && fs.existsSync(initrdPath)) {
+  // Check if both kernel and initrd exist using async access
+  let kernelExists = false;
+  let initrdExists = false;
+  try {
+    await fsPromises.access(kernelPath, fs.constants.R_OK);
+    kernelExists = true;
+  } catch (error) {
+    // File doesn't exist or isn't readable - expected in some cases
+    if (error.code !== 'ENOENT' && error.code !== 'EACCES') {
+      console.log(chalk.yellow(`  Warning: Kernel access error: ${error.message}`));
+    }
+  }
+  try {
+    await fsPromises.access(initrdPath, fs.constants.R_OK);
+    initrdExists = true;
+  } catch (error) {
+    // File doesn't exist or isn't readable - expected in some cases
+    if (error.code !== 'ENOENT' && error.code !== 'EACCES') {
+      console.log(chalk.yellow(`  Warning: Initrd access error: ${error.message}`));
+    }
+  }
+  
+  if (kernelExists && initrdExists) {
     if (!options.dryRun) {
       await performKexec(kernelPath, initrdPath);
     } else {
@@ -489,7 +536,7 @@ async function switchOS(targetOS, options = {}) {
 /**
  * Show status and help
  */
-function showStatus() {
+async function showStatus() {
   console.log(chalk.bold('\n═══════════════════════════════════════════════'));
   console.log(chalk.bold('  OS Switcher Status'));
   console.log(chalk.bold('═══════════════════════════════════════════════\n'));
@@ -500,7 +547,7 @@ function showStatus() {
     // Read os-release directly in Node.js
     let osName = 'Unknown';
     try {
-      const osRelease = fs.readFileSync('/etc/os-release', 'utf-8');
+      const osRelease = await fsPromises.readFile('/etc/os-release', 'utf-8');
       const match = osRelease.match(/^PRETTY_NAME="?([^"\n]+)"?/m);
       if (match) osName = match[1];
     } catch {}
@@ -529,7 +576,7 @@ function showStatus() {
   console.log('');
   
   // List snapshots
-  listSnapshots();
+  await listSnapshots();
 }
 
 /**
@@ -624,27 +671,27 @@ async function main() {
       
       case 'snapshot': {
         checkRoot();
-        initSwitchDirs();
+        await initSwitchDirs();
         const name = args[1];
         await createSnapshot(name);
         break;
       }
       
       case 'snapshots': {
-        initSwitchDirs();
-        listSnapshots();
+        await initSwitchDirs();
+        await listSnapshots();
         break;
       }
       
       case 'status': {
-        initSwitchDirs();
-        showStatus();
+        await initSwitchDirs();
+        await showStatus();
         break;
       }
       
       case 'prepare': {
         checkRoot();
-        initSwitchDirs();
+        await initSwitchDirs();
         const targetOS = args[1];
         if (!targetOS) {
           console.error(chalk.red('Usage: prepare <target-os>'));

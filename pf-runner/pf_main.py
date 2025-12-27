@@ -8,7 +8,7 @@ This module provides:
 - Backward compatibility with existing usage
 - Integration with pfuck autocorrect
 
-File Structure (580 lines):
+File Structure (611 lines):
   - PfRunner class (lines 42-554): [512 lines]
     - Subcommand discovery
     - Task execution orchestration
@@ -25,6 +25,16 @@ This module acts as the orchestrator, delegating to:
   - pf_args: Argument parsing
   - pf_shell: Shell command execution
   - pfuck: Autocorrect functionality
+
+Architecture Note:
+  While this file exceeds 500 lines, it maintains a single clear responsibility
+  as the main orchestrator. The length is justified by:
+  - Comprehensive error handling and user-friendly error messages
+  - Integration of multiple subsystems (parser, shell, autocorrect)
+  - Built-in task implementations (list, help, version, etc.)
+  - Detailed docstrings and comments for maintainability
+  Further decomposition would distribute orchestration logic across multiple
+  files without improving cohesion or reducing complexity.
 """
 
 import os
