@@ -39,42 +39,14 @@ jobs:
           python-version: '3.11'
         continue-on-error: true
 
-      - name: Prepare Repository Analysis
-        id: prepare-analysis
+      - name: Run Comprehensive Code Analysis
+        id: run-analysis
         run: |
-          echo "## GPT-5 Code Analysis" > /tmp/gpt5-analysis.md
-          echo "" >> /tmp/gpt5-analysis.md
-          echo "### Repository Statistics:" >> /tmp/gpt5-analysis.md
+          echo "🔍 Running comprehensive code analysis..."
+          node tools/analysis/code-analyzer.mjs . --output /tmp/gpt5-analysis.md --verbose
           
-          # Count different file types
-          python_files=$(find . -name "*.py" ! -path "*/.venv/*" ! -path "*/node_modules/*" | wc -l)
-          js_files=$(find . -name "*.js" ! -path "*/node_modules/*" ! -path "*/dist/*" | wc -l)
-          ts_files=$(find . -name "*.ts" ! -path "*/node_modules/*" ! -path "*/dist/*" | wc -l)
-          go_files=$(find . -name "*.go" ! -path "*/vendor/*" | wc -l)
-          java_files=$(find . -name "*.java" ! -path "*/target/*" | wc -l)
-          
-          echo "- Python files: $python_files" >> /tmp/gpt5-analysis.md
-          echo "- JavaScript files: $js_files" >> /tmp/gpt5-analysis.md
-          echo "- TypeScript files: $ts_files" >> /tmp/gpt5-analysis.md
-          echo "- Go files: $go_files" >> /tmp/gpt5-analysis.md
-          echo "- Java files: $java_files" >> /tmp/gpt5-analysis.md
-          
-          echo "" >> /tmp/gpt5-analysis.md
+          echo "✅ Analysis complete"
           cat /tmp/gpt5-analysis.md
-        continue-on-error: true
-
-      - name: GPT-5 Advanced Code Analysis
-        run: |
-          echo "GPT-5 advanced code analysis would be performed here."
-          echo "The austenstone/copilot-cli-action is currently unavailable."
-          echo "Manual code analysis should be performed instead."
-        continue-on-error: true
-
-      - name: GPT-5 Test Coverage Analysis
-        run: |
-          echo "GPT-5 test coverage analysis would be performed here."
-          echo "The austenstone/copilot-cli-action is currently unavailable."
-          echo "Manual test coverage analysis should be performed instead."
         continue-on-error: true
 
       - name: Create GPT-5 Analysis Report
@@ -83,73 +55,63 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const analysis = fs.readFileSync('/tmp/gpt5-analysis.md', 'utf8');
+            
+            let analysis = '';
+            try {
+              analysis = fs.readFileSync('/tmp/gpt5-analysis.md', 'utf8');
+            } catch (error) {
+              console.log('Could not read analysis file, using fallback');
+              analysis = '## Analysis Error\n\nCode analysis could not be completed. Please check the workflow logs.';
+            }
             
             const date = new Date().toISOString().split('T')[0];
             const title = `GPT-5 Code Analysis Report - ${date}`;
             
-            const body = `# GPT-5 Advanced Code Analysis Report
+            const body = `${analysis}
             
-            ${analysis}
+            ---
             
-            ## Analysis Overview
+            ## Analysis Methodology
             
-            This report was generated using **GPT-5**, the latest model available in GitHub Copilot, which provides:
+            This report was generated using advanced static analysis techniques that provide:
             
-            ### Advanced Capabilities Used
+            ### Analysis Capabilities
             
             1. **Deep Code Understanding**
                - Semantic analysis of code structure and patterns
                - Context-aware recommendations
-               - Multi-language proficiency
+               - Multi-language proficiency (Python, JavaScript, TypeScript, Go, Rust, C/C++)
             
             2. **Comprehensive Security Analysis**
                - Vulnerability detection with CVE references
-               - Security best practices validation
-               - Threat modeling insights
+               - Security best practices validation (eval/exec, pickle, shell=True, innerHTML)
+               - Credential scanning and dependency vulnerability checking
             
             3. **Performance Optimization**
                - Algorithm efficiency analysis
-               - Resource usage optimization
+               - Resource usage optimization (async/await, list comprehensions)
                - Scalability recommendations
             
             4. **Architecture Review**
                - Design pattern identification
-               - SOLID principles compliance
-               - Coupling and cohesion analysis
+               - SOLID principles compliance (SRP violations, high coupling detection)
+               - File size and complexity analysis
             
             5. **Test Strategy Enhancement**
                - Coverage gap identification
-               - Test case recommendations
+               - Test framework detection
                - Quality assurance improvements
             
-            ## Available GPT-5 Models in GitHub Copilot
-            
-            The following GPT-5 variants are available:
-            - **GPT-5**: Standard model (multiplier: 1)
-            - **GPT-5 mini**: Faster, lightweight version (multiplier: 0)
-            - **GPT-5-Codex**: Specialized for code generation (multiplier: 1)
-            - **GPT-5.1**: Enhanced reasoning model (multiplier: 1)
-            - **GPT-5.1-Codex**: Advanced code-focused model (multiplier: 1)
-            - **GPT-5.1-Codex-Mini**: Efficient code model (multiplier: 0.33)
-            - **GPT-5.1-Codex-Max**: Maximum capability code model (multiplier: 1)
-            - **GPT-5.2**: Latest generation model (multiplier: 1)
-            
-            ## Action Items
-            
-            Based on the GPT-5 analysis above, review the specific recommendations and:
-            
-            - [ ] Address high-priority security findings
-            - [ ] Implement suggested performance optimizations
-            - [ ] Refactor code based on architecture recommendations
-            - [ ] Add missing test coverage
-            - [ ] Update documentation as suggested
-            - [ ] Review and apply best practice improvements
+            6. **Documentation Quality**
+               - README and contributing guide presence
+               - API documentation completeness
+               - Docstring/JSDoc coverage
             
             ---
-            *This report was automatically generated using GPT-5 via GitHub Copilot.*
+            *This report was automatically generated using the code-analyzer tool.*
             
-            For more information about GPT-5 models, see [Supported AI Models](https://docs.github.com/en/copilot/reference/ai-models/supported-models).
+            **Workflow:** \`auto-gpt5-implementation.yml\`
+            **Analyzer:** \`tools/analysis/code-analyzer.mjs\`
             `;
             
             // Only create issue if in PR or on main branch
@@ -175,7 +137,7 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: recentIssue.number,
-                  body: `## Updated GPT-5 Analysis (${date})\n\n${analysis}\n\n---\n\n*Analysis performed using GPT-5 model via GitHub Copilot.*`
+                  body: `## Updated Code Analysis (${date})\n\n${analysis}\n\n---\n\n*Analysis performed using code-analyzer tool.*`
                 });
               } else {
                 await github.rest.issues.create({
