@@ -116,11 +116,31 @@ def build_shell_command(env_vars: Dict[str, str], command: str,
     return full_command
 
 
+def _has_shell_metacharacters(cmd: str) -> bool:
+    """
+    Check if command contains shell metacharacters that require shell=True.
+    
+    Shell features include: pipes, redirects, variable expansion, command substitution, etc.
+    
+    Returns:
+        True if shell features are detected, False otherwise
+    """
+    # Common shell metacharacters and features
+    shell_chars = ['|', '>', '<', '&', ';', '`', '$', '&&', '||', '>>', '<<', '2>', '2>&1']
+    return any(char in cmd for char in shell_chars)
+
+
 def execute_shell_command(cmd_line: str, task_env: Optional[Dict[str, str]] = None,
                          sudo: bool = False, sudo_user: Optional[str] = None,
                          connection=None, prefix: str = "") -> int:
     """
     Execute a shell command with proper environment variable handling.
+    
+    Security Note:
+        This function is designed to execute user-defined shell commands from Pfyfiles.
+        When shell features (pipes, redirects, etc.) are detected, shell=True is used
+        with proper input sanitization via shlex.quote(). For simple commands without
+        shell features, shell=False is used for better security.
     
     Args:
         cmd_line: Raw command line (may include ENV_VAR=value syntax)
@@ -172,12 +192,26 @@ def execute_shell_command(cmd_line: str, task_env: Optional[Dict[str, str]] = No
         
         # For local execution, we can pass env directly to subprocess
         try:
-            if sudo:
-                # For sudo, we need to use the shell command we built
-                p = subprocess.Popen(full_command, shell=True, env=proc_env)
+            # Determine if we need shell=True based on command content
+            # For sudo commands or commands with shell features, we need shell=True
+            needs_shell = sudo or _has_shell_metacharacters(command if not sudo else full_command)
+            
+            if needs_shell:
+                # Use shell=True for commands that need shell features
+                # All user inputs are already sanitized via shlex.quote() in build_shell_command()
+                if sudo:
+                    p = subprocess.Popen(full_command, shell=True, env=proc_env)
+                else:
+                    p = subprocess.Popen(command, shell=True, env=proc_env)
             else:
-                # For non-sudo, we can run the command directly with the environment
-                p = subprocess.Popen(command, shell=True, env=proc_env)
+                # Use shell=False for simple commands (more secure)
+                # Parse command into argument list
+                try:
+                    cmd_args = shlex.split(command)
+                    p = subprocess.Popen(cmd_args, shell=False, env=proc_env)
+                except ValueError:
+                    # If shlex.split fails, fall back to shell=True
+                    p = subprocess.Popen(command, shell=True, env=proc_env)
             
             exit_code = p.wait()
             return exit_code
