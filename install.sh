@@ -360,9 +360,9 @@ setup_python_env() {
     log_info "Upgrading pip..."
     $PIP_CMD install --upgrade pip
     
-    # Install Python dependencies (fabric is bundled locally)
+    # Install Python dependencies
     log_info "Installing Python dependencies..."
-    $PIP_CMD install "lark>=1.1.0"
+    $PIP_CMD install "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12"
     
     log_success "Python environment setup complete"
 }
@@ -380,10 +380,6 @@ install_pf_runner() {
     # Copy pf-runner files
     log_info "Copying pf-runner files to $lib_dir"
     cp -r "${PF_RUNNER_DIR}"/* "$lib_dir/"
-    
-    # Copy bundled fabric library
-    log_info "Copying bundled fabric library"
-    cp -r "${SCRIPT_DIR}/fabric" "$lib_dir/"
     
     # Update shebang in main script
     if [[ "$PREFIX" != "/usr/local" ]] && [[ "$PREFIX" != "/usr"* ]]; then
@@ -568,8 +564,10 @@ validate_native_installation() {
     
     # Test basic pf functionality
     log_info "Testing pf list..."
-    if ! "$pf_cmd" list >/dev/null 2>&1; then
-        log_error "pf list failed"
+    local list_output
+    list_output=$("$pf_cmd" list 2>&1)
+    if [[ ! "$list_output" =~ "Available tasks" ]]; then
+        log_error "pf list failed: $list_output"
         return 1
     fi
     
