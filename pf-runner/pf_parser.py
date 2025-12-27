@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
 pf_parser.py - Core DSL parser and task runner for pf
 
