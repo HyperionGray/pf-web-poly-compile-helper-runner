@@ -16,16 +16,40 @@ fi
 
 echo "Fetching open issues from ${REPO_OWNER}/${REPO_NAME}..."
 
-# Fetch all open issues
-issues_json=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-    "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?state=open&per_page=100")
+# Fetch all open issues (with pagination support)
+page=1
+all_issues="[]"
 
-# Check if we got valid JSON
-if ! echo "$issues_json" | jq empty 2>/dev/null; then
-    echo "Error: Failed to fetch issues or invalid JSON response"
-    echo "Response: $issues_json"
-    exit 1
-fi
+while true; do
+    echo "  Fetching page $page..."
+    issues_json=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+        "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?state=open&per_page=100&page=$page")
+    
+    # Check if we got valid JSON
+    if ! echo "$issues_json" | jq empty 2>/dev/null; then
+        echo "Error: Failed to fetch issues or invalid JSON response"
+        echo "Response: $issues_json"
+        exit 1
+    fi
+    
+    # Check if this page has any issues
+    page_count=$(echo "$issues_json" | jq 'length')
+    if [[ $page_count -eq 0 ]]; then
+        break
+    fi
+    
+    # Merge with all issues
+    all_issues=$(echo "$all_issues" "$issues_json" | jq -s 'add')
+    
+    # If we got less than 100 results, we're done
+    if [[ $page_count -lt 100 ]]; then
+        break
+    fi
+    
+    ((page++))
+done
+
+issues_json="$all_issues"
 
 # Count total open issues
 total_issues=$(echo "$issues_json" | jq 'length')
@@ -61,9 +85,6 @@ while read -r issue_number; do
         ((issues_already_labeled++))
     else
         echo "  Issue #$issue_number: Adding 'copilot' label - \"$issue_title\""
-        
-        # Get current labels
-        current_labels=$(echo "$issue_data" | jq -r '[.labels[].name] + ["copilot"] | unique | join(",")')
         
         # Add the copilot label
         response=$(curl -s -X POST \

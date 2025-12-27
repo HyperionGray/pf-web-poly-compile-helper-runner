@@ -73,8 +73,9 @@ For just a few issues:
 Once an issue has the `copilot` label:
 
 1. The `.github/workflows/auto-assign-copilot.yml` workflow automatically triggers
-2. It assigns the `@copilot` user to the issue
-3. Copilot can then work on the issue
+2. It assigns the GitHub Copilot user (username: `copilot`) to the issue
+   - Note: This refers to the GitHub Copilot bot user, not a human team member
+3. GitHub Copilot can then work on addressing the issue automatically
 
 ## Workflow Files
 
