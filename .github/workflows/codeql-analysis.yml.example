@@ -1,0 +1,65 @@
+name: "CodeQL Security Analysis"
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run weekly on Sunday at midnight UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript', 'python' ]
+        # CodeQL supports: 'cpp', 'csharp', 'go', 'java', 'javascript', 'python', 'ruby', 'swift'
+        # Add more languages as needed
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        # Query suites: default, security-extended, security-and-quality
+        queries: security-extended
+        
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+      # If autobuild fails, use manual build steps:
+      # - name: Build
+      #   run: |
+      #     make build
+      #     npm install
+      #     npm run build
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{ matrix.language }}"
+        # Upload results even if some queries fail
+        upload: true
+        
+    - name: Upload CodeQL Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: codeql-results-${{ matrix.language }}
+        path: |
+          ${{ runner.temp }}/codeql_databases
+        retention-days: 90

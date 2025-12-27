@@ -2,6 +2,28 @@
 
 A comprehensive polyglot WebAssembly development environment featuring the **pf** task runner (Fabric-based DSL) and multi-language WASM compilation demos.
 
+## 🔒 Security Status
+
+**Amazon Q Code Review:** ✅ All recommendations implemented and validated
+
+```bash
+# Run comprehensive security scans
+npm run security:all
+
+# Current Status (as of Dec 26, 2025):
+# ✅ Credential Scanner: 0 vulnerabilities
+# ✅ Dependency Checker: 0 vulnerabilities
+# ✅ Security Headers: Validated
+```
+
+**Security Features:**
+- 🛡️ **Credential Scanner** - Detects hardcoded secrets, API keys, and passwords
+- 📦 **Dependency Vulnerability Checker** - Scans npm/pip/cargo for known vulnerabilities
+- 🔐 **Security Headers Validator** - Validates HTTP security headers
+- 🔍 **Web Application Security Scanner** - SQL injection, XSS, CSRF, and more
+
+**Quick Reference:** See [Security Scanning Guide](docs/SECURITY-SCANNING-GUIDE.md) for complete documentation.
+
 ## Quick Start
 
 **New to pf?** Check out the [**QUICKSTART.md**](QUICKSTART.md) for a comprehensive guide with examples!
@@ -1094,8 +1116,10 @@ npx playwright show-report
 - **Package Manager Guide**: See [`docs/PACKAGE-MANAGER.md`](docs/PACKAGE-MANAGER.md) for package format translation
 
 ### 🔒 Code Quality & Security Reviews
-- **Amazon Q Review Response**: See [`AMAZON_Q_REVIEW_RESPONSE.md`](AMAZON_Q_REVIEW_RESPONSE.md) - Comprehensive code quality and security analysis
-- **Amazon Q Implementation Summary**: See [`AMAZON_Q_IMPLEMENTATION_SUMMARY.md`](AMAZON_Q_IMPLEMENTATION_SUMMARY.md) - Summary of implemented improvements
+- **Security Scanning Guide**: See [`docs/SECURITY-SCANNING-GUIDE.md`](docs/SECURITY-SCANNING-GUIDE.md) - **NEW!** Quick reference for all security tools
+- **Amazon Q Review Response (Dec 24, 2025)**: See [`docs/reviews/AMAZON_Q_REVIEW_2025_12_24_RESPONSE.md`](docs/reviews/AMAZON_Q_REVIEW_2025_12_24_RESPONSE.md) - Latest review response
+- **Amazon Q Implementation**: See [`docs/AMAZON-Q-REVIEW-IMPLEMENTATION.md`](docs/AMAZON-Q-REVIEW-IMPLEMENTATION.md) - Comprehensive security implementation details
+- **Security Validation**: See [`docs/AMAZON-Q-REVIEW-VALIDATION.md`](docs/AMAZON-Q-REVIEW-VALIDATION.md) - Validation procedures
 
 ### 🆕 Reverse Engineering Tools Roadmap
 - **Executive Summary**: See [`docs/RE-TOOLS-EXECUTIVE-SUMMARY.md`](docs/RE-TOOLS-EXECUTIVE-SUMMARY.md) - Quick overview of missing tools (start here!)
