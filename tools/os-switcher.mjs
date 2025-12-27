@@ -60,6 +60,19 @@ const CONFIG = {
 };
 
 /**
+ * Shell-escape a string for safe use in shell commands
+ * Similar to Python's shlex.quote()
+ */
+function shellEscape(str) {
+  // If the string doesn't contain special characters, return as-is
+  if (/^[a-zA-Z0-9_\-\/\.]+$/.test(str)) {
+    return str;
+  }
+  // Otherwise, wrap in single quotes and escape any existing single quotes
+  return "'" + str.replace(/'/g, "'\\''") + "'";
+}
+
+/**
  * Execute command with error handling
  */
 function execCommand(cmd, options = {}) {
@@ -239,10 +252,15 @@ async function listSnapshots() {
   const snapshotsDir = path.join(CONFIG.switchBase, 'snapshots');
   
   try {
-    await fsPromises.access(snapshotsDir);
-  } catch {
-    console.log(chalk.yellow('No snapshots found.'));
-    return [];
+    await fsPromises.access(snapshotsDir, fs.constants.F_OK);
+  } catch (error) {
+    // Only handle ENOENT (directory doesn't exist), report other errors
+    if (error.code === 'ENOENT') {
+      console.log(chalk.yellow('No snapshots found.'));
+      return [];
+    }
+    // Re-throw other errors (permission issues, etc.)
+    throw error;
   }
   
   const snapshots = [];
@@ -422,10 +440,10 @@ async function switchOS(targetOS, options = {}) {
     
     try {
       // Mount target partition
-      execCommand(`mount ${options.partition} ${mountPoint}`);
+      execCommand(`mount ${shellEscape(options.partition)} ${shellEscape(mountPoint)}`);
       
       // Sync with rsync
-      execCommand(`rsync -axHAWXS --numeric-ids --delete ${stagingDir}/ ${mountPoint}/`, {
+      execCommand(`rsync -axHAWXS --numeric-ids --delete ${shellEscape(stagingDir + '/')} ${shellEscape(mountPoint + '/')}`, {
         stdio: 'inherit'
       });
       
@@ -434,18 +452,18 @@ async function switchOS(targetOS, options = {}) {
       try {
         await fsPromises.access(kernelSrcPath);
         console.log(chalk.gray('  Copying kernel and initrd...'));
-        // Use cp command for recursive copy as fs.promises.cp may not be available in older Node versions
-        execCommand(`cp -r ${kernelSrcPath} ${path.join(mountPoint, osConfig.kernel.slice(1))}`);
+        const kernelDstPath = path.join(mountPoint, osConfig.kernel.slice(1));
+        execCommand(`cp -r ${shellEscape(kernelSrcPath)} ${shellEscape(kernelDstPath)}`);
       } catch {
         // Kernel not found, skip
       }
       
       // Unmount
-      execCommand(`umount ${mountPoint}`);
+      execCommand(`umount ${shellEscape(mountPoint)}`);
       
       console.log(chalk.green('  ✓ Filesystem synced to target partition'));
     } catch (error) {
-      execCommand(`umount ${mountPoint}`, { throwOnError: false });
+      execCommand(`umount ${shellEscape(mountPoint)}`, { throwOnError: false });
       console.error(chalk.red(`  Sync failed: ${error.message}`));
     }
   } else {

@@ -120,13 +120,20 @@ def _has_shell_metacharacters(cmd: str) -> bool:
     """
     Check if command contains shell metacharacters that require shell=True.
     
-    Shell features include: pipes, redirects, variable expansion, command substitution, etc.
+    Shell features include: pipes, redirects, variable expansion, command substitution,
+    wildcards, subshells, etc.
     
     Returns:
         True if shell features are detected, False otherwise
     """
-    # Common shell metacharacters and features
-    shell_chars = ['|', '>', '<', '&', ';', '`', '$', '&&', '||', '>>', '<<', '2>', '2>&1']
+    # Comprehensive list of shell metacharacters and features
+    shell_chars = [
+        '|', '>', '<', '&', ';', '`', '$',  # Basic operators
+        '&&', '||', '>>', '<<', '2>', '2>&1',  # Compound operators
+        '*', '?', '[', ']', '{', '}',  # Wildcards and brace expansion
+        '~', '(', ')',  # Home expansion and subshells
+        '\n'  # Command chaining with newlines
+    ]
     return any(char in cmd for char in shell_chars)
 
 
@@ -193,8 +200,9 @@ def execute_shell_command(cmd_line: str, task_env: Optional[Dict[str, str]] = No
         # For local execution, we can pass env directly to subprocess
         try:
             # Determine if we need shell=True based on command content
-            # For sudo commands or commands with shell features, we need shell=True
-            needs_shell = sudo or _has_shell_metacharacters(command if not sudo else full_command)
+            # When using sudo, check the full_command; otherwise check the base command
+            cmd_to_check = full_command if sudo else command
+            needs_shell = _has_shell_metacharacters(cmd_to_check)
             
             if needs_shell:
                 # Use shell=True for commands that need shell features
