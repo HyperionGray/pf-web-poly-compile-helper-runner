@@ -85,7 +85,7 @@ The review identified files exceeding 500 lines:
    - **Assessment:** Appropriate size for a parser
 
 **Other files:**
-- fabric/connection.py (1,115 lines) - Third-party dependency
+- fabric/connection.py (1,115 lines) - Fabric library integration module
 - Various supporting files (625-580 lines) - Within acceptable range
 
 **Recommendation:**
