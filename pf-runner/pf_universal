@@ -11,20 +11,47 @@ IMAGE="${PF_IMAGE:-$DEFAULT_IMAGE}"
 RUNTIME="${PF_RUNTIME:-$DEFAULT_RUNTIME}"
 
 if ! command -v "$RUNTIME" >/dev/null 2>&1; then
-  echo "Error: container runtime '$RUNTIME' not found. Set PF_RUNTIME or install podman." >&2
+  echo "Error: container runtime '$RUNTIME' not found." >&2
+  echo "" >&2
+  echo "Available options:" >&2
+  echo "  1. Install $RUNTIME (recommended):" >&2
+  if [[ "$RUNTIME" == "podman" ]]; then
+    echo "     - Debian/Ubuntu: sudo apt-get install podman" >&2
+    echo "     - Fedora/RHEL: sudo dnf install podman" >&2
+    echo "     - macOS: brew install podman" >&2
+  else
+    echo "     - See https://docs.docker.com/get-docker/" >&2
+  fi
+  echo "  2. Use docker instead: PF_RUNTIME=docker pf ..." >&2
+  echo "  3. Install the native runner: sudo ./install.sh --mode native" >&2
   exit 1
 fi
 
 # If the user did not override PF_IMAGE, avoid confusing 'trying to pull localhost/...'
 # behavior by checking for the local image first.
-if [[ -z "${PF_IMAGE:-}" ]] && [[ "$RUNTIME" = "podman" ]]; then
-  if ! podman image exists "$IMAGE" >/dev/null 2>&1; then
+if [[ -z "${PF_IMAGE:-}" ]]; then
+  IMAGE_EXISTS=false
+  if [[ "$RUNTIME" = "podman" ]]; then
+    if podman image exists "$IMAGE" >/dev/null 2>&1; then
+      IMAGE_EXISTS=true
+    fi
+  elif [[ "$RUNTIME" = "docker" ]]; then
+    if docker image inspect "$IMAGE" >/dev/null 2>&1; then
+      IMAGE_EXISTS=true
+    fi
+  fi
+  
+  if [[ "$IMAGE_EXISTS" = "false" ]]; then
     echo "Error: container image '$IMAGE' not found locally." >&2
-    echo "Build it from the repo root, for example:" >&2
-    echo "  ./install.sh --runtime podman" >&2
-    echo "  # or: ./containers/scripts/build-containers.sh api" >&2
-    echo "Or install the native runner:" >&2
-    echo "  sudo ./install.sh --mode native" >&2
+    echo "" >&2
+    echo "To fix this issue:" >&2
+    echo "  1. Build the image from the repo root:" >&2
+    echo "     ./install.sh --runtime $RUNTIME" >&2
+    echo "     # or: ./containers/scripts/build-containers.sh api" >&2
+    echo "  2. Or install the native runner:" >&2
+    echo "     sudo ./install.sh --mode native" >&2
+    echo "  3. Or specify a different image:" >&2
+    echo "     PF_IMAGE=<your-image> pf ..." >&2
     exit 1
   fi
 fi

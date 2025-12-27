@@ -30,6 +30,7 @@ This module acts as the orchestrator, delegating to:
 import os
 import sys
 import shlex
+import traceback
 from typing import List, Dict, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -90,10 +91,20 @@ class PfRunner:
                     # Store for reference
                     subcommands[include_file] = task_names
                     
+                except FileNotFoundError as e:
+                    # Warn about missing include files
+                    print(f"Warning: Include file not found: {include_file}", file=sys.stderr)
                 except Exception as e:
+                    # Warn about other errors but don't fail
                     print(f"Warning: Could not process include file {include_file}: {e}", file=sys.stderr)
                     
+        except FileNotFoundError:
+            # If the main Pfyfile is not found, that's expected in some cases
+            # (e.g., using always-available tasks only), so don't warn
+            pass
         except Exception as e:
+            # Only warn for unexpected errors during discovery
+            # This shouldn't prevent the tool from working
             print(f"Warning: Could not discover subcommands: {e}", file=sys.stderr)
             
         return subcommands
@@ -270,6 +281,12 @@ class PfRunner:
                 
             if not tasks_with_desc:
                 print("  No tasks found.")
+                if args.file:
+                    print(f"\nNote: Using Pfyfile: {args.file}")
+                    print("Check if the file exists and contains task definitions.")
+                else:
+                    print("\nNote: No Pfyfile.pf found in current directory or parent directories.")
+                    print("Create a Pfyfile.pf or specify one with: pf -f <path> list")
                 return 0
                 
             # Group tasks by category if possible
@@ -308,8 +325,22 @@ class PfRunner:
             
             return 0
             
+        except FileNotFoundError as e:
+            # Specific error for missing file
+            print(f"Error: Pfyfile not found: {e}", file=sys.stderr)
+            if args.file:
+                print(f"The specified file '{args.file}' does not exist.", file=sys.stderr)
+            else:
+                print("No Pfyfile.pf found in current directory or parent directories.", file=sys.stderr)
+            print("\nSuggestions:", file=sys.stderr)
+            print("  - Create a Pfyfile.pf in your project directory", file=sys.stderr)
+            print("  - Specify a file with: pf -f <path> list", file=sys.stderr)
+            print("  - Check the PFY_FILE environment variable", file=sys.stderr)
+            return 1
         except Exception as e:
             print(f"Error listing tasks: {e}", file=sys.stderr)
+            print("\nTraceback:", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
             return 1
     
     def _handle_help_command(self, args) -> int:

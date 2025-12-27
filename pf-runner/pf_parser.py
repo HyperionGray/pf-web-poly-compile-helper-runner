@@ -824,7 +824,12 @@ def _load_pfy_source_with_includes(
         combined_text = always_available_text + "\n\n" + user_text
         return combined_text, combined_sources
     
-    # No Pfyfile found - return always-available tasks only (or PFY_EMBED if that doesn't exist)
+    # No Pfyfile found
+    # If user explicitly specified a file that doesn't exist, raise an error
+    if file_arg and not os.path.exists(pfy_resolved):
+        raise FileNotFoundError(f"Specified Pfyfile not found: {file_arg}")
+    
+    # Otherwise, return always-available tasks only (or PFY_EMBED if that doesn't exist)
     if always_available_text:
         return always_available_text, always_available_sources
     return PFY_EMBED, {}
@@ -1079,17 +1084,23 @@ def _exec_line_fabric(
             return 1
 
 
-def list_dsl_tasks_with_desc(file_arg: Optional[str] = None) -> List[Tuple[str, Optional[str]]]:
-    """List all tasks with their descriptions."""
+def list_dsl_tasks_with_desc(file_arg: Optional[str] = None) -> List[Tuple[str, Optional[str], List[str]]]:
+    """List all tasks with their descriptions and aliases."""
     try:
         dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
         dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
         result = []
         for name, task in sorted(dsl_tasks.items()):
-            result.append((name, task.description))
+            result.append((name, task.description, task.aliases))
         return result
-    except Exception:
-        return []
+    except FileNotFoundError as e:
+        # Re-raise file not found errors so they can be handled appropriately
+        raise
+    except Exception as e:
+        # Log the error and re-raise so callers know what went wrong
+        import sys
+        print(f"Error loading tasks: {e}", file=sys.stderr)
+        raise
 
 
 def get_alias_map(file_arg: Optional[str] = None) -> Dict[str, str]:
@@ -1102,7 +1113,11 @@ def get_alias_map(file_arg: Optional[str] = None) -> Dict[str, str]:
             for alias in task.aliases:
                 alias_map[alias] = name
         return alias_map
+    except FileNotFoundError:
+        # If file doesn't exist, just return empty map (this is expected in some cases)
+        return {}
     except Exception:
+        # For other errors, return empty map but this shouldn't normally happen
         return {}
 
 

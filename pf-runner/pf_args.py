@@ -185,18 +185,64 @@ For more help on a specific subcommand:
     ) -> Tuple[argparse.Namespace, List[str]]:
         """Parse arguments with backward compatibility for legacy syntax."""
 
-        # Handle legacy syntax where first arg might be a file
-        if args and not args[0].startswith("-") and "=" not in args[0]:
-            if os.path.exists(args[0]) or args[0].endswith(".pf"):
+        # First, extract modern global options (--file, --env, etc.) that may appear anywhere
+        modern_global_opts = []
+        file_arg = None
+        remaining = []
+        
+        i = 0
+        while i < len(args):
+            arg = args[i]
+            
+            # Handle modern global options
+            if arg in ('-f', '--file'):
+                if i + 1 < len(args):
+                    file_arg = args[i + 1]
+                    modern_global_opts.extend([arg, args[i + 1]])
+                    i += 2
+                    continue
+                else:
+                    # Missing value, let argparse handle the error
+                    i += 1
+                    continue
+            elif arg.startswith('--file='):
+                file_arg = arg.split('=', 1)[1]
+                modern_global_opts.append(arg)
+                i += 1
+                continue
+            elif arg in ('--env', '--hosts', '--host', '--user', '--port', '--sudo-user'):
+                if i + 1 < len(args):
+                    modern_global_opts.extend([arg, args[i + 1]])
+                    i += 2
+                else:
+                    i += 1
+                continue
+            elif arg == '--sudo':
+                modern_global_opts.append(arg)
+                i += 1
+                continue
+            
+            # Check for --option=value format for various options
+            option_prefixes = ['--env=', '--hosts=', '--host=', '--user=', '--port=', '--sudo-user=']
+            if any(arg.startswith(prefix) for prefix in option_prefixes):
+                modern_global_opts.append(arg)
+                i += 1
+                continue
+            
+            # Not a modern global option, keep for further processing
+            remaining.append(arg)
+            i += 1
+
+        # Handle legacy syntax where first arg might be a file (only if no --file was specified)
+        if not file_arg and remaining and not remaining[0].startswith("-") and "=" not in remaining[0]:
+            if os.path.exists(remaining[0]) or remaining[0].endswith(".pf"):
                 # First arg is a file
-                file_arg = args[0]
-                remaining_args = args[1:]
+                file_arg = remaining[0]
+                remaining_args = remaining[1:]
             else:
-                file_arg = None
-                remaining_args = args
+                remaining_args = remaining
         else:
-            file_arg = None
-            remaining_args = args
+            remaining_args = remaining
 
         # Separate legacy key=value pairs from task arguments
         legacy_params = []
@@ -228,9 +274,14 @@ For more help on a specific subcommand:
             task_args.extend(remaining_args[i:])
             break
 
-        # Convert legacy params to modern format
+        # Convert legacy params to modern format and combine with extracted modern global options
         modern_args = []
-        if file_arg:
+        
+        # Add modern global options first
+        modern_args.extend(modern_global_opts)
+        
+        # Add file arg if it was from legacy format (not already in modern_global_opts)
+        if file_arg and '--file' not in modern_global_opts and '-f' not in modern_global_opts:
             modern_args.extend(["--file", file_arg])
 
         for param in legacy_params:
