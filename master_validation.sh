@@ -46,7 +46,7 @@ apply_fixes() {
             cp pf-runner/pf_parser.py pf-runner/pf_parser.py.backup
             sed -i '1s|^#!/.*|#!/usr/bin/env python3|' pf-runner/pf_parser.py
             log_success "Fixed shebang: $current_shebang -> #!/usr/bin/env python3"
-            ((fixes_applied++))
+            fixes_applied=$((fixes_applied + 1))
         else
             log_success "Shebang already correct in pf_parser.py"
         fi
@@ -176,7 +176,7 @@ generate_report() {
         if [[ -f "$dockerfile" ]]; then
             local variant=$(basename "$dockerfile" | sed 's/Dockerfile\.//')
             echo "  - $variant"
-            ((variant_count++))
+            variant_count=$((variant_count + 1))
         fi
     done
     echo "  Total: $variant_count variants"

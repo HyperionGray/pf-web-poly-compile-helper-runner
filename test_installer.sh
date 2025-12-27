@@ -154,7 +154,7 @@ test_list_containers() {
         if [[ -f "$dockerfile" ]]; then
             local name=$(basename "$dockerfile" | sed 's/Dockerfile\.//')
             echo "  - $name"
-            ((dockerfile_count++))
+            dockerfile_count=$((dockerfile_count + 1))
         fi
     done
     
@@ -173,33 +173,33 @@ main() {
     
     # Run tests
     if test_hardcoded_paths; then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
-        ((tests_failed++))
+        tests_failed=$((tests_failed + 1))
     fi
     
     if test_installer_prereqs; then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
-        ((tests_failed++))
+        tests_failed=$((tests_failed + 1))
     fi
     
     if test_container_files; then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
-        ((tests_failed++))
+        tests_failed=$((tests_failed + 1))
     fi
     
     if test_installer_help; then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
-        ((tests_failed++))
+        tests_failed=$((tests_failed + 1))
     fi
     
     if test_python_deps; then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
-        ((tests_failed++))
+        tests_failed=$((tests_failed + 1))
     fi
     
     test_list_containers

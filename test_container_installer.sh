@@ -257,7 +257,7 @@ test_container_variants() {
     for dockerfile in ./containers/dockerfiles/Dockerfile.*; do
         if [[ -f "$dockerfile" ]]; then
             local variant=$(basename "$dockerfile" | sed 's/Dockerfile\.//')
-            ((total_variants++))
+            total_variants=$((total_variants + 1))
             
             echo ""
             log_info "Analyzing variant: $variant"
@@ -272,19 +272,19 @@ test_container_variants() {
                 if [[ "$base_image" == "localhost/pf-base:latest" ]]; then
                     echo "  Category: pf-runner variant (depends on pf-base)"
                     echo "  Status: Should be buildable after pf-base"
-                    ((buildable_variants++))
+                    buildable_variants=$((buildable_variants + 1))
                 elif [[ "$base_image" =~ ^localhost/ ]]; then
                     echo "  Category: Custom local image"
                     echo "  Status: Requires manual base image build"
-                    ((failed_variants++))
+                    failed_variants=$((failed_variants + 1))
                 elif [[ "$base_image" =~ ^docker\.io/ ]] || [[ "$base_image" =~ ^registry\./ ]] || [[ ! "$base_image" =~ / ]]; then
                     echo "  Category: Public registry image"
                     echo "  Status: Should be buildable (external base)"
-                    ((buildable_variants++))
+                    buildable_variants=$((buildable_variants + 1))
                 else
                     echo "  Category: Unknown"
                     echo "  Status: Uncertain"
-                    ((failed_variants++))
+                    failed_variants=$((failed_variants + 1))
                 fi
                 
                 # Check for package managers
@@ -310,7 +310,7 @@ test_container_variants() {
                 
             else
                 echo "  Status: No FROM directive (broken)"
-                ((failed_variants++))
+                failed_variants=$((failed_variants + 1))
             fi
         fi
     done
@@ -336,7 +336,7 @@ test_container_variants() {
             
             if "$runtime" build -t "localhost/pf-$variant:test" -f "$dockerfile" . >/dev/null 2>&1; then
                 log_success "$variant builds successfully"
-                ((successful_builds++))
+                successful_builds=$((successful_builds + 1))
                 
                 # Cleanup
                 "$runtime" rmi "localhost/pf-$variant:test" >/dev/null 2>&1 || true
@@ -366,7 +366,7 @@ main() {
     # Test 1: Container runtime availability
     local runtime
     if runtime=$(test_container_runtime); then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
         log_error "No container runtime available, skipping container tests"
         return 1
@@ -376,18 +376,18 @@ main() {
     
     # Test 2: Container installation
     if test_container_install "$runtime"; then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
-        ((tests_failed++))
+        tests_failed=$((tests_failed + 1))
     fi
     
     echo ""
     
     # Test 3: Container builds
     if test_container_builds "$runtime"; then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
-        ((tests_failed++))
+        tests_failed=$((tests_failed + 1))
     fi
     
     echo ""

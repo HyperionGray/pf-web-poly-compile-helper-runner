@@ -261,27 +261,27 @@ main() {
     
     # Test 1: Prerequisites
     if test_prerequisites; then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
-        ((tests_failed++))
+        tests_failed=$((tests_failed + 1))
     fi
     
     echo ""
     
     # Test 2: Native installation (isolated)
     if test_native_install_isolated; then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
-        ((tests_failed++))
+        tests_failed=$((tests_failed + 1))
     fi
     
     echo ""
     
     # Test 3: Native installation with dependencies (if root)
     if test_native_install_with_deps; then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
-        ((tests_failed++))
+        tests_failed=$((tests_failed + 1))
     fi
     
     echo ""

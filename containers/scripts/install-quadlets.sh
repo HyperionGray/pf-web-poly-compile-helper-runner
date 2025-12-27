@@ -141,7 +141,7 @@ install_quadlets() {
             local basename=$(basename "$file")
             log_info "Installing ${basename}"
             cp "$file" "${QUADLET_DEST}/"
-            ((count++))
+            count=$((count + 1))
         fi
     done
 
@@ -166,7 +166,7 @@ After=default.target
 [Install]
 WantedBy=default.target
 EOF
-        ((count++))
+        count=$((count + 1))
     fi
     shopt -u nullglob
 
@@ -227,7 +227,7 @@ remove_quadlets() {
             local basename=$(basename "$file")
             log_info "Removing ${basename}"
             rm -f "$file"
-            ((count++))
+            count=$((count + 1))
         fi
     done
     shopt -u nullglob

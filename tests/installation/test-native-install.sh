@@ -228,45 +228,45 @@ run_all_tests() {
     
     # Run tests
     if test_prerequisites; then
-        ((passed++))
+        passed=$((passed + 1))
     else
-        ((failed++))
+        failed=$((failed + 1))
     fi
     
     if test_native_install; then
-        ((passed++))
+        passed=$((passed + 1))
     else
-        ((failed++))
+        failed=$((failed + 1))
     fi
     
     if test_file_structure; then
-        ((passed++))
+        passed=$((passed + 1))
     else
-        ((failed++))
+        failed=$((failed + 1))
     fi
     
     if test_no_hardcoded_paths; then
-        ((passed++))
+        passed=$((passed + 1))
     else
-        ((failed++))
+        failed=$((failed + 1))
     fi
     
     if test_pf_executable; then
-        ((passed++))
+        passed=$((passed + 1))
     else
-        ((failed++))
+        failed=$((failed + 1))
     fi
     
     if test_python_dependencies; then
-        ((passed++))
+        passed=$((passed + 1))
     else
-        ((failed++))
+        failed=$((failed + 1))
     fi
     
     if test_pf_functionality; then
-        ((passed++))
+        passed=$((passed + 1))
     else
-        ((failed++))
+        failed=$((failed + 1))
     fi
     
     echo ""

@@ -182,7 +182,7 @@ test_container_variants() {
     for dockerfile in ./containers/dockerfiles/Dockerfile.*; do
         if [[ -f "$dockerfile" ]]; then
             local variant=$(basename "$dockerfile" | sed 's/Dockerfile\.//')
-            ((variants_tested++))
+            variants_tested=$((variants_tested + 1))
             
             echo ""
             log_info "Variant: $variant"
@@ -196,19 +196,19 @@ test_container_variants() {
                 # Check if base image exists or can be built
                 if [[ "$base_image" == "localhost/pf-base:latest" ]]; then
                     echo "  Status: Depends on pf-base (buildable)"
-                    ((variants_successful++))
+                    variants_successful=$((variants_successful + 1))
                 else
                     echo "  Status: Depends on unknown base image"
-                    ((variants_failed++))
+                    variants_failed=$((variants_failed + 1))
                 fi
             elif grep -q "FROM" "$dockerfile" 2>/dev/null; then
                 local base_image=$(grep "FROM" "$dockerfile" | head -1 | awk '{print $2}')
                 echo "  Base image: $base_image"
                 echo "  Status: Uses external base image (should work)"
-                ((variants_successful++))
+                variants_successful=$((variants_successful + 1))
             else
                 echo "  Status: No FROM directive found (broken)"
-                ((variants_failed++))
+                variants_failed=$((variants_failed + 1))
             fi
             
             # Check for obvious issues
@@ -298,18 +298,18 @@ main() {
     
     # Test 1: Native installation
     if test_native_installation; then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
-        ((tests_failed++))
+        tests_failed=$((tests_failed + 1))
     fi
     
     echo ""
     
     # Test 2: Container installation
     if test_container_installation; then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
-        ((tests_failed++))
+        tests_failed=$((tests_failed + 1))
     fi
     
     echo ""
@@ -321,9 +321,9 @@ main() {
     
     # Test 4: Container builds
     if test_container_builds; then
-        ((tests_passed++))
+        tests_passed=$((tests_passed + 1))
     else
-        ((tests_failed++))
+        tests_failed=$((tests_failed + 1))
     fi
     
     echo ""
