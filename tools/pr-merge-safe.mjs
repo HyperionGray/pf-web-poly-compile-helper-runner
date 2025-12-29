@@ -7,7 +7,7 @@
 
 import { execSync } from 'child_process';
 import fs from 'fs';
-import fsPromises from 'fs/promises';
+import { promises as fsPromises } from 'fs';
 import path from 'path';
 
 class SafeMerger {
@@ -23,7 +23,6 @@ class SafeMerger {
 
     async loadPRs() {
         try {
-            await fsPromises.access(this.prDataPath);
             const data = await fsPromises.readFile(this.prDataPath, 'utf8');
             return JSON.parse(data);
         } catch (error) {
@@ -147,11 +146,8 @@ class SafeMerger {
         try {
             const backupDir = path.join(process.env.HOME, '.config', 'pf', 'merge-backups');
             
-            try {
-                await fsPromises.access(backupDir);
-            } catch {
-                await fsPromises.mkdir(backupDir, { recursive: true });
-            }
+            // recursive: true handles existing directories gracefully
+            await fsPromises.mkdir(backupDir, { recursive: true });
             
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const backupFile = path.join(backupDir, `${pr.platform}-${pr.repository.replace('/', '-')}-${pr.id}-${timestamp}.json`);
@@ -315,11 +311,8 @@ class SafeMerger {
     async saveMergeResult(pr, result, backupFile) {
         const resultsDir = path.join(process.env.HOME, '.config', 'pf', 'merge-results');
         
-        try {
-            await fsPromises.access(resultsDir);
-        } catch {
-            await fsPromises.mkdir(resultsDir, { recursive: true });
-        }
+        // recursive: true handles existing directories gracefully
+        await fsPromises.mkdir(resultsDir, { recursive: true });
         
         const resultData = {
             pr: pr,
