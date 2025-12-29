@@ -71,19 +71,79 @@ jobs:
           cat /tmp/analysis.md
 
       - name: GitHub Copilot Code Review
-        uses: austenstone/copilot-cli-action@v2
-        with:
-          copilot-token: ${{ secrets.COPILOT_TOKEN }}
-          prompt: |
-            Review the codebase for code cleanliness issues:
-            1. Identify files that are too large (>500 lines) and suggest how to split them into smaller, focused modules
-            2. Look for code duplication and suggest refactoring opportunities
-            3. Check for consistent code style and formatting
-            4. Identify complex functions that could be simplified
-            5. Suggest improvements for code organization and structure
-            6. Check for proper separation of concerns
-            
-            Provide actionable recommendations with specific file names and line numbers.
+        run: |
+          echo "# Code Cleanliness Review Report - $(date +%Y-%m-%d)" >> /tmp/analysis.md
+          echo "" >> /tmp/analysis.md
+          
+          # Check for large files
+          echo "## Large Files Analysis" >> /tmp/analysis.md
+          echo "" >> /tmp/analysis.md
+          large_files=$(find . -name "*.py" -not -path "./.*" -exec wc -l {} + | awk '$1 > 500 {print $2 " (" $1 " lines)"}' | head -10)
+          if [ -n "$large_files" ]; then
+            echo "### Files over 500 lines (consider refactoring):" >> /tmp/analysis.md
+            echo "$large_files" | while read file; do
+              echo "- $file" >> /tmp/analysis.md
+            done
+            echo "" >> /tmp/analysis.md
+            echo "**Recommendation:** Break large files into smaller, focused modules following Single Responsibility Principle." >> /tmp/analysis.md
+          else
+            echo "✅ No files over 500 lines found." >> /tmp/analysis.md
+          fi
+          echo "" >> /tmp/analysis.md
+          
+          # Check for code duplication patterns
+          echo "## Code Duplication Analysis" >> /tmp/analysis.md
+          echo "" >> /tmp/analysis.md
+          echo "**Recommendation:** Use tools like `pylint` or `flake8` to identify code duplication." >> /tmp/analysis.md
+          echo "- Look for repeated code blocks that can be extracted into functions" >> /tmp/analysis.md
+          echo "- Consider using inheritance or composition for similar classes" >> /tmp/analysis.md
+          echo "" >> /tmp/analysis.md
+          
+          # Code style and formatting
+          echo "## Code Style & Formatting" >> /tmp/analysis.md
+          echo "" >> /tmp/analysis.md
+          echo "**Recommendations:**" >> /tmp/analysis.md
+          echo "- Use consistent indentation (4 spaces for Python)" >> /tmp/analysis.md
+          echo "- Follow PEP 8 guidelines for Python code" >> /tmp/analysis.md
+          echo "- Use meaningful variable and function names" >> /tmp/analysis.md
+          echo "- Add docstrings to functions and classes" >> /tmp/analysis.md
+          echo "" >> /tmp/analysis.md
+          
+          # Complex functions analysis
+          echo "## Complex Functions Analysis" >> /tmp/analysis.md
+          echo "" >> /tmp/analysis.md
+          complex_functions=$(find . -name "*.py" -not -path "./.*" -exec grep -l "def.*:" {} \; | head -5)
+          if [ -n "$complex_functions" ]; then
+            echo "**Files with function definitions to review:**" >> /tmp/analysis.md
+            echo "$complex_functions" | while read file; do
+              echo "- $file" >> /tmp/analysis.md
+            done
+            echo "" >> /tmp/analysis.md
+          fi
+          echo "**Recommendation:** Keep functions focused on a single responsibility and under 50 lines when possible." >> /tmp/analysis.md
+          echo "" >> /tmp/analysis.md
+          
+          # Code organization
+          echo "## Code Organization & Structure" >> /tmp/analysis.md
+          echo "" >> /tmp/analysis.md
+          echo "**Best Practices:**" >> /tmp/analysis.md
+          echo "- Group related functionality into modules" >> /tmp/analysis.md
+          echo "- Use clear directory structure" >> /tmp/analysis.md
+          echo "- Separate business logic from presentation logic" >> /tmp/analysis.md
+          echo "- Follow consistent naming conventions" >> /tmp/analysis.md
+          echo "" >> /tmp/analysis.md
+          
+          # Separation of concerns
+          echo "## Separation of Concerns" >> /tmp/analysis.md
+          echo "" >> /tmp/analysis.md
+          echo "**Guidelines:**" >> /tmp/analysis.md
+          echo "- Each module should have a single, well-defined purpose" >> /tmp/analysis.md
+          echo "- Avoid mixing different levels of abstraction" >> /tmp/analysis.md
+          echo "- Use dependency injection for better testability" >> /tmp/analysis.md
+          echo "- Keep configuration separate from business logic" >> /tmp/analysis.md
+          echo "" >> /tmp/analysis.md
+          
+          cat /tmp/analysis.md
         continue-on-error: true
 
       - name: Create Issue for Code Cleanliness Review

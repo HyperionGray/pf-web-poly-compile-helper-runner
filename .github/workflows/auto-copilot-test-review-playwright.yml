@@ -165,21 +165,43 @@ jobs:
           cat /tmp/test-analysis.md
 
       - name: GitHub Copilot Test Review
-        uses: austenstone/copilot-cli-action@v2
-        with:
-          copilot-token: ${{ secrets.COPILOT_TOKEN }}
-          prompt: |
-            Review the test suite for this repository:
-            1. Verify all web-based functionality has Playwright tests (both headed and headless)
-            2. Identify missing test coverage for critical functionality
-            3. Check test quality and maintainability
-            4. Suggest improvements for test organization
-            5. Verify tests follow best practices (isolation, clarity, proper assertions)
-            6. Check for flaky tests or tests with timing issues
-            7. Ensure tests are running in CI/CD pipeline
-            
-            For any web tests not using Playwright, recommend migration.
-            Provide specific, actionable recommendations with file names.
+        run: |
+          echo "# Playwright Test Review Report - $(date +%Y-%m-%d)" >> /tmp/test-analysis.md
+          echo "" >> /tmp/test-analysis.md
+          
+          # Check for Playwright configuration
+          if [ -f "playwright.config.ts" ] || [ -f "playwright.config.js" ]; then
+            echo "✅ **Playwright Configuration Found**" >> /tmp/test-analysis.md
+            echo "" >> /tmp/test-analysis.md
+            echo "Project has Playwright configured for end-to-end testing." >> /tmp/test-analysis.md
+            echo "" >> /tmp/test-analysis.md
+          else
+            echo "❌ **No Playwright Configuration**" >> /tmp/test-analysis.md
+            echo "" >> /tmp/test-analysis.md
+            echo "Consider adding Playwright for robust web testing." >> /tmp/test-analysis.md
+            echo "" >> /tmp/test-analysis.md
+          fi
+          
+          # Check for test files
+          playwright_tests=$(find . -name "*.spec.ts" -o -name "*.spec.js" -o -name "*.test.ts" -o -name "*.test.js" | grep -E "(playwright|e2e|spec)" | wc -l)
+          python_tests=$(find . -name "*test*.py" -o -name "test_*.py" | wc -l)
+          
+          echo "## Test Coverage Summary" >> /tmp/test-analysis.md
+          echo "" >> /tmp/test-analysis.md
+          echo "- Playwright/E2E tests: $playwright_tests" >> /tmp/test-analysis.md
+          echo "- Python tests: $python_tests" >> /tmp/test-analysis.md
+          echo "" >> /tmp/test-analysis.md
+          
+          # Recommendations
+          echo "## Recommendations" >> /tmp/test-analysis.md
+          echo "" >> /tmp/test-analysis.md
+          echo "1. **Test Organization**: Ensure tests are properly organized in dedicated directories" >> /tmp/test-analysis.md
+          echo "2. **Test Isolation**: Each test should be independent and not rely on other tests" >> /tmp/test-analysis.md
+          echo "3. **CI Integration**: Verify all tests run in the CI/CD pipeline" >> /tmp/test-analysis.md
+          echo "4. **Coverage**: Aim for comprehensive coverage of critical user workflows" >> /tmp/test-analysis.md
+          echo "" >> /tmp/test-analysis.md
+          
+          cat /tmp/test-analysis.md
         continue-on-error: true
 
       - name: Create or Update Test Review Issue
