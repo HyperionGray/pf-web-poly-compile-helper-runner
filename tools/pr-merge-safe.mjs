@@ -276,11 +276,11 @@ class SafeMerger {
         const result = await this.mergePR(pr, strategy, autoDeleteBranch);
         
         // Save result
-        this.saveMergeResult(pr, result, backupFile);
+        await this.saveMergeResult(pr, result, backupFile);
         
         // Update PR data
         if (result.success) {
-            this.updatePRData(pr, result);
+            await this.updatePRData(pr, result);
         }
         
         // Display final status
