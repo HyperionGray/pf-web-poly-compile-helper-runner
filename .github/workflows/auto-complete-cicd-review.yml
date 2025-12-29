@@ -318,7 +318,7 @@ jobs:
           cat /tmp/final-report/complete-review.md
 
       - name: Create or Update Review Issue
-        uses: actions/github-script@main
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -404,7 +404,7 @@ jobs:
     if: always()
     steps:
       - name: Trigger Amazon Q Review Workflow
-        uses: actions/github-script@main
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
