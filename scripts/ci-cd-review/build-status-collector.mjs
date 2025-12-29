@@ -43,7 +43,7 @@ class BuildStatusCollector {
             console.log(`🔨 Running ${config.description}...`);
             
             const startTime = Date.now();
-            const process = spawn(config.command, config.args, {
+            const childProcess = spawn(config.command, config.args, {
                 cwd: this.rootPath,
                 stdio: 'pipe',
                 env: { ...process.env, NODE_ENV: 'production' }
@@ -52,15 +52,15 @@ class BuildStatusCollector {
             let stdout = '';
             let stderr = '';
 
-            process.stdout.on('data', (data) => {
+            childProcess.stdout.on('data', (data) => {
                 stdout += data.toString();
             });
 
-            process.stderr.on('data', (data) => {
+            childProcess.stderr.on('data', (data) => {
                 stderr += data.toString();
             });
 
-            process.on('close', (code) => {
+            childProcess.on('close', (code) => {
                 const endTime = Date.now();
                 const duration = endTime - startTime;
 
@@ -77,7 +77,7 @@ class BuildStatusCollector {
                 });
             });
 
-            process.on('error', (error) => {
+            childProcess.on('error', (error) => {
                 resolve({
                     stepName,
                     description: config.description,
@@ -94,7 +94,7 @@ class BuildStatusCollector {
 
             // Set timeout for long-running builds
             setTimeout(() => {
-                process.kill('SIGTERM');
+                childProcess.kill('SIGTERM');
                 resolve({
                     stepName,
                     description: config.description,
@@ -161,7 +161,7 @@ class BuildStatusCollector {
 
     async runCommand(command, args) {
         return new Promise((resolve) => {
-            const process = spawn(command, args, {
+            const childProcess = spawn(command, args, {
                 cwd: this.rootPath,
                 stdio: 'pipe'
             });
@@ -169,15 +169,15 @@ class BuildStatusCollector {
             let stdout = '';
             let stderr = '';
 
-            process.stdout.on('data', (data) => {
+            childProcess.stdout.on('data', (data) => {
                 stdout += data.toString();
             });
 
-            process.stderr.on('data', (data) => {
+            childProcess.stderr.on('data', (data) => {
                 stderr += data.toString();
             });
 
-            process.on('close', (code) => {
+            childProcess.on('close', (code) => {
                 resolve({
                     success: code === 0,
                     exitCode: code,
@@ -186,7 +186,7 @@ class BuildStatusCollector {
                 });
             });
 
-            process.on('error', (error) => {
+            childProcess.on('error', (error) => {
                 resolve({
                     success: false,
                     exitCode: -1,
@@ -253,6 +253,60 @@ class BuildStatusCollector {
         summary.overallSuccess = summary.requiredStepsFailed === 0 && summary.environmentReady;
 
         return summary;
+    }
+
+    generateReport(buildStatusResults) {
+        const report = {
+            timestamp: new Date().toISOString(),
+            summary: buildStatusResults.summary,
+            environment: buildStatusResults.environment,
+            buildResults: buildStatusResults.buildResults,
+            recommendations: this.generateRecommendations(buildStatusResults)
+        };
+
+        return report;
+    }
+
+    generateRecommendations(results) {
+        const recommendations = [];
+
+        // Check for failed build steps
+        const failedSteps = results.buildResults.filter(r => !r.success);
+        if (failedSteps.length > 0) {
+            recommendations.push({
+                type: 'build-failures',
+                priority: 'high',
+                message: `${failedSteps.length} build steps are failing`,
+                steps: failedSteps.map(s => s.stepName)
+            });
+        }
+
+        // Check for missing environment components
+        if (!results.environment.node.available) {
+            recommendations.push({
+                type: 'environment',
+                priority: 'high',
+                message: 'Node.js is not available - required for build process'
+            });
+        }
+
+        if (!results.environment.npm.available) {
+            recommendations.push({
+                type: 'environment',
+                priority: 'high',
+                message: 'NPM is not available - required for dependency management'
+            });
+        }
+
+        if (!results.environment.packageJson.exists) {
+            recommendations.push({
+                type: 'configuration',
+                priority: 'medium',
+                message: 'package.json file is missing - required for Node.js projects'
+            });
+        }
+
+        return recommendations;
     }
 
     formatForCICD(buildStatusResults) {

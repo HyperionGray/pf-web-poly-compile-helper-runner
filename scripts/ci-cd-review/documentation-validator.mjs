@@ -118,7 +118,7 @@ class DocumentationValidator {
         } else {
             results.readmeAnalysis = {
                 sections: {},
-                missingsections: this.requiredReadmeSections,
+                missingSection: this.requiredReadmeSections,
                 totalSections: 0,
                 requiredSections: this.requiredReadmeSections.length
             };
@@ -133,7 +133,7 @@ class DocumentationValidator {
         
         const analysis = {
             sections: {},
-            missingsections: [],
+            missingSection: [],
             totalSections: 0,
             requiredSections: this.requiredReadmeSections.length,
             wordCount: this.countWords(content)
@@ -164,7 +164,7 @@ class DocumentationValidator {
             };
             
             if (!found) {
-                analysis.missingsections.push(requiredSection);
+                analysis.missingSection.push(requiredSection);
             }
         }
 
@@ -236,7 +236,7 @@ class DocumentationValidator {
             summary: {
                 ...validationResults.summary,
                 completionPercentage: Math.round((validationResults.summary.totalFound / validationResults.summary.totalRequired) * 100),
-                readmeCompleteness: Math.round(((validationResults.readmeAnalysis.requiredSections - validationResults.readmeAnalysis.missingSections.length) / validationResults.readmeAnalysis.requiredSections) * 100)
+                readmeCompleteness: Math.round(((validationResults.readmeAnalysis.requiredSections - (validationResults.readmeAnalysis.missingSection?.length || 0)) / validationResults.readmeAnalysis.requiredSections) * 100)
             },
             rootDocumentation: validationResults.rootDocumentation,
             docsDirectory: validationResults.docsDirectory,

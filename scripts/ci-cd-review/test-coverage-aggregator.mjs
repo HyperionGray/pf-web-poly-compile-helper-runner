@@ -50,7 +50,7 @@ class TestCoverageAggregator {
             console.log(`🧪 Running ${config.description}...`);
             
             const startTime = Date.now();
-            const process = spawn(config.command, config.args, {
+            const childProcess = spawn(config.command, config.args, {
                 cwd: this.rootPath,
                 stdio: 'pipe',
                 env: { ...process.env, CI: 'true' }
@@ -59,15 +59,15 @@ class TestCoverageAggregator {
             let stdout = '';
             let stderr = '';
 
-            process.stdout.on('data', (data) => {
+            childProcess.stdout.on('data', (data) => {
                 stdout += data.toString();
             });
 
-            process.stderr.on('data', (data) => {
+            childProcess.stderr.on('data', (data) => {
                 stderr += data.toString();
             });
 
-            process.on('close', (code) => {
+            childProcess.on('close', (code) => {
                 const endTime = Date.now();
                 const duration = endTime - startTime;
 
@@ -85,7 +85,7 @@ class TestCoverageAggregator {
 
             // Set timeout for long-running tests
             setTimeout(() => {
-                process.kill('SIGTERM');
+                childProcess.kill('SIGTERM');
                 resolve({
                     testType,
                     description: config.description,
