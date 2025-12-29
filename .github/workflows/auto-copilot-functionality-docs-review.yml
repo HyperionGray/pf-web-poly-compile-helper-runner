@@ -317,7 +317,6 @@ jobs:
           echo "- Include changelog or release notes" >> /tmp/doc-analysis.md
           
           cat /tmp/doc-analysis.md
-=======
       - name: GitHub Copilot Documentation Review
         run: |
           echo "Reviewing the documentation for this repository"
