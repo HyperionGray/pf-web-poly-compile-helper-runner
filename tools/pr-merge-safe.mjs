@@ -7,21 +7,29 @@
 
 import { execSync } from 'child_process';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
 
 class SafeMerger {
     constructor() {
         this.prDataPath = path.join(process.env.HOME, '.config', 'pf', 'discovered-prs.json');
-        this.prs = this.loadPRs();
+        this.prs = [];
+    }
+    
+    async init() {
+        this.prs = await this.loadPRs();
+        return this;
     }
 
-    loadPRs() {
+    async loadPRs() {
         try {
-            if (fs.existsSync(this.prDataPath)) {
-                return JSON.parse(fs.readFileSync(this.prDataPath, 'utf8'));
-            }
+            await fsPromises.access(this.prDataPath);
+            const data = await fsPromises.readFile(this.prDataPath, 'utf8');
+            return JSON.parse(data);
         } catch (error) {
-            console.error('❌ Failed to load PR data:', error.message);
+            if (error.code !== 'ENOENT') {
+                console.error('❌ Failed to load PR data:', error.message);
+            }
         }
         
         return [];
@@ -138,8 +146,11 @@ class SafeMerger {
         
         try {
             const backupDir = path.join(process.env.HOME, '.config', 'pf', 'merge-backups');
-            if (!fs.existsSync(backupDir)) {
-                fs.mkdirSync(backupDir, { recursive: true });
+            
+            try {
+                await fsPromises.access(backupDir);
+            } catch {
+                await fsPromises.mkdir(backupDir, { recursive: true });
             }
             
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -156,7 +167,7 @@ class SafeMerger {
                 }
             };
             
-            fs.writeFileSync(backupFile, JSON.stringify(backupData, null, 2));
+            await fsPromises.writeFile(backupFile, JSON.stringify(backupData, null, 2));
             console.log(`✅ Backup saved to ${backupFile}`);
             
             return backupFile;
@@ -301,10 +312,13 @@ class SafeMerger {
         }
     }
 
-    saveMergeResult(pr, result, backupFile) {
+    async saveMergeResult(pr, result, backupFile) {
         const resultsDir = path.join(process.env.HOME, '.config', 'pf', 'merge-results');
-        if (!fs.existsSync(resultsDir)) {
-            fs.mkdirSync(resultsDir, { recursive: true });
+        
+        try {
+            await fsPromises.access(resultsDir);
+        } catch {
+            await fsPromises.mkdir(resultsDir, { recursive: true });
         }
         
         const resultData = {
@@ -317,18 +331,18 @@ class SafeMerger {
         const filename = `single-merge-${pr.platform}-${pr.repository.replace('/', '-')}-${pr.id}-${Date.now()}.json`;
         const filepath = path.join(resultsDir, filename);
         
-        fs.writeFileSync(filepath, JSON.stringify(resultData, null, 2));
+        await fsPromises.writeFile(filepath, JSON.stringify(resultData, null, 2));
         console.log(`💾 Merge result saved to ${filepath}`);
     }
 
-    updatePRData(pr, result) {
+    async updatePRData(pr, result) {
         if (result.success) {
             const prIndex = this.prs.findIndex(p => p.id === pr.id && p.repository === pr.repository);
             if (prIndex !== -1) {
                 this.prs[prIndex].state = 'merged';
                 this.prs[prIndex].mergedAt = result.timestamp;
                 
-                fs.writeFileSync(this.prDataPath, JSON.stringify(this.prs, null, 2));
+                await fsPromises.writeFile(this.prDataPath, JSON.stringify(this.prs, null, 2));
                 console.log('✅ PR data updated');
             }
         }
@@ -348,7 +362,7 @@ async function main() {
         return;
     }
     
-    const merger = new SafeMerger();
+    const merger = await new SafeMerger().init();
     await merger.safeMerge(prId, strategy, autoDeleteBranch);
 }
 
