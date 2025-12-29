@@ -17,6 +17,7 @@ permissions:
   contents: write
   pull-requests: write
   checks: write
+  issues: write
 
 jobs:
   test-review-and-execution:
@@ -165,125 +166,21 @@ jobs:
           cat /tmp/test-analysis.md
 
       - name: GitHub Copilot Test Review
-        run: |
-          echo "## GitHub Copilot Test Review" > /tmp/copilot-test-review.md
-          echo "" >> /tmp/copilot-test-review.md
-          echo "**Review Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> /tmp/copilot-test-review.md
-          echo "" >> /tmp/copilot-test-review.md
-          
-          echo "### Playwright Test Coverage Analysis" >> /tmp/copilot-test-review.md
-          echo "" >> /tmp/copilot-test-review.md
-          
-          # Check for Playwright configuration
-          if [ -f "playwright.config.ts" ] || [ -f "playwright.config.js" ]; then
-            echo "- ✅ Playwright configuration found" >> /tmp/copilot-test-review.md
+        uses: austenstone/copilot-cli-action@v2
+        with:
+          copilot-token: ${{ secrets.COPILOT_TOKEN }}
+          prompt: |
+            Review the test suite for this repository:
+            1. Verify all web-based functionality has Playwright tests (both headed and headless)
+            2. Identify missing test coverage for critical functionality
+            3. Check test quality and maintainability
+            4. Suggest improvements for test organization
+            5. Verify tests follow best practices (isolation, clarity, proper assertions)
+            6. Check for flaky tests or tests with timing issues
+            7. Ensure tests are running in CI/CD pipeline
             
-            # Count Playwright test files
-            PLAYWRIGHT_TESTS=$(find . -name "*.spec.ts" -o -name "*.spec.js" -o -name "*.test.ts" -o -name "*.test.js" | \
-              grep -E "(e2e|playwright|spec)" | wc -l)
-            echo "- Playwright test files: $PLAYWRIGHT_TESTS" >> /tmp/copilot-test-review.md
-          else
-            echo "- ❌ Playwright configuration not found" >> /tmp/copilot-test-review.md
-            echo "- **Recommendation:** Set up Playwright for E2E testing" >> /tmp/copilot-test-review.md
-          fi
-          
-          echo "" >> /tmp/copilot-test-review.md
-          echo "### Test Quality Assessment" >> /tmp/copilot-test-review.md
-          
-          # Check for test organization
-          TEST_DIRS=$(find . -type d -name "*test*" -o -name "*spec*" | wc -l)
-          echo "- Test directories: $TEST_DIRS" >> /tmp/copilot-test-review.md
-          
-          # Check for different test types
-          UNIT_TESTS=$(find . -name "*test*.py" -o -name "*test*.js" -o -name "*test*.ts" | \
-            grep -v "e2e\|spec" | wc -l)
-          echo "- Unit test files: $UNIT_TESTS" >> /tmp/copilot-test-review.md
-          
-          E2E_TESTS=$(find . -name "*e2e*" -o -name "*spec*" | grep -E "\.(js|ts|py)$" | wc -l)
-          echo "- E2E test files: $E2E_TESTS" >> /tmp/copilot-test-review.md
-          
-          echo "" >> /tmp/copilot-test-review.md
-          echo "### Test Best Practices Check" >> /tmp/copilot-test-review.md
-          
-          # Check for proper test structure
-          if find . -name "*.spec.ts" -o -name "*.spec.js" | head -1 > /dev/null 2>&1; then
-            DESCRIBE_BLOCKS=$(find . -name "*.spec.ts" -o -name "*.spec.js" | \
-              xargs grep -l "describe\|test\|it" 2>/dev/null | wc -l)
-            echo "- Files with proper test structure (describe/test blocks): $DESCRIBE_BLOCKS" >> /tmp/copilot-test-review.md
-          fi
-          
-          # Check for assertions
-          ASSERTION_FILES=$(find . -name "*test*.js" -o -name "*test*.ts" -o -name "*spec*.js" -o -name "*spec*.ts" | \
-            xargs grep -l "expect\|assert\|should" 2>/dev/null | wc -l)
-          echo "- Files with assertions: $ASSERTION_FILES" >> /tmp/copilot-test-review.md
-          
-          echo "" >> /tmp/copilot-test-review.md
-          echo "### CI/CD Integration Check" >> /tmp/copilot-test-review.md
-          
-          # Check for test scripts in package.json
-          if [ -f "package.json" ]; then
-            if grep -q "test" package.json; then
-              echo "- ✅ Test scripts found in package.json" >> /tmp/copilot-test-review.md
-            else
-              echo "- ❌ No test scripts in package.json" >> /tmp/copilot-test-review.md
-            fi
-            
-            if grep -q "playwright" package.json; then
-              echo "- ✅ Playwright dependency found" >> /tmp/copilot-test-review.md
-            else
-              echo "- ⚠️ Playwright dependency not found in package.json" >> /tmp/copilot-test-review.md
-            fi
-          fi
-          
-          # Check for GitHub Actions test workflows
-          TEST_WORKFLOWS=$(find .github/workflows -name "*.yml" -o -name "*.yaml" | \
-            xargs grep -l "test\|playwright" 2>/dev/null | wc -l)
-          echo "- GitHub Actions workflows with tests: $TEST_WORKFLOWS" >> /tmp/copilot-test-review.md
-          
-          echo "" >> /tmp/copilot-test-review.md
-          echo "### Web Functionality Coverage" >> /tmp/copilot-test-review.md
-          
-          # Check for web-related files that might need testing
-          WEB_FILES=$(find . -name "*.html" -o -name "*.css" -o -name "*.js" | \
-            grep -v node_modules | grep -v test | wc -l)
-          echo "- Web files that may need E2E testing: $WEB_FILES" >> /tmp/copilot-test-review.md
-          
-          # Check for API endpoints that need testing
-          API_FILES=$(find . -name "*.py" -o -name "*.js" -o -name "*.ts" | \
-            xargs grep -l "route\|endpoint\|@app\|express" 2>/dev/null | wc -l)
-          echo "- API endpoints that may need integration testing: $API_FILES" >> /tmp/copilot-test-review.md
-          
-          echo "" >> /tmp/copilot-test-review.md
-          echo "### Test Improvement Recommendations" >> /tmp/copilot-test-review.md
-          echo "- **High Priority:** Ensure all critical user workflows have E2E tests" >> /tmp/copilot-test-review.md
-          echo "- **Medium Priority:** Implement both headed and headless test modes" >> /tmp/copilot-test-review.md
-          echo "- **Low Priority:** Add visual regression testing for UI components" >> /tmp/copilot-test-review.md
-          echo "- **Best Practice:** Use Page Object Model for maintainable tests" >> /tmp/copilot-test-review.md
-          echo "- **CI/CD:** Ensure tests run on multiple browsers and environments" >> /tmp/copilot-test-review.md
-          
-          echo "" >> /tmp/copilot-test-review.md
-          echo "### Playwright Migration Recommendations" >> /tmp/copilot-test-review.md
-          
-          # Check for other testing frameworks that could be migrated
-          SELENIUM_TESTS=$(find . -name "*.py" -o -name "*.js" -o -name "*.ts" | \
-            xargs grep -l "selenium\|webdriver" 2>/dev/null | wc -l)
-          if [ $SELENIUM_TESTS -gt 0 ]; then
-            echo "- **Migration Needed:** $SELENIUM_TESTS files using Selenium - consider migrating to Playwright" >> /tmp/copilot-test-review.md
-          else
-            echo "- ✅ No legacy Selenium tests found" >> /tmp/copilot-test-review.md
-          fi
-          
-          # Note about GitHub Copilot integration
-          echo "" >> /tmp/copilot-test-review.md
-          echo "#### GitHub Copilot Integration Status" >> /tmp/copilot-test-review.md
-          echo "⚠️ **Note:** GitHub Copilot CLI integration is currently unavailable." >> /tmp/copilot-test-review.md
-          echo "This test review was generated using automated analysis tools." >> /tmp/copilot-test-review.md
-          echo "For enhanced AI-powered test recommendations, consider:" >> /tmp/copilot-test-review.md
-          echo "1. Using GitHub Copilot in your IDE for test generation" >> /tmp/copilot-test-review.md
-          echo "2. Leveraging Playwright's codegen for test creation" >> /tmp/copilot-test-review.md
-          echo "3. Implementing test-driven development practices" >> /tmp/copilot-test-review.md
-          
-          cat /tmp/copilot-test-review.md
+            For any web tests not using Playwright, recommend migration.
+            Provide specific, actionable recommendations with file names.
         continue-on-error: true
 
       - name: Create or Update Test Review Issue
@@ -294,14 +191,6 @@ jobs:
             const fs = require('fs');
             const analysis = fs.readFileSync('/tmp/test-analysis.md', 'utf8');
             
-            // Include copilot test review if available
-            let copilotTestReview = '';
-            try {
-              copilotTestReview = fs.readFileSync('/tmp/copilot-test-review.md', 'utf8');
-            } catch (error) {
-              console.log('Copilot test review not available:', error.message);
-            }
-            
             const date = new Date().toISOString().split('T')[0];
             const title = `Test Coverage Review - ${date}`;
             
@@ -310,8 +199,6 @@ jobs:
             This automated review ensures proper test coverage with Playwright for web tests.
             
             ${analysis}
-            
-            ${copilotTestReview}
             
             ## Playwright Test Status
             
