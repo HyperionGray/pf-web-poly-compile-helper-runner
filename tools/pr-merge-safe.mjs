@@ -6,7 +6,6 @@
  */
 
 import { execSync } from 'child_process';
-import fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import path from 'path';
 
