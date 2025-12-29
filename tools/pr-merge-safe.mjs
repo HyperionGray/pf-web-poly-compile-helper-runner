@@ -362,7 +362,8 @@ async function main() {
         return;
     }
     
-    const merger = await new SafeMerger().init();
+    const merger = new SafeMerger();
+    await merger.init();
     await merger.safeMerge(prId, strategy, autoDeleteBranch);
 }
 
