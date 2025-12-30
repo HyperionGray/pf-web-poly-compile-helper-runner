@@ -378,7 +378,7 @@ jobs:
         continue-on-error: true
 
       - name: Create Documentation Review Report
-        uses: actions/github-script@main
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
