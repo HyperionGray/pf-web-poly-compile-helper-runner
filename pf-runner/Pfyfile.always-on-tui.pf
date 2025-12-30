@@ -12,12 +12,6 @@ task tui-with-file
   shell cd $(dirname $(which pf))/../lib/pf-runner 2>/dev/null && python3 pf_tui.py ${file} || python3 $(dirname $0)/pf_tui.py ${file}
 end
 
-task install-tui-deps
-  describe Install TUI dependencies (rich library)
-  shell pip3 install --user rich || pip install --user rich
-  shell echo "✓ TUI dependencies installed"
-end
-
 task tui-help
   describe Show TUI usage and features
   shell echo "🎨 pf Interactive TUI"

@@ -308,11 +308,6 @@ end
 # Exploit Development Tasks (pwntools integration)
 # ============================================================================
 
-task install-pwntools
-  describe Install pwntools exploit development framework
-  shell python3 tools/exploit/pwntools_wrapper.py --install
-end
-
 task pwn-template
   describe Generate exploit template (output=file.py, binary=path, remote_host=host, remote_port=port)
   shell test -n "${output}" || (echo "Error: output parameter required. Usage: pf pwn-template output=exploit.py" && exit 1)
@@ -371,11 +366,6 @@ end
 # ============================================================================
 # ROP Exploitation Tasks (ROPgadget integration)
 # ============================================================================
-
-task install-ropgadget
-  describe Install ROPgadget ROP chain automation tool
-  shell python3 tools/exploit/ropgadget_wrapper.py --install
-end
 
 task rop-find-gadgets
   describe Find ROP gadgets in binary (binary=path, output=file, type=rop|jop|sys, depth=10)
