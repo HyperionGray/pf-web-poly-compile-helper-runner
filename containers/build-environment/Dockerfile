@@ -64,6 +64,7 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     libbz2-dev \
     libreadline-dev \
+    libsqlite3-0 \
     libsqlite3-dev \
     libncurses5-dev \
     libncursesw5-dev \
