@@ -1,0 +1,125 @@
+  test-lifting-workflow - Test complete lifting workflow with examples
+  test-practice-binaries - Test all practice binaries to ensure they work
+
+Web tasks:
+  web-build-all
+  web-build-all-asm - Build all languages to asm.js where supported
+  web-build-all-llvm - Build all languages to LLVM IR where supported (with O3 by default, use opt_level= and parallel=true as needed)
+  web-build-all-wasm - Build all languages to WebAssembly
+  web-build-c
+  web-build-c-asm - Build C to asm.js
+  web-build-c-llvm - Build C to LLVM IR with optimization (opt_level=3 by default, parallel=false for OpenMP)
+  web-build-c-llvm-opt - Build C to LLVM IR with custom optimization passes (passes="pass1,pass2,..." uses new pass manager)
+  web-build-c-wasm - Build C to WebAssembly
+  web-build-fortran
+  web-build-fortran-llvm - Build Fortran to LLVM IR with optimization (opt_level=3 by default, parallel=false for OpenMP)
+  web-build-fortran-wasm - Build Fortran to WebAssembly
+  web-build-rust
+  web-build-rust-llvm - Build Rust to LLVM IR with optimization (opt_level=3 by default, parallel=false)
+  web-build-rust-wasm - Build Rust to WebAssembly
+  web-build-wat
+  web-build-wat-wasm - Build WAT to WebAssembly
+  web-dev - Start development server with REST API support
+  web-dev-static - Start basic static file server (legacy)
+  web-test
+
+Usage: pf run <task_name> [params...]
+       pf help <task_name>  # Show help for specific task
+(venv) root@punk-reaper:/home/punk/projects/pf-web-poly-compile-helper-runner# pf install-all
+[@local] --> install-all
+[@local]$ pf install-full
+[@local] --> install-full
+[@local]$ if '[' '${mode:-container}' = container '];' then 'CONTAINER_RT=${runtime:-podman}' ./containers/scripts/build-containers.sh 'all;' else echo '[install-full] native mode: skipping container builds;' fi
+/bin/sh: 1: Syntax error: end of file unexpected (expecting "then")
+======================================================================
+PF ERROR
+======================================================================
+Task: install-full
+Command:   shell if [ "${mode:-container}" = "container" ]; then CONTAINER_RT=${runtime:-podman} ./containers/scripts/build-containers.sh all; else echo "[install-full] native mode: skipping container builds"; fi
+
+Error: Command failed with exit code 2
+Exit Code: 2
+
+Suggestion: Check the command output above for details
+
+Execution Context:
+  Container: Not in a container
+  Subshell: 2 levels deep
+  Platform: Ubuntu 24.04.3 LTS (x86_64)
+  Python: 3.12.3
+  CWD: /home/punk/projects/pf-web-poly-compile-helper-runner
+  User: UID 0 (root)
+
+Relevant Environment Variables:
+  HOME=/root
+  PATH=/home/punk/projects/pf-web-poly-compile-helper-runner/venv/bin:/usr/local/sbi...
+  PWD=/home/punk/projects/pf-web-poly-compile-helper-runner
+  SHELL=/bin/bash
+  SHLVL=3
+  USER=root
+  VIRTUAL_ENV=/home/punk/projects/pf-web-poly-compile-helper-runner/venv
+
+Python Traceback:
+  File "/usr/lib/python3.12/threading.py", line 1030, in _bootstrap
+    self._bootstrap_inner()
+  File "/usr/lib/python3.12/threading.py", line 1073, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.12/threading.py", line 1010, in run
+    self._target(*self._args, **self._kwargs)
+  File "/usr/lib/python3.12/concurrent/futures/thread.py", line 92, in _worker
+    work_item.run()
+  File "/usr/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/usr/local/lib/pf-runner/pf_main.py", line 566, in run_host
+    raise PFExecutionError(
+  File "/usr/local/lib/pf-runner/pf_exceptions.py", line 286, in __init__
+    super().__init__(message=message, **kwargs)
+  File "<string>", line 13, in __init__
+
+======================================================================
+======================================================================
+PF ERROR
+======================================================================
+Task: install-all
+Command:   shell pf install-full
+
+Error: Command failed with exit code 1
+Exit Code: 1
+
+Suggestion: Check the command output above for details
+
+Execution Context:
+  Container: Not in a container
+  Subshell: 2 levels deep
+  Platform: Ubuntu 24.04.3 LTS (x86_64)
+  Python: 3.12.3
+  CWD: /home/punk/projects/pf-web-poly-compile-helper-runner
+  User: UID 0 (root)
+
+Relevant Environment Variables:
+  HOME=/root
+  PATH=/home/punk/projects/pf-web-poly-compile-helper-runner/venv/bin:/usr/local/sbi...
+  PWD=/home/punk/projects/pf-web-poly-compile-helper-runner
+  SHELL=/bin/bash
+  SHLVL=3
+  USER=root
+  VIRTUAL_ENV=/home/punk/projects/pf-web-poly-compile-helper-runner/venv
+
+Python Traceback:
+  File "/usr/lib/python3.12/threading.py", line 1030, in _bootstrap
+    self._bootstrap_inner()
+  File "/usr/lib/python3.12/threading.py", line 1073, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.12/threading.py", line 1010, in run
+    self._target(*self._args, **self._kwargs)
+  File "/usr/lib/python3.12/concurrent/futures/thread.py", line 92, in _worker
+    work_item.run()
+  File "/usr/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/usr/local/lib/pf-runner/pf_main.py", line 566, in run_host
+    raise PFExecutionError(
+  File "/usr/local/lib/pf-runner/pf_exceptions.py", line 286, in __init__
+    super().__init__(message=message, **kwargs)
+  File "<string>", line 13, in __init__
+
+======================================================================

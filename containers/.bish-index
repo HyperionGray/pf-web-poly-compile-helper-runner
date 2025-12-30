@@ -1,0 +1,14 @@
+./development/entrypoint.sh
+./scripts/test-containers.sh
+./scripts/build-containers.sh
+./scripts/quadlet-doctor.sh
+./scripts/quadlet-manage.sh
+./scripts/install-system.sh
+./scripts/install-native.sh
+./scripts/run-dev.sh
+./scripts/distro-extract.sh
+./scripts/install-quadlets.sh
+./README.md
+./security-tools/entrypoint.sh
+./build-environment/entrypoint.sh
+./web-services/entrypoint.sh
