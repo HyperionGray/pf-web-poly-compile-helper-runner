@@ -25,10 +25,16 @@ into focused, cohesive components while maintaining the same public interface.
 import os
 import sys
 import traceback
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 # Import existing pf functionality
-from pf_parser import get_alias_map
+from pf_parser import (
+    get_alias_map,
+    _load_pfy_source_with_includes,
+    parse_pfyfile_text,
+    Task,
+    list_dsl_tasks_with_desc,
+)
 from pf_args import PfArgumentParser
 from pf_exceptions import PFException, format_exception_for_user
 
@@ -36,6 +42,7 @@ from pf_exceptions import PFException, format_exception_for_user
 from pf_subcommand_manager import SubcommandManager
 from pf_builtin_commands import BuiltinCommandHandler
 from pf_task_executor import TaskExecutor
+from pfuck import PfAutocorrect
 
 
 class PfRunner:
@@ -128,7 +135,15 @@ class PfRunner:
     
     def run_command(self, args: List[str]) -> int:
         """Run pf command with enhanced argument parsing and error handling."""
-        
+        # Lightweight version flag handling to avoid mis-parsing as a task
+        if args and args[0] in ("--version", "-V", "version"):
+            try:
+                from pf_grammar import __version__ as grammar_version
+            except Exception:
+                grammar_version = "unknown"
+            print(f"pf (merged build) - grammar {grammar_version}")
+            return 0
+
         # Discover subcommands first
         self.discover_subcommands()
         
