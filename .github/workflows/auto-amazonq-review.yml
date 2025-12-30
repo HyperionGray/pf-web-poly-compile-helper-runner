@@ -45,7 +45,7 @@ jobs:
         uses: actions/checkout@main
 
       - name: Wait for any pending Copilot PRs
-        uses: actions/github-script@main
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -340,7 +340,7 @@ jobs:
         continue-on-error: true
 
       - name: Create Amazon Q Review Issue
-        uses: actions/github-script@main
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
