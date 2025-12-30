@@ -1,0 +1,4 @@
+./install-containers.sh
+./assign-issues-to-copilot.sh
+./validate-build.sh
+./manage-containers.sh
