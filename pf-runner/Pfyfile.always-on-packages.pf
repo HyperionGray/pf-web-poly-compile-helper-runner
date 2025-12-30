@@ -27,16 +27,3 @@ task pkg-help
   shell echo "  deb ↔ rpm ↔ flatpak ↔ snap ↔ pacman"
   shell echo "  (All conversions use .deb as hub format)"
 end
-
-task install-alien
-  describe Install alien package converter
-  shell echo "Installing alien..."
-  shell sudo apt-get update && sudo apt-get install -y alien || echo "alien installation requires Debian/Ubuntu system"
-end
-
-task install-pkg-tools
-  describe Install package conversion tools
-  shell echo "📦 Installing package conversion tools..."
-  shell pf install-alien
-  shell echo "✅ Package tools installed"
-end

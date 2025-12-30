@@ -26,6 +26,7 @@ import os
 import sys
 import traceback
 from typing import List, Dict, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Import existing pf functionality
 from pf_parser import (
@@ -34,14 +35,23 @@ from pf_parser import (
     parse_pfyfile_text,
     Task,
     list_dsl_tasks_with_desc,
+    _merge_env_hosts,
+    _normalize_hosts,
+    _parse_host,
+    _c_for,
+    _dedupe_preserve_order,
+    _interpolate,
+    _exec_line_fabric,
+    BUILTINS,
 )
 from pf_args import PfArgumentParser
-from pf_exceptions import PFException, format_exception_for_user
+from pf_exceptions import PFException, PFExecutionError, format_exception_for_user
 
 # Import specialized components
 from pf_subcommand_manager import SubcommandManager
 from pf_builtin_commands import BuiltinCommandHandler
 from pf_task_executor import TaskExecutor
+from pf_shell import execute_shell_command
 from pfuck import PfAutocorrect
 
 
