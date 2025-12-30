@@ -14,6 +14,7 @@ This module provides:
 import argparse
 import os
 import sys
+from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
 import re
 
@@ -21,10 +22,34 @@ import re
 HELP_VARIATIONS = {'help', '--help', '-h', 'hlep', 'hepl', 'heelp', 'hlp'}
 
 
+def _detect_version() -> str:
+    """Best-effort detection of the pf version for --version output."""
+    candidates = [
+        Path(__file__).resolve().parent / "pyproject.toml",
+        Path(__file__).resolve().parent.parent / "pyproject.toml",
+    ]
+
+    for path in candidates:
+        if path.is_file():
+            try:
+                content = path.read_text(encoding="utf-8")
+                match = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
+                if match:
+                    return match.group(1)
+            except Exception:
+                continue
+
+    # Fallback if detection fails
+    return "0.0.0"
+
+
 class PfArgumentParser:
     """Enhanced argument parser for pf with subcommand support."""
 
     def __init__(self):
+        self.version = _detect_version()
+        self._subcommand_names = set()
+
         self.parser = argparse.ArgumentParser(
             prog="pf",
             description="pf - single-file, symbol-free Fabric runner with a tiny DSL",
@@ -68,6 +93,13 @@ For more help on a specific subcommand:
         )
         self.parser.add_argument(
             "--sudo-user", help="Run commands as specific sudo user"
+        )
+        self.parser.add_argument(
+            "-V",
+            "--version",
+            action="version",
+            version="%(prog)s " + self.version,
+            help="Show pf version and exit",
         )
 
         # Create subparsers
@@ -151,6 +183,13 @@ For more help on a specific subcommand:
             help="Disable debug mode",
             description="Toggle debug mode off - returns to normal error reporting",
         )
+
+        # version command (mirrors -V/--version)
+        self.subparsers.add_parser(
+            "version",
+            help="Show pf version",
+            description="Display pf version information and exit",
+        )
         
     def add_subcommand_from_file(self, filename: str, tasks: List[str]):
         """Add a subcommand based on an included file."""
@@ -179,6 +218,7 @@ For more help on a specific subcommand:
 
             # Store task list for this subcommand
             subparser.set_defaults(subcommand_tasks=tasks, subcommand_file=filename)
+            self._subcommand_names.add(subcommand_name)
 
     def parse_legacy_args(
         self, args: List[str]
@@ -333,7 +373,12 @@ For more help on a specific subcommand:
             else:
                 return self.parser.parse_args(["--help"])
 
-        if args[0] == "list":
+        # Directly handle explicit commands and flags without legacy translation
+        builtin_commands = {"list", "run", "help", "prune", "debug-on", "debug-off", "version"}
+        if args[0] in builtin_commands or args[0] in ("--version", "-V"):
+            return self.parser.parse_args(args)
+
+        if hasattr(self, "_subcommand_names") and args[0] in self._subcommand_names:
             return self.parser.parse_args(args)
 
         # Convert legacy syntax to modern

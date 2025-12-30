@@ -1463,7 +1463,7 @@ def main(argv: List[str]) -> int:
                     continue
                 try:
                     rc = _exec_line_fabric(
-                        connection, ln, sflag, suser, prefix, params, task_env
+                        ln, connection, task_env, tname, sflag, suser
                     )
                     if rc != 0:
                         # Command failed - create detailed error

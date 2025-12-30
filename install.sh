@@ -6,6 +6,7 @@ set -euo pipefail
 
 # Configuration
 DEFAULT_PREFIX_NATIVE="/usr/local"
+DEFAULT_PREFIX_USER="${HOME:-/usr/local}/.local"
 DEFAULT_PREFIX_CONTAINER="${HOME:-/usr/local}/.local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PF_RUNNER_DIR="${SCRIPT_DIR}/pf-runner"
@@ -266,7 +267,11 @@ normalize_settings() {
                 PREFIX="$DEFAULT_PREFIX_CONTAINER"
             fi
         else
-            PREFIX="$DEFAULT_PREFIX_NATIVE"
+            if [[ $EUID -eq 0 ]]; then
+                PREFIX="$DEFAULT_PREFIX_NATIVE"
+            else
+                PREFIX="$DEFAULT_PREFIX_USER"
+            fi
         fi
     fi
 }

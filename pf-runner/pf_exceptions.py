@@ -380,6 +380,7 @@ class PFTaskNotFoundError(PFException):
         
         # Try to suggest similar task names
         suggestion = None
+        explicit = kwargs.pop('suggestion', None)
         if available_tasks:
             # Simple fuzzy matching - find tasks with similar prefixes
             similar = [t for t in available_tasks if t.startswith(task_name[:3])]
@@ -389,8 +390,7 @@ class PFTaskNotFoundError(PFException):
         super().__init__(
             message=message,
             task_name=task_name,
-            suggestion=suggestion or kwargs.pop('suggestion', 
-                "Run 'pf list' to see all available tasks"),
+            suggestion=explicit or suggestion or "Run 'pf list' to see all available tasks",
             **kwargs
         )
 

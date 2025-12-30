@@ -41,8 +41,10 @@ import os
 import sys
 import shlex
 import traceback
+import difflib
 from typing import List, Dict, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 # Import existing pf functionality
 from pf_parser import (
@@ -215,6 +217,8 @@ class PfRunner:
                 return self._handle_debug_on_command(parsed_args)
             elif parsed_args.command == 'debug-off':
                 return self._handle_debug_off_command(parsed_args)
+            elif parsed_args.command == 'version':
+                return self._handle_version_command(parsed_args)
             elif hasattr(parsed_args, 'subcommand_tasks'):
                 # It's a subcommand
                 return self._handle_subcommand(parsed_args)
@@ -275,6 +279,19 @@ class PfRunner:
         except Exception as e:
             print(f"Error disabling debug mode: {e}", file=sys.stderr)
             return 1
+
+    def _handle_version_command(self, args) -> int:
+        """Display version information."""
+        version = getattr(self.arg_parser, "version", None) or "unknown"
+        grammar_version = getattr(sys.modules.get("pf_grammar"), "__version__", None)
+
+        print(f"pf {version}")
+        if grammar_version:
+            print(f"pf grammar {grammar_version}")
+
+        install_dir = Path(__file__).resolve().parent
+        print(f"install: {install_dir}")
+        return 0
     
     def _handle_list_command(self, args) -> int:
         """Handle the list command."""
@@ -347,6 +364,13 @@ class PfRunner:
             print("  - Specify a file with: pf -f <path> list", file=sys.stderr)
             print("  - Check the PFY_FILE environment variable", file=sys.stderr)
             return 1
+        except BrokenPipeError:
+            # Output pipe closed (e.g., piped to head); exit quietly
+            try:
+                sys.stdout.close()
+            except Exception:
+                pass
+            return 0
         except Exception as e:
             print(f"Error listing tasks: {e}", file=sys.stderr)
             print("\nTraceback:", file=sys.stderr)
@@ -463,19 +487,9 @@ class PfRunner:
         
         while i < len(task_args):
             task_name = task_args[i]
-            
-            # Check if task exists
-            if task_name not in valid_task_names:
-                # Try autocorrect
-                suggestions = self.autocorrect.suggest_task_correction(task_name)
-                
-                # Raise a proper exception instead of printing and returning
-                available_tasks = list(valid_task_names)
-                raise PFTaskNotFoundError(
-                    task_name=task_name,
-                    available_tasks=available_tasks,
-                    suggestion=f"Did you mean: {', '.join(suggestions)}?" if suggestions else None
-                )
+
+            # Resolve/auto-correct task name when it is not an exact match
+            resolved_name = self._resolve_task_name(task_name, valid_task_names)
             
             i += 1
             
@@ -487,14 +501,71 @@ class PfRunner:
                 i += 1
             
             # Get task lines
-            if task_name in BUILTINS:
-                lines = BUILTINS[task_name]
+            if resolved_name in BUILTINS:
+                lines = BUILTINS[resolved_name]
             else:
-                lines = dsl_tasks[task_name].lines
+                lines = dsl_tasks[resolved_name].lines
             
-            selected.append((task_name, lines, params))
+            selected.append((resolved_name, lines, params))
         
         return selected
+
+    def _resolve_task_name(self, task_name: str, valid_task_names: set) -> str:
+        """Return a valid task name, applying autocorrect with user-controlled policy."""
+        if task_name in valid_task_names:
+            return task_name
+
+        mode = os.getenv("PF_AUTOCORRECT_MODE", "auto").lower()
+        threshold = float(os.getenv("PF_AUTOCORRECT_THRESHOLD", "0.75"))
+
+        close_matches = difflib.get_close_matches(task_name, valid_task_names, n=5, cutoff=0.4)
+        auto_suggestions = self.autocorrect.suggest_task_correction(task_name)
+
+        # Merge suggestions while preserving order
+        suggestions = []
+        seen = set()
+        for s in close_matches + auto_suggestions:
+            if s not in seen:
+                seen.add(s)
+                suggestions.append(s)
+
+        best = suggestions[0] if suggestions else None
+        score = difflib.SequenceMatcher(None, task_name, best or "").ratio() if best else 0.0
+
+        def _fail():
+            raise PFTaskNotFoundError(
+                task_name=task_name,
+                available_tasks=list(valid_task_names),
+                suggestion=f"Did you mean: {', '.join(suggestions)}?" if suggestions else None
+            )
+
+        if mode == "off":
+            _fail()
+
+        if mode == "ask":
+            if best and score >= 0.6 and sys.stdin.isatty():
+                reply = input(
+                    f"Task '{task_name}' not found. Run '{best}' instead? [Y/n]: "
+                ).strip().lower()
+                if reply in ("", "y", "yes"):
+                    print(
+                        f"Auto-correcting '{task_name}' -> '{best}' (confidence {score:.2f})",
+                        file=sys.stderr,
+                    )
+                    return best
+                _fail()
+            _fail()
+
+        # default: auto (warn)
+        if best and score >= threshold:
+            print(
+                f"Warning: task '{task_name}' not found. Auto-corrected to '{best}' "
+                f"(confidence {score:.2f}). Set PF_AUTOCORRECT_MODE=off to disable.",
+                file=sys.stderr,
+            )
+            return best
+
+        _fail()
     
     def _execute_on_hosts(self, selected_tasks: List[Tuple[str, List[str], Dict[str, str]]], 
                          hosts: List[str], args) -> int:
@@ -557,8 +628,8 @@ class PfRunner:
                         else:
                             # Use original execution for other commands
                             rc = _exec_line_fabric(
-                                connection, line, args.sudo, args.sudo_user,
-                                prefix, params, task_env
+                                line, connection, task_env, task_name,
+                                args.sudo, args.sudo_user
                             )
                         
                         if rc != 0:
