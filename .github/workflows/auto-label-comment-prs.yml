@@ -6,7 +6,6 @@ on:
 permissions:
   issues: write
   pull-requests: write
-  contents: read
 
 jobs:
   pr_label_comment:

@@ -317,85 +317,25 @@ jobs:
           echo "- Include changelog or release notes" >> /tmp/doc-analysis.md
           
           cat /tmp/doc-analysis.md
-      - name: GitHub Copilot Documentation Review
-        run: |
-          echo "## GitHub Copilot Documentation Review" > /tmp/copilot-docs-review.md
-          echo "" >> /tmp/copilot-docs-review.md
-          echo "**Review Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> /tmp/copilot-docs-review.md
-          echo "" >> /tmp/copilot-docs-review.md
-          
-          echo "### Documentation Analysis" >> /tmp/copilot-docs-review.md
-          echo "" >> /tmp/copilot-docs-review.md
-          
-          # Check README.md
-          echo "#### README.md Analysis" >> /tmp/copilot-docs-review.md
-          if [ -f "README.md" ]; then
-            README_LINES=$(wc -l < README.md)
-            echo "- README.md exists ($README_LINES lines)" >> /tmp/copilot-docs-review.md
-            
-            # Check for common sections
-            if grep -q "## Installation\|# Installation" README.md; then
-              echo "- ✅ Installation instructions found" >> /tmp/copilot-docs-review.md
-            else
-              echo "- ❌ Installation instructions missing" >> /tmp/copilot-docs-review.md
-            fi
-            
-            if grep -q "## Usage\|# Usage" README.md; then
-              echo "- ✅ Usage instructions found" >> /tmp/copilot-docs-review.md
-            else
-              echo "- ❌ Usage instructions missing" >> /tmp/copilot-docs-review.md
-            fi
-            
-            if grep -q "## Contributing\|# Contributing" README.md; then
-              echo "- ✅ Contributing guidelines found" >> /tmp/copilot-docs-review.md
-            else
-              echo "- ❌ Contributing guidelines missing" >> /tmp/copilot-docs-review.md
-            fi
-          else
-            echo "- ❌ README.md not found" >> /tmp/copilot-docs-review.md
-          fi
-          
-          echo "" >> /tmp/copilot-docs-review.md
-          echo "#### Documentation Files Analysis" >> /tmp/copilot-docs-review.md
-          
-          # Count documentation files
-          DOC_COUNT=$(find . -name "*.md" ! -path "*/node_modules/*" | wc -l)
-          echo "- Total Markdown files: $DOC_COUNT" >> /tmp/copilot-docs-review.md
-          
-          # List main documentation files
-          find . -name "*.md" ! -path "*/node_modules/*" | head -10 | while read file; do
-            echo "- Found: $file" >> /tmp/copilot-docs-review.md
-          done
-          
-          echo "" >> /tmp/copilot-docs-review.md
-          echo "#### Code Documentation Analysis" >> /tmp/copilot-docs-review.md
-          
-          # Check for inline comments
-          COMMENTED_FILES=$(find . -name "*.py" -o -name "*.js" -o -name "*.ts" | \
-            xargs grep -l "#\|//\|/\*" 2>/dev/null | wc -l)
-          echo "- Files with comments: $COMMENTED_FILES" >> /tmp/copilot-docs-review.md
-          
-          # Check for docstrings in Python files
-          if find . -name "*.py" | head -1 > /dev/null 2>&1; then
-            DOCSTRING_FILES=$(find . -name "*.py" | xargs grep -l '"""' 2>/dev/null | wc -l)
-            echo "- Python files with docstrings: $DOCSTRING_FILES" >> /tmp/copilot-docs-review.md
-          fi
-          
-          echo "" >> /tmp/copilot-docs-review.md
-          echo "#### Documentation Recommendations" >> /tmp/copilot-docs-review.md
-          echo "- Ensure all public functions have proper documentation" >> /tmp/copilot-docs-review.md
-          echo "- Add examples for complex functionality" >> /tmp/copilot-docs-review.md
-          echo "- Keep documentation up-to-date with code changes" >> /tmp/copilot-docs-review.md
-          echo "- Consider adding API documentation if applicable" >> /tmp/copilot-docs-review.md
-          
-          # Note about GitHub Copilot integration
-          echo "" >> /tmp/copilot-docs-review.md
-          echo "#### GitHub Copilot Integration Status" >> /tmp/copilot-docs-review.md
-          echo "⚠️ **Note:** GitHub Copilot CLI integration is currently unavailable." >> /tmp/copilot-docs-review.md
-          echo "This review was generated using automated documentation analysis." >> /tmp/copilot-docs-review.md
-          
-          cat /tmp/copilot-docs-review.md
-        continue-on-error: true
+
+      # TODO: Re-enable when a working Copilot CLI action is available
+      # - name: GitHub Copilot Documentation Review
+      #   uses: austenstone/copilot-cli-action@v2
+      #   with:
+      #     copilot-token: ${{ secrets.COPILOT_TOKEN }}
+      #     prompt: |
+      #       Review the documentation for this repository:
+      #       1. Check README.md completeness and quality
+      #       2. Verify all features and functionality are documented
+      #       3. Check for installation and usage instructions
+      #       4. Identify missing or outdated documentation
+      #       5. Suggest improvements for clarity and completeness
+      #       6. Verify code comments and inline documentation
+      #       7. Check for API documentation if applicable
+      #       8. Ensure contributing guidelines are present
+      #       
+      #       Provide specific recommendations with file names and sections.
+      #   continue-on-error: true
 
       - name: Create Documentation Review Report
         uses: actions/github-script@main
