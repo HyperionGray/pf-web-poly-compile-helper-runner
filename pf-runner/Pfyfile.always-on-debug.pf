@@ -2,54 +2,6 @@
 # Installation and use of debugging/RE tools
 # Category: Debugging & Reverse Engineering
 
-task install-oryx
-  describe Install oryx - TUI for exploring binaries
-  shell echo "📦 Installing oryx..."
-  shell command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env)
-  shell cargo install --locked oryx
-  shell echo "✓ oryx installed via cargo"
-end
-
-task install-binsider
-  describe Install binsider - Binary analyzer with TUI
-  shell echo "📦 Installing binsider..."
-  shell command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env)
-  shell cargo install binsider
-  shell echo "✓ binsider installed via cargo"
-end
-
-task install-radare2
-  describe Install Radare2 - Reverse engineering framework
-  shell echo "📦 Installing Radare2..."
-  shell [ -f /etc/debian_version ] && (sudo apt-get update && sudo apt-get install -y radare2) || [ -f /etc/redhat-release ] && sudo yum install -y radare2 || [ "$(uname)" = "Darwin" ] && brew install radare2 || (git clone https://github.com/radareorg/radare2 /tmp/radare2 && cd /tmp/radare2 && sys/install.sh && rm -rf /tmp/radare2)
-  shell echo "✓ Radare2 installed"
-end
-
-task install-gdb
-  describe Install GDB debugger
-  shell echo "📦 Installing GDB..."
-  shell [ -f /etc/debian_version ] && sudo apt-get install -y gdb || [ -f /etc/redhat-release ] && sudo yum install -y gdb || [ "$(uname)" = "Darwin" ] && brew install gdb
-  shell echo "✓ GDB installed"
-end
-
-task install-lldb
-  describe Install LLDB debugger
-  shell echo "📦 Installing LLDB..."
-  shell [ -f /etc/debian_version ] && sudo apt-get install -y lldb || [ -f /etc/redhat-release ] && sudo yum install -y lldb || [ "$(uname)" = "Darwin" ] && brew install lldb
-  shell echo "✓ LLDB installed"
-end
-
-task install-all-debug-tools
-  describe Install all debugging and RE tools
-  shell echo "🚀 Installing all debugging tools..."
-  shell pf install-oryx
-  shell pf install-binsider
-  shell pf install-radare2
-  shell pf install-gdb
-  shell pf install-lldb
-  shell echo "✓ All debugging tools installed!"
-end
-
 task check-debug-tools
   describe Check installation status of debugging tools
   shell echo "🔍 Checking debugging tool installation status..."

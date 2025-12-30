@@ -36,68 +36,6 @@ task create-sanitizer-wrappers
   shell echo "✅ Sanitizer wrapper scripts created"
 end
 
-# Sanitizer Build Tasks
-
-task build-with-asan
-  describe Build project with AddressSanitizer (detects memory errors)
-  shell echo "🔍 Building with AddressSanitizer..."
-  env CC=clang CXX=clang++
-  env CFLAGS="-fsanitize=address -fno-omit-frame-pointer -g -O1"
-  env CXXFLAGS="-fsanitize=address -fno-omit-frame-pointer -g -O1"
-  env LDFLAGS="-fsanitize=address"
-  autobuild ${dir:+dir=$dir} ${jobs:+jobs=$jobs} ${release:+release=$release}
-  shell echo "✅ Build complete with AddressSanitizer"
-  shell echo "Run with: ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 ./your_binary"
-end
-
-task build-with-msan
-  describe Build project with MemorySanitizer (detects uninitialized memory)
-  shell echo "🔍 Building with MemorySanitizer..."
-  env CC=clang CXX=clang++
-  env CFLAGS="-fsanitize=memory -fno-omit-frame-pointer -g -O1"
-  env CXXFLAGS="-fsanitize=memory -fno-omit-frame-pointer -g -O1"
-  env LDFLAGS="-fsanitize=memory"
-  autobuild ${dir:+dir=$dir} ${jobs:+jobs=$jobs} ${release:+release=$release}
-  shell echo "✅ Build complete with MemorySanitizer"
-  shell echo "Run with: MSAN_OPTIONS=print_stats=1:halt_on_error=1 ./your_binary"
-end
-
-task build-with-ubsan
-  describe Build project with UndefinedBehaviorSanitizer (detects undefined behavior)
-  shell echo "🔍 Building with UndefinedBehaviorSanitizer..."
-  env CC=clang CXX=clang++
-  env CFLAGS="-fsanitize=undefined -fno-omit-frame-pointer -g -O1"
-  env CXXFLAGS="-fsanitize=undefined -fno-omit-frame-pointer -g -O1"
-  env LDFLAGS="-fsanitize=undefined"
-  autobuild ${dir:+dir=$dir} ${jobs:+jobs=$jobs} ${release:+release=$release}
-  shell echo "✅ Build complete with UndefinedBehaviorSanitizer"
-  shell echo "Run with: UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 ./your_binary"
-end
-
-task build-with-tsan
-  describe Build project with ThreadSanitizer (detects data races)
-  shell echo "🔍 Building with ThreadSanitizer..."
-  env CC=clang CXX=clang++
-  env CFLAGS="-fsanitize=thread -fno-omit-frame-pointer -g -O1"
-  env CXXFLAGS="-fsanitize=thread -fno-omit-frame-pointer -g -O1"
-  env LDFLAGS="-fsanitize=thread"
-  autobuild ${dir:+dir=$dir} ${jobs:+jobs=$jobs} ${release:+release=$release}
-  shell echo "✅ Build complete with ThreadSanitizer"
-  shell echo "Run with: TSAN_OPTIONS=halt_on_error=1:history_size=7 ./your_binary"
-end
-
-task build-with-all-sanitizers
-  describe Build project with multiple sanitizers (asan+ubsan, safe combination)
-  shell echo "🔍 Building with AddressSanitizer + UndefinedBehaviorSanitizer..."
-  env CC=clang CXX=clang++
-  env CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g -O1"
-  env CXXFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g -O1"
-  env LDFLAGS="-fsanitize=address,undefined"
-  autobuild ${dir:+dir=$dir} ${jobs:+jobs=$jobs} ${release:+release=$release}
-  shell echo "✅ Build complete with multiple sanitizers"
-  shell echo "Run with: ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1 ./your_binary"
-end
-
 # Sanitizer Analysis Tasks
 
 task sanitizer-analyze
