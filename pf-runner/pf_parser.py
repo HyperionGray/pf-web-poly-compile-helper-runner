@@ -1104,6 +1104,62 @@ def list_dsl_tasks_with_desc(file_arg: Optional[str] = None) -> List[Tuple[str, 
         raise
 
 
+def run_task_by_name(
+    task_name: str,
+    file_arg: Optional[str] = None,
+    hosts_arg: Optional[str] = None,
+    env_arg: Optional[List[str]] = None,
+    dry_run: bool = False,
+    debug: bool = False,
+    parallel: bool = False,
+    task_args: Optional[List[str]] = None,
+) -> int:
+    """
+    Minimal task runner used by refactored CLI modules.
+
+    Current implementation executes tasks locally and supports
+    env/shell lines; other verbs are skipped with a notice.
+    """
+    try:
+        dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
+        dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
+    except Exception as e:
+        print(f"Error loading Pfyfile: {e}", file=sys.stderr)
+        return 1
+
+    if task_name not in dsl_tasks:
+        print(f"Task '{task_name}' not found.", file=sys.stderr)
+        return 1
+
+    lines = dsl_tasks[task_name].lines
+    task_env: Dict[str, str] = {}
+    params = {}
+
+    rc = 0
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("env "):
+            for tok in shlex.split(stripped)[1:]:
+                if "=" in tok:
+                    k, v = tok.split("=", 1)
+                    task_env[k] = _interpolate(v, params, task_env)
+            continue
+
+        if stripped.startswith("shell "):
+            cmd = stripped[6:].strip()
+            cmd = _interpolate(cmd, params, task_env)
+            rc = _exec_line_fabric(cmd, None, task_env, task_name, False, None)
+        else:
+            print(f"[skip] unsupported verb in task '{task_name}': {stripped}", file=sys.stderr)
+            continue
+
+        if rc != 0:
+            print(f"Command failed with exit code {rc}: {stripped}", file=sys.stderr)
+            return rc
+
+    return rc
+
+
 def get_alias_map(file_arg: Optional[str] = None) -> Dict[str, str]:
     """Get mapping of aliases to task names."""
     try:

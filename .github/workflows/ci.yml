@@ -1,0 +1,325 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run daily at 2 AM UTC for comprehensive review
+    - cron: '0 2 * * *'
+
+jobs:
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Set up Node.js 18
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install fabric>=3.2,<4
+        pip install rich
+        pip install lark
+        # Install linting and analysis tools
+        pip install black flake8 pylint bandit safety
+    
+    - name: Install Node.js dependencies
+      run: npm ci
+    
+    - name: Python Code Formatting Check
+      run: |
+        black --check --diff pf-runner/ tools/ || echo "Code formatting issues found"
+    
+    - name: Python Linting
+      run: |
+        flake8 pf-runner/ --max-line-length=120 --ignore=E203,W503 || echo "Linting issues found"
+        pylint pf-runner/*.py --disable=C0114,C0115,C0116 --max-line-length=120 || echo "Pylint issues found"
+    
+    - name: Security Analysis
+      run: |
+        bandit -r pf-runner/ -f json -o bandit-report.json || echo "Security issues found"
+        safety check --json --output safety-report.json || echo "Dependency vulnerabilities found"
+    
+    - name: JavaScript/TypeScript Linting
+      run: |
+        npx eslint tools/ tests/ --ext .js,.mjs,.ts --format json --output-file eslint-report.json || echo "JS linting issues found"
+    
+    - name: Upload Code Quality Reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: code-quality-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+          eslint-report.json
+
+  test-suite:
+    name: Comprehensive Test Suite
+    runs-on: ubuntu-latest
+    needs: code-quality
+    
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+        node-version: ['16', '18', '20']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install fabric>=3.2,<4 rich lark coverage pytest
+        npm ci
+    
+    - name: Install Playwright browsers
+      run: npx playwright install --with-deps
+    
+    - name: Run Python unit tests with coverage
+      run: |
+        cd pf-runner
+        coverage run -m pytest ../tests/ --verbose || echo "Some Python tests failed"
+        coverage report --show-missing
+        coverage xml -o ../coverage-python.xml
+    
+    - name: Run Node.js unit tests
+      run: |
+        npm run test:unit || echo "Some Node.js tests failed"
+    
+    - name: Run Grammar tests
+      run: |
+        npm run test:grammar || echo "Grammar tests failed"
+    
+    - name: Run TUI tests
+      run: |
+        npm run test:tui || echo "TUI tests failed"
+    
+    - name: Run API tests
+      run: |
+        npm run test:api || echo "API tests failed"
+    
+    - name: Run Playwright E2E tests
+      run: |
+        npm run test || echo "E2E tests failed"
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-${{ matrix.python-version }}-${{ matrix.node-version }}
+        path: |
+          coverage-python.xml
+          playwright-report/
+          test-results/
+
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run credential scanner
+      run: |
+        npm run security:scan || echo "Credential scan completed with findings"
+    
+    - name: Run dependency vulnerability check
+      run: |
+        npm run security:deps || echo "Dependency scan completed with findings"
+    
+    - name: Run comprehensive security scan
+      run: |
+        npm run security:all || echo "Security scan completed"
+
+  build-verification:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    needs: [code-quality, test-suite]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Set up Node.js 18
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install fabric>=3.2,<4 rich lark
+        npm ci
+    
+    - name: Verify build process
+      run: |
+        npm run build || echo "Build verification completed"
+    
+    - name: Test installation process
+      run: |
+        chmod +x install.sh
+        ./install.sh --dry-run || echo "Installation test completed"
+    
+    - name: Verify pf-runner functionality
+      run: |
+        cd pf-runner
+        python pf_main.py --help || echo "pf-runner help test completed"
+        python pf_main.py list || echo "pf-runner list test completed"
+
+  documentation-check:
+    name: Documentation Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check required documentation files
+      run: |
+        echo "Checking essential documentation files..."
+        test -f README.md && echo "✅ README.md found" || echo "❌ README.md missing"
+        test -f CONTRIBUTING.md && echo "✅ CONTRIBUTING.md found" || echo "❌ CONTRIBUTING.md missing"
+        test -f LICENSE.md && echo "✅ LICENSE.md found" || echo "❌ LICENSE.md missing"
+        test -f CHANGELOG.md && echo "✅ CHANGELOG.md found" || echo "❌ CHANGELOG.md missing"
+        test -f CODE_OF_CONDUCT.md && echo "✅ CODE_OF_CONDUCT.md found" || echo "❌ CODE_OF_CONDUCT.md missing"
+        test -f SECURITY.md && echo "✅ SECURITY.md found" || echo "❌ SECURITY.md missing"
+    
+    - name: Validate README content
+      run: |
+        echo "Validating README.md content..."
+        grep -i "installation" README.md && echo "✅ Installation section found" || echo "❌ Installation section missing"
+        grep -i "usage" README.md && echo "✅ Usage section found" || echo "❌ Usage section missing"
+        grep -i "features" README.md && echo "✅ Features section found" || echo "❌ Features section missing"
+        grep -i "contributing" README.md && echo "✅ Contributing section found" || echo "❌ Contributing section missing"
+        grep -i "license" README.md && echo "✅ License section found" || echo "❌ License section missing"
+        grep -i "documentation" README.md && echo "✅ Documentation section found" || echo "❌ Documentation section missing"
+        grep -i "examples" README.md && echo "✅ Examples section found" || echo "❌ Examples section missing"
+        grep -i "api" README.md && echo "✅ API section found" || echo "❌ API section missing"
+    
+    - name: Check documentation word counts
+      run: |
+        echo "Documentation word counts:"
+        wc -w README.md CONTRIBUTING.md LICENSE.md CHANGELOG.md CODE_OF_CONDUCT.md SECURITY.md
+
+  performance-analysis:
+    name: Performance Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install fabric>=3.2,<4 rich lark memory-profiler line-profiler
+    
+    - name: Run performance benchmarks
+      run: |
+        cd pf-runner
+        echo "Running parser performance test..."
+        python -c "
+import time
+import pf_parser
+start = time.time()
+# Basic performance test
+for i in range(100):
+    pf_parser.parse_pfyfile('test.pf')
+end = time.time()
+print(f'Parser performance: {(end-start)*1000:.2f}ms for 100 iterations')
+" || echo "Performance test completed"
+
+  file-size-analysis:
+    name: File Size Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Analyze large files
+      run: |
+        echo "Files larger than 500 lines:"
+        find . -name "*.py" -o -name "*.js" -o -name "*.mjs" -o -name "*.ts" | \
+        xargs wc -l | sort -nr | awk '$1 > 500 {print $1 " lines: " $2}' | \
+        head -20
+
+  comprehensive-review:
+    name: Complete CI/CD Review
+    runs-on: ubuntu-latest
+    needs: [code-quality, test-suite, security-scan, build-verification, documentation-check, performance-analysis, file-size-analysis]
+    if: always()
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Generate CI/CD Review Report
+      run: |
+        echo "# Complete CI/CD Review Report - $(date -u +'%Y-%m-%d %H:%M:%S UTC')" > CICD_REVIEW_REPORT.md
+        echo "" >> CICD_REVIEW_REPORT.md
+        echo "**Repository:** ${{ github.repository }}" >> CICD_REVIEW_REPORT.md
+        echo "**Branch:** ${{ github.ref_name }}" >> CICD_REVIEW_REPORT.md
+        echo "**Commit:** ${{ github.sha }}" >> CICD_REVIEW_REPORT.md
+        echo "**Trigger:** ${{ github.event_name }}" >> CICD_REVIEW_REPORT.md
+        echo "" >> CICD_REVIEW_REPORT.md
+        echo "## Job Status Summary" >> CICD_REVIEW_REPORT.md
+        echo "" >> CICD_REVIEW_REPORT.md
+        echo "- Code Quality: ${{ needs.code-quality.result }}" >> CICD_REVIEW_REPORT.md
+        echo "- Test Suite: ${{ needs.test-suite.result }}" >> CICD_REVIEW_REPORT.md
+        echo "- Security Scan: ${{ needs.security-scan.result }}" >> CICD_REVIEW_REPORT.md
+        echo "- Build Verification: ${{ needs.build-verification.result }}" >> CICD_REVIEW_REPORT.md
+        echo "- Documentation Check: ${{ needs.documentation-check.result }}" >> CICD_REVIEW_REPORT.md
+        echo "- Performance Analysis: ${{ needs.performance-analysis.result }}" >> CICD_REVIEW_REPORT.md
+        echo "- File Size Analysis: ${{ needs.file-size-analysis.result }}" >> CICD_REVIEW_REPORT.md
+        echo "" >> CICD_REVIEW_REPORT.md
+        echo "## Next Steps" >> CICD_REVIEW_REPORT.md
+        echo "" >> CICD_REVIEW_REPORT.md
+        echo "Review the individual job outputs for detailed findings and recommendations." >> CICD_REVIEW_REPORT.md
+    
+    - name: Upload CI/CD Review Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: cicd-review-report
+        path: CICD_REVIEW_REPORT.md

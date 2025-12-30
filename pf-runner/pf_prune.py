@@ -580,6 +580,19 @@ def prune_tasks(
     return len(passed), 0, []
 
 
+def prune_containers() -> Tuple[int, int, List[str]]:
+    """
+    Compatibility shim for newer built-in command handler.
+    Runs prune_tasks in dry-run mode and returns its summary tuple.
+    """
+    return prune_tasks(
+        file_arg=None,
+        dry_run=True,
+        verbose=False,
+        output_file="pfail.fail.pf"
+    )
+
+
 def main(argv: List[str]) -> int:
     """Main entry point for pf prune."""
     import argparse
