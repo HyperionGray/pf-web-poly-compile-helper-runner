@@ -1,0 +1,175 @@
+name: Complete CI/CD Review
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  cicd-review:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Install Playwright browsers
+      run: npx playwright install --with-deps
+      
+    - name: Run Complete CI/CD Review
+      id: cicd-review
+      run: |
+        echo "Starting Complete CI/CD Review..."
+        npm run cicd:review:save
+        echo "Review completed successfully"
+      continue-on-error: true
+      
+    - name: Upload CI/CD Review Report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: cicd-review-report
+        path: |
+          CICD_REVIEW_REPORT.md
+          playwright-report/
+        retention-days: 30
+        
+    - name: Create Issue with Review Results
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Read the generated review report
+          let reviewContent = '';
+          try {
+            reviewContent = fs.readFileSync('CICD_REVIEW_REPORT.md', 'utf8');
+          } catch (error) {
+            reviewContent = `# Complete CI/CD Review Report - Error
+            
+            **Review Date:** ${new Date().toUTCString()}
+            **Repository:** ${context.repo.owner}/${context.repo.repo}
+            **Branch:** ${context.ref.replace('refs/heads/', '')}
+            **Trigger:** ${context.eventName}
+            
+            ## Error
+            
+            ❌ Failed to generate complete review report: ${error.message}
+            
+            Please check the workflow logs for more details.
+            `;
+          }
+          
+          // Create or update issue
+          const title = `Complete CI/CD Review - ${new Date().toISOString().split('T')[0]}`;
+          
+          try {
+            // Check if there's already an open review issue
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['ci-cd-review', 'automated']
+            });
+            
+            if (existingIssues.data.length > 0) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssues.data[0].number,
+                title: title,
+                body: reviewContent
+              });
+              
+              console.log(`✅ Updated existing CI/CD review issue #${existingIssues.data[0].number}`);
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: reviewContent,
+                labels: ['ci-cd-review', 'automated', 'documentation']
+              });
+              
+              console.log('✅ Created new CI/CD review issue');
+            }
+          } catch (error) {
+            console.log(`⚠️ Failed to create or update review issue: ${error.message}`);
+            console.log("Note: This may be due to insufficient permissions or repository settings.");
+          }
+          
+    - name: Comment on PR with Review Summary
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          
+          let summary = '';
+          try {
+            const reviewContent = fs.readFileSync('CICD_REVIEW_REPORT.md', 'utf8');
+            
+            // Extract executive summary
+            const summaryMatch = reviewContent.match(/## Executive Summary\n\n([\s\S]*?)\n\n## Detailed Findings/);
+            if (summaryMatch) {
+              summary = summaryMatch[1];
+            } else {
+              summary = 'CI/CD review completed. See full report in artifacts.';
+            }
+          } catch (error) {
+            summary = `❌ CI/CD review failed: ${error.message}`;
+          }
+          
+          const comment = `## 🔍 CI/CD Review Summary
+          
+          ${summary}
+          
+          📄 **Full Report**: Available in the workflow artifacts
+          🔗 **Workflow Run**: ${context.payload.pull_request.html_url}/checks
+          
+          ---
+          *This comment was automatically generated by the Complete CI/CD Review workflow.*`;
+          
+          try {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+            console.log(`✅ Added comment to PR #${context.issue.number}`);
+          } catch (error) {
+            console.log(`⚠️ Failed to add comment to PR #${context.issue.number}: ${error.message}`);
+            console.log("Note: This may be due to insufficient permissions.");
+          }
+          
+    - name: Set workflow status
+      if: always()
+      run: |
+        if [ -f "CICD_REVIEW_REPORT.md" ]; then
+          echo "✅ CI/CD Review completed successfully"
+          exit 0
+        else
+          echo "❌ CI/CD Review failed to complete"
+          exit 1
+        fi

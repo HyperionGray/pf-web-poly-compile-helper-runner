@@ -2,11 +2,6 @@
 # Git repository management and cleanup
 # Category: Version Control
 
-task install-git-filter-repo
-  describe Install git-filter-repo for safe git history rewriting
-  shell pip3 install --user git-filter-repo || pip install --user git-filter-repo
-end
-
 task git-analyze-large-files
   describe Analyze repository for large files without removing them
   shell echo "🔍 Analyzing git repository for large files..."
