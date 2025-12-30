@@ -35,7 +35,7 @@ jobs:
                 console.log(`✅ Assigned ${assignees.join(", ")} to PR #${context.payload.pull_request.number}`);
               } catch (error) {
                 console.log(`⚠️ Failed to assign ${assignees.join(", ")}: ${error.message}`);
-                console.log("Note: You must have a Copilot seat assigned to your account/org for this to work, or the user must exist and be a collaborator.");
+                console.log("Note: You must have a Copilot seat assigned to your account/org for this to work.");
               }
             } else {
               console.log(`ℹ️ Already assigned: ${assignees.join(", ")} on PR #${context.payload.pull_request.number}`);
