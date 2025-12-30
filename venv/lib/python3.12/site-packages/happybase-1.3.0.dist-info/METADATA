@@ -1,0 +1,45 @@
+Metadata-Version: 2.4
+Name: happybase
+Version: 1.3.0
+Summary: A developer-friendly Python library to interact with Apache HBase
+Home-page: https://github.com/wbolster/happybase
+Author: Wouter Bolsterlee
+Author-email: uws@xs4all.nl
+License: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Database
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+License-File: LICENSE.rst
+Requires-Dist: six
+Requires-Dist: thriftpy2>=0.4
+Requires-Dist: importlib-resources
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
+
+HappyBase
+=========
+
+**HappyBase** is a developer-friendly Python_ library to interact with Apache
+HBase_.
+
+* `Documentation <https://happybase.readthedocs.io/>`_ (Read the Docs)
+* `Downloads <http://pypi.python.org/pypi/happybase/>`_ (PyPI)
+* `Source code <https://github.com/wbolster/happybase>`_ (Github)
+
+.. _Python: http://python.org/
+.. _HBase: http://hbase.apache.org/
+
+.. If you're reading this from the README.rst file in a source tree,
+   you can generate the HTML documentation by running "make doc" and browsing
+   to doc/build/html/index.html to see the result.
