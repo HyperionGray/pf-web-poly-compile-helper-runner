@@ -557,8 +557,8 @@ class PfRunner:
                         else:
                             # Use original execution for other commands
                             rc = _exec_line_fabric(
-                                connection, line, args.sudo, args.sudo_user,
-                                prefix, params, task_env
+                                line, connection, task_env, task_name,
+                                args.sudo, args.sudo_user
                             )
                         
                         if rc != 0:
