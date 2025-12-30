@@ -4,75 +4,55 @@ pf_main.py - Enhanced main entry point for pf with subcommand support
 
 This module provides:
 - Integration of enhanced argument parsing
-- Subcommand support with auto-discovery
+- Orchestration of specialized components
 - Backward compatibility with existing usage
 - Integration with pfuck autocorrect
 
-File Structure (611 lines):
-  - PfRunner class (lines 42-554): [512 lines]
-    - Subcommand discovery
-    - Task execution orchestration
-    - Error handling and autocorrect
-    - Built-in task dispatching
-    - Remote execution management
-  
-  - Main Entry Point (lines 556+):
-    - CLI interface
-    - Exception handling
-
-This module acts as the orchestrator, delegating to:
+Architecture:
+  This module now acts as a lightweight orchestrator, delegating to specialized components:
+  - SubcommandManager: Handles subcommand discovery and registration
+  - BuiltinCommandHandler: Manages built-in command implementations
+  - TaskExecutor: Orchestrates task execution and parallel processing
   - pf_parser: Core DSL parsing and task management
   - pf_args: Argument parsing
   - pf_shell: Shell command execution
   - pfuck: Autocorrect functionality
 
-Architecture Note:
-  While this file exceeds 500 lines, it maintains a single clear responsibility
-  as the main orchestrator. The length is justified by:
-  - Comprehensive error handling and user-friendly error messages
-  - Integration of multiple subsystems (parser, shell, autocorrect)
-  - Built-in task implementations (list, help, version, etc.)
-  - Detailed docstrings and comments for maintainability
-  Further decomposition would distribute orchestration logic across multiple
-  files without improving cohesion or reducing complexity.
+The refactoring follows Single Responsibility Principle by separating concerns
+into focused, cohesive components while maintaining the same public interface.
 """
 
 import os
 import sys
-import shlex
 import traceback
 from typing import List, Dict, Optional, Tuple
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Import existing pf functionality
 from pf_parser import (
-    _find_pfyfile, _load_pfy_source_with_includes, parse_pfyfile_text,
-    _normalize_hosts, _merge_env_hosts, _dedupe_preserve_order,
-    _parse_host, _c_for, Task, BUILTINS, ENV_MAP,
-    _interpolate, _exec_line_fabric, list_dsl_tasks_with_desc, get_alias_map
+    get_alias_map,
+    _load_pfy_source_with_includes,
+    parse_pfyfile_text,
+    Task,
+    list_dsl_tasks_with_desc,
 )
-
-# Import new functionality
 from pf_args import PfArgumentParser
-from pf_shell import execute_shell_command, validate_shell_syntax
-from pfuck import PfAutocorrect
+from pf_exceptions import PFException, format_exception_for_user
 
-# Import custom exceptions
-from pf_exceptions import (
-    PFException,
-    PFSyntaxError,
-    PFExecutionError,
-    PFTaskNotFoundError,
-    PFConnectionError,
-    format_exception_for_user
-)
+# Import specialized components
+from pf_subcommand_manager import SubcommandManager
+from pf_builtin_commands import BuiltinCommandHandler
+from pf_task_executor import TaskExecutor
+from pfuck import PfAutocorrect
 
 
 class PfRunner:
-    """Enhanced pf runner with subcommand support."""
+    """Enhanced pf runner with subcommand support and modular architecture."""
     
     def __init__(self):
         self.arg_parser = PfArgumentParser()
+        self.subcommand_manager = SubcommandManager()
+        self.builtin_handler = BuiltinCommandHandler()
+        self.task_executor = TaskExecutor()
         self.autocorrect = None
         
     def discover_subcommands(self, pfyfile: Optional[str] = None) -> Dict[str, List[str]]:
@@ -155,7 +135,15 @@ class PfRunner:
     
     def run_command(self, args: List[str]) -> int:
         """Run pf command with enhanced argument parsing and error handling."""
-        
+        # Lightweight version flag handling to avoid mis-parsing as a task
+        if args and args[0] in ("--version", "-V", "version"):
+            try:
+                from pf_grammar import __version__ as grammar_version
+            except Exception:
+                grammar_version = "unknown"
+            print(f"pf (merged build) - grammar {grammar_version}")
+            return 0
+
         # Discover subcommands first
         self.discover_subcommands()
         
@@ -557,8 +545,8 @@ class PfRunner:
                         else:
                             # Use original execution for other commands
                             rc = _exec_line_fabric(
-                                connection, line, args.sudo, args.sudo_user,
-                                prefix, params, task_env
+                                line, connection, task_env, task_name,
+                                args.sudo, args.sudo_user
                             )
                         
                         if rc != 0:
