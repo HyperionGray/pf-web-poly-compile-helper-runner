@@ -18,6 +18,12 @@ include Pfyfile.rop.pf
 # Include practice binaries tasks
 include Pfyfile.practice.pf
 
+# Include fuzzing tasks
+include Pfyfile.fuzzing.pf
+
+# Include sanitizer deep-dive tasks (analysis, wrappers, demos)
+include Pfyfile.sanitizers.pf
+
 # Include security testing tasks
 include Pfyfile.security.pf
 
@@ -168,6 +174,7 @@ task web-build-wat-wasm
 end
 
 task web-build-all
+  shell pf web-toolchain-check
   shell pf web-build-rust
   shell pf web-build-c
   shell pf web-build-fortran
@@ -176,6 +183,7 @@ end
 
 task web-build-all-wasm
   describe Build all languages to WebAssembly
+  shell pf web-toolchain-check
   shell pf web-build-rust-wasm
   shell pf web-build-c-wasm
   shell pf web-build-fortran-wasm
@@ -184,14 +192,38 @@ end
 
 task web-build-all-asm
   describe Build all languages to asm.js where supported
+  shell pf web-toolchain-check
   shell pf web-build-c-asm
 end
 
 task web-build-all-llvm
   describe Build all languages to LLVM IR where supported (with O3 by default, use opt_level= and parallel=true as needed)
+  shell pf web-toolchain-check
   shell pf web-build-rust-llvm opt_level=${opt_level:-3}
   shell pf web-build-c-llvm opt_level=${opt_level:-3} parallel=${parallel:-false}
   shell pf web-build-fortran-llvm opt_level=${opt_level:-3} parallel=${parallel:-false}
+end
+
+task web-toolchain-check
+  describe Verify required web/WASM toolchains are installed
+  shell_lang bash
+  shell missing=(); \
+       reqs=(wasm-pack emcc lfortran wat2wasm clang opt-18); \
+       for cmd in "${reqs[@]}"; do \
+         if ! command -v "$cmd" >/dev/null 2>&1; then missing+=("$cmd"); fi; \
+       done; \
+       if [ ${#missing[@]} -eq 0 ]; then \
+         echo "✅ Web toolchain ready: wasm-pack, emcc, lfortran, wat2wasm, clang, opt-18"; \
+       else \
+         echo "❌ Missing toolchain components: ${missing[*]}"; \
+         echo "Install hints:"; \
+         echo "  - emcc/emsdk: https://emscripten.org/docs/getting_started/downloads.html"; \
+         echo "  - wasm-pack: https://rustwasm.github.io/wasm-pack/installer/"; \
+         echo "  - lfortran: https://lfortran.org/download"; \
+         echo "  - wat2wasm: install wabt package"; \
+         echo "  - opt-18: install llvm-18 (or adjust PATH to your llvm tools)"; \
+         exit 1; \
+       fi
 end
 
 task web-build-c-llvm-opt
@@ -200,19 +232,14 @@ task web-build-c-llvm-opt
   shell cd demos/pf-web-polyglot-demo-plus-c/c && mkdir -p .tmp ../web/llvm/c && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o .tmp/c_trap_unopt.ll && opt-18 -S -passes="${passes:-mem2reg,instcombine,simplifycfg,loop-vectorize}" .tmp/c_trap_unopt.ll -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
 end
 
-task install-base
-  describe Install pf wrapper (container-first)
-  shell bash install.sh
-end
-
-task install-web
-  describe Install pf wrapper (alias for install)
-  shell bash install.sh
-end
-
 task install
   describe Install pf wrapper (container-first)
   shell bash install.sh
+end
+
+task install-native
+  describe Install pf wrapper directly on the host (no container)
+  shell bash install.sh --mode native
 end
 
 task install-container runtime=podman image=localhost/pf-runner:latest
@@ -220,33 +247,30 @@ task install-container runtime=podman image=localhost/pf-runner:latest
   shell bash install.sh --mode container --runtime ${runtime} --image ${image}
 end
 
-task install-full mode=container runtime=podman
-  describe Full setup (container-first): build images, install wrapper, install/enable quadlets, doctor
-  # Build images (container-first default). Users can override with mode=native to skip containers.
-  shell if [ "${mode:-container}" = "container" ]; then CONTAINER_RT=${runtime:-podman} ./containers/scripts/build-containers.sh all; else echo "[install-full] native mode: skipping container builds"; fi
-  # Install pf wrapper
-shell if [ "${mode:-container}" = "container" ]; then pf install; else ./containers/scripts/install-native.sh || { echo "native install failed"; exit 1; }; fi
-  # Quadlets (only meaningful in container mode)
-  shell if [ "${mode:-container}" = "container" ]; then pf quadlet-install; else true; fi
-  shell if [ "${mode:-container}" = "container" ]; then pf quadlet-reload; else true; fi
-  shell if [ "${mode:-container}" = "container" ]; then pf quadlet-enable-all; else true; fi
-  shell if [ "${mode:-container}" = "container" ]; then pf quadlet-status-all; else true; fi
-  # Doctor at the end
-  shell pf quadlet-doctor
-end
-
-# Back-compat alias
 task install-all
-  describe Alias for install-full (container-first)
-  shell pf install-full
+  describe Install pf plus core tool categories
+  shell pf install
+  shell pf install-container runtime=${runtime:-podman} image=${image:-localhost/pf-runner:latest}
+  shell pf install-exploit-tools
+  shell pf install-security-tools
+  shell pf install-all-debug-tools
+  shell pf install-pkg-tools
+  shell pf install-tui-deps
+  shell pf install-fuzzing-tools
+  shell pf install-lifting-tools
+  shell pf install-sanitizer-tools
 end
 
-task install-all-min
-  describe Install pf and quadlets only (no image build)
-  shell pf install
-  shell pf quadlet-install
-  shell pf quadlet-reload
-  shell pf quadlet-enable
+task install-smoke-test
+  describe Run a minimal end-to-end install and command smoke test (CI helper)
+  shell_lang bash
+  shell set -euo pipefail
+  shell PREFIX=$(mktemp -d /tmp/pf-smoke-XXXX)
+  shell echo "Using PREFIX=$PREFIX"
+  shell ./install.sh --mode native --prefix "$PREFIX" --skip-deps
+  shell PATH="$PREFIX/bin:$PATH" pf --version
+  shell PATH="$PREFIX/bin:$PATH" pf list >/dev/null
+  shell echo "✅ install-smoke-test passed at $PREFIX"
 end
 
 task debug-check-podman
@@ -254,12 +278,6 @@ task debug-check-podman
   shell command -v podman || echo "podman not in PATH"
   shell ls -l /usr/bin/podman || true
   shell env | grep -E 'XDG_RUNTIME_DIR|CONTAINER_HOST' || true
-end
-
-task install-exploit
-  describe Install exploit development tools (pwntools, checksec, ROPgadget, ropper)
-  
-  shell pf install-exploit-tools
 end
 
 task sync-demo
@@ -271,17 +289,4 @@ task sync-demo
   shell echo "  Excludes: sync src=./ dest=/backup/ excludes=[\"*.log\",\"*.tmp\"] delete dry"
   shell echo "  From file: sync src=./ dest=/backup/ exclude_file=.rsync-exclude"
   shell echo "See pf-runner/SYNC.md for full documentation"
-end
-
-# --- install aliases ---
-task install-native
-  describe Build pf natively via container and drop to ~/.local/bin/pf
-  shell_lang bash
-  shell ./containers/scripts/install-native.sh
-end
-
-task install-system
-  describe Install ~/.local/bin/pf to /usr/local/bin/pf (host; may prompt for sudo)
-  shell_lang bash
-  shell ./containers/scripts/install-system.sh
 end
