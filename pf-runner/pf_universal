@@ -10,6 +10,84 @@ DEFAULT_RUNTIME="podman"
 IMAGE="${PF_IMAGE:-$DEFAULT_IMAGE}"
 RUNTIME="${PF_RUNTIME:-$DEFAULT_RUNTIME}"
 
+# Function to display help when pf is not installed
+show_help_not_installed() {
+  cat << 'EOF'
+pf - Polyglot Task Runner
+==========================
+
+You are trying to use pf before it has been installed.
+
+QUICK START:
+------------
+
+1. One-command installation (easiest):
+   ./quick-install.sh
+
+2. Container-based installation:
+   ./install.sh --runtime podman
+   # or: ./install.sh --runtime docker
+
+3. Native installation (no containers):
+   ./install.sh --mode native --prefix ~/.local
+   # or: sudo ./install.sh --mode native
+
+ABOUT PF:
+---------
+
+pf is a lightweight task runner with a clean DSL for managing development workflows.
+
+Features:
+  • Symbol-free DSL with verbs like shell, packages, service, directory
+  • Polyglot shell support - run code inline in 40+ languages
+  • Build system helpers - Make, CMake, Cargo, Go, and more
+  • Parallel execution across multiple hosts via SSH
+  • Modular configuration with include statements
+  • Parameter interpolation and command aliases
+
+AFTER INSTALLATION:
+-------------------
+
+Run these commands to get started:
+  pf list                    # List all available tasks
+  pf help                    # Show detailed help
+  pf web-dev                 # Start development server
+  pf autobuild               # Auto-detect and build any project
+
+For more information, see:
+  • README.md - Project overview and documentation
+  • QUICKSTART.md - Comprehensive guide with examples
+  • pf-runner/README.md - Detailed pf runner documentation
+
+EOF
+}
+
+# Check if user is requesting help before installation
+if [[ "${1:-}" == "help" ]] || [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+  # Try to detect if we're in a fresh clone (pf not installed)
+  if ! command -v "$RUNTIME" >/dev/null 2>&1; then
+    show_help_not_installed
+    exit 0
+  fi
+  
+  # Check if image exists
+  IMAGE_EXISTS=false
+  if [[ "$RUNTIME" = "podman" ]]; then
+    if podman image exists "$IMAGE" >/dev/null 2>&1; then
+      IMAGE_EXISTS=true
+    fi
+  elif [[ "$RUNTIME" = "docker" ]]; then
+    if docker image inspect "$IMAGE" >/dev/null 2>&1; then
+      IMAGE_EXISTS=true
+    fi
+  fi
+  
+  if [[ "$IMAGE_EXISTS" = "false" ]]; then
+    show_help_not_installed
+    exit 0
+  fi
+fi
+
 if ! command -v "$RUNTIME" >/dev/null 2>&1; then
   echo "Error: container runtime '$RUNTIME' not found." >&2
   echo "" >&2
@@ -24,6 +102,8 @@ if ! command -v "$RUNTIME" >/dev/null 2>&1; then
   fi
   echo "  2. Use docker instead: PF_RUNTIME=docker pf ..." >&2
   echo "  3. Install the native runner: sudo ./install.sh --mode native" >&2
+  echo "" >&2
+  echo "For help and installation instructions, run: $0 help" >&2
   exit 1
 fi
 
@@ -52,6 +132,8 @@ if [[ -z "${PF_IMAGE:-}" ]]; then
     echo "     sudo ./install.sh --mode native" >&2
     echo "  3. Or specify a different image:" >&2
     echo "     PF_IMAGE=<your-image> pf ..." >&2
+    echo "" >&2
+    echo "For help and installation instructions, run: $0 help" >&2
     exit 1
   fi
 fi
