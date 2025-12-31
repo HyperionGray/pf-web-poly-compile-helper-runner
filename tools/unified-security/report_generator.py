@@ -459,7 +459,7 @@ EXPLOIT_TYPE = "{opportunity['type']}"
 def main():
     print(f"🎯 Exploit template for {{TARGET}}")
     print(f"📋 Type: {{EXPLOIT_TYPE}}")
-    print(f"⚠️  Risk Score: {opportunity['risk_score']}/10")
+    print("⚠️  Risk Score: {opportunity['risk_score']}/10")
     print()
     
     # TODO: Implement specific exploit based on findings
