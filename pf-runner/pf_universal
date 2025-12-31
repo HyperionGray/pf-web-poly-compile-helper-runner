@@ -10,6 +10,23 @@ DEFAULT_RUNTIME="podman"
 IMAGE="${PF_IMAGE:-$DEFAULT_IMAGE}"
 RUNTIME="${PF_RUNTIME:-$DEFAULT_RUNTIME}"
 
+# Function to check if container image exists
+check_image_exists() {
+  local runtime="$1"
+  local image="$2"
+  
+  if [[ "$runtime" = "podman" ]]; then
+    if podman image exists "$image" >/dev/null 2>&1; then
+      return 0
+    fi
+  elif [[ "$runtime" = "docker" ]]; then
+    if docker image inspect "$image" >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
 # Function to display help when pf is not installed
 show_help_not_installed() {
   cat << 'EOF'
@@ -71,18 +88,7 @@ if [[ "${1:-}" == "help" ]] || [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h"
   fi
   
   # Check if image exists
-  IMAGE_EXISTS=false
-  if [[ "$RUNTIME" = "podman" ]]; then
-    if podman image exists "$IMAGE" >/dev/null 2>&1; then
-      IMAGE_EXISTS=true
-    fi
-  elif [[ "$RUNTIME" = "docker" ]]; then
-    if docker image inspect "$IMAGE" >/dev/null 2>&1; then
-      IMAGE_EXISTS=true
-    fi
-  fi
-  
-  if [[ "$IMAGE_EXISTS" = "false" ]]; then
+  if ! check_image_exists "$RUNTIME" "$IMAGE"; then
     show_help_not_installed
     exit 0
   fi
@@ -110,18 +116,7 @@ fi
 # If the user did not override PF_IMAGE, avoid confusing 'trying to pull localhost/...'
 # behavior by checking for the local image first.
 if [[ -z "${PF_IMAGE:-}" ]]; then
-  IMAGE_EXISTS=false
-  if [[ "$RUNTIME" = "podman" ]]; then
-    if podman image exists "$IMAGE" >/dev/null 2>&1; then
-      IMAGE_EXISTS=true
-    fi
-  elif [[ "$RUNTIME" = "docker" ]]; then
-    if docker image inspect "$IMAGE" >/dev/null 2>&1; then
-      IMAGE_EXISTS=true
-    fi
-  fi
-  
-  if [[ "$IMAGE_EXISTS" = "false" ]]; then
+  if ! check_image_exists "$RUNTIME" "$IMAGE"; then
     echo "Error: container image '$IMAGE' not found locally." >&2
     echo "" >&2
     echo "To fix this issue:" >&2
