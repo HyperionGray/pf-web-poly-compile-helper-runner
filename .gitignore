@@ -31,6 +31,7 @@ demos/practice-binaries/race-condition/toctou_race
 demos/practice-binaries/command-injection/cmd_injection
 
 node_modules/
+venv/
 *.log
 
 # Test artifacts
