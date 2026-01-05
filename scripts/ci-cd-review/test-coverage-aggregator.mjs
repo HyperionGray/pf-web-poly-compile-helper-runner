@@ -146,7 +146,7 @@ class TestCoverageAggregator {
             
             if (passedMatch && totalMatch) {
                 parsed.stats.passed = parseInt(passedMatch[1]) || 0;
-                parsed.stats.failed = parseInt(failedMatch ? failedMatch[1] : 0) || 0;
+                parsed.stats.failed = failedMatch ? parseInt(failedMatch[1]) || 0 : 0;
                 parsed.stats.total = parseInt(totalMatch[1]) || 0;
             } else {
                 // Fallback: count individual test result lines
