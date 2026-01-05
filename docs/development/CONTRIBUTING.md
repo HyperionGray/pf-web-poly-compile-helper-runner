@@ -54,8 +54,12 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 5. **Install development dependencies**:
    ```bash
+   # Install Node.js dependencies
    npm install
    npx playwright install
+   
+   # Install Python dependencies
+   pip install -r requirements.txt
    ```
 
 6. **Verify your setup**:
@@ -141,6 +145,15 @@ Types:
 - Add JSDoc comments for public APIs
 
 ## Testing
+
+### Prerequisites for Testing
+
+Ensure Python dependencies are installed:
+```bash
+pip install -r requirements.txt
+```
+
+These dependencies are required for the pf-runner parser and bundled fabric module.
 
 ### Running Tests
 

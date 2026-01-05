@@ -1106,9 +1106,15 @@ pf env=prod deploy
    ./start.sh
    ```
 
-3. **Install Node.js dependencies** (if running web demos)
+3. **Install Python dependencies** (required for tests and pf-runner)
    ```bash
-   npm install playwright
+   pip install -r requirements.txt
+   ```
+
+4. **Install Node.js dependencies** (if running web demos or tests)
+   ```bash
+   npm install
+   npx playwright install
    ```
 
 ### Making Changes
@@ -1149,7 +1155,28 @@ Tasks support:
 
 ## Testing
 
+### Prerequisites
+
+Ensure Python dependencies are installed before running tests:
+```bash
+pip install -r requirements.txt
+```
+
 ### Run All Tests
+```bash
+# Run all test suites (Playwright E2E + Unit tests)
+npm run test:all
+
+# Or run individual test suites
+npm run test          # Playwright E2E tests
+npm run test:unit     # All unit tests
+npm run test:grammar  # Grammar tests
+npm run test:parser   # Parser tests
+npm run test:tui      # TUI tests
+npm run test:api      # API tests
+```
+
+### Run Web Demo Tests
 ```bash
 pf web-test
 ```
