@@ -97,11 +97,7 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
-          if [ -f "requirements.txt" ]; then
-            pip install --user -r requirements.txt
-          else
-            pip install --user decorator invoke lark paramiko
-          fi
+          pip install --user -r requirements.txt
         continue-on-error: true
 
       - name: Install Playwright for E2E
