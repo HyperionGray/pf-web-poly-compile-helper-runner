@@ -14,6 +14,9 @@ from unittest.mock import Mock, patch
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Constants
+PF_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')
+
 
 def test_screenshot_tui_file_exists():
     """Test that screenshot_tui.py file exists"""
@@ -35,7 +38,7 @@ def test_screenshot_tui_imports():
 
 
 @pytest.mark.skipif(
-    not os.path.exists(os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')),
+    not os.path.exists(PF_TUI_PATH),
     reason="pf_tui module not available"
 )
 def test_screenshot_tui_module_structure():
@@ -52,7 +55,7 @@ def test_screenshot_tui_module_structure():
 
 
 @pytest.mark.skipif(
-    not os.path.exists(os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')),
+    not os.path.exists(PF_TUI_PATH),
     reason="pf_tui module not available"
 )
 @patch('screenshot_tui.PfTUI')

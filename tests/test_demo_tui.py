@@ -15,6 +15,9 @@ from io import StringIO
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Constants
+PF_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')
+
 
 def test_demo_tui_imports():
     """Test that demo_tui can be imported without errors"""
@@ -34,7 +37,7 @@ def test_demo_tui_path_setup(mock_path):
 
 
 @pytest.mark.skipif(
-    not os.path.exists(os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')),
+    not os.path.exists(PF_TUI_PATH),
     reason="pf_tui module not available"
 )
 @patch('demo_tui.PfTUI')
@@ -64,7 +67,7 @@ def test_demo_tui_function(mock_console, mock_tui_class):
 
 
 @pytest.mark.skipif(
-    not os.path.exists(os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')),
+    not os.path.exists(PF_TUI_PATH),
     reason="pf_tui module not available"
 )
 def test_demo_tui_module_structure():
