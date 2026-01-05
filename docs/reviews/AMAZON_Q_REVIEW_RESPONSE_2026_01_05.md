@@ -56,7 +56,7 @@ The high priority vulnerabilities were addressed immediately due to their DoS ri
 #### Dependency Vulnerability Fixes
 
 **Fixed Vulnerabilities:**
-1. **qs < 6.14.1** - DoS vulnerability via memory exhaustion
+1. **qs < 6.14.1** - DoS vulnerability via memory exhaustion (GHSA-6rw7-vpxm-498p)
    - **Solution:** Updated to qs 6.14.1
    - **Impact:** Eliminates DoS risk from arrayLimit bypass in bracket notation
    
@@ -163,7 +163,7 @@ The repository continues to maintain comprehensive security tooling:
 
 This review complements previous Amazon Q and GitHub Copilot findings:
 
-- **Amazon Q Review (Dec 29, 2025):** ✅ All action items completed
+- **Previous Amazon Q Review (Dec 29, 2025):** ✅ All action items completed
 - **GitHub Copilot Reviews:** ✅ Continuous integration maintained
 - **CI/CD Reviews:** ✅ Automated security scanning active
 
