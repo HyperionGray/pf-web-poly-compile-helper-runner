@@ -66,7 +66,7 @@ The high priority vulnerabilities were addressed immediately due to their DoS ri
 
 **Package Updates:**
 - `body-parser`: 1.20.3 → 1.20.4
-- `qs`: 6.13.0 → 6.14.1 (within body-parser dependencies)
+- `qs`: 6.13.0 → 6.14.1 (transitive dependency via body-parser)
 
 **Verification:**
 - ✅ All npm vulnerabilities resolved

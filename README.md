@@ -7,7 +7,7 @@ A comprehensive polyglot WebAssembly development environment featuring the **pf*
 **Amazon Q Code Review (Jan 5, 2026):** ✅ **Completed - Grade A+** (Excellent)  
 **CI/CD Review (Dec 27, 2025):** ✅ **Completed - All Action Items Addressed**
 
-All action items addressed. See [Amazon Q Review (Jan 5, 2026)](AMAZON_Q_REVIEW_RESPONSE_2026_01_05.md) and [CI/CD Review Response](CICD_REVIEW_RESPONSE.md) for details.
+All action items addressed. See [Amazon Q Review (Jan 5, 2026)](docs/reviews/AMAZON_Q_REVIEW_RESPONSE_2026_01_05.md) and [CI/CD Review Response](CICD_REVIEW_RESPONSE.md) for details.
 
 ```bash
 # Run comprehensive security scans
