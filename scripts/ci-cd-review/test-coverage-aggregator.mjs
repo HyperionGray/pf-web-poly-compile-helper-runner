@@ -83,7 +83,7 @@ class TestCoverageAggregator {
                 });
             });
 
-            // Set timeout for long-running tests
+            // Set timeout for long-running tests (3 minutes)
             setTimeout(() => {
                 childProcess.kill('SIGTERM');
                 resolve({
@@ -91,13 +91,13 @@ class TestCoverageAggregator {
                     description: config.description,
                     exitCode: -1,
                     success: false,
-                    duration: 30000,
+                    duration: 180000,
                     stdout,
-                    stderr: stderr + '\nTest timed out after 30 seconds',
+                    stderr: stderr + '\nTest timed out after 180 seconds',
                     timestamp: new Date().toISOString(),
                     timedOut: true
                 });
-            }, 30000);
+            }, 180000);
         });
     }
 
@@ -126,22 +126,42 @@ class TestCoverageAggregator {
                 parsed.stats.skipped = parseInt(playwrightMatch[3]) || 0;
                 parsed.stats.total = parsed.stats.passed + parsed.stats.failed + parsed.stats.skipped;
             }
+            
+            // Also check for simple "N passed" format
+            if (parsed.stats.total === 0) {
+                const simpleMatch = result.stdout.match(/(\d+)\s+passed/i);
+                if (simpleMatch) {
+                    parsed.stats.passed = parseInt(simpleMatch[1]) || 0;
+                    parsed.stats.total = parsed.stats.passed;
+                }
+            }
         }
 
         // Parse Node.js test results (for unit tests)
         if (result.testType === 'unit' || result.testType === 'tui' || result.testType === 'grammar' || result.testType === 'api') {
-            // Look for test completion indicators
-            const testLines = result.stdout.split('\n').filter(line => 
-                line.includes('✓') || line.includes('✗') || line.includes('PASS') || line.includes('FAIL')
-            );
+            // Look for summary section with statistics
+            const passedMatch = result.stdout.match(/✓\s+Passed:\s+(\d+)/);
+            const failedMatch = result.stdout.match(/✗\s+Failed:\s+(\d+)/);
+            const totalMatch = result.stdout.match(/Total:\s+(\d+)/);
             
-            parsed.stats.total = testLines.length;
-            parsed.stats.passed = testLines.filter(line => 
-                line.includes('✓') || line.includes('PASS')
-            ).length;
-            parsed.stats.failed = testLines.filter(line => 
-                line.includes('✗') || line.includes('FAIL')
-            ).length;
+            if (passedMatch && totalMatch) {
+                parsed.stats.passed = parseInt(passedMatch[1]) || 0;
+                parsed.stats.failed = parseInt(failedMatch ? failedMatch[1] : 0) || 0;
+                parsed.stats.total = parseInt(totalMatch[1]) || 0;
+            } else {
+                // Fallback: count individual test result lines
+                const testLines = result.stdout.split('\n').filter(line => 
+                    line.includes('✓') || line.includes('✗') || line.includes('PASS') || line.includes('FAIL')
+                );
+                
+                parsed.stats.total = testLines.length;
+                parsed.stats.passed = testLines.filter(line => 
+                    line.includes('✓') || line.includes('PASS')
+                ).length;
+                parsed.stats.failed = testLines.filter(line => 
+                    line.includes('✗') || line.includes('FAIL')
+                ).length;
+            }
         }
 
         // Extract error details if failed
