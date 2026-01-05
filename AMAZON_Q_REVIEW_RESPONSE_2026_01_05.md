@@ -57,7 +57,7 @@ The high priority vulnerabilities were addressed immediately due to their DoS ri
 
 **Fixed Vulnerabilities:**
 1. **qs < 6.14.1** - DoS vulnerability via memory exhaustion
-   - **Solution:** Updated to qs 6.14.0
+   - **Solution:** Updated to qs 6.14.1
    - **Impact:** Eliminates DoS risk from arrayLimit bypass in bracket notation
    
 2. **body-parser <= 1.20.3** - Depends on vulnerable qs version
@@ -66,7 +66,7 @@ The high priority vulnerabilities were addressed immediately due to their DoS ri
 
 **Package Updates:**
 - `body-parser`: 1.20.3 → 1.20.4
-- `qs`: 6.13.0 → 6.14.0 (within body-parser dependencies)
+- `qs`: 6.13.0 → 6.14.1 (within body-parser dependencies)
 
 **Verification:**
 - ✅ All npm vulnerabilities resolved
@@ -114,7 +114,7 @@ Tests: ✅ 101/101 passing (100%)
 
 1. **Dependency Updates** (`package-lock.json`)
    - Updated `body-parser` to version 1.20.4
-   - Updated `qs` to version 6.14.0 (transitive dependency)
+   - Updated `qs` to version 6.14.1 (transitive dependency)
    - Updated `http-errors` to 2.0.1 (transitive dependency)
 
 2. **Validation**
