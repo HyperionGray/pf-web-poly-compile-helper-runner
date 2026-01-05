@@ -1,0 +1,24 @@
+{
+  "summary": {
+    "totalTests": 10,
+    "totalPassed": 0,
+    "totalFailed": 10,
+    "successRate": 0,
+    "duration": 343,
+    "timestamp": "2026-01-05T18:13:07.140Z"
+  },
+  "suites": [
+    {
+      "name": "Git Cleanup TUI",
+      "passed": 0,
+      "failed": 10,
+      "total": 10
+    }
+  ],
+  "environment": {
+    "nodeVersion": "v20.19.6",
+    "platform": "linux",
+    "arch": "x64",
+    "cwd": "/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner"
+  }
+}
