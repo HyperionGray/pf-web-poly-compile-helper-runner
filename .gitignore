@@ -37,6 +37,7 @@ venv/
 # Test artifacts
 test-results/
 playwright-report/
+tui-test-report.json
 
 # CodeQL artifacts
 _codeql_*
