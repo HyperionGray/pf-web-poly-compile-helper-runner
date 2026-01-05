@@ -29,6 +29,14 @@ jobs:
     - name: Install dependencies
       run: npm ci
       
+    - name: Install Python Dependencies
+      run: |
+        if [ -f "requirements.txt" ]; then
+          pip install --user -r requirements.txt
+        else
+          pip install --user decorator invoke lark paramiko
+        fi
+      
     - name: Install Playwright browsers
       run: npx playwright install --with-deps
       

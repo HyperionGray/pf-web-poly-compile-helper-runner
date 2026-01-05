@@ -1,0 +1,7 @@
+# Python dependencies for pf-runner
+# These are required for the bundled fabric module and pf-runner functionality
+
+decorator>=5.1.0
+invoke>=2.0.0
+lark>=1.1.0
+paramiko>=3.0.0

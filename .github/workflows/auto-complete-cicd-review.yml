@@ -95,6 +95,15 @@ jobs:
           python-version: '3.11'
         continue-on-error: true
 
+      - name: Install Python Dependencies
+        run: |
+          if [ -f "requirements.txt" ]; then
+            pip install --user -r requirements.txt
+          else
+            pip install --user decorator invoke lark paramiko
+          fi
+        continue-on-error: true
+
       - name: Install Playwright for E2E
         if: matrix.test-type == 'e2e'
         run: |

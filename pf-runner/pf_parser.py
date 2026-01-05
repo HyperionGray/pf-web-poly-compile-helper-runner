@@ -43,9 +43,10 @@ from typing import List, Dict, Tuple, Optional, Callable, Any
 
 # Add bundled fabric to path if available
 _script_dir = os.path.dirname(os.path.abspath(__file__))
-_bundled_fabric = os.path.join(_script_dir, "fabric")
-if os.path.isdir(_bundled_fabric) and _bundled_fabric not in sys.path:
-    sys.path.insert(0, os.path.dirname(_bundled_fabric))
+_parent_dir = os.path.dirname(_script_dir)
+_bundled_fabric = os.path.join(_parent_dir, "fabric")
+if os.path.isdir(_bundled_fabric) and _parent_dir not in sys.path:
+    sys.path.insert(0, _parent_dir)
 
 from fabric import Connection
 
