@@ -63,3 +63,4 @@ __pycache__/
 \#*\#
 *.bak
 *.tmp
+venv/
