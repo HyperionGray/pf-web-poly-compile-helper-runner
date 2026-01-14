@@ -33,6 +33,27 @@ task pe-vmkit-setup
       -v ${PWD}/vmkit-images:/vmkit/images \
       localhost/pf-pe-vmkit:latest \
       vmkit-create.sh --all-the-passthru
+    
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "║              VMKit Setup Complete!                          ║"
+    echo "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Next steps:"
+    echo ""
+    echo "1. Verify the setup:"
+    echo "   pf pe-vmkit-shell"
+    echo ""
+    echo "2. Analyze a PE file before running:"
+    echo "   pf pe-vmkit-analyze pe=/path/to/file.exe"
+    echo ""
+    echo "3. Execute a PE file:"
+    echo "   pf pe-vmkit-run pe=/path/to/file.exe"
+    echo ""
+    echo "Example workflow:"
+    echo "   pf pe-vmkit-analyze pe=./sample.exe"
+    echo "   pf pe-vmkit-run pe=./sample.exe"
+    echo ""
 end
 
 task pe-vmkit-run pe=""
@@ -99,6 +120,29 @@ task pe-reactos-setup
       -v ${PWD}/reactos-images:/reactos/images \
       localhost/pf-pe-reactos:latest \
       setup-reactos.sh
+    
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "║             ReactOS Setup Complete!                         ║"
+    echo "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Next steps:"
+    echo ""
+    echo "1. Verify the setup:"
+    echo "   pf pe-reactos-shell"
+    echo ""
+    echo "2. Analyze a PE file before running:"
+    echo "   pf pe-reactos-analyze pe=/path/to/file.exe"
+    echo ""
+    echo "3. Execute a PE file:"
+    echo "   pf pe-reactos-run pe=/path/to/file.exe"
+    echo ""
+    echo "Example workflow:"
+    echo "   pf pe-reactos-analyze pe=./sample.exe"
+    echo "   pf pe-reactos-run pe=./sample.exe"
+    echo ""
+    echo "Note: ReactOS is an open-source Windows-compatible OS"
+    echo ""
 end
 
 task pe-reactos-run pe=""
@@ -165,8 +209,36 @@ task macos-setup
       -v ${PWD}/macos-images:/macos/images \
       localhost/pf-macos-qemu:latest \
       create-macos-image.sh 64G
+    
     echo ""
-    echo "Disk image created. See container help for next steps."
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "║           macOS QEMU Setup Complete!                        ║"
+    echo "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "⚠️  LEGAL NOTICE: Ensure compliance with Apple's Software License Agreement"
+    echo "    macOS virtualization may only be legal on Apple hardware"
+    echo ""
+    echo "Next steps:"
+    echo ""
+    echo "1. Start the macOS VM (interactive):"
+    echo "   pf macos-run"
+    echo ""
+    echo "2. Start the macOS VM (headless/background):"
+    echo "   pf macos-run-headless"
+    echo "   Access via VNC: localhost:5901"
+    echo "   Access via SSH: localhost:10022"
+    echo ""
+    echo "3. Run an application in the VM:"
+    echo "   pf macos-run-app app=/path/to/app"
+    echo ""
+    echo "4. Stop the background VM:"
+    echo "   pf macos-stop"
+    echo ""
+    echo "5. Open shell in macOS container:"
+    echo "   pf macos-shell"
+    echo ""
+    echo "Requirements: 8GB+ RAM, KVM support"
+    echo ""
 end
 
 task macos-run
@@ -279,11 +351,38 @@ task pe-setup-all
     fi
     echo ""
     
+    echo "╔════════════════════════════════════════════════════════════╗"
     if [ $SETUP_ERRORS -gt 0 ]; then
-      echo "Setup completed with $SETUP_ERRORS warning(s)"
+      echo "║    Setup completed with $SETUP_ERRORS warning(s)                       ║"
     else
-      echo "Setup complete - all environments ready!"
+      echo "║    All PE Execution Environments Ready!                    ║"
     fi
+    echo "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Quick Start Guide:"
+    echo ""
+    echo "1. Check environment status:"
+    echo "   pf pe-status"
+    echo ""
+    echo "2. Execute Windows PE files:"
+    echo "   pf pe-vmkit-run pe=./program.exe       # VMKit (fast)"
+    echo "   pf pe-reactos-run pe=./program.exe     # ReactOS (open-source)"
+    echo ""
+    echo "3. Execute macOS binaries:"
+    echo "   pf macos-run-headless                  # Start VM in background"
+    echo "   pf macos-run-app app=./mac_program     # Run application"
+    echo ""
+    echo "4. Analyze binaries before execution:"
+    echo "   pf analyze-binary binary_file=./unknown_file"
+    echo ""
+    echo "5. Get detailed help:"
+    echo "   pf pe-help"
+    echo ""
+    echo "Troubleshooting:"
+    echo "  - If you get KVM errors, ensure /dev/kvm is accessible"
+    echo "  - If containers are missing, run: pf pe-build-all"
+    echo "  - For setup issues, try running individual setup tasks"
+    echo ""
 end
 
 task pe-analyze-and-run pe="" env="reactos"
