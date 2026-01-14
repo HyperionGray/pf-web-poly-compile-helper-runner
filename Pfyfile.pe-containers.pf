@@ -353,9 +353,9 @@ task pe-setup-all
     
     echo "╔════════════════════════════════════════════════════════════╗"
     if [ $SETUP_ERRORS -gt 0 ]; then
-      echo "║    Setup completed with $SETUP_ERRORS warning(s)                       ║"
+      echo "║      Setup completed with $SETUP_ERRORS warning(s)                     ║"
     else
-      echo "║    All PE Execution Environments Ready!                    ║"
+      echo "║      All PE Execution Environments Ready!                  ║"
     fi
     echo "╚════════════════════════════════════════════════════════════╝"
     echo ""
