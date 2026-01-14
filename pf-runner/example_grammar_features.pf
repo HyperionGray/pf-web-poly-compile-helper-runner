@@ -1,0 +1,99 @@
+# Example demonstrating new grammar features
+# This file showcases the grammar improvements from the GitHub issue
+
+# 1. Blank lines are now supported everywhere
+
+
+task demo-whitespace-handling
+  describe Demonstrate flexible whitespace and blank line support
+  
+  shell echo "First command"
+  
+  shell echo "Second command"
+
+end
+
+
+# Multiple blank lines between tasks
+
+
+task demo-variable-syntax
+  describe Demonstrate both $var and ${var} syntax
+  
+  if $SIMPLE_VAR
+    shell echo "Simple syntax works"
+  end
+  
+  if ${BRACED_VAR}
+    shell echo "Braced syntax works too"
+  end
+  
+  if ${MY_ENVIRONMENT} == "production"
+    shell echo "Running in production"
+  else
+    shell echo "Running in development"
+  end
+
+end
+
+
+task demo-cloud-headers
+  describe Demonstrate new cloud action task headers
+  
+  timeout 30m
+  
+  sandbox container
+  
+  network allowlist
+  
+  allowlist host=github.com host=pypi.org host=npmjs.com
+  
+  artifact dist/app.tar.gz
+  artifact build/logs/build.log
+  
+  secrets allow GITHUB_TOKEN NPM_TOKEN
+  
+  shell echo "Building with declared capabilities"
+  shell ./build.sh
+
+end
+
+
+task demo-combined-features
+  describe All features working together
+  
+  timeout 1h
+  sandbox microvm
+  network restricted
+  
+  if ${BUILD_TYPE} == "release"
+  
+    shell echo "Building release version"
+    
+    shell ./build-release.sh
+    
+  else
+  
+    shell echo "Building debug version"
+    shell ./build-debug.sh
+    
+  end
+  
+  
+  for env in ["dev", "staging", "prod"]
+  
+    shell echo "Deploying to environment"
+    
+  end
+
+end
+
+
+# Comments work as before - they're only comments when # is first non-whitespace
+
+task demo-comments
+  describe Comment behavior documentation
+  
+  shell echo "This # is not a comment - it's part of the shell command"
+
+end
