@@ -20,6 +20,13 @@ statement: env_var | task | comment
 // Note: Comments are only reliably recognized as comments if # appears as the 
 // first non-whitespace character on a line. Within TEXT_LINE contexts (like shell commands),
 // # may be treated as part of the command text (e.g., shell comments).
+//
+// Examples:
+//   # This is a pf comment - recognized as comment
+//   task foo
+//     shell echo "test"  # This # is part of the shell command, NOT a pf comment
+//     shell grep '#pattern' file.txt  # The # here is part of shell text
+//   end
 comment: COMMENT
 
 // Global environment variable definition: env name="value"
