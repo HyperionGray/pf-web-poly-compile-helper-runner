@@ -96,9 +96,9 @@ shell_lang: "shell_lang" IDENTIFIER
 env_stmt: "env" TEXT_LINE
 
 // If statement with optional else (use helper rules to keep bodies separate)
-if_stmt: "if" condition NEWLINE if_body else_body? "end"
-if_body: task_body+
-else_body: "else" NEWLINE task_body+
+if_stmt: "if" condition NEWLINE (if_body | NEWLINE)+ else_body? "end"
+if_body: task_body
+else_body: "else" NEWLINE (task_body | NEWLINE)+
 
 // Simple conditions for now
 condition: var_equals | var_exists | command_succeeds
@@ -113,7 +113,7 @@ var_exists: variable
 command_succeeds: BACKQUOTE COMMAND_TEXT BACKQUOTE
 
 // For loop with iteration
-for_loop: "for" IDENTIFIER "in" iterable NEWLINE task_body+ "end"
+for_loop: "for" IDENTIFIER "in" iterable NEWLINE (task_body | NEWLINE)+ "end"
 
 // What you can iterate over
 iterable: array | variable
