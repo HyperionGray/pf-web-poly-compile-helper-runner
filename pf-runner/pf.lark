@@ -12,11 +12,14 @@
 // - Variable interpolation ($var, ${var})
 // - Include mechanism for modular task files
 
-start: statement+
+start: (statement | NEWLINE)+
 
 statement: env_var | task | comment
 
 // Comments start with # and continue to end of line
+// Note: Comments are only reliably recognized as comments if # appears as the 
+// first non-whitespace character on a line. Within TEXT_LINE contexts (like shell commands),
+// # may be treated as part of the command text (e.g., shell comments).
 comment: COMMENT
 
 // Global environment variable definition: env name="value"
@@ -31,7 +34,7 @@ env_var: "env" IDENTIFIER "=" STRING
 //   task my-task
 //   task long-command [alias cmd]
 //   task long-command [alias=cmd]
-task: "task" IDENTIFIER (param | alias_def)* NEWLINE task_body+ "end"
+task: "task" IDENTIFIER (param | alias_def)* NEWLINE (task_body | NEWLINE)+ "end"
 
 // Task parameter: name="value"
 // These become available as $name within the task
@@ -64,6 +67,12 @@ task_body: describe
          | justfile_stmt
          | autobuild_stmt
          | build_detect_stmt
+         | timeout_stmt
+         | sandbox_stmt
+         | network_stmt
+         | allowlist_stmt
+         | artifact_stmt
+         | secrets_stmt
 
 // Task description - displayed in 'pf list'
 describe: "describe" TEXT_LINE
@@ -114,7 +123,7 @@ array: "[" STRING ("," STRING)* "]"
 
 // Variable reference: $variable_name or ${variable_name}
 // Variables are interpolated from: task params → task env → process env
-variable: "$" IDENTIFIER
+variable: "$" IDENTIFIER | "${" IDENTIFIER "}"
 
 // Sync files/directories using rsync-over-ssh or local paths
 // Examples:
@@ -150,6 +159,15 @@ configure_stmt: "configure" TEXT_LINE?
 justfile_stmt: ("justfile" | "just") TEXT_LINE?
 autobuild_stmt: ("autobuild" | "auto_build") TEXT_LINE?
 build_detect_stmt: ("build_detect" | "detect_build")
+
+// Cloud action task headers - optional safety/policy declarations
+// These allow tasks to declare capabilities and resource requirements
+timeout_stmt: "timeout" TEXT_LINE
+sandbox_stmt: "sandbox" IDENTIFIER
+network_stmt: "network" IDENTIFIER
+allowlist_stmt: "allowlist" TEXT_LINE
+artifact_stmt: "artifact" TEXT_LINE
+secrets_stmt: "secrets" TEXT_LINE
 
 // Tokens
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_-]*/      // Task names, variables, parameters
