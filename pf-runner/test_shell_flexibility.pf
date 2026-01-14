@@ -40,9 +40,10 @@ task test-reset-lang
   shell echo "Back to default shell"
 end
 
-task test-no-lang-error
-  describe Test error when no lang is set (should fail gracefully)
-  echo "This should produce a helpful error"
+task test-backward-compat-implicit
+  describe Test backward compatibility with implicit shell commands
+  echo "This works due to backward compatibility"
+  echo "Commands without shell_lang are assumed to be shell"
 end
 
 task test-with-variables

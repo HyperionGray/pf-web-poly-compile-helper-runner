@@ -596,18 +596,17 @@ def _is_dsl_verb(line: str) -> bool:
     configure, justfile/just, autobuild/auto_build, build_detect/detect_build,
     for, if, else, end
     """
-    # List of all DSL verb prefixes from the grammar
+    # Check exact match for keywords without arguments
+    if line in ("end", "else", "build_detect", "detect_build"):
+        return True
+    
+    # List of all DSL verb prefixes from the grammar (with space for verbs that take arguments)
     dsl_prefixes = [
         "describe ", "env ", "shell ", "shell_lang ", "sync ", "packages ",
-        "service ", "directory ", "copy ", "makefile", "make ", "cmake ",
-        "meson ", "ninja ", "cargo", "go_build ", "gobuild ", "configure ",
-        "justfile ", "just ", "autobuild", "auto_build ", "build_detect",
-        "detect_build", "for ", "if ", "else", "end"
+        "service ", "directory ", "copy ", "makefile ", "make ", "cmake ",
+        "meson ", "ninja ", "cargo ", "go_build ", "gobuild ", "configure ",
+        "justfile ", "just ", "autobuild ", "auto_build ", "for ", "if "
     ]
-    
-    # Check exact match for keywords without arguments
-    if line in ("end", "else"):
-        return True
     
     # Check prefix matches
     for prefix in dsl_prefixes:
@@ -1248,18 +1247,10 @@ def run_task_by_name(
                 print(format_exception_for_user(e, include_traceback=False), file=sys.stderr)
                 return 1
         else:
-            # No shell_lang set and not a recognized verb - provide helpful error
-            exc = PFSyntaxError(
-                message=f"Unrecognized command in task '{task_name}': {stripped}",
-                suggestion=(
-                    "Either:\n"
-                    "1. Prefix the command with 'shell' (e.g., 'shell echo hello')\n"
-                    "2. Set a shell language first (e.g., 'shell_lang bash')\n"
-                    "3. Use a valid DSL verb (describe, env, packages, service, etc.)"
-                )
-            )
-            print(format_exception_for_user(exc, include_traceback=False), file=sys.stderr)
-            return 1
+            # Backward compatibility: treat as shell command
+            # This maintains existing behavior for tasks that don't use shell_lang
+            cmd = _interpolate(stripped, params, task_env)
+            rc = _exec_line_fabric(cmd, None, task_env, task_name, False, None)
 
         if rc != 0:
             print(f"Command failed with exit code {rc}: {stripped}", file=sys.stderr)
