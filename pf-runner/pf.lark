@@ -96,8 +96,8 @@ shell_lang: "shell_lang" IDENTIFIER
 env_stmt: "env" TEXT_LINE
 
 // If statement with optional else (use helper rules to keep bodies separate)
-if_stmt: "if" condition NEWLINE (if_body | NEWLINE)+ else_body? "end"
-if_body: task_body
+if_stmt: "if" condition NEWLINE if_body else_body? "end"
+if_body: (task_body | NEWLINE)+
 else_body: "else" NEWLINE (task_body | NEWLINE)+
 
 // Simple conditions for now
