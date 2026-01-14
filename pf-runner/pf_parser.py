@@ -581,6 +581,42 @@ def _parse_lang_bracket(cmd: str) -> Tuple[Optional[str], str]:
     return None, cmd
 
 
+def _is_dsl_verb(line: str) -> bool:
+    """
+    Check if a line starts with a known DSL verb.
+    
+    Args:
+        line: The stripped line to check
+    
+    Returns:
+        True if the line starts with a DSL verb, False otherwise
+    
+    DSL verbs include: describe, env, shell, shell_lang, sync, packages, service,
+    directory, copy, makefile/make, cmake, meson/ninja, cargo, go_build/gobuild,
+    configure, justfile/just, autobuild/auto_build, build_detect/detect_build,
+    for, if, else, end
+    """
+    # List of all DSL verb prefixes from the grammar
+    dsl_prefixes = [
+        "describe ", "env ", "shell ", "shell_lang ", "sync ", "packages ",
+        "service ", "directory ", "copy ", "makefile", "make ", "cmake ",
+        "meson ", "ninja ", "cargo", "go_build ", "gobuild ", "configure ",
+        "justfile ", "just ", "autobuild", "auto_build ", "build_detect",
+        "detect_build", "for ", "if ", "else", "end"
+    ]
+    
+    # Check exact match for keywords without arguments
+    if line in ("end", "else"):
+        return True
+    
+    # Check prefix matches
+    for prefix in dsl_prefixes:
+        if line.startswith(prefix):
+            return True
+    
+    return False
+
+
 def _extract_polyglot_source(
     cmd: str, working_dir: Optional[str] = None
 ) -> Tuple[str, List[str], Optional[str]]:
@@ -1134,10 +1170,17 @@ def run_task_by_name(
     lines = dsl_tasks[task_name].lines
     task_env: Dict[str, str] = {}
     params = {}
+    shell_lang: Optional[str] = None  # Track current shell language
 
     rc = 0
     for line in lines:
         stripped = line.strip()
+        
+        # Skip empty lines and comments
+        if not stripped or stripped.startswith('#'):
+            continue
+            
+        # Handle env directive
         if stripped.startswith("env "):
             for tok in shlex.split(stripped)[1:]:
                 if "=" in tok:
@@ -1145,13 +1188,78 @@ def run_task_by_name(
                     task_env[k] = _interpolate(v, params, task_env)
             continue
 
+        # Handle shell_lang directive
+        if stripped.startswith("shell_lang "):
+            lang_hint = stripped[11:].strip()
+            if lang_hint.lower() in ("default", "none", ""):
+                shell_lang = None
+            else:
+                try:
+                    shell_lang = _canonical_lang(lang_hint)
+                except PFExecutionError as e:
+                    print(format_exception_for_user(e, include_traceback=False), file=sys.stderr)
+                    return 1
+            continue
+
+        # Handle explicit shell commands
         if stripped.startswith("shell "):
             cmd = stripped[6:].strip()
+            # Check for [lang:xxx] syntax in the command
+            inline_lang, cmd_without_lang = _parse_lang_bracket(cmd)
+            
+            if inline_lang:
+                # Inline language overrides shell_lang for this command
+                try:
+                    rendered, _ = _render_polyglot_command(inline_lang, cmd_without_lang, PFY_ROOT)
+                    if rendered:
+                        cmd = rendered
+                    else:
+                        cmd = cmd_without_lang
+                except PFExecutionError as e:
+                    print(format_exception_for_user(e, include_traceback=False), file=sys.stderr)
+                    return 1
+            elif shell_lang:
+                # Use the current shell_lang
+                try:
+                    rendered, _ = _render_polyglot_command(shell_lang, cmd, PFY_ROOT)
+                    if rendered:
+                        cmd = rendered
+                except PFExecutionError as e:
+                    print(format_exception_for_user(e, include_traceback=False), file=sys.stderr)
+                    return 1
+            
             cmd = _interpolate(cmd, params, task_env)
             rc = _exec_line_fabric(cmd, None, task_env, task_name, False, None)
-        else:
+        # Check if it's a known DSL verb
+        elif _is_dsl_verb(stripped):
             print(f"[skip] unsupported verb in task '{task_name}': {stripped}", file=sys.stderr)
             continue
+        # If shell_lang is set and line is not a DSL verb, treat as shell command
+        elif shell_lang:
+            try:
+                rendered, _ = _render_polyglot_command(shell_lang, stripped, PFY_ROOT)
+                if rendered:
+                    cmd = rendered
+                else:
+                    cmd = stripped
+                cmd = _interpolate(cmd, params, task_env)
+                rc = _exec_line_fabric(cmd, None, task_env, task_name, False, None)
+            except PFExecutionError as e:
+                print(format_exception_for_user(e, include_traceback=False), file=sys.stderr)
+                return 1
+        else:
+            # No shell_lang set and not a recognized verb - provide helpful error
+            exc = PFSyntaxError(
+                message=f"Unrecognized command in task '{task_name}': {stripped}",
+                suggestion=(
+                    "Either:\n"
+                    "1. Prefix the command with 'shell' (e.g., 'shell echo hello')\n"
+                    "2. Set a shell language first (e.g., 'shell_lang bash')\n"
+                    "3. Use a valid DSL verb (describe, env, packages, service, etc.)"
+                )
+            )
+            print(format_exception_for_user(exc, include_traceback=False), file=sys.stderr)
+            return 1
 
         if rc != 0:
             print(f"Command failed with exit code {rc}: {stripped}", file=sys.stderr)
@@ -1509,18 +1617,77 @@ def main(argv: List[str]) -> int:
         for tname, lines, params in selected:
             print(f"{prefix} --> {tname}")
             task_env = {}
+            shell_lang: Optional[str] = None  # Track current shell language
             for ln in lines:
                 stripped = ln.strip()
+                
+                # Skip empty lines and comments
+                if not stripped or stripped.startswith('#'):
+                    continue
+                
+                # Handle env directive
                 if stripped.startswith("env "):
                     for tok in shlex.split(stripped)[1:]:
                         if "=" in tok:
                             k, v = tok.split("=", 1)
                             task_env[k] = _interpolate(v, params, task_env)
                     continue
+                
+                # Handle shell_lang directive
+                if stripped.startswith("shell_lang "):
+                    lang_hint = stripped[11:].strip()
+                    if lang_hint.lower() in ("default", "none", ""):
+                        shell_lang = None
+                    else:
+                        try:
+                            shell_lang = _canonical_lang(lang_hint)
+                        except PFExecutionError as e:
+                            print(format_exception_for_user(e, include_traceback=False), file=sys.stderr)
+                            return 1
+                    continue
+                
                 try:
-                    rc = _exec_line_fabric(
-                        ln, connection, task_env, tname, sflag, suser
-                    )
+                    # Handle explicit shell commands
+                    if stripped.startswith("shell "):
+                        cmd = stripped[6:].strip()
+                        # Check for [lang:xxx] syntax in the command
+                        inline_lang, cmd_without_lang = _parse_lang_bracket(cmd)
+                        
+                        if inline_lang:
+                            # Inline language overrides shell_lang for this command
+                            rendered, _ = _render_polyglot_command(inline_lang, cmd_without_lang, PFY_ROOT)
+                            if rendered:
+                                cmd = rendered
+                            else:
+                                cmd = cmd_without_lang
+                        elif shell_lang:
+                            # Use the current shell_lang
+                            rendered, _ = _render_polyglot_command(shell_lang, cmd, PFY_ROOT)
+                            if rendered:
+                                cmd = rendered
+                        
+                        cmd = _interpolate(cmd, params, task_env)
+                        rc = _exec_line_fabric(cmd, connection, task_env, tname, sflag, suser)
+                    # Check if it's a known DSL verb
+                    elif _is_dsl_verb(stripped):
+                        # Skip unsupported DSL verbs with a warning
+                        print(f"{prefix}[skip] unsupported verb: {stripped}", file=sys.stderr)
+                        continue
+                    # If shell_lang is set and line is not a DSL verb, treat as shell command
+                    elif shell_lang:
+                        rendered, _ = _render_polyglot_command(shell_lang, stripped, PFY_ROOT)
+                        if rendered:
+                            cmd = rendered
+                        else:
+                            cmd = stripped
+                        cmd = _interpolate(cmd, params, task_env)
+                        rc = _exec_line_fabric(cmd, connection, task_env, tname, sflag, suser)
+                    else:
+                        # Backward compatibility: assume it's a shell command
+                        # This maintains existing behavior where lines are passed to _exec_line_fabric
+                        cmd = _interpolate(ln, params, task_env)
+                        rc = _exec_line_fabric(cmd, connection, task_env, tname, sflag, suser)
+                    
                     if rc != 0:
                         # Command failed - create detailed error
                         exc = PFExecutionError(
