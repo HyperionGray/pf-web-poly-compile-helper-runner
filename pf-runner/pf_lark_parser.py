@@ -187,6 +187,36 @@ class PfTransformer(Transformer):
         """Process a build_detect statement."""
         return {'type': 'build_detect'}
     
+    def timeout_stmt(self, items):
+        """Process a timeout statement."""
+        timeout_line = str(items[0]) if items else ""
+        return {'type': 'timeout', 'line': timeout_line}
+    
+    def sandbox_stmt(self, items):
+        """Process a sandbox statement."""
+        sandbox_type = str(items[0]) if items else ""
+        return {'type': 'sandbox', 'value': sandbox_type}
+    
+    def network_stmt(self, items):
+        """Process a network statement."""
+        network_type = str(items[0]) if items else ""
+        return {'type': 'network', 'value': network_type}
+    
+    def allowlist_stmt(self, items):
+        """Process an allowlist statement."""
+        allowlist_line = str(items[0]) if items else ""
+        return {'type': 'allowlist', 'line': allowlist_line}
+    
+    def artifact_stmt(self, items):
+        """Process an artifact statement."""
+        artifact_line = str(items[0]) if items else ""
+        return {'type': 'artifact', 'line': artifact_line}
+    
+    def secrets_stmt(self, items):
+        """Process a secrets statement."""
+        secrets_line = str(items[0]) if items else ""
+        return {'type': 'secrets', 'line': secrets_line}
+    
     def sync_stmt(self, items):
         """Process a sync statement."""
         kv_pairs = {}
@@ -275,7 +305,16 @@ class PfTransformer(Transformer):
     
     def variable(self, items):
         """Process variable reference."""
-        var_name = str(items[0])
+        # Handle both $VAR and ${VAR} syntax
+        if len(items) == 1:
+            # $VAR format
+            var_name = str(items[0])
+        elif len(items) >= 2:
+            # ${VAR} format - the identifier is between braces
+            # items will be like: ['{', IDENTIFIER, '}'] but we only need the identifier
+            var_name = str(items[1] if len(items) > 1 else items[0])
+        else:
+            var_name = str(items[0]) if items else ""
         return {'type': 'variable', 'name': var_name}
     
     def arg(self, items):
