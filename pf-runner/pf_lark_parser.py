@@ -307,14 +307,12 @@ class PfTransformer(Transformer):
         """Process variable reference."""
         # Handle both $VAR and ${VAR} syntax
         if len(items) == 1:
-            # $VAR format
+            # $VAR format: items = [IDENTIFIER]
             var_name = str(items[0])
-        elif len(items) >= 2:
-            # ${VAR} format - the identifier is between braces
-            # items will be like: ['{', IDENTIFIER, '}'] but we only need the identifier
-            var_name = str(items[1] if len(items) > 1 else items[0])
         else:
-            var_name = str(items[0]) if items else ""
+            # ${VAR} format: items = ['{', IDENTIFIER, '}']
+            # The identifier is at index 1
+            var_name = str(items[1])
         return {'type': 'variable', 'name': var_name}
     
     def arg(self, items):
