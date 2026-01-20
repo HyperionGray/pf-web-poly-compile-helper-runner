@@ -5,7 +5,7 @@ task install-pr-tools
   describe Install dependencies for PR management (GitHub CLI, GitLab CLI, etc.)
   shell echo "🔧 Installing PR management tools..."
   shell_lang bash
-  shell |
+  shell <<'EOF'
     # Install GitHub CLI if not present
     if ! command -v gh &> /dev/null; then
       echo "Installing GitHub CLI..."
@@ -48,7 +48,7 @@ task install-pr-tools
     fi
     
     echo "✅ PR management tools installation complete"
-  |
+EOF
 end
 
 task pr-discover

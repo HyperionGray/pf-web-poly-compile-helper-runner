@@ -1,0 +1,15 @@
+{
+  "name": "Code Functionality and Documentation Review",
+  "description": "Automated review verifying code builds successfully and has complete documentation including README.md",
+  "iconName": "book",
+  "categories": [
+    "Documentation",
+    "Code Review",
+    "CI/CD"
+  ],
+  "filePatterns": [
+    "README.md$",
+    "CONTRIBUTING.md$",
+    "docs/*.md$"
+  ]
+}

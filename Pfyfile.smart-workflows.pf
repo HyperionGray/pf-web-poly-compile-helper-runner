@@ -4,6 +4,7 @@
 task smart-verify-tools
   describe Verify all tools are working correctly
   shell node tools/orchestration/tool-detector.mjs --verify --format table
+end
 # Smart Workflows for Integrated Security Testing
 # Intelligent workflows that combine multiple tools automatically
 # Reduces cognitive load from 100+ individual tasks to smart, context-aware workflows

@@ -220,23 +220,37 @@ end
 # Quick Aliases for Power Users
 # ============================================================================
 
-[alias apwn]
-task autopwn
+task autopwn [alias apwn]
+  describe Run the full automatic exploit chain (placeholder)
+  shell echo "[autopwn] Not yet implemented"
+end
 
-[alias aweb]
-task autoweb
+task autoweb [alias aweb]
+  describe Run the full automatic web exploitation chain (placeholder)
+  shell echo "[autoweb] Not yet implemented"
+end
 
-[alias akernel]
-task autokernel
+task autokernel [alias akernel]
+  describe Run the full automatic kernel exploitation chain (placeholder)
+  shell echo "[autokernel] Not yet implemented"
+end
 
-[alias sbc]
-task smart-binary-complete
+task smart-binary-complete [alias sbc]
+  describe Smart binary analysis + exploit path (placeholder)
+  shell echo "[smart-binary-complete] Not yet implemented"
+end
 
-[alias swc]
-task smart-web-complete
+task smart-web-complete [alias swc]
+  describe Smart web assessment + exploit path (placeholder)
+  shell echo "[smart-web-complete] Not yet implemented"
+end
 
-[alias sfs]
-task smart-full-stack
+task smart-full-stack [alias sfs]
+  describe Smart full-stack (web + binary) workflow (placeholder)
+  shell echo "[smart-full-stack] Not yet implemented"
+end
 
-[alias sec]
-task smart-exploit-chain
+task smart-exploit-chain [alias sec]
+  describe Smart exploit chain orchestrator (placeholder)
+  shell echo "[smart-exploit-chain] Not yet implemented"
+end

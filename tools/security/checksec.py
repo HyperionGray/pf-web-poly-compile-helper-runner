@@ -233,6 +233,7 @@ Examples:
             print(f"Error: {directory} is not a directory", file=sys.stderr)
             sys.exit(1)
         
+        max_files = int(os.environ.get("CHECKSEC_MAX_BATCH", "50"))
         results = []
         for file_path in Path(directory).rglob("*"):
             if file_path.is_file() and os.access(file_path, os.X_OK):
@@ -242,6 +243,8 @@ Examples:
                 result = analyzer.analyze_binary(str(file_path))
                 if "error" not in result:
                     results.append(result)
+                if len(results) >= max_files:
+                    break
         
         if args.report:
             # Generate comprehensive report
@@ -280,7 +283,9 @@ Examples:
         result = analyzer.analyze_binary(args.binary)
         output_format = "json" if args.json else "table"
         print(analyzer.format_results(result, output_format))
-    
+        if "error" in result:
+            sys.exit(1)
+
     else:
         parser.print_help()
         sys.exit(1)

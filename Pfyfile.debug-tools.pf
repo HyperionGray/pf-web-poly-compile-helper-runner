@@ -41,7 +41,7 @@ task install-radare2
 end
 
 task install-ghidra
-  describe Install Ghidra - NSA's reverse engineering suite (automated)
+  describe Install Ghidra - NSA reverse engineering suite (automated)
   shell echo "📦 Installing Ghidra..."
   shell echo "Checking for Java..."
   shell command -v java >/dev/null 2>&1 || (echo "Installing OpenJDK 17..." && ([ -f /etc/debian_version ] && sudo apt-get update && sudo apt-get install -y openjdk-17-jdk || [ -f /etc/redhat-release ] && sudo yum install -y java-17-openjdk || [ "$(uname)" = "Darwin" ] && brew install openjdk@17))

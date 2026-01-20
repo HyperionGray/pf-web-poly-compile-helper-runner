@@ -56,6 +56,13 @@ async function runTests() {
   console.log(`${colors.bright}║          Distro Container Manager Tests                         ║${colors.reset}`);
   console.log(`${colors.bright}╚════════════════════════════════════════════════════════════════╝${colors.reset}\n`);
 
+  // Guard: Node <20 cannot parse import attributes used by dependencies (e.g., cli-spinners)
+  const major = parseInt(process.versions.node.split('.')[0], 10);
+  if (major < 20) {
+    log(colors.yellow, '[SKIP]', `Node ${process.versions.node} lacks import attributes; upgrade to >=20 to run these tests.`);
+    process.exit(0);
+  }
+
   // Import module
   try {
     const module = await import(join(toolsDir, 'distro-container-manager.mjs'));

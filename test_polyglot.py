@@ -4,16 +4,20 @@ Test script to verify pf_polyglot.py syntax and imports
 """
 
 import sys
-import os
+from pathlib import Path
+
+repo_root = Path(__file__).resolve().parent
+pf_runner_dir = repo_root / "pf-runner"
+pf_polyglot_path = pf_runner_dir / "pf_polyglot.py"
 
 # Add pf-runner to path
-sys.path.insert(0, '/workspace/pf-runner')
+sys.path.insert(0, str(pf_runner_dir))
 
 def test_syntax():
     """Test that pf_polyglot.py has valid syntax"""
     try:
         import py_compile
-        py_compile.compile('/workspace/pf-runner/pf_polyglot.py', doraise=True)
+        py_compile.compile(str(pf_polyglot_path), doraise=True)
         print("✅ Syntax check passed")
         return True
     except py_compile.PyCompileError as e:

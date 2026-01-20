@@ -2,52 +2,6 @@
 # Provides pf commands for building, running, and managing containers
 
 # ==========================================
-# Container Build Tasks
-# ==========================================
-
-task container-build-all
-  describe Build all container images using podman/docker
-  shell_lang bash
-  shell ./containers/scripts/build-containers.sh all
-end
-
-task container-build-base
-  describe Build base Ubuntu 24.04 container image
-  shell_lang bash
-  shell ./containers/scripts/build-containers.sh base
-end
-
-task container-build-api
-  describe Build API server container images
-  shell_lang bash
-  shell ./containers/scripts/build-containers.sh api
-end
-
-task container-build-compilers
-  describe Build WASM compiler container images (Rust, C, Fortran)
-  shell_lang bash
-  shell ./containers/scripts/build-containers.sh build
-end
-
-task container-build-debugger
-  describe Build debugger container images (standard and GPU)
-  shell_lang bash
-  shell ./containers/scripts/build-containers.sh debug
-end
-
-task container-build-no-cache
-  describe Build all container images without cache
-  shell_lang bash
-  shell ./containers/scripts/build-containers.sh --no-cache all
-end
-
-task container-build-os
-  describe Build OS distribution containers
-  shell_lang bash
-  shell ./containers/scripts/build-containers.sh os
-end
-
-# ==========================================
 # Podman Compose Tasks
 # ==========================================
 
@@ -300,15 +254,6 @@ task container-help
 
 Container and Quadlet Commands
 ==============================
-
-BUILD COMMANDS:
-  pf container-build-all        Build all container images
-  pf container-build-base       Build base Ubuntu 24.04 image
-  pf container-build-api        Build API server images
-  pf container-build-compilers  Build compiler images (Rust, C, Fortran)
-  pf container-build-debugger   Build debugger images
-  pf container-build-os         Build OS distribution containers
-  pf container-build-no-cache   Rebuild all without cache
 
 AUTOMATIC CONTAINERIZATION:
   pf auto-containerize          Auto-detect and containerize project

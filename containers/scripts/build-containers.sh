@@ -2,11 +2,8 @@
 # build-containers.sh - Build all container images for pf-web-poly-compile-helper-runner
 #
 # Usage:
-#   ./containers/scripts/build-containers.sh           # Build all containers
-#   ./containers/scripts/build-containers.sh base      # Build only base image
-#   ./containers/scripts/build-containers.sh api       # Build API services
-#   ./containers/scripts/build-containers.sh build     # Build builder images
-#   ./containers/scripts/build-containers.sh debug     # Build debugger images
+#   ./containers/scripts/build-containers.sh os        # Build OS distro containers
+#   ./containers/scripts/build-containers.sh pe        # Build PE execution containers
 #   ./containers/scripts/build-containers.sh --help    # Show help
 
 set -euo pipefail
@@ -49,13 +46,7 @@ USAGE:
     ./containers/scripts/build-containers.sh [OPTIONS] [TARGET]
 
 TARGETS:
-    all       Build all container images (default)
-    base      Build only the base Ubuntu 24.04 image
-    api       Build API server and pf-runner images
-    build     Build compilation images (Rust, C, Fortran)
-    debug     Build debugger images (standard and GPU)
     os        Build OS distribution containers (CentOS, Fedora, Arch, openSUSE, macOS-like)
-    pe        Build PE execution containers
     pe        Build PE execution containers (VMKit, Windows Server Core, ReactOS, macOS QEMU)
 
 OPTIONS:
@@ -64,14 +55,11 @@ OPTIONS:
     --help        Show this help message
 
 EXAMPLES:
-    # Build all images
-    ./containers/scripts/build-containers.sh
+    # Build OS distro images
+    ./containers/scripts/build-containers.sh os
 
-    # Build only base and API images
-    ./containers/scripts/build-containers.sh base api
-
-    # Build without cache
-    ./containers/scripts/build-containers.sh --no-cache all
+    # Build PE execution images
+    ./containers/scripts/build-containers.sh pe
 
 ENVIRONMENT:
     CONTAINER_RT    Container runtime to use (default: podman, fallback: docker)
@@ -156,15 +144,6 @@ build_pe_containers() {
     log_warn "  - Apple Software License Agreement compliance for macOS"
 }
 
-build_all() {
-    build_base
-    build_api
-    build_builders
-    build_debugger
-    build_os_containers
-    build_pe_containers
-}
-
 # Main script
 main() {
     cd "${PROJECT_ROOT}"
@@ -188,7 +167,7 @@ main() {
                 show_help
                 exit 0
                 ;;
-            all|base|api|build|debug|os|pe)
+            os|pe)
                 TARGETS+=("$1")
                 shift
                 ;;
@@ -200,9 +179,9 @@ main() {
         esac
     done
     
-    # Default to all if no targets specified
+    # Default to os if no targets specified
     if [[ ${#TARGETS[@]} -eq 0 ]]; then
-        TARGETS=("all")
+        TARGETS=("os")
     fi
     
     log_info "Using container runtime: ${CONTAINER_RT}"
@@ -211,24 +190,6 @@ main() {
     # Build requested targets
     for target in "${TARGETS[@]}"; do
         case "$target" in
-            all)
-                build_all
-                ;;
-            base)
-                build_base
-                ;;
-            api)
-                build_base
-                build_api
-                ;;
-            build)
-                build_base
-                build_builders
-                ;;
-            debug)
-                build_base
-                build_debugger
-                ;;
             os)
                 build_os_containers
                 ;;

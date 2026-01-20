@@ -365,8 +365,12 @@ For more help on a specific subcommand:
         """Parse arguments with legacy compatibility."""
 
         # Handle special cases for backward compatibility
+        # No args → default to listing tasks (requested behavior)
+        if not args:
+            return self.parser.parse_args(["list"])
+
         # Support help variations: help, --help, -h, hlep, hepl, heelp, hlp
-        if not args or args[0] in HELP_VARIATIONS:
+        if args[0] in HELP_VARIATIONS:
             if len(args) > 1:
                 # Help for specific topic
                 return self.parser.parse_args(["help", args[1]])

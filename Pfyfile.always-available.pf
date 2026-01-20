@@ -161,7 +161,8 @@ task category-help
   shell echo "  Run any category help command to see available tasks in that category"
   shell echo "  Example: pf category-security-help"
   shell echo ""
-  shell echo "Note: These tasks are always available and don't require specific files or directories"
+  shell echo "Note: These tasks are always available and do not require specific files or directories"
+end
 task check-debug-tools
   describe Check installation status of debugging tools
   shell echo "🔍 Checking debugging tool installation status..."

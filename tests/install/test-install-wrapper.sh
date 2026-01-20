@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Smoke test for pf-web-poly-compile-helper-runner install script
-# Tests both the native install and container install methods
+# Tests the native install method only
 
 set -euo pipefail
 
@@ -30,7 +30,7 @@ test_direct_install() {
   cd "${PROJECT_ROOT}"
   
   # Run install with test prefix and skip deps (to speed up test)
-  ./install.sh --mode native --prefix "${TEST_PREFIX}" --skip-deps
+  ./install.sh --prefix "${TEST_PREFIX}" --skip-deps
   
   # Verify pf executable exists
   if [[ -x "${TEST_PREFIX}/bin/pf" ]]; then
@@ -51,35 +51,6 @@ test_direct_install() {
   return 0
 }
 
-test_container_install() {
-  if ! command -v podman >/dev/null 2>&1; then
-    log_warn "podman not found; skipping container install test"
-    return 0
-  fi
-
-  cd "${PROJECT_ROOT}"
-
-  # Use a test image tag so we don't interfere with user's main image
-  local test_image="pf-runner:test-install"
-
-  log_info "Testing container install with podman (image=${test_image})..."
-
-  # Build container images
-  ./install.sh --mode container --runtime podman --image "${test_image}" --build-only >/dev/null 2>&1 || {
-    log_warn "Container build failed (may be expected in CI without full podman setup)"
-    return 0
-  }
-
-  # Verify image exists
-  if podman image exists "${test_image}" >/dev/null 2>&1; then
-    log_pass "Container install: successfully built image ${test_image}"
-    return 0
-  else
-    log_warn "Container install: image not found (may be expected in CI)"
-    return 0
-  fi
-}
-
 main() {
   log_info "pf install script smoke tests"
   log_info "=============================="
@@ -87,7 +58,6 @@ main() {
   local failed=0
   
   test_direct_install || failed=1
-  test_container_install || failed=1
   
   if [[ ${failed} -eq 0 ]]; then
     log_pass "All install tests passed!"

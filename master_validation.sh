@@ -98,29 +98,9 @@ run_native_tests() {
     fi
 }
 
-# Run container installer tests
-run_container_tests() {
-    log_header "Container Installer Tests"
-    echo "========================="
-    
-    if [[ -x "./test_container_installer.sh" ]]; then
-        if ./test_container_installer.sh; then
-            log_success "Container installer tests passed"
-            return 0
-        else
-            log_error "Container installer tests failed"
-            return 1
-        fi
-    else
-        log_warning "Container installer test script not found or not executable"
-        return 1
-    fi
-}
-
 # Generate comprehensive report
 generate_report() {
     local native_result="$1"
-    local container_result="$2"
     
     echo ""
     log_header "Comprehensive Installer Validation Report"
@@ -136,8 +116,6 @@ generate_report() {
     fi
     echo "  Python: $(python3 --version 2>/dev/null || echo 'Not found')"
     echo "  Git: $(git --version 2>/dev/null || echo 'Not found')"
-    echo "  Podman: $(podman --version 2>/dev/null || echo 'Not found')"
-    echo "  Docker: $(docker --version 2>/dev/null || echo 'Not found')"
     echo ""
     
     # Repository status
@@ -145,7 +123,7 @@ generate_report() {
     echo "  Location: $(pwd)"
     echo "  install.sh: $(if [[ -x install.sh ]]; then echo 'Present and executable'; else echo 'Missing or not executable'; fi)"
     echo "  pf-runner/: $(if [[ -d pf-runner ]]; then echo 'Present'; else echo 'Missing'; fi)"
-    echo "  containers/: $(if [[ -d containers ]]; then echo 'Present'; else echo 'Missing'; fi)"
+    echo ""
     
     # Check shebang status
     if [[ -f "pf-runner/pf_parser.py" ]]; then
@@ -161,25 +139,6 @@ generate_report() {
     else
         echo "  ✗ Native installer: FAILED"
     fi
-    
-    if [[ "$container_result" == "0" ]]; then
-        echo "  ✓ Container installer: PASSED"
-    else
-        echo "  ✗ Container installer: FAILED"
-    fi
-    echo ""
-    
-    # Container variants summary
-    log_info "Container Variants:"
-    local variant_count=0
-    for dockerfile in ./containers/dockerfiles/Dockerfile.*; do
-        if [[ -f "$dockerfile" ]]; then
-            local variant=$(basename "$dockerfile" | sed 's/Dockerfile\.//')
-            echo "  - $variant"
-            variant_count=$((variant_count + 1))
-        fi
-    done
-    echo "  Total: $variant_count variants"
     echo ""
     
     # Recommendations
@@ -187,44 +146,28 @@ generate_report() {
     
     if [[ "$native_result" == "0" ]]; then
         echo "  ✓ Native installation is ready for users"
-        echo "    Command: ./install.sh --mode native"
-        echo "    User install: ./install.sh --mode native --prefix ~/.local"
-        echo "    System install: sudo ./install.sh --mode native"
+        echo "    Command: ./install.sh --prefix ${PREFIX:-$DEFAULT_PREFIX_USER}"
+        echo "    System install: sudo ./install.sh"
+        echo "    User install: ./install.sh --prefix ~/.local"
     else
         echo "  ✗ Native installation needs fixes before user deployment"
-    fi
-    
-    if [[ "$container_result" == "0" ]]; then
-        echo "  ✓ Container installation is ready for users"
-        echo "    Command: ./install.sh --mode container"
-        echo "    With podman: ./install.sh --mode container --runtime podman"
-        echo "    With docker: ./install.sh --mode container --runtime docker"
-    else
-        echo "  ✗ Container installation needs fixes before user deployment"
     fi
     
     echo ""
     
     # Overall status
-    if [[ "$native_result" == "0" ]] && [[ "$container_result" == "0" ]]; then
-        log_success "🎉 All installers are working correctly!"
+    if [[ "$native_result" == "0" ]]; then
+        log_success "🎉 Native installer is working correctly!"
         echo ""
         echo "Users can now:"
-        echo "1. Install natively on fresh Ubuntu: ./install.sh --mode native"
-        echo "2. Install with containers: ./install.sh --mode container"
-        echo "3. Choose their preferred installation method"
+        echo "1. Install natively on fresh Ubuntu: ./install.sh"
+        echo "2. Reinstall for user namespace: ./install.sh --prefix ~/.local"
         echo ""
         return 0
-    elif [[ "$native_result" == "0" ]] || [[ "$container_result" == "0" ]]; then
-        log_warning "⚠️  Some installers are working, but not all"
-        echo ""
-        echo "Partial success - at least one installation method works"
-        echo ""
-        return 1
     else
-        log_error "❌ Both installers have issues that need to be resolved"
+        log_error "❌ Native installer has issues that need to be resolved"
         echo ""
-        echo "Both installation methods need fixes before user deployment"
+        echo "Fix the native installer before user deployment"
         echo ""
         return 1
     fi
@@ -250,26 +193,17 @@ main() {
     
     echo ""
     
-    # Make test scripts executable
+    # Make native test script executable
     chmod +x test_native_installer.sh 2>/dev/null || true
-    chmod +x test_container_installer.sh 2>/dev/null || true
-    
+
     # Run native tests
     local native_result=1
     if run_native_tests; then
         native_result=0
     fi
     
-    echo ""
-    
-    # Run container tests
-    local container_result=1
-    if run_container_tests; then
-        container_result=0
-    fi
-    
     # Generate comprehensive report
-    generate_report "$native_result" "$container_result"
+    generate_report "$native_result"
 }
 
 # Run main function

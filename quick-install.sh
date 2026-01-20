@@ -82,21 +82,12 @@ main() {
                 exit 1
             fi
         else
-            # Use the standard installer
+            # Use the standard native installer
             log_info "Using standard installer"
-            if command -v podman >/dev/null 2>&1; then
-                log_info "Podman detected - installing container version"
-                ./install.sh --runtime podman
-            elif command -v docker >/dev/null 2>&1; then
-                log_info "Docker detected - installing container version"
-                ./install.sh --runtime docker
+            if [[ $EUID -eq 0 ]]; then
+                ./install.sh
             else
-                log_info "No container runtime detected - installing native version"
-                if [[ $EUID -eq 0 ]]; then
-                    ./install.sh --mode native
-                else
-                    ./install.sh --mode native --prefix ~/.local
-                fi
+                ./install.sh --prefix ~/.local
             fi
         fi
     else
@@ -119,19 +110,11 @@ main() {
         log_info "Repository cloned - running installer"
         
         # Run the installer based on available tools
-        if command -v podman >/dev/null 2>&1; then
-            log_info "Podman detected - installing container version"
-            ./install.sh --runtime podman
-        elif command -v docker >/dev/null 2>&1; then
-            log_info "Docker detected - installing container version"
-            ./install.sh --runtime docker
+        log_info "Running native installer"
+        if [[ $EUID -eq 0 ]]; then
+            ./install.sh
         else
-            log_info "No container runtime detected - installing native version"
-            if [[ $EUID -eq 0 ]]; then
-                ./install.sh --mode native
-            else
-                ./install.sh --mode native --prefix ~/.local
-            fi
+            ./install.sh --prefix ~/.local
         fi
         
         log_info "Cleaning up temporary directory"

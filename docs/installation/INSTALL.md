@@ -2,76 +2,72 @@
 
 ## Quick Install (One Command)
 
-### Container-First Installation (Recommended)
+Use the bundled quick installer to perform a native install with minimal setup:
 ```bash
-# Build images and install the pf wrapper (user prefix by default)
-./install.sh --runtime podman
-
-# System-wide wrapper install (requires sudo)
-sudo ./install.sh --runtime podman --prefix /usr/local
+# Clone and install in one go
+git clone https://github.com/P4X-ng/pf-web-poly-compile-helper-runner.git
+cd pf-web-poly-compile-helper-runner
+./quick-install.sh
 ```
 
-### Native Host Installation (Alternative)
+The quick installer applies the native workflow, selects the right prefix, and installs dependencies automatically.
+
+If you prefer to run the installer directly, call:
 ```bash
 # System-wide install (requires sudo)
-sudo ./install.sh --mode native
+sudo ./install.sh
 
 # User install (no sudo needed)
-./install.sh --mode native --prefix ~/.local
+./install.sh --prefix ~/.local
 ```
+
+### Running the WebAssembly toolchain tasks
+
+Tasks such as `web-toolchain-check`, `web-build-c-wasm`, and `web-build-fortran-wasm` require the Emscripten SDK and related binaries in `PATH`. If you installed emsdk under `/home/punk/emsdk-*`, run them through the helper:
+```bash
+./scripts/pf-with-emsdk.sh web-toolchain-check
+./scripts/pf-with-emsdk.sh web-build-c-wasm
+./scripts/pf-with-emsdk.sh web-build-fortran-wasm
+```
+
+The script sources `emsdk_env.sh` from the first matching `/home/punk/emsdk-*` directory (override `EMSDK_ROOT` if needed) so `emcc`, `wasm-pack`, `wat2wasm`, `clang`, and `opt-18` become available to pf.
 
 ## What the installer does
 
-**Container mode (default):**
-1. ✅ Builds `localhost/pf-base:latest`
-2. ✅ Builds `localhost/pf-runner:latest`
-3. ✅ Installs the `pf` wrapper script
-4. ✅ Sets up shell completions (bash/zsh)
-
-**Native mode (`--mode native`):**
 1. ✅ Checks prerequisites (Python 3.8+, Git, pip)
-2. ✅ Installs system dependencies (build tools, python3-dev)
-3. ✅ Sets up Python virtual environment (for user installs)
-4. ✅ Installs Python dependencies (fabric, lark)
-5. ✅ Installs pf-runner to your system
-6. ✅ Sets up shell completions (bash/zsh)
-7. ✅ Validates installation by running pf tasks
+2. ✅ Installs system dependencies (unless `--skip-deps` is requested)
+3. ✅ Creates a per-prefix Python virtual environment (user installs only)
+4. ✅ Installs Python dependencies (fabric, lark, typer)
+5. ✅ Copies pf-runner into `${PREFIX}/lib/pf-runner`
+6. ✅ Creates the `pf` executable wrapper in `${PREFIX}/bin`
+7. ✅ Deploys shell completions (bash/zsh) when possible
+8. ✅ Validates the native `pf` command (`pf list`, `pf --version`)
 
 ## Installation Options
 
 ```bash
-# Container-first install (default)
-./install.sh --runtime podman
+# System install (requires sudo)
+sudo ./install.sh
 
-# Native install
-./install.sh --mode native --prefix ~/.local
+# User install (no sudo)
+./install.sh --prefix ~/.local
 
-# Custom installation directory (native)
-./install.sh --mode native --prefix /opt/pf-runner
+# Use a custom prefix
+./install.sh --prefix /opt/pf-runner
 
-# Skip system dependency installation (native)
-./install.sh --mode native --skip-deps
+# Skip system dependency installation (when dependencies are already satisfied)
+./install.sh --skip-deps
 
-# Skip container image build (container mode)
-./install.sh --mode container --skip-build
-
-# Build container images only (container mode)
-./install.sh --mode container --build-only
-
-# Show help
+# Show help page
 ./install.sh --help
 ```
 
 ## Prerequisites
 
-**Container mode:**
-- **Linux** with **Podman** or **Docker**
-
-**Native mode:**
-- **Linux** (Ubuntu/Debian, RHEL/Fedora, Arch) or **macOS**
-- **Python 3.8+** with pip
+- **Linux** (Ubuntu/Debian/Fedora/Arch) or **macOS**
 - **Git**
-- **Build tools** (gcc, make) - installed automatically
+- **Python 3.8+** with pip (`python3 -m ensurepip`)
+- **Build tools** (`gcc`, `make`, `curl`) for compiling dependencies
 
 ## After Installation
 
@@ -113,7 +109,7 @@ If you get Python import errors:
 
 1. **Reinstall with dependencies**:
    ```bash
-   ./install.sh --mode native --skip-deps  # Skip system deps if they're already installed
+   ./install.sh --skip-deps  # Skip system deps if they're already installed
    ```
 
 2. **Manual dependency install**:
@@ -126,24 +122,17 @@ If you get permission errors:
 
 1. **Use user installation**:
    ```bash
-   ./install.sh --mode native --prefix ~/.local
+   ./install.sh --prefix ~/.local
    ```
 
 2. **Or fix permissions for system install**:
    ```bash
-   sudo ./install.sh --mode native
+   sudo ./install.sh
    ```
 
 ## Uninstallation
 
-### Container install (default)
-```bash
-rm -f ~/.local/bin/pf
-rm -rf ~/.local/lib/pf-runner
-podman image rm -f localhost/pf-runner:latest localhost/pf-base:latest  # or docker image rm ...
-```
-
-### Native system installation
+### System install
 ```bash
 sudo rm -f /usr/local/bin/pf
 sudo rm -rf /usr/local/lib/pf-runner
@@ -151,7 +140,7 @@ sudo rm -f /etc/bash_completion.d/pf
 sudo rm -f /usr/local/share/zsh/site-functions/_pf
 ```
 
-### Native user installation
+### User install
 ```bash
 rm -f ~/.local/bin/pf
 rm -rf ~/.local/lib/pf-runner
@@ -162,7 +151,7 @@ rm -f ~/.zsh/completions/_pf
 
 ## Advanced Installation
 
-For container-based workflows or development setups, see the full documentation in `docs/`.
+For detailed workflows, scripting, or container references, see the relevant documents under `docs/`.
 
 ## Getting Help
 

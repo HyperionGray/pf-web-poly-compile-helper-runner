@@ -119,7 +119,7 @@ task macos-execute binary_file=""
         echo "Usage: pf macos-execute binary_file=<path-to-macos-binary>"
         echo "Execute macOS binary in virtualized macOS environment"
         echo ""
-        echo "Legal Notice: Ensure compliance with Apple's Software License Agreement"
+        echo "Legal Notice: Ensure compliance with the Apple Software License Agreement"
         echo "macOS virtualization may only be legal on Apple hardware"
         exit 1
     fi
@@ -130,7 +130,7 @@ task macos-execute binary_file=""
     fi
     
     echo "Executing macOS binary: ${binary_file}"
-    echo "Legal Notice: Ensure compliance with Apple's Software License Agreement"
+    echo "Legal Notice: Ensure compliance with the Apple Software License Agreement"
     podman run --rm -it \
         --privileged \
         --device /dev/kvm:/dev/kvm \
@@ -251,7 +251,7 @@ task pe-shell container=""
             ;;
         macos)
             echo "Opening shell in macOS container..."
-            echo "Legal Notice: Ensure compliance with Apple's Software License Agreement"
+            echo "Legal Notice: Ensure compliance with the Apple Software License Agreement"
             podman run --rm -it \
                 --privileged \
                 --device /dev/kvm:/dev/kvm \
@@ -296,7 +296,7 @@ task vmkit-setup
     else
         echo "[!] VMKit not found"
         echo "[!] Set VMKIT_PATH environment variable to your VMKit installation"
-        echo "[!] Or install VMKit and ensure it's in your PATH"
+        echo "[!] Or install VMKit and ensure it is in your PATH"
     fi
 end
 

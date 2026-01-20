@@ -533,6 +533,39 @@ app.get('/api/logs/:buildId', (req, res) => {
   }
 });
 
+// Build all languages (must be registered before the :language route)
+app.post('/api/build/all', async (req, res) => {
+  const { target = 'wasm', project = 'pf-web-polyglot-demo-plus-c', ...options } = req.body || {};
+  
+  const languages = ['rust', 'c', 'fortran', 'wat'];
+  const buildIds = [];
+  
+  for (const language of languages) {
+    const buildId = `${language}-${target}-${Date.now()}`;
+    buildIds.push(buildId);
+    // Seed status map so logs endpoint can return something meaningful
+    buildStatus.set(buildId, {
+      buildId,
+      language,
+      target,
+      project,
+      status: 'queued',
+      startTime: new Date().toISOString(),
+      progress: 0
+    });
+    buildLogs.set(buildId, [
+      { timestamp: new Date().toISOString(), level: 'info', message: 'Queued via build/all' }
+    ]);
+  }
+  
+  res.json({
+    message: 'All builds queued successfully',
+    buildIds,
+    target,
+    project
+  });
+});
+
 // Trigger build for specific language
 app.post('/api/build/:language', async (req, res) => {
   const { language } = req.params;
@@ -694,45 +727,6 @@ app.post('/api/build/:language', async (req, res) => {
   });
 });
 
-// Build all languages
-app.post('/api/build/all', async (req, res) => {
-  const { target = 'wasm', project = 'pf-web-polyglot-demo-plus-c', ...options } = req.body;
-  
-  const languages = ['rust', 'c', 'fortran', 'wat'];
-  const buildIds = [];
-  
-  for (const language of languages) {
-    try {
-      // Make internal API call to build each language
-      const buildResponse = await new Promise((resolve, reject) => {
-        const mockReq = {
-          params: { language },
-          body: { target, project, ...options }
-        };
-        const mockRes = {
-          status: (code) => mockRes,
-          json: (data) => resolve(data)
-        };
-        
-        // Simulate the build endpoint call
-        const buildId = `${language}-${target}-${Date.now()}`;
-        buildIds.push(buildId);
-        resolve({ buildId, status: 'queued' });
-      });
-      
-    } catch (error) {
-      logger.error('Failed to queue build', { language, error: error.message });
-    }
-  }
-  
-  res.json({
-    message: 'All builds queued successfully',
-    buildIds,
-    target,
-    project
-  });
-});
-
 // List available WASM modules
 app.get('/api/modules', (req, res) => {
   try {
@@ -765,6 +759,11 @@ app.get('/api/modules', (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// 404 handler for unknown API routes (before static fallback)
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Not found' });
 });
 
 // Static file serving (backward compatibility)
@@ -851,4 +850,6 @@ server.listen(PORT, () => {
     apiEndpoint: `http://localhost:${PORT}/api`,
     wsEnabled: true
   });
+  // Simple startup marker for test harness
+  console.log(`serving http://localhost:${PORT}`);
 });

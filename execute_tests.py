@@ -6,6 +6,7 @@ Execute the comprehensive test suite - "Test it all again and again and again. T
 import subprocess
 import sys
 import os
+from pathlib import Path
 
 def main():
     """Execute the comprehensive test suite"""
@@ -13,8 +14,9 @@ def main():
     print("Testing it all again and again and again. That's thrice!")
     print("=" * 70)
     
-    # Change to workspace directory
-    os.chdir('/workspace')
+    # Change to repository root (directory containing this script)
+    repo_root = Path(__file__).resolve().parent
+    os.chdir(repo_root)
     
     # Make sure scripts are executable
     scripts_to_make_executable = [
@@ -33,9 +35,10 @@ def main():
     
     # Run the comprehensive test suite
     try:
+        runner_path = repo_root / "test_all_comprehensive.py"
         result = subprocess.run([
-            sys.executable, 'test_all_comprehensive.py'
-        ], cwd='/workspace')
+            sys.executable, str(runner_path)
+        ], cwd=repo_root)
         
         return result.returncode
         

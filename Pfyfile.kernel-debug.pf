@@ -179,7 +179,7 @@ end
 # Installation and Setup Tasks
 task kernel-debug-install-deps
   describe Install kernel debugging dependencies
-  packages python3-pip python3-dev build-essential
+  packages install python3-pip python3-dev build-essential
   shell pip3 install --user r2pipe
   shell pip3 install --user fabric
   shell echo "Installing radare2..."

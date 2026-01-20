@@ -82,10 +82,14 @@ def parse_shell_command(cmd_line: str) -> Tuple[Dict[str, str], str]:
     # Reconstruct the command from remaining tokens
     if remaining_tokens:
         # Preserve shell operators like &&, ||, |, ; without quoting so they keep their semantics.
-        shell_operators = {"&&", "||", "|", ";", "&", "|&", ">", "<", ">>", "<<", "2>", "2>&1"}
+        # Keep grouping tokens and common operators unquoted so shell semantics remain
+        shell_operators = {"&&", "||", "|", ";", "&", "|&", ">", "<", ">>", "<<", "2>", "2>&1", "(", ")", "{", "}"}
 
         def _quote_preserving_ops(token: str) -> str:
-            return token if token in shell_operators else shlex.quote(token)
+            # Preserve shell parameter expansion and grouping tokens to avoid breaking constructs
+            if token in shell_operators or "$" in token:
+                return token
+            return shlex.quote(token)
 
         remaining_cmd = ' '.join(_quote_preserving_ops(token) for token in remaining_tokens)
     else:

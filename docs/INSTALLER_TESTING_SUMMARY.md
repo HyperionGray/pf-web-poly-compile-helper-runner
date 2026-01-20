@@ -37,7 +37,7 @@ The `pf-runner/pf_parser.py` file is severely corrupted:
 
 ### 1. Native Installer Analysis ✅
 
-The `install.sh --mode native` installer is **well-designed**:
+The native `./install.sh` installer is **well-designed**:
 
 **Good Design Elements:**
 - ✅ Detects OS and installs appropriate dependencies
@@ -51,7 +51,7 @@ The `install.sh --mode native` installer is **well-designed**:
 
 **Installation Flow:**
 ```bash
-./install.sh --mode native --prefix ~/.local
+./install.sh --prefix ~/.local
 ```
 1. Checks prerequisites (Python 3.8+, Git, pip) ✅
 2. Optionally installs system dependencies ✅
@@ -119,20 +119,9 @@ Failed: 2
 
 The 2 failures are both related to the corrupted pf_parser.py file.
 
-### 4. Container Installer Analysis ⏸️
+### 4. Container Installer (Deprecated)
 
-**File**: `install.sh --mode container`
-
-**Design**: Also well-structured with:
-- Container runtime detection (podman/docker)
-- Image building for pf-base and pf-runner
-- Wrapper script installation
-- Multiple container type support
-
-**Status**: **Cannot test** until the base pf_parser.py is fixed, because:
-- Container build includes the corrupted file
-- Even if pre-built images exist, wrapper needs to execute the code
-- Unknown if containers have a working version internally
+The containerized install path is no longer supported. All workflows now run against the native installer described above. The previous container analysis remains in this document for historical context but should no longer be used as guidance.
 
 ### 5. Other Installers ⏸️
 
@@ -162,13 +151,9 @@ Options:
 ```
 Should pass all 7 tests once file is fixed.
 
-**3. Test Container Installer**
-```bash
-./install.sh --runtime podman
-# Verify images build
-# Verify wrapper works
-# Test basic commands
-```
+**3. Container installer (deprecated)**
+
+This summary no longer tracks a container installer. Focus solely on the native installer chain once the corruption is addressed.
 
 **4. Document All Containers**
 

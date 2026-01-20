@@ -1,0 +1,146 @@
+name: Copilot Issue Reconciler
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+concurrency:
+  group: copilot-issue-reconciler
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: [self-hosted, linux, x64, big]
+    steps:
+      - name: Reconcile Copilot issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Supported models (preferred label format: `copilot-model:<model>`)
+            const MODELS = new Set([
+              'gpt-5.2',
+              'gpt-5.2-pro',
+              'gpt-5.1',
+              'gpt-5.1-codex',
+            ]);
+
+            const DEFAULT_MODEL = 'gpt-5.2';
+            const MODEL_PREFIX = 'copilot-model:';
+
+            function extractModelFromLabels(labels) {
+              // labels: array of label objects from API
+              const names = labels.map(l => (typeof l === 'string' ? l : l.name));
+
+              // 1) Preferred format: copilot-model:<model>
+              for (const n of names) {
+                if (n && n.startsWith(MODEL_PREFIX)) {
+                  const model = n.slice(MODEL_PREFIX.length).trim();
+                  if (MODELS.has(model)) return model;
+                }
+              }
+
+              // 2) Back-compat legacy formats: copilot-gpt-5.1, copilot-gpt-5.1-codex, copilot-gpt-5.2-pro, etc.
+              for (const n of names) {
+                if (!n) continue;
+                if (n.startsWith('copilot-gpt-')) {
+                  const model = n.replace(/^copilot-/, '').trim(); // yields gpt-...
+                  if (MODELS.has(model)) return model;
+                }
+              }
+
+              return null;
+            }
+
+            function desiredModelLabel(model) {
+              return `${MODEL_PREFIX}${model}`;
+            }
+
+            function findExistingModelLabels(labels) {
+              const names = labels.map(l => (typeof l === 'string' ? l : l.name));
+              const existing = [];
+
+              for (const n of names) {
+                if (!n) continue;
+                if (n.startsWith(MODEL_PREFIX)) existing.push(n);
+                if (n.startsWith('copilot-gpt-')) existing.push(n);
+              }
+              return existing;
+            }
+
+            // Query open issues labeled 'copilot'
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'open',
+              labels: 'copilot',
+              per_page: 100,
+            });
+
+            core.info(`Found ${issues.length} open issues labeled 'copilot'.`);
+
+            for (const issue of issues) {
+              // Skip PRs (GitHub returns PRs in issues endpoints)
+              if (issue.pull_request) continue;
+
+              const number = issue.number;
+              const assignees = (issue.assignees || []).map(a => a.login);
+
+              // 1) Ensure @copilot is assigned
+              if (!assignees.includes('copilot')) {
+                core.info(`Assigning @copilot to #${number}`);
+                await github.rest.issues.addAssignees({
+                  owner,
+                  repo,
+                  issue_number: number,
+                  assignees: ['copilot'],
+                });
+              }
+
+              // 2) Normalize model label
+              const currentModel = extractModelFromLabels(issue.labels || []);
+              const model = currentModel || DEFAULT_MODEL;
+              const desired = desiredModelLabel(model);
+
+              const existingModelish = findExistingModelLabels(issue.labels || []);
+              const hasDesired = existingModelish.includes(desired);
+
+              // Remove undesired model labels, keep only desired preferred label.
+              // If issue has *only* the desired preferred label already, nothing to do.
+              const toRemove = existingModelish.filter(l => l !== desired);
+
+              if (!hasDesired || toRemove.length > 0) {
+                core.info(`Normalizing model labels on #${number}: model='${model}', desired='${desired}', remove=[${toRemove.join(', ')}]`);
+
+                // Add desired preferred label if missing
+                if (!hasDesired) {
+                  await github.rest.issues.addLabels({
+                    owner,
+                    repo,
+                    issue_number: number,
+                    labels: [desired],
+                  });
+                }
+
+                // Remove old/incorrect labels individually (API requires exact name)
+                for (const label of toRemove) {
+                  try {
+                    await github.rest.issues.removeLabel({
+                      owner,
+                      repo,
+                      issue_number: number,
+                      name: label,
+                    });
+                  } catch (e) {
+                    // If label is already gone or doesn't exist, ignore
+                    core.warning(`Could not remove label '${label}' from #${number}: ${e.message}`);
+                  }
+                }
+              }
+            }

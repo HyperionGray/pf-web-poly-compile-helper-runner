@@ -1,0 +1,11 @@
+{
+  "name": "Complete CI/CD Agent Review Pipeline",
+  "description": "Comprehensive automated review running every 12 hours covering code cleanliness, tests, documentation, and functionality with GitHub Copilot and Amazon Q",
+  "iconName": "workflow",
+  "categories": [
+    "Automation",
+    "Code Review",
+    "CI/CD",
+    "Testing"
+  ]
+}

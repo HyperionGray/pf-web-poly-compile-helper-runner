@@ -1,17 +1,21 @@
 import py_compile
 import sys
-import os
+from pathlib import Path
+
+repo_root = Path(__file__).resolve().parent
+pf_runner_dir = repo_root / "pf-runner"
+pf_polyglot_path = pf_runner_dir / "pf_polyglot.py"
 
 # Test syntax compilation
 try:
-    py_compile.compile('/workspace/pf-runner/pf_polyglot.py', doraise=True)
+    py_compile.compile(str(pf_polyglot_path), doraise=True)
     print("SUCCESS: pf_polyglot.py syntax is valid")
 except py_compile.PyCompileError as e:
     print(f"ERROR: Syntax error in pf_polyglot.py: {e}")
     sys.exit(1)
 
 # Test basic import
-sys.path.insert(0, '/workspace/pf-runner')
+sys.path.insert(0, str(pf_runner_dir))
 try:
     import pf_polyglot
     print("SUCCESS: pf_polyglot.py imports successfully")

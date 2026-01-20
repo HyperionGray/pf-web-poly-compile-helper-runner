@@ -76,7 +76,7 @@ end
 
 task build-with-asan
   describe Build with AddressSanitizer (source=file.c, output=binary)
-  shell test -n "${source}" || (echo "Error: source parameter required. Usage: pf build-with-asan source=file.c" && exit 1)
+  shell test -n "${source}" || { echo "Error: source parameter required. Usage: pf build-with-asan source=file.c"; exit 1 ; }
   shell echo "Building ${source} with AddressSanitizer..."
   shell clang -fsanitize=address -g -O1 ${source} -o ${output:-${source%.*}_asan}
   shell echo "✅ Built: ${output:-${source%.*}_asan}"
@@ -85,7 +85,7 @@ end
 
 task build-with-msan
   describe Build with MemorySanitizer (source=file.c, output=binary)
-  shell test -n "${source}" || (echo "Error: source parameter required. Usage: pf build-with-msan source=file.c" && exit 1)
+  shell test -n "${source}" || { echo "Error: source parameter required. Usage: pf build-with-msan source=file.c"; exit 1 ; }
   shell echo "Building ${source} with MemorySanitizer..."
   shell clang -fsanitize=memory -fsanitize-memory-track-origins -g -O1 ${source} -o ${output:-${source%.*}_msan}
   shell echo "✅ Built: ${output:-${source%.*}_msan}"
@@ -94,7 +94,7 @@ end
 
 task build-with-ubsan
   describe Build with UndefinedBehaviorSanitizer (source=file.c, output=binary)
-  shell test -n "${source}" || (echo "Error: source parameter required. Usage: pf build-with-ubsan source=file.c" && exit 1)
+  shell test -n "${source}" || { echo "Error: source parameter required. Usage: pf build-with-ubsan source=file.c"; exit 1 ; }
   shell echo "Building ${source} with UndefinedBehaviorSanitizer..."
   shell clang -fsanitize=undefined -g -O1 ${source} -o ${output:-${source%.*}_ubsan}
   shell echo "✅ Built: ${output:-${source%.*}_ubsan}"
@@ -103,7 +103,7 @@ end
 
 task build-with-tsan
   describe Build with ThreadSanitizer (source=file.c, output=binary)
-  shell test -n "${source}" || (echo "Error: source parameter required. Usage: pf build-with-tsan source=file.c" && exit 1)
+  shell test -n "${source}" || { echo "Error: source parameter required. Usage: pf build-with-tsan source=file.c"; exit 1 ; }
   shell echo "Building ${source} with ThreadSanitizer..."
   shell clang -fsanitize=thread -g -O1 ${source} -o ${output:-${source%.*}_tsan}
   shell echo "✅ Built: ${output:-${source%.*}_tsan}"
@@ -112,7 +112,7 @@ end
 
 task build-with-all-sanitizers
   describe Build with multiple sanitizers (source=file.c)
-  shell test -n "${source}" || (echo "Error: source parameter required" && exit 1)
+  shell test -n "${source}" || { echo "Error: source parameter required"; exit 1 ; }
   shell echo "Building with all sanitizers..."
   shell pf build-with-asan source=${source}
   shell pf build-with-msan source=${source}
@@ -127,7 +127,7 @@ end
 
 task build-libfuzzer-target
   describe Build fuzzing target with libfuzzer (source=fuzz_target.c, output=fuzzer)
-  shell test -n "${source}" || (echo "Error: source parameter required" && exit 1)
+  shell test -n "${source}" || { echo "Error: source parameter required"; exit 1 ; }
   shell echo "Building libfuzzer target from ${source}..."
   shell clang -fsanitize=fuzzer,address -g ${source} -o ${output:-${source%.*}_fuzzer}
   shell echo "✅ Built fuzzer: ${output:-${source%.*}_fuzzer}"
@@ -136,7 +136,7 @@ end
 
 task run-libfuzzer
   describe Run libfuzzer on target (target=fuzzer, corpus=./corpus, time=60)
-  shell test -n "${target}" || (echo "Error: target parameter required" && exit 1)
+  shell test -n "${target}" || { echo "Error: target parameter required"; exit 1 ; }
   shell mkdir -p ${corpus:-./corpus}
   shell echo "Running libfuzzer on ${target}..."
   shell echo "Corpus: ${corpus:-./corpus}"
@@ -155,7 +155,7 @@ end
 
 task build-afl-target
   describe Build target with AFL++ instrumentation (source=target.c, output=target_afl)
-  shell test -n "${source}" || (echo "Error: source parameter required" && exit 1)
+  shell test -n "${source}" || { echo "Error: source parameter required"; exit 1 ; }
   shell echo "Building AFL++ instrumented target from ${source}..."
   shell afl-clang-fast -fsanitize=address -g ${source} -o ${output:-${source%.*}_afl}
   shell echo "✅ Built AFL++ target: ${output:-${source%.*}_afl}"
@@ -163,7 +163,7 @@ end
 
 task build-afl-llvm-target
   describe Build target with AFL++ LLVM mode (source=target.c, output=target_afl)
-  shell test -n "${source}" || (echo "Error: source parameter required" && exit 1)
+  shell test -n "${source}" || { echo "Error: source parameter required"; exit 1 ; }
   shell echo "Building AFL++ LLVM mode target from ${source}..."
   shell afl-clang-lto -fsanitize=address -g ${source} -o ${output:-${source%.*}_afl_lto}
   shell echo "✅ Built AFL++ LLVM target: ${output:-${source%.*}_afl_lto}"
@@ -171,7 +171,7 @@ end
 
 task afl-fuzz
   describe Run AFL++ fuzzer (target=binary, input=./in, output=./out, time=60m)
-  shell test -n "${target}" || (echo "Error: target parameter required" && exit 1)
+  shell test -n "${target}" || { echo "Error: target parameter required"; exit 1 ; }
   shell test -d "${input:-./fuzzing/in}" || mkdir -p ${input:-./fuzzing/in}
   shell test -f "${input:-./fuzzing/in}/seed" || echo "SEED" > ${input:-./fuzzing/in}/seed
   shell mkdir -p ${output:-./fuzzing/out}
@@ -190,7 +190,7 @@ end
 
 task afl-analyze-crashes
   describe Analyze AFL++ crash findings (crashes=./out/default/crashes)
-  shell test -d "${crashes:-./fuzzing/out/default/crashes}" || (echo "No crashes directory found" && exit 1)
+  shell test -d "${crashes:-./fuzzing/out/default/crashes}" || { echo "No crashes directory found"; exit 1 ; }
   shell echo "Analyzing crashes in ${crashes:-./fuzzing/out/default/crashes}..."
   shell find ${crashes:-./fuzzing/out/default/crashes} -type f ! -name README.txt -exec echo "Crash: {}" \; -exec hexdump -C {} \; | head -100
   shell echo ""
@@ -200,7 +200,7 @@ end
 
 task afl-minimize-corpus
   describe Minimize AFL++ corpus (input=./out/default/queue, output=./minimized)
-  shell test -d "${input}" || (echo "Input corpus not found" && exit 1)
+  shell test -d "${input}" || { echo "Input corpus not found"; exit 1 ; }
   shell mkdir -p ${output:-./fuzzing/minimized}
   shell echo "Minimizing corpus from ${input} to ${output:-./fuzzing/minimized}..."
   shell afl-cmin -i ${input} -o ${output:-./fuzzing/minimized} -- ${target}
@@ -215,14 +215,14 @@ end
 
 task lift-and-instrument-binary
   describe Lift binary to LLVM IR and instrument with AFL++ (binary=target, output=target_fuzzing)
-  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell test -n "${binary}" || { echo "Error: binary parameter required"; exit 1 ; }
   shell echo "╔════════════════════════════════════════════════════════════╗"
   shell echo "║    LIFTING BINARY TO LLVM IR FOR FUZZING                 ║"
   shell echo "╚════════════════════════════════════════════════════════════╝"
   shell echo ""
   shell echo "Step 1: Lifting ${binary} to LLVM IR with RetDec..."
   shell mkdir -p /tmp/fuzzing-lift
-  shell retdec-decompiler.py --backend llvmir ${binary} -o /tmp/fuzzing-lift/$(basename ${binary}).ll || (echo "RetDec not installed. Install with: pf install-retdec" && exit 1)
+  shell retdec-decompiler.py --backend llvmir ${binary} -o /tmp/fuzzing-lift/$(basename ${binary}).ll || { echo "RetDec not installed. Install with: pf install-retdec"; exit 1 ; }
   shell echo ""
   shell echo "Step 2: Instrumenting with AFL++ LLVM pass..."
   shell opt -load AFLplusplus.so -afl-llvm-pass /tmp/fuzzing-lift/$(basename ${binary}).ll -o /tmp/fuzzing-lift/$(basename ${binary})_instrumented.bc || echo "Using alternative method..."
@@ -238,7 +238,7 @@ end
 
 task instrument-llvm-ir-afl
   describe Instrument existing LLVM IR with AFL++ (input=file.ll, output=file_afl.ll)
-  shell test -n "${input}" || (echo "Error: input parameter required" && exit 1)
+  shell test -n "${input}" || { echo "Error: input parameter required"; exit 1 ; }
   shell echo "Instrumenting ${input} with AFL++..."
   shell opt -load AFLplusplus.so -afl-llvm-pass ${input} -o ${output:-${input%.ll}_afl.bc} 2>&1 || echo "Note: AFL++ LLVM pass not available, using compiler instrumentation"
   shell echo "Compiling to binary with instrumentation..."

@@ -7,11 +7,25 @@
 import { spawn } from 'node:child_process';
 import { setTimeout } from 'node:timers/promises';
 
+// Fetch helper that works across Node versions:
+// - Node 18: no global fetch
+// - Node 22: global fetch exists but node:fetch may be absent
+async function getFetch() {
+  if (globalThis.fetch) return globalThis.fetch;
+  try {
+    const undici = await import('undici');
+    return undici.fetch;
+  } catch {
+    const { default: fetch } = await import('node-fetch');
+    return fetch;
+  }
+}
+
 const API_BASE = 'http://localhost:8080/api';
 
 // Simple fetch implementation for Node.js
 async function testFetch(url, options = {}) {
-  const { default: fetch } = await import('node:fetch');
+  const fetch = await getFetch();
   return fetch(url, options);
 }
 

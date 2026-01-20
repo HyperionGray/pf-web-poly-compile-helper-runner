@@ -1,18 +1,26 @@
 {
-  "type": "binary",
-  "subtype": "elf",
-  "confidence": 0.95,
+  "type": "web",
+  "subtype": "application",
+  "confidence": 0.9,
   "properties": {
-    "arch": "x86_64"
+    "url": "http://hyperiongray.io",
+    "parsed_url": {
+      "scheme": "http",
+      "netloc": "hyperiongray.io",
+      "path": "",
+      "params": "",
+      "query": "",
+      "fragment": ""
+    }
   },
   "recommended_workflows": [
-    "autopwn",
-    "smart-binary-analysis",
-    "checksec"
+    "smart-web-security",
+    "security-scan",
+    "security-fuzz"
   ],
   "tools": [
-    "checksec",
-    "pwntools",
-    "ropgadget"
+    "web_scanner",
+    "web_fuzzer",
+    "burp_suite_like"
   ]
 }

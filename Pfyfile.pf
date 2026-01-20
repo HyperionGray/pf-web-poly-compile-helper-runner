@@ -82,6 +82,30 @@ include Pfyfile.always-on.pf
 # Include smart workflows (NEW - intelligent tool integration)
 include Pfyfile.smart-workflows.pf
 
+# ---------------------------------------------------------------------------
+# Quickstart samples (safe, local)
+# ---------------------------------------------------------------------------
+
+# Set a file-wide default language so bare lines run as Python.
+default_lang python
+
+task quickstart-hello
+  describe Minimal example using implicit python (no 'shell' needed)
+  print("Hello from implicit python!")
+  import platform
+  print("Platform:", platform.system())
+end
+
+task quickstart-bash default_lang=bash
+  describe Switch back to bash for implicit lines
+  echo "Hi from bash"
+  ls -1
+end
+
+# ---------------------------------------------------------------------------
+# Web + API tasks
+# ---------------------------------------------------------------------------
+
 task web-dev
   describe Start development server with REST API support
   shell_lang bash
@@ -232,25 +256,31 @@ task web-build-c-llvm-opt
   shell cd demos/pf-web-polyglot-demo-plus-c/c && mkdir -p .tmp ../web/llvm/c && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o .tmp/c_trap_unopt.ll && opt-18 -S -passes="${passes:-mem2reg,instcombine,simplifycfg,loop-vectorize}" .tmp/c_trap_unopt.ll -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
 end
 
-task install
-  describe Install pf wrapper (container-first)
-  shell bash install.sh
+task install prefix=/usr/local
+  describe Install pf (default /usr/local; override with prefix=PATH)
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    echo "Installing to prefix=$prefix"
+    if [ "$(id -u)" -ne 0 ] && [ "$prefix" = "/usr/local" ]; then
+      sudo bash install.sh --mode native --prefix "$prefix"
+    else
+      bash install.sh --mode native --prefix "$prefix"
+    fi
 end
 
-task install-native
-  describe Install pf wrapper directly on the host (no container)
-  shell bash install.sh --mode native
-end
-
-task install-container runtime=podman image=localhost/pf-runner:latest
-  describe Build pf-runner container image and install wrapper
-  shell bash install.sh --mode container --runtime ${runtime} --image ${image}
+task install-help
+  describe Show install task choices (simplified)
+  shell echo "Install options:"
+  shell echo "  pf install                 # Native install (default /usr/local)"
+  shell echo "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)"
+  shell echo "  pf install-all             # pf install + tooling bundles"
+  shell echo "  pf install-smoke-test      # Minimal CI smoke of installer"
 end
 
 task install-all
   describe Install pf plus core tool categories
   shell pf install
-  shell pf install-container runtime=${runtime:-podman} image=${image:-localhost/pf-runner:latest}
   shell pf install-exploit-tools
   shell pf install-security-tools
   shell pf install-all-debug-tools
@@ -267,7 +297,7 @@ task install-smoke-test
   shell set -euo pipefail
   shell PREFIX=$(mktemp -d /tmp/pf-smoke-XXXX)
   shell echo "Using PREFIX=$PREFIX"
-  shell ./install.sh --mode native --prefix "$PREFIX" --skip-deps
+  shell ./install.sh --prefix "$PREFIX" --skip-deps
   shell PATH="$PREFIX/bin:$PATH" pf --version
   shell PATH="$PREFIX/bin:$PATH" pf list >/dev/null
   shell echo "✅ install-smoke-test passed at $PREFIX"

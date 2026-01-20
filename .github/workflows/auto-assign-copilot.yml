@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   ensure-labels:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, big]
     if: github.event.action == 'opened' || (github.event.action == 'labeled' && github.event.label.name == 'copilot')
     steps:
       - name: Ensure required labels exist
@@ -73,7 +73,7 @@ jobs:
             }
 
   auto-assign:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, big]
     needs: ensure-labels
     if: contains(github.event.issue.labels.*.name, 'copilot')
     steps:
@@ -112,31 +112,44 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const issueLabels = context.payload.issue.labels.map(l => l.name);
-            
-            // Check which model label is present
+
+            // Check which model label is present (with copilot-model: prefix or direct label)
             const modelLabels = [
               'copilot-gpt-5.1-codex',
               'copilot-gpt-5.1',
               'copilot-claude-4.5-opus'
             ];
-            
-            const selectedModel = modelLabels.find(label => issueLabels.includes(label));
-            
+
+            // Check for both direct model labels and copilot-model: prefixed labels
+            let selectedModel = modelLabels.find(label => issueLabels.includes(label));
+            if (!selectedModel) {
+              // Check for copilot-model: prefixed labels
+              for (const label of issueLabels) {
+                if (label.startsWith('copilot-model:')) {
+                  const modelPart = label.replace('copilot-model:', '');
+                  if (modelLabels.includes(modelPart)) {
+                    selectedModel = modelPart;
+                    break;
+                  }
+                }
+              }
+            }
+
             // Check if we've already commented
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number
             });
-            
-            const botComment = comments.find(c => 
-              c.user.type === 'Bot' && 
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' &&
               c.body.includes('GitHub Copilot has been assigned')
             );
-            
+
             if (!botComment) {
               let message = '🤖 **GitHub Copilot has been assigned to this issue!**\n\n';
-              
+
               if (selectedModel) {
                 message += `📊 **Model selected:** \`${selectedModel}\`\n\n`;
               } else {
@@ -145,17 +158,17 @@ jobs:
                 message += '- `copilot-gpt-5.1` - Latest GPT model\n';
                 message += '- `copilot-claude-4.5-opus` - Claude model for code review\n\n';
               }
-              
+
               message += '💡 **Next steps:**\n';
               message += '- Copilot will analyze the issue and provide assistance\n';
               message += '- You can interact with Copilot by mentioning `@copilot` in comments\n';
-              
+
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
                 body: message
               });
-              
+
               console.log('✅ Added informational comment');
             }

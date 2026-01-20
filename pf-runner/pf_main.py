@@ -43,6 +43,7 @@ from pf_parser import (
     _c_for,
     _dedupe_preserve_order,
     _interpolate,
+    _render_polyglot_command,
     _exec_line_fabric,
     BUILTINS,
 )
@@ -601,6 +602,7 @@ class PfRunner:
             for task_name, lines, params in selected_tasks:
                 print(f"{prefix} --> {task_name}")
                 task_env = {}
+                current_lang = None
                 
                 for line in lines:
                     stripped = line.strip()
@@ -612,46 +614,86 @@ class PfRunner:
                                 k, v = tok.split('=', 1)
                                 task_env[k] = _interpolate(v, params, task_env)
                         continue
+
+                    # Track shell_lang hint for subsequent shell commands
+                    if stripped.startswith('shell_lang '):
+                        parts = stripped.split(None, 1)
+                        current_lang = parts[1].strip() if len(parts) > 1 else None
+                        continue
                     
-                    try:
-                        # Use enhanced shell execution for shell commands
-                        if stripped.startswith('shell '):
-                            shell_cmd = stripped[6:].strip()  # Remove 'shell ' prefix
-                            shell_cmd = _interpolate(shell_cmd, params, task_env)
-                            
+                try:
+                    # Use enhanced shell execution for shell commands
+                    if stripped.startswith('shell '):
+                        shell_cmd = stripped[6:].strip()  # Remove 'shell ' prefix
+                        shell_cmd = _interpolate(shell_cmd, params, task_env)
+
+                        # Handle multiline pipe-style blocks: "shell |\n  ...".
+                        if shell_cmd.startswith("|"):
+                            # Remove leading '|' line and execute block via heredoc
+                            block_lines = shell_cmd.splitlines()[1:]
+                            script_body = "\n".join(block_lines)
+                            heredoc_cmd = "bash <<'PF_EOF'\n" + script_body + "\nPF_EOF"
+                            rc = _exec_line_fabric(
+                                heredoc_cmd, connection, task_env, task_name,
+                                args.sudo, args.sudo_user
+                            )
+                            if rc != 0:
+                                raise PFExecutionError(
+                                    message=f"Command failed with exit code {rc}",
+                                    task_name=task_name,
+                                    command=heredoc_cmd,
+                                    exit_code=rc,
+                                    environment=task_env,
+                                    suggestion="Check the command output above for details"
+                                )
+                            continue
+
+                        # If a default language is set, render polyglot wrapper
+                        rendered_cmd = None
+                        if current_lang:
+                            rendered_cmd, _lang = _render_polyglot_command(
+                                current_lang, shell_cmd, os.getcwd()
+                            )
+
+                        if rendered_cmd:
+                            rc = _exec_line_fabric(
+                                rendered_cmd, connection, task_env, task_name,
+                                args.sudo, args.sudo_user
+                            )
+                        else:
                             rc = execute_shell_command(
                                 shell_cmd, task_env, args.sudo, args.sudo_user,
                                 connection, prefix
                             )
-                        else:
-                            # Use original execution for other commands
-                            rc = _exec_line_fabric(
-                                line, connection, task_env, task_name,
-                                args.sudo, args.sudo_user
-                            )
-                        
-                        if rc != 0:
-                            # Command failed - create detailed error
-                            raise PFExecutionError(
-                                message=f"Command failed with exit code {rc}",
-                                task_name=task_name,
-                                command=line,
-                                exit_code=rc,
-                                environment=task_env,
-                                suggestion="Check the command output above for details"
-                            )
-                            
-                    except PFExecutionError:
-                        # Re-raise our exceptions
-                        raise
-                    except Exception as e:
-                        # Wrap unexpected errors
+                    else:
+                        # Use original execution for other commands
+                        rc = _exec_line_fabric(
+                            line, connection, task_env, task_name,
+                            args.sudo, args.sudo_user
+                        )
+                    
+                    if rc != 0:
+                        # Command failed - create detailed error
                         raise PFExecutionError(
-                            message=f"Unexpected error executing command: {e}",
+                            message=f"Command failed with exit code {rc}",
                             task_name=task_name,
                             command=line,
-                            environment=task_env
+                            exit_code=rc,
+                            environment=task_env,
+                            suggestion="Check the command output above for details"
                         )
+
+                except PFExecutionError:
+                    # Re-raise our exceptions
+                    raise
+                except Exception as e:
+                    # Wrap unexpected errors
+                    raise PFExecutionError(
+                        message=f"Unexpected error executing command: {e}",
+                        task_name=task_name,
+                        command=line,
+                        environment=task_env
+                    )
             
             # Clean up connection
             if connection is not None:
@@ -685,6 +727,11 @@ def main(argv: List[str]) -> int:
     """Main entry point for enhanced pf."""
     runner = PfRunner()
     return runner.run_command(argv)
+
+
+def console_main() -> int:
+    """Console script shim that forwards CLI args."""
+    return main(sys.argv[1:])
 
 
 if __name__ == "__main__":

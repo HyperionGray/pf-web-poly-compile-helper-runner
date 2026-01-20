@@ -109,9 +109,9 @@ test_native_install_isolated() {
     
     # Test installation
     log_info "Running native installation..."
-    log_info "Command: ./install.sh --mode native --prefix $install_prefix --skip-deps"
-    
-    if ./install.sh --mode native --prefix "$install_prefix" --skip-deps 2>&1 | tee "${test_dir}/install.log"; then
+    log_info "Command: ./install.sh --prefix $install_prefix --skip-deps"
+
+    if ./install.sh --prefix "$install_prefix" --skip-deps 2>&1 | tee "${test_dir}/install.log"; then
         log_success "Installation completed without errors"
         
         # Verify installation
@@ -221,9 +221,9 @@ test_native_install_with_deps() {
     
     # Test installation with dependencies
     log_info "Running native installation with dependencies..."
-    log_info "Command: ./install.sh --mode native --prefix $install_prefix"
-    
-    if ./install.sh --mode native --prefix "$install_prefix" 2>&1 | tee "${test_dir}/install-deps.log"; then
+    log_info "Command: ./install.sh --prefix $install_prefix"
+
+    if ./install.sh --prefix "$install_prefix" 2>&1 | tee "${test_dir}/install-deps.log"; then
         log_success "Installation with dependencies completed"
         
         # Test fabric functionality

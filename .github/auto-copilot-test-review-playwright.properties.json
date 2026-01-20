@@ -1,0 +1,18 @@
+{
+  "name": "Comprehensive Test Review with Playwright",
+  "description": "Automated test review ensuring proper coverage with Playwright tests in headed and headless modes across multiple browsers",
+  "iconName": "playwright",
+  "categories": [
+    "Testing",
+    "Playwright",
+    "Web",
+    "Code Review"
+  ],
+  "filePatterns": [
+    "playwright.config.ts$",
+    "playwright.config.js$",
+    "tests/*.spec.ts$",
+    "tests/*.spec.js$",
+    "tests/*test*.py$"
+  ]
+}

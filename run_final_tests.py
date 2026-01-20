@@ -7,6 +7,7 @@ import os
 import sys
 import subprocess
 import time
+from pathlib import Path
 
 def main():
     """Execute the comprehensive test suite three times"""
@@ -15,8 +16,9 @@ def main():
     print("Nay ye canne deny it workes.")
     print("=" * 70)
     
-    # Ensure we're in the right directory
-    os.chdir('/workspace')
+    # Ensure we're in the repository root
+    repo_root = Path(__file__).resolve().parent
+    os.chdir(repo_root)
     
     # Make the comprehensive test runner executable
     if os.path.exists('test_all_comprehensive.py'):
@@ -30,10 +32,11 @@ def main():
     
     try:
         # Run the comprehensive test suite  
-        print("🚀 Executing: python3 /workspace/test_all_comprehensive.py")
+        runner_path = repo_root / "test_all_comprehensive.py"
+        print(f"🚀 Executing: python3 {runner_path}")
         result = subprocess.run([
-            sys.executable, '/workspace/test_all_comprehensive.py'
-        ], cwd='/workspace')
+            sys.executable, str(runner_path)
+        ], cwd=repo_root)
         
         print(f"\n🏁 Test execution completed with exit code: {result.returncode}")
         

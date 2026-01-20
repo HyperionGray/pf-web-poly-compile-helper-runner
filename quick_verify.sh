@@ -1,12 +1,15 @@
 #!/bin/bash
 # Quick test to verify the comprehensive test runner works
 
+set -euo pipefail
+
 echo "🧪 Quick Verification Test"
 echo "=========================="
 
-cd /workspace
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
 
-# Make scripts executable
+# Make scripts executable (idempotent)
 chmod +x test_all_comprehensive.py
 chmod +x test_runner_verification.py
 chmod +x run_tests.sh

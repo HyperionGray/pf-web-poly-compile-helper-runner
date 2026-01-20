@@ -18,7 +18,6 @@ import { spawn, execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import ora from 'ora';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,6 +25,20 @@ const __dirname = path.dirname(__filename);
 // Constants
 const MAX_BUFFER_SIZE = 50 * 1024 * 1024;
 const SUPPORTED_FORMATS = ['deb', 'rpm', 'flatpak', 'snap', 'pacman'];
+
+// Minimal spinner fallback to avoid importing heavy deps on older Node
+const createSpinner = (text = '') => {
+  let currentText = text;
+  return {
+    text: currentText,
+    start() { return this; },
+    stop() { return this; },
+    succeed(msg) { if (msg) console.log(msg); return this; },
+    fail(msg) { if (msg) console.error(msg); return this; },
+    set text(value) { currentText = value; },
+    get text() { return currentText; }
+  };
+};
 
 /**
  * Execute a command and return output
@@ -1137,11 +1150,11 @@ class PackageConverter {
   }
 
   /**
-   * Convert a package from one format to another
-   * Uses .deb as the hub format
-   */
+  * Convert a package from one format to another
+  * Uses .deb as the hub format
+  */
   async convert(sourcePath, targetFormat, outputPath = null) {
-    const spinner = ora('Detecting source format...').start();
+    const spinner = createSpinner('Detecting source format...').start();
 
     try {
       // Detect source format

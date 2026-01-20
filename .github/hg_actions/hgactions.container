@@ -1,0 +1,12 @@
+[Unit]
+Description=HGActions Autonomous Daemon
+After=network-online.target
+
+[Container]
+Image=ghcr.io/p4x-ng/clusterfk-llm:latest
+Exec=clusterfk hgactions start-daemon /etc/hgactions/workflow.json5 --repo-path /app/repo
+Volume=/path/to/your/repo:/app/repo:z
+Volume=/path/to/workflow.json5:/etc/hgactions/workflow.json5:z
+
+[Install]
+WantedBy=multi-user.target

@@ -5,12 +5,14 @@ FINAL EXECUTION - Test it all again and again and again. That's thrice!
 
 import os
 import sys
+from pathlib import Path
 
-# Ensure we're in the workspace
-os.chdir('/workspace')
+# Resolve repository root relative to this script
+repo_root = Path(__file__).resolve().parent
+os.chdir(repo_root)
 
 # Make the comprehensive test runner executable
-os.chmod('/workspace/test_all_comprehensive.py', 0o755)
+os.chmod(repo_root / 'test_all_comprehensive.py', 0o755)
 
 print("🎯 FINAL TEST EXECUTION")
 print("Testing it all again and again and again. That's thrice!")
@@ -19,7 +21,7 @@ print("=" * 70)
 print()
 
 # Import and run the comprehensive test runner directly
-sys.path.insert(0, '/workspace')
+sys.path.insert(0, str(repo_root))
 
 try:
     from test_all_comprehensive import ComprehensiveTestRunner
@@ -43,5 +45,5 @@ except Exception as e:
     
     # Fallback to subprocess
     import subprocess
-    result = subprocess.run([sys.executable, '/workspace/test_all_comprehensive.py'])
+    result = subprocess.run([sys.executable, str(repo_root / 'test_all_comprehensive.py')])
     sys.exit(result.returncode)

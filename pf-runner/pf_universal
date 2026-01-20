@@ -47,7 +47,6 @@ if [[ -z "${PF_IMAGE:-}" ]]; then
     echo "To fix this issue:" >&2
     echo "  1. Build the image from the repo root:" >&2
     echo "     ./install.sh --runtime $RUNTIME" >&2
-    echo "     # or: ./containers/scripts/build-containers.sh api" >&2
     echo "  2. Or install the native runner:" >&2
     echo "     sudo ./install.sh --mode native" >&2
     echo "  3. Or specify a different image:" >&2
