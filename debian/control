@@ -1,16 +1,15 @@
-<<<<<<< HEAD
 Source: pf-runner
 Section: devel
 Priority: optional
-Maintainer: PF Runner Team <maintainer@example.com>
+Maintainer: P4X-ng <223870169+P4X-ng@users.noreply.github.com>
 Build-Depends: debhelper-compat (= 13),
                python3-all (>= 3.8),
                python3-setuptools,
                dh-python
 Standards-Version: 4.6.0
-Homepage: https://github.com/example/pf-runner
-Vcs-Git: https://github.com/example/pf-runner.git
-Vcs-Browser: https://github.com/example/pf-runner
+Homepage: https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+Vcs-Git: https://github.com/P4X-ng/pf-web-poly-compile-helper-runner.git
+Vcs-Browser: https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
 
 Package: pf-runner-core
 Architecture: all
@@ -72,7 +71,7 @@ Package: pf-runner-tools
 Architecture: all
 Depends: ${misc:Depends},
          pf-runner-core (= ${binary:Version})
-Recommends: docker.io | podman,
+Recommends: podman,
             git,
             curl,
             wget,
@@ -88,7 +87,7 @@ Description: Additional development tools for pf-runner
  that integrate with pf-runner workflows.
  .
  Includes support for:
- - Container runtimes (Docker/Podman)
+ - Container runtimes (Podman)
  - Debugging tools
  - System analysis utilities
  - Network and file utilities
@@ -106,23 +105,3 @@ Description: Complete pf-runner installation (metapackage)
  .
  This is the recommended package for most users who want a full
  pf-runner installation with comprehensive language and tool support.
-=======
-Package: pf-runner
-Version: 1.0.0
-Section: devel
-Priority: optional
-Architecture: all
-Depends: python3 (>= 3.8), python3-pip, git
-Recommends: podman | docker.io
-Maintainer: P4X-ng <223870169+P4X-ng@users.noreply.github.com>
-Description: Polyglot task runner with WebAssembly support
- pf-runner is a lightweight, single-file task runner with a symbol-free DSL
- for managing development workflows. It supports:
- .
-  - Polyglot shell support (40+ languages)
-  - WebAssembly compilation (Rust, C, Fortran, WAT)
-  - Build system helpers (Make, CMake, Cargo, etc.)
-  - Smart security workflows
-  - Container integration
-  - Remote execution via SSH
->>>>>>> copilot/improve-installation-stability

@@ -1,21 +1,14 @@
 #!/usr/bin/env bash
 # install.sh - Cohesive installer for pf-runner (package-first with container and native fallback)
-# Usage: ./install.sh [--mode package|container|native] [--runtime podman|docker] [--image NAME] [--prefix PATH] [--skip-deps] [--skip-build] [--no-wrapper] [--help]
+# Usage: ./install.sh [--mode package|container|native] [--runtime podman] [--image NAME] [--prefix PATH] [--skip-deps] [--skip-build] [--no-wrapper] [--help]
 
 set -euo pipefail
 
 # Configuration
-DEFAULT_PREFIX_NATIVE="/usr/local"
+DEFAULT_PREFIX_NATIVE="/usr"
 DEFAULT_PREFIX_USER="${HOME:-/usr/local}/.local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PF_RUNNER_DIR="${SCRIPT_DIR}/pf-runner"
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
 
 # Parse command line arguments
 PREFIX=""
@@ -44,7 +37,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            echo -e "${RED}Error: Unknown option $1${NC}" >&2
+            echo "[ERROR] Unknown option $1" >&2
             SHOW_HELP=true
             shift
             ;;
@@ -92,19 +85,19 @@ fi
 
 # Utility functions
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    echo "[INFO] $1"
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    echo "[OK] $1"
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    echo "[WARN] $1"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1" >&2
+    echo "[ERROR] $1" >&2
 }
 
 normalize_settings() {
@@ -328,9 +321,13 @@ install_completions() {
     
     # Install zsh completion
     local zsh_completion_installed=false
-    if [[ -d "/usr/local/share/zsh/site-functions" ]] && [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
-        cp "${completions_dir}/_pf" "/usr/local/share/zsh/site-functions/_pf"
-        log_success "Installed zsh completion to /usr/local/share/zsh/site-functions/_pf"
+    if [[ -d "/usr/share/zsh/vendor-completions" ]] && [[ "$PREFIX" == "/usr" || "$PREFIX" == "/usr/"* || "$PREFIX" == "/usr/local" ]]; then
+        cp "${completions_dir}/_pf" "/usr/share/zsh/vendor-completions/_pf"
+        log_success "Installed zsh completion to /usr/share/zsh/vendor-completions/_pf"
+        zsh_completion_installed=true
+    elif [[ -d "/usr/share/zsh/site-functions" ]] && [[ "$PREFIX" == "/usr" || "$PREFIX" == "/usr/"* || "$PREFIX" == "/usr/local" ]]; then
+        cp "${completions_dir}/_pf" "/usr/share/zsh/site-functions/_pf"
+        log_success "Installed zsh completion to /usr/share/zsh/site-functions/_pf"
         zsh_completion_installed=true
     elif [[ -d "${HOME}/.zsh/completions" ]] || mkdir -p "${HOME}/.zsh/completions" 2>/dev/null; then
         cp "${completions_dir}/_pf" "${HOME}/.zsh/completions/_pf"
@@ -390,7 +387,7 @@ update_path_info() {
 
 # Main installation function
 main() {
-    echo -e "${BLUE}pf-runner Installation Script${NC}"
+    echo "pf-runner Installation Script"
     echo "=============================="
     echo ""
     
@@ -420,7 +417,7 @@ main() {
     # Validate installation
     if validate_native_installation; then
         echo ""
-        log_success "🎉 pf-runner native installation completed successfully!"
+        log_success "pf-runner native installation completed successfully."
         echo ""
         log_info "Installation summary:"
         echo "  • pf-runner library: ${PREFIX}/lib/pf-runner"
@@ -437,7 +434,7 @@ main() {
         echo "  3. Try: pf list"
         echo "  4. Read the documentation: cat README.md"
         echo ""
-        log_success "Happy task running! 🚀"
+        log_success "Happy task running."
     else
         log_error "Native installation validation failed"
         exit 1

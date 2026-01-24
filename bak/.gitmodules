@@ -1,0 +1,3 @@
+[submodule "trufflehog"]
+	path = trufflehog
+	url = ./trufflehog/

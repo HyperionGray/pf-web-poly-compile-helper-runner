@@ -3,16 +3,29 @@
 Demo script to showcase TUI features non-interactively
 """
 
-import sys
+from __future__ import annotations
+
 import os
+import sys
+from typing import Any
 
 # Add pf-runner to path (relative to this script's location)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 pf_runner_path = os.path.join(script_dir, 'pf-runner')
-sys.path.insert(0, pf_runner_path)
+if pf_runner_path not in sys.path:
+    sys.path.insert(0, pf_runner_path)
 
-from pf_tui import PfTUI
-from rich.console import Console
+# Optional imports: tests patch these symbols, so keep module importable even
+# when optional runtime deps aren't installed.
+try:
+    from pf_tui import PfTUI  # type: ignore[import-not-found]
+except Exception:  # pragma: no cover
+    PfTUI = Any  # type: ignore[misc,assignment]
+
+try:
+    from rich.console import Console  # type: ignore[import-not-found]
+except Exception:  # pragma: no cover
+    Console = Any  # type: ignore[misc,assignment]
 
 def demo_tui():
     """Demonstrate TUI capabilities"""

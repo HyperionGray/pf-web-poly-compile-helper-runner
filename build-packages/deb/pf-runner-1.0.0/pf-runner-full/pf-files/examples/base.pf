@@ -1,0 +1,7 @@
+# base.pf
+task bootstrap
+  describe Base packages and folder
+  shell sudo apt -y update
+  packages install curl git htop
+  directory /opt/pf mode=0755
+end

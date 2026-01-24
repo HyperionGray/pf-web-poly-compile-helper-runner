@@ -1,0 +1,18 @@
+Package: pf-runner
+Version: 1.0.0
+Section: devel
+Priority: optional
+Architecture: all
+Depends: python3 (>= 3.10), python3-pip, git
+Recommends: podman | docker.io
+Maintainer: P4X-ng <223870169+P4X-ng@users.noreply.github.com>
+Description: Polyglot task runner with WebAssembly support
+ pf-runner is a lightweight, single-file task runner with a symbol-free DSL
+ for managing development workflows. It supports:
+ .
+  - Polyglot shell support (40+ languages)
+  - WebAssembly compilation (Rust, C, Fortran, WAT)
+  - Build system helpers (Make, CMake, Cargo, etc.)
+  - Smart security workflows
+  - Container integration
+  - Remote execution via SSH

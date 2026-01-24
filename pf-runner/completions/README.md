@@ -39,7 +39,7 @@ source ~/.local/share/bash-completion/completions/pf
 
 **System-wide (requires sudo):**
 ```bash
-sudo cp completions/_pf /usr/local/share/zsh/site-functions/_pf
+sudo cp completions/_pf /usr/share/zsh/vendor-completions/_pf
 ```
 
 **User-level:**

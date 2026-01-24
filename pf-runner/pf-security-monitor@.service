@@ -7,7 +7,7 @@ After=network.target
 Type=simple
 User=%i
 Group=%i
-WorkingDirectory=/opt/pf-runner
+WorkingDirectory=/usr/lib/pf-runner
 ExecStart=/bin/bash -c 'while true; do echo "[$(date)] Running security scan..."; pf security-scan url=http://localhost:8080 >/dev/null 2>&1 || echo "No web service to scan"; echo "[$(date)] Security scan complete"; sleep 30; done'
 Restart=on-failure
 RestartSec=10

@@ -1,0 +1,67 @@
+
+# Pfyfile.shells.pf - One-off CLI shells via polyglot
+
+task shell-cli lang="" code="" file="" args=""
+  describe Generic polyglot CLI runner (inline code or @file), e.g.:
+  # pf shell-cli lang="bash" code="echo hi"
+  # pf shell-cli lang="python" file="script.py" args="--verbose"
+  if $file
+    shell [lang:$lang] @$file -- $args
+  else
+    shell [lang:$lang] $code -- $args
+  end
+end
+
+task bash-cli code="" file="" args=""
+  describe Run snippet/file with bash
+  if $file
+    shell [lang:bash] @$file -- $args
+  else
+    shell [lang:bash] $code -- $args
+  end
+end
+
+task zsh-cli code="" file="" args=""
+  describe Run snippet/file with zsh
+  if $file
+    shell [lang:zsh] @$file -- $args
+  else
+    shell [lang:zsh] $code -- $args
+  end
+end
+
+task fish-cli code="" file="" args=""
+  describe Run snippet/file with fish
+  if $file
+    shell [lang:fish] @$file -- $args
+  else
+    shell [lang:fish] $code -- $args
+  end
+end
+
+task sh-cli code="" file="" args=""
+  describe Run snippet/file with sh
+  if $file
+    shell [lang:sh] @$file -- $args
+  else
+    shell [lang:sh] $code -- $args
+  end
+end
+
+task dash-cli code="" file="" args=""
+  describe Run snippet/file with dash
+  if $file
+    shell [lang:dash] @$file -- $args
+  else
+    shell [lang:dash] $code -- $args
+  end
+end
+
+task pwsh-cli code="" file="" args=""
+  describe Run snippet/file with PowerShell (pwsh)
+  if $file
+    shell [lang:pwsh] @$file -- $args
+  else
+    shell [lang:pwsh] $code -- $args
+  end
+end

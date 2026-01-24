@@ -633,9 +633,51 @@ def _render_polyglot_command(
             suggestion=f"Supported languages: {', '.join(sorted(POLYGLOT_LANGS.keys()))}"
         )
     builder = POLYGLOT_LANGS[lang_key]
-    snippet, lang_args, _ = _extract_polyglot_source(cmd, working_dir)
-    rendered = builder(snippet, lang_args)
+    snippet, lang_args, source_path = _extract_polyglot_source(cmd, working_dir)
+
+    # When the user references a real file via @path/to/file, prefer executing/compiling
+    # that file in place (or compiling from its path). Copying the file into a temp dir
+    # breaks common workflows (Python imports relative to the script, C includes relative
+    # to the source file, etc.).
+    if source_path:
+        rendered = _render_polyglot_file_command(lang_key, source_path, lang_args)
+    else:
+        rendered = builder(snippet, lang_args)
     return rendered, lang_key
+
+
+def _render_polyglot_file_command(lang_key: str, source_path: str, args: List[str]) -> str:
+    # High-priority: Python + C/C++ should keep their file context intact.
+    if lang_key == "python":
+        return _cmd_str(["python3", source_path, *args])
+    if lang_key == "c":
+        return _build_compile_command(
+            ".c",
+            code="",
+            compiler_cmd=f"clang -x c {shlex.quote(source_path)} -o {{bin}}",
+            run_cmd="{bin}",
+            args=args,
+            setup_lines=[],
+            basename="pf_poly",
+            append_args=True,
+        )
+    if lang_key == "cpp":
+        return _build_compile_command(
+            ".cc",
+            code="",
+            compiler_cmd=f"clang++ {shlex.quote(source_path)} -o {{bin}}",
+            run_cmd="{bin}",
+            args=args,
+            setup_lines=[],
+            basename="pf_poly",
+            append_args=True,
+        )
+
+    # Fallback: preserve prior behavior (inline-to-temp) for other languages until
+    # they get explicit file-mode support.
+    snippet, lang_args, _ = _extract_polyglot_source(f"@{source_path}", working_dir=None)
+    builder = POLYGLOT_LANGS[lang_key]
+    return builder(snippet, lang_args)
 
 
 # ---------- DSL (include + describe) ----------
@@ -898,6 +940,10 @@ def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str], List[str]]:
         )
 
     task_name = tokens[0]
+    # Compatibility: allow "task name:" (colon-terminated) style.
+    if task_name.endswith(":"):
+        task_name = task_name[:-1]
+
     params: Dict[str, str] = {}
 
     # Parse parameter definitions (key=value pairs)
@@ -1178,6 +1224,26 @@ def get_alias_map(file_arg: Optional[str] = None) -> Dict[str, str]:
         return {}
 
 
+def parse_pfyfile(file_path: str) -> Dict[str, Task]:
+    """Parse a Pfyfile from disk.
+
+    Compatibility helper for tests and tooling.
+
+    This intentionally parses only the given file (and its includes), without
+    implicitly adding always-available tasks.
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(file_path)
+
+    pfy_abs = os.path.abspath(file_path)
+    base_dir = os.path.dirname(pfy_abs) or "."
+    visited: set[str] = {pfy_abs}
+    text = _read_text_file(pfy_abs)
+    expanded, task_sources = _expand_includes_from_text(
+        text, base_dir, visited, pfy_abs
+    )
+    return parse_pfyfile_text(expanded, task_sources)
+
 def parse_pfyfile_text(
     text: str, task_sources: Optional[Dict[str, str]] = None
 ) -> Dict[str, Task]:
@@ -1235,6 +1301,40 @@ def parse_pfyfile_text(
         
         # Task body lines
         if current_task is not None:
+            # Multiline pipe-style shell blocks:
+            #
+            #   shell |
+            #     echo hello
+            #     if true; then
+            #       echo ok
+            #     fi
+            #
+            # These should be treated as a single "shell" line containing embedded newlines,
+            # so the executor can run the whole block via a heredoc into bash.
+            if stripped.startswith("shell ") and stripped[6:].strip() == "|":
+                base_indent = len(line) - len(line.lstrip(" \t"))
+                block: List[str] = [line]
+
+                j = i + 1
+                while j < len(lines):
+                    nxt = lines[j]
+                    nxt_stripped = nxt.strip()
+                    if nxt_stripped == "":
+                        block.append(nxt)
+                        j += 1
+                        continue
+
+                    nxt_indent = len(nxt) - len(nxt.lstrip(" \t"))
+                    if nxt_indent > base_indent:
+                        block.append(nxt)
+                        j += 1
+                        continue
+                    break
+
+                current_task.add("\n".join(block))
+                i = j
+                continue
+
             if stripped.startswith('describe '):
                 current_task.description = stripped[9:].strip()
             elif stripped.startswith('synopsis '):

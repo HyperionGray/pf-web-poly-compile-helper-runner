@@ -1,0 +1,10 @@
+{
+  "name": "Tag-based Code Review",
+  "description": "Comprehensive code review triggered by tags (e2eweekly, weeklyreview) or manual dispatch. Supports multiple AI models including GPT-5.1-Codex and GPT-5.1 for E2E and weekly reviews.",
+  "iconName": "tag",
+  "categories": [
+    "Code Review",
+    "Automation",
+    "CI/CD"
+  ]
+}

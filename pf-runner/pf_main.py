@@ -26,6 +26,9 @@ import os
 import sys
 import traceback
 import difflib
+import shlex
+import textwrap
+import re
 from typing import List, Dict, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -34,6 +37,7 @@ from pathlib import Path
 from pf_parser import (
     get_alias_map,
     _load_pfy_source_with_includes,
+    _find_pfyfile,
     parse_pfyfile_text,
     Task,
     list_dsl_tasks_with_desc,
@@ -48,7 +52,13 @@ from pf_parser import (
     BUILTINS,
 )
 from pf_args import PfArgumentParser
-from pf_exceptions import PFException, PFExecutionError, format_exception_for_user
+from pf_exceptions import (
+    PFException,
+    PFExecutionError,
+    PFTaskNotFoundError,
+    PFConnectionError,
+    format_exception_for_user,
+)
 
 # Import specialized components
 from pf_subcommand_manager import SubcommandManager
@@ -56,6 +66,11 @@ from pf_builtin_commands import BuiltinCommandHandler
 from pf_task_executor import TaskExecutor
 from pf_shell import execute_shell_command
 from pfuck import PfAutocorrect
+
+
+_PF_SHIM_MARKER = "pf-shim: generated"
+_PF_SHIM_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_PF_TASK_HEADER_BLOCK_RE = re.compile(r"\[([^\]]+)\]")
 
 
 class PfRunner:
@@ -174,7 +189,16 @@ class PfRunner:
                 i += 1
             elif not args_copy[i].startswith('-'):
                 # Found a non-option argument, check if it's an alias
-                builtins = {'list', 'help', 'run', 'prune', 'debug-on', 'debug-off'}
+                builtins = {
+                    "list",
+                    "help",
+                    "run",
+                    "prune",
+                    "debug-on",
+                    "debug-off",
+                    "version",
+                    "shim",
+                }
                 if args_copy[i] not in builtins:
                     try:
                         alias_map = get_alias_map(file_arg=file_arg)
@@ -218,6 +242,8 @@ class PfRunner:
                 return self._handle_debug_off_command(parsed_args)
             elif parsed_args.command == 'version':
                 return self._handle_version_command(parsed_args)
+            elif parsed_args.command == 'shim':
+                return self._handle_shim_command(parsed_args)
             elif hasattr(parsed_args, 'subcommand_tasks'):
                 # It's a subcommand
                 return self._handle_subcommand(parsed_args)
@@ -291,6 +317,236 @@ class PfRunner:
         install_dir = Path(__file__).resolve().parent
         print(f"install: {install_dir}")
         return 0
+
+    def _handle_shim_command(self, args) -> int:
+        """Install/remove shell shims (PATH wrappers) that forward to pf."""
+        action = getattr(args, "shim_action", None)
+        if not action:
+            raise PFException(
+                message="Missing shim ACTION",
+                suggestion="Usage: pf shim install|uninstall ... (run: pf shim --help)",
+            )
+
+        if action == "install":
+            return self._handle_shim_install(args)
+        if action == "uninstall":
+            return self._handle_shim_uninstall(args)
+
+        raise PFException(
+            message=f"Unknown shim action: {action}",
+            suggestion="Usage: pf shim install|uninstall ... (run: pf shim --help)",
+        )
+
+    def _handle_shim_install(self, args) -> int:
+        names = [n for n in (getattr(args, "names", None) or []) if n]
+        want_from_file = bool(getattr(args, "from_file", False))
+
+        # Resolve Pfyfile path to bake into wrappers.
+        pfyfile = _find_pfyfile(file_arg=getattr(args, "file", None))
+        pfyfile_abs = os.path.abspath(pfyfile)
+        if not os.path.isfile(pfyfile_abs):
+            raise PFException(
+                message=f"Pfyfile not found: {pfyfile_abs}",
+                suggestion="Run from a project directory with Pfyfile.pf or pass --file/-f",
+            )
+
+        declared: List[str] = []
+        if want_from_file:
+            try:
+                dsl_src, _task_sources = _load_pfy_source_with_includes(
+                    file_arg=getattr(args, "file", None)
+                )
+            except Exception as e:
+                raise PFException(
+                    message=f"Failed to load Pfyfile for [shim ...] discovery: {e}",
+                    suggestion="Check your Pfyfile includes or pass --file/-f",
+                )
+            declared = sorted(self._extract_shims_from_task_headers(dsl_src))
+
+        install_names = []
+        for name in [*names, *declared]:
+            if name not in install_names:
+                install_names.append(name)
+
+        if not install_names:
+            raise PFException(
+                message="No shim names provided",
+                suggestion="Usage: pf shim install nk nkctl  OR  pf shim install --from-file",
+            )
+
+        bin_dir = getattr(args, "bin_dir", None) or os.path.expanduser("~/.local/bin")
+        bin_dir = os.path.abspath(os.path.expanduser(bin_dir))
+        Path(bin_dir).mkdir(parents=True, exist_ok=True)
+
+        force = bool(getattr(args, "force", False))
+
+        failed: List[str] = []
+        installed: List[str] = []
+
+        for name in install_names:
+            if not self._is_valid_shim_name(name):
+                failed.append(name)
+                print(
+                    f"Error: invalid shim name: {name!r} (allowed: letters/numbers/._-; no spaces or slashes)",
+                    file=sys.stderr,
+                )
+                continue
+
+            target = os.path.join(bin_dir, name)
+            if os.path.isdir(target):
+                failed.append(name)
+                print(f"Error: shim path is a directory: {target}", file=sys.stderr)
+                continue
+
+            if os.path.exists(target):
+                try:
+                    existing = Path(target).read_text(encoding="utf-8", errors="replace")
+                except Exception:
+                    existing = ""
+                managed = _PF_SHIM_MARKER in existing
+                if not managed and not force:
+                    failed.append(name)
+                    print(
+                        f"Error: {target} already exists (use --force to overwrite)",
+                        file=sys.stderr,
+                    )
+                    continue
+
+            script = self._render_shim_script(pfyfile_abs)
+            try:
+                Path(target).write_text(script, encoding="utf-8")
+                os.chmod(target, 0o755)
+                installed.append(name)
+            except Exception as e:
+                failed.append(name)
+                print(f"Error: failed to write shim {target}: {e}", file=sys.stderr)
+
+        if installed:
+            print(f"Installed shims to {bin_dir}: {', '.join(installed)}")
+
+        if failed:
+            print(
+                f"Failed to install shims: {', '.join(failed)}",
+                file=sys.stderr,
+            )
+            return 1
+
+        return 0
+
+    def _handle_shim_uninstall(self, args) -> int:
+        names = [n for n in (getattr(args, "names", None) or []) if n]
+        if not names:
+            raise PFException(
+                message="No shim names provided",
+                suggestion="Usage: pf shim uninstall nk nkctl",
+            )
+
+        bin_dir = getattr(args, "bin_dir", None) or os.path.expanduser("~/.local/bin")
+        bin_dir = os.path.abspath(os.path.expanduser(bin_dir))
+        force = bool(getattr(args, "force", False))
+
+        failed: List[str] = []
+        removed: List[str] = []
+
+        for name in names:
+            if not self._is_valid_shim_name(name):
+                failed.append(name)
+                print(f"Error: invalid shim name: {name!r}", file=sys.stderr)
+                continue
+
+            target = os.path.join(bin_dir, name)
+            if not os.path.exists(target):
+                print(f"Note: shim not found: {target}", file=sys.stderr)
+                continue
+
+            if os.path.isdir(target):
+                failed.append(name)
+                print(f"Error: shim path is a directory: {target}", file=sys.stderr)
+                continue
+
+            managed = False
+            try:
+                existing = Path(target).read_text(encoding="utf-8", errors="replace")
+                managed = _PF_SHIM_MARKER in existing
+            except Exception:
+                managed = False
+
+            if not managed and not force:
+                failed.append(name)
+                print(
+                    f"Error: refusing to remove unmanaged file: {target} (use --force)",
+                    file=sys.stderr,
+                )
+                continue
+
+            try:
+                os.remove(target)
+                removed.append(name)
+            except Exception as e:
+                failed.append(name)
+                print(f"Error: failed to remove {target}: {e}", file=sys.stderr)
+
+        if removed:
+            print(f"Removed shims from {bin_dir}: {', '.join(removed)}")
+
+        if failed:
+            print(f"Failed to remove shims: {', '.join(failed)}", file=sys.stderr)
+            return 1
+
+        return 0
+
+    def _extract_shims_from_task_headers(self, dsl_src: str) -> List[str]:
+        """Extract shim names declared in task headers via [shim ...]."""
+        shims: List[str] = []
+        for raw in dsl_src.splitlines():
+            stripped = raw.strip()
+            if not stripped.startswith("task "):
+                continue
+
+            rest = stripped[5:].strip()
+            for match in _PF_TASK_HEADER_BLOCK_RE.finditer(rest):
+                block = match.group(1)
+                for part in block.split("|"):
+                    part = part.strip()
+                    if not part:
+                        continue
+
+                    value = None
+                    if part.startswith("shim="):
+                        value = part[len("shim="):].strip()
+                    elif part.startswith("shim "):
+                        value = part[len("shim "):].strip()
+
+                    if not value:
+                        continue
+
+                    value = value.strip().strip("'\"")
+                    for name in [n.strip() for n in value.split(",")]:
+                        if not name:
+                            continue
+                        if name not in shims:
+                            shims.append(name)
+
+        return shims
+
+    def _is_valid_shim_name(self, name: str) -> bool:
+        if not name or "/" in name or "\x00" in name or " " in name:
+            return False
+        return bool(_PF_SHIM_NAME_RE.match(name))
+
+    def _render_shim_script(self, pfyfile_abs: str) -> str:
+        # bash is intentionally hard-coded: this shim is a tiny, portable wrapper.
+        pfyfile_quoted = shlex.quote(pfyfile_abs)
+        return (
+            "#!/usr/bin/env bash\n"
+            f"# {_PF_SHIM_MARKER}\n"
+            f"# pfyfile: {pfyfile_abs}\n"
+            "set -euo pipefail\n"
+            f'PFYFILE={pfyfile_quoted}\n'
+            'cd "$(dirname "$PFYFILE")"\n'
+            'cmd="$(basename "$0")"\n'
+            'exec pf --file "$PFYFILE" "$cmd" "$@"\n'
+        )
     
     def _handle_list_command(self, args) -> int:
         """Handle the list command."""
@@ -487,15 +743,81 @@ class PfRunner:
         while i < len(task_args):
             task_name = task_args[i]
 
-            # Resolve/auto-correct task name when it is not an exact match
-            resolved_name = self._resolve_task_name(task_name, valid_task_names)
-            
-            i += 1
+            # Allow "spaced" task invocation by joining adjacent words with '-' / '_'
+            # (e.g. `pf nk up` -> `nk-up`, `pf nkctl join` -> `nkctl-join`).
+            if (
+                os.getenv("PF_TASK_WORDS", "on").lower() not in ("0", "false", "off", "no")
+                and (
+                    task_name not in valid_task_names
+                    or (
+                        task_name in valid_task_names
+                        and i + 1 < len(task_args)
+                        and "=" not in task_args[i + 1]
+                        and not task_args[i + 1].startswith("-")
+                        and task_args[i + 1] not in valid_task_names
+                    )
+                )
+            ):
+                max_words_raw = os.getenv("PF_TASK_WORDS_MAX", "6")
+                try:
+                    max_words = max(2, int(max_words_raw))
+                except Exception:
+                    max_words = 6
+
+                best_name: Optional[str] = None
+                best_words = 0
+                for words in range(2, max_words + 1):
+                    end = i + words
+                    if end > len(task_args):
+                        break
+                    seg = task_args[i:end]
+                    # Stop at parameter/flag boundaries.
+                    if any("=" in s for s in seg):
+                        break
+                    if any(s.startswith("-") for s in seg[1:]):
+                        break
+
+                    cand_dash = "-".join(seg)
+                    if cand_dash in valid_task_names:
+                        best_name = cand_dash
+                        best_words = words
+                        continue
+                    cand_us = "_".join(seg)
+                    if cand_us in valid_task_names:
+                        best_name = cand_us
+                        best_words = words
+
+                if best_name:
+                    if os.getenv("PF_DEBUG_TASK_WORDS", "0").lower() in ("1", "true", "yes", "on"):
+                        print(
+                            f"Info: interpreting task words '{' '.join(task_args[i:i+best_words])}' as '{best_name}'",
+                            file=sys.stderr,
+                        )
+                    resolved_name = best_name
+                    i += best_words
+                else:
+                    # Resolve/auto-correct task name when it is not an exact match
+                    resolved_name = self._resolve_task_name(task_name, valid_task_names)
+                    i += 1
+            else:
+                # Resolve/auto-correct task name when it is not an exact match
+                resolved_name = self._resolve_task_name(task_name, valid_task_names)
+                i += 1
             
             # Parse parameters for this task
-            params = {}
-            while i < len(task_args) and '=' in task_args[i] and not task_args[i].startswith('--'):
-                key, value = task_args[i].split('=', 1)
+            params: Dict[str, str] = {}
+            # Start with task-defined defaults (if any), then override with CLI args.
+            if resolved_name in dsl_tasks:
+                params.update(dsl_tasks[resolved_name].params or {})
+
+            # Parse key=value and --key=value forms.
+            while i < len(task_args) and '=' in task_args[i]:
+                raw = task_args[i]
+                key, value = raw.split('=', 1)
+                if key.startswith('--'):
+                    key = key[2:]
+                if not key:
+                    break
                 params[key] = value
                 i += 1
             
@@ -579,13 +901,7 @@ class PfRunner:
             if spec.get("local"):
                 connection = None
             else:
-                connection_tuple = _c_for(spec, args.sudo, args.sudo_user)
-                if isinstance(connection_tuple, tuple):
-                    connection, sudo_flag, sudo_user = connection_tuple
-                else:
-                    connection = None
-                    sudo_flag = args.sudo
-                    sudo_user = args.sudo_user
+                connection, _resolved = _c_for(spec, args.sudo, args.sudo_user)
                 
                 if connection is not None:
                     try:
@@ -601,99 +917,203 @@ class PfRunner:
             rc = 0
             for task_name, lines, params in selected_tasks:
                 print(f"{prefix} --> {task_name}")
-                task_env = {}
+                # Expose task params as environment variables for convenience (and for polyglot blocks).
+                task_env = dict(params)
                 current_lang = None
                 
-                for line in lines:
+                i = 0
+                while i < len(lines):
+                    line = lines[i]
                     stripped = line.strip()
-                    
+
+                    if not stripped or stripped.startswith("#"):
+                        i += 1
+                        continue
+
                     # Handle env command (stateful)
-                    if stripped.startswith('env '):
+                    if stripped.startswith("env "):
                         for tok in shlex.split(stripped)[1:]:
-                            if '=' in tok:
-                                k, v = tok.split('=', 1)
+                            if "=" in tok:
+                                k, v = tok.split("=", 1)
                                 task_env[k] = _interpolate(v, params, task_env)
+                        i += 1
                         continue
 
                     # Track shell_lang hint for subsequent shell commands
-                    if stripped.startswith('shell_lang '):
+                    if stripped.startswith("shell_lang "):
                         parts = stripped.split(None, 1)
                         current_lang = parts[1].strip() if len(parts) > 1 else None
+                        i += 1
                         continue
-                    
-                try:
-                    # Use enhanced shell execution for shell commands
-                    if stripped.startswith('shell '):
-                        shell_cmd = stripped[6:].strip()  # Remove 'shell ' prefix
-                        shell_cmd = _interpolate(shell_cmd, params, task_env)
 
-                        # Handle multiline pipe-style blocks: "shell |\n  ...".
-                        if shell_cmd.startswith("|"):
-                            # Remove leading '|' line and execute block via heredoc
-                            block_lines = shell_cmd.splitlines()[1:]
-                            script_body = "\n".join(block_lines)
-                            heredoc_cmd = "bash <<'PF_EOF'\n" + script_body + "\nPF_EOF"
-                            rc = _exec_line_fabric(
-                                heredoc_cmd, connection, task_env, task_name,
-                                args.sudo, args.sudo_user
-                            )
-                            if rc != 0:
-                                raise PFExecutionError(
-                                    message=f"Command failed with exit code {rc}",
-                                    task_name=task_name,
-                                    command=heredoc_cmd,
-                                    exit_code=rc,
-                                    environment=task_env,
-                                    suggestion="Check the command output above for details"
+                    try:
+                        # Use enhanced shell execution for shell commands
+                        if stripped.startswith("shell "):
+                            shell_cmd = stripped[6:].strip()  # Remove 'shell ' prefix
+                            shell_cmd = _interpolate(shell_cmd, params, task_env)
+
+                            # Handle multiline pipe-style blocks: "shell |\n  ...".
+                            if shell_cmd.startswith("|"):
+                                # The parser may either:
+                                #   1) embed the whole block into this single line (preferred), e.g.
+                                #        shell |\n  echo hi\n  ...
+                                #   2) keep "shell |" as-is and store block lines as subsequent task lines (legacy)
+                                if "\n" in shell_cmd:
+                                    block_lines = shell_cmd.splitlines()[1:]
+                                    script_body = textwrap.dedent("\n".join(block_lines))
+                                    i += 1
+                                else:
+                                    block_lines = []
+                                    i += 1
+                                    while i < len(lines):
+                                        next_line = lines[i]
+                                        next_stripped = next_line.strip()
+                                        if next_stripped.startswith(
+                                            (
+                                                "env ",
+                                                "shell ",
+                                                "shell_lang ",
+                                                "default_lang ",
+                                                "describe ",
+                                                "task ",
+                                                "end",
+                                            )
+                                        ):
+                                            break
+                                        block_lines.append(next_line.lstrip())
+                                        i += 1
+                                    script_body = textwrap.dedent("\n".join(block_lines))
+
+                                # If shell_lang is set, run the block via the polyglot builder.
+                                # Otherwise default to bash via heredoc.
+                                failed_cmd = ""
+                                if current_lang:
+                                    rendered_cmd, _lang = _render_polyglot_command(
+                                        current_lang, script_body, os.getcwd()
+                                    )
+                                    failed_cmd = rendered_cmd or ""
+                                    rc = _exec_line_fabric(
+                                        rendered_cmd, connection, task_env, task_name,
+                                        args.sudo, args.sudo_user
+                                    )
+                                else:
+                                    heredoc_cmd = f"bash <<'PF_EOF'\n{script_body}\nPF_EOF"
+                                    failed_cmd = heredoc_cmd
+                                    rc = _exec_line_fabric(
+                                        heredoc_cmd, connection, task_env, task_name,
+                                        args.sudo, args.sudo_user
+                                    )
+                                if rc != 0:
+                                    raise PFExecutionError(
+                                        message=f"Command failed with exit code {rc}",
+                                        task_name=task_name,
+                                        command=failed_cmd,
+                                        exit_code=rc,
+                                        environment=task_env,
+                                        suggestion="Check the command output above for details"
+                                    )
+                                continue
+
+                            # If a default language is set, render polyglot wrapper
+                            rendered_cmd = None
+                            if current_lang:
+                                rendered_cmd, _lang = _render_polyglot_command(
+                                    current_lang, shell_cmd, os.getcwd()
                                 )
-                            continue
 
-                        # If a default language is set, render polyglot wrapper
-                        rendered_cmd = None
-                        if current_lang:
-                            rendered_cmd, _lang = _render_polyglot_command(
-                                current_lang, shell_cmd, os.getcwd()
-                            )
+                            if rendered_cmd:
+                                rc = _exec_line_fabric(
+                                    rendered_cmd, connection, task_env, task_name,
+                                    args.sudo, args.sudo_user
+                                )
+                            else:
+                                rc = execute_shell_command(
+                                    shell_cmd, task_env, args.sudo, args.sudo_user,
+                                    connection, prefix
+                                )
+                        else:
+                            # If shell_lang is active, treat bare lines as a language block.
+                            # This lets users write e.g.:
+                            #   shell_lang python
+                            #   import os
+                            #   print(os.getcwd())
+                            # without needing to prefix every line with `shell`.
+                            if current_lang:
+                                block_lines = [line]
+                                j = i + 1
+                                while j < len(lines):
+                                    nxt = lines[j]
+                                    nxt_stripped = nxt.strip()
 
-                        if rendered_cmd:
+                                    if not nxt_stripped or nxt_stripped.startswith("#"):
+                                        block_lines.append(nxt)
+                                        j += 1
+                                        continue
+
+                                    if nxt_stripped.startswith(
+                                        ("env ", "shell ", "shell_lang ", "default_lang ")
+                                    ):
+                                        break
+
+                                    block_lines.append(nxt)
+                                    j += 1
+
+                                script_body = textwrap.dedent("\n".join(block_lines))
+                                script_body = _interpolate(script_body, params, task_env)
+                                rendered_cmd, _lang = _render_polyglot_command(
+                                    current_lang, script_body, os.getcwd()
+                                )
+                                cmd_for_error = rendered_cmd or script_body
+                                rc = _exec_line_fabric(
+                                    rendered_cmd or script_body,
+                                    connection,
+                                    task_env,
+                                    task_name,
+                                    args.sudo,
+                                    args.sudo_user,
+                                )
+                                if rc != 0:
+                                    raise PFExecutionError(
+                                        message=f"Command failed with exit code {rc}",
+                                        task_name=task_name,
+                                        command=cmd_for_error,
+                                        exit_code=rc,
+                                        environment=task_env,
+                                        suggestion="Check the command output above for details",
+                                    )
+                                i = j
+                                continue
+
+                            # Use original execution for other commands
                             rc = _exec_line_fabric(
-                                rendered_cmd, connection, task_env, task_name,
+                                line, connection, task_env, task_name,
                                 args.sudo, args.sudo_user
                             )
-                        else:
-                            rc = execute_shell_command(
-                                shell_cmd, task_env, args.sudo, args.sudo_user,
-                                connection, prefix
+
+                        if rc != 0:
+                            # Command failed - create detailed error
+                            raise PFExecutionError(
+                                message=f"Command failed with exit code {rc}",
+                                task_name=task_name,
+                                command=line,
+                                exit_code=rc,
+                                environment=task_env,
+                                suggestion="Check the command output above for details"
                             )
-                    else:
-                        # Use original execution for other commands
-                        rc = _exec_line_fabric(
-                            line, connection, task_env, task_name,
-                            args.sudo, args.sudo_user
-                        )
-                    
-                    if rc != 0:
-                        # Command failed - create detailed error
+
+                    except PFExecutionError:
+                        # Re-raise our exceptions
+                        raise
+                    except Exception as e:
+                        # Wrap unexpected errors
                         raise PFExecutionError(
-                            message=f"Command failed with exit code {rc}",
+                            message=f"Unexpected error executing command: {e}",
                             task_name=task_name,
                             command=line,
-                            exit_code=rc,
-                            environment=task_env,
-                            suggestion="Check the command output above for details"
+                            environment=task_env
                         )
 
-                except PFExecutionError:
-                    # Re-raise our exceptions
-                    raise
-                except Exception as e:
-                    # Wrap unexpected errors
-                    raise PFExecutionError(
-                        message=f"Unexpected error executing command: {e}",
-                        task_name=task_name,
-                        command=line,
-                        environment=task_env
-                    )
+                    i += 1
             
             # Clean up connection
             if connection is not None:

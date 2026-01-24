@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polyglot WebAssembly Demo</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #666;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0052a3;
+        }
+        button:active {
+            background: #003d7a;
+        }
+        .log {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            min-height: 30px;
+        }
+        .log:empty::before {
+            content: "No output yet...";
+            color: #999;
+        }
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        }
+        #overlay.visible {
+            display: flex;
+        }
+        .status {
+            color: #666;
+            font-style: italic;
+            margin: 10px 0;
+        }
+        .error {
+            color: #cc0000;
+        }
+        .success {
+            color: #00aa00;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌐 Polyglot WebAssembly Demo</h1>
+    <p>This demo showcases WebAssembly modules compiled from multiple languages: Rust, C, Fortran, and WebAssembly Text Format.</p>
+
+    <div class="section">
+        <h2>🦀 Rust Demo</h2>
+        <button id="rust-greet">Greet from Rust</button>
+        <button id="rust-add">Add Numbers (5 + 7)</button>
+        <button id="rust-fib">Fibonacci(10)</button>
+        <div id="log-rust" class="log"></div>
+        <div id="status-rust" class="status">Loading Rust module...</div>
+    </div>
+
+    <div class="section">
+        <h2>🔧 C Demo (Trap Handler)</h2>
+        <button id="c-trap">Trigger C Trap</button>
+        <div id="log-c" class="log"></div>
+        <div id="status-c" class="status">Loading C module...</div>
+    </div>
+
+    <div class="section">
+        <h2>📐 WebAssembly (WAT) Demo</h2>
+        <button id="wat-add">Add Numbers (10 + 15)</button>
+        <div id="log-wat" class="log"></div>
+        <div id="status-wat" class="status">Loading WAT module...</div>
+    </div>
+
+    <div class="section">
+        <h2>🧮 Fortran Demo</h2>
+        <p>Fortran module compiled to WASM (if available)</p>
+        <div id="status-fortran" class="status">Fortran support is experimental</div>
+    </div>
+
+    <div id="overlay">
+        <div>
+            <h2>💥 WASM Trap Caught!</h2>
+            <p>Click anywhere to close</p>
+        </div>
+    </div>
+
+    <script type="module">
+        // Rust module
+        let rustModule = null;
+        
+        async function loadRust() {
+            try {
+                const module = await import('./wasm/rust/pkg/rust_demo.js');
+                await module.default();
+                rustModule = module;
+                document.getElementById('status-rust').textContent = '✓ Rust module loaded';
+                document.getElementById('status-rust').className = 'status success';
+            } catch (e) {
+                console.error('Failed to load Rust module:', e);
+                document.getElementById('status-rust').textContent = '✗ Failed to load Rust module: ' + e.message;
+                document.getElementById('status-rust').className = 'status error';
+            }
+        }
+
+        // C module
+        let cModule = null;
+
+        async function loadC() {
+            try {
+                const module = await import('./wasm/c/c_trap.js');
+                cModule = await module.default();
+                document.getElementById('status-c').textContent = '✓ C module loaded';
+                document.getElementById('status-c').className = 'status success';
+            } catch (e) {
+                console.error('Failed to load C module:', e);
+                document.getElementById('status-c').textContent = '✗ Failed to load C module: ' + e.message;
+                document.getElementById('status-c').className = 'status error';
+            }
+        }
+
+        // WAT module
+        let watModule = null;
+
+        async function loadWat() {
+            try {
+                const response = await fetch('./wasm/asm/mini.wasm');
+                const bytes = await response.arrayBuffer();
+                const module = await WebAssembly.instantiate(bytes);
+                watModule = module.instance.exports;
+                document.getElementById('status-wat').textContent = '✓ WAT module loaded';
+                document.getElementById('status-wat').className = 'status success';
+            } catch (e) {
+                console.error('Failed to load WAT module:', e);
+                document.getElementById('status-wat').textContent = '✗ Failed to load WAT module: ' + e.message;
+                document.getElementById('status-wat').className = 'status error';
+            }
+        }
+
+        // Event handlers
+        document.getElementById('rust-greet').addEventListener('click', () => {
+            if (rustModule) {
+                const result = rustModule.greet('World');
+                document.getElementById('log-rust').textContent = result;
+            }
+        });
+
+        document.getElementById('rust-add').addEventListener('click', () => {
+            if (rustModule) {
+                const result = rustModule.add(5, 7);
+                document.getElementById('log-rust').textContent = `5 + 7 = ${result}`;
+            }
+        });
+
+        document.getElementById('rust-fib').addEventListener('click', () => {
+            if (rustModule) {
+                const result = rustModule.fibonacci(10);
+                document.getElementById('log-rust').textContent = `Fibonacci(10) = ${result}`;
+            }
+        });
+
+        document.getElementById('c-trap').addEventListener('click', async () => {
+            if (cModule) {
+                try {
+                    cModule._trigger_trap();
+                    document.getElementById('log-c').textContent = 'Trap was not triggered (unexpected)';
+                } catch (e) {
+                    document.getElementById('log-c').textContent = 'Caught C trap: ' + e.message;
+                    showOverlay();
+                }
+            }
+        });
+
+        document.getElementById('wat-add').addEventListener('click', () => {
+            if (watModule) {
+                const result = watModule.add(10, 15);
+                document.getElementById('log-wat').textContent = `10 + 15 = ${result}`;
+            }
+        });
+
+        function showOverlay() {
+            const overlay = document.getElementById('overlay');
+            overlay.className = 'visible';
+            overlay.addEventListener('click', () => {
+                overlay.className = '';
+            }, { once: true });
+        }
+
+        // Load all modules
+        loadRust();
+        loadC();
+        loadWat();
+    </script>
+</body>
+</html>

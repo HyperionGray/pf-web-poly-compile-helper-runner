@@ -7,27 +7,21 @@
 
 set -euo pipefail
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
 
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    echo "[INFO] $1"
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    echo "[OK] $1"
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    echo "[WARN] $1"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1" >&2
+    echo "[ERROR] $1" >&2
 }
 
 # Detect OS
@@ -56,7 +50,7 @@ in_repo() {
 
 # Main installation logic
 main() {
-    log_info "🚀 pf-runner One-Command Installer"
+    log_info "pf-runner One-Command Installer"
     echo ""
     
     local os_type
@@ -70,15 +64,15 @@ main() {
         log_info "Detected repository - using local installer"
         
         # Check if we have a .deb package
-        if [[ "$os_type" == "debian" ]] && [[ -f "debian/build/pf-runner_${PF_VERSION}.deb" ]]; then
-            log_info "Found .deb package - installing via dpkg"
+        if [[ "$os_type" == "debian" ]] && ls debian/build/pf-runner-core_*.deb >/dev/null 2>&1; then
+            log_info "Found .deb packages - installing via dpkg"
             if [[ $EUID -eq 0 ]]; then
-                dpkg -i "debian/build/pf-runner_${PF_VERSION}.deb" || true
+                dpkg -i debian/build/*.deb || true
                 apt-get install -f -y
                 log_success "Installed pf-runner from .deb package"
             else
                 log_error ".deb installation requires sudo"
-                log_info "Run: sudo dpkg -i debian/build/pf-runner_${PF_VERSION}.deb && sudo apt-get install -f"
+                log_info "Run: sudo dpkg -i debian/build/*.deb && sudo apt-get install -f"
                 exit 1
             fi
         else
@@ -123,14 +117,14 @@ main() {
     fi
     
     echo ""
-    log_success "🎉 Installation complete!"
+    log_success "Installation complete."
     echo ""
     log_info "Next steps:"
     echo "  1. Restart your shell or run: source ~/.bashrc"
     echo "  2. Try: pf --version"
     echo "  3. Try: pf list"
     echo ""
-    log_success "Happy task running! 🚀"
+    log_success "Happy task running."
 }
 
 main "$@"

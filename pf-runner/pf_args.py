@@ -131,7 +131,7 @@ For more help on a specific subcommand:
         )
         run_parser.add_argument(
             "tasks",
-            nargs="+",
+            nargs=argparse.REMAINDER,
             help="Task name(s) and parameters (task param=value next_task ...)",
         )
 
@@ -190,6 +190,64 @@ For more help on a specific subcommand:
             help="Show pf version",
             description="Display pf version information and exit",
         )
+
+        # shim command
+        shim_parser = self.subparsers.add_parser(
+            "shim",
+            help="Install/remove shell shims (PATH wrappers)",
+            description=(
+                "Install small wrapper commands (e.g. nk, nkctl) on your PATH that forward to pf.\n"
+                "This lets you run tasks like: nk up  (instead of: pf nk-up)."
+            ),
+        )
+        shim_subparsers = shim_parser.add_subparsers(
+            dest="shim_action", help="Shim actions", metavar="ACTION"
+        )
+
+        shim_install = shim_subparsers.add_parser(
+            "install",
+            help="Install one or more shims",
+            description="Install wrapper commands that forward to pf tasks",
+        )
+        shim_install.add_argument(
+            "names",
+            nargs="*",
+            help="Shim command name(s) to install (e.g. nk nkctl)",
+        )
+        shim_install.add_argument(
+            "--from-file",
+            action="store_true",
+            help="Also install shim names declared in task headers via [shim ...]",
+        )
+        shim_install.add_argument(
+            "--bin-dir",
+            help="Directory to write shims to (default: ~/.local/bin)",
+        )
+        shim_install.add_argument(
+            "--force",
+            action="store_true",
+            help="Overwrite existing files that are not managed by pf",
+        )
+
+        shim_uninstall = shim_subparsers.add_parser(
+            "uninstall",
+            help="Uninstall one or more shims",
+            description="Remove previously installed shim wrapper commands",
+        )
+        shim_uninstall.add_argument(
+            "names",
+            nargs="+",
+            help="Shim command name(s) to remove",
+        )
+        shim_uninstall.add_argument(
+            "--bin-dir",
+            help="Directory to remove shims from (default: ~/.local/bin)",
+        )
+        shim_uninstall.add_argument(
+            "--force",
+            action="store_true",
+            help="Remove files even if they are not managed by pf",
+        )
         
     def add_subcommand_from_file(self, filename: str, tasks: List[str]):
         """Add a subcommand based on an included file."""
@@ -213,7 +271,9 @@ For more help on a specific subcommand:
             )
             subparser.add_argument("task", help="Task name to run")
             subparser.add_argument(
-                "params", nargs="*", help="Task parameters (key=value)"
+                "params",
+                nargs=argparse.REMAINDER,
+                help="Task parameters (key=value, --key=value, ...)",
             )
 
             # Store task list for this subcommand
@@ -343,7 +403,17 @@ For more help on a specific subcommand:
                 modern_args.extend(["--sudo-user", value])
 
         # If no explicit command and we have task args, assume 'run'
-        if task_args and task_args[0] not in ("list", "help", "run"):
+        builtin_commands = {
+            "list",
+            "run",
+            "help",
+            "prune",
+            "debug-on",
+            "debug-off",
+            "version",
+            "shim",
+        }
+        if task_args and task_args[0] not in builtin_commands:
             # Check if first arg looks like a subcommand
             potential_subcommand = task_args[0]
             if (
@@ -378,7 +448,16 @@ For more help on a specific subcommand:
                 return self.parser.parse_args(["--help"])
 
         # Directly handle explicit commands and flags without legacy translation
-        builtin_commands = {"list", "run", "help", "prune", "debug-on", "debug-off", "version"}
+        builtin_commands = {
+            "list",
+            "run",
+            "help",
+            "prune",
+            "debug-on",
+            "debug-off",
+            "version",
+            "shim",
+        }
         if args[0] in builtin_commands or args[0] in ("--version", "-V"):
             return self.parser.parse_args(args)
 

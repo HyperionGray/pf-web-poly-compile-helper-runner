@@ -23,25 +23,25 @@ sudo ./install.sh
 
 ### Running the WebAssembly toolchain tasks
 
-Tasks such as `web-toolchain-check`, `web-build-c-wasm`, and `web-build-fortran-wasm` require the Emscripten SDK and related binaries in `PATH`. If you installed emsdk under `/home/punk/emsdk-*`, run them through the helper:
+Tasks such as `web-toolchain-check`, `web-build-c-wasm`, and `web-build-fortran-wasm` require the Emscripten SDK and related binaries in `PATH`. If you installed emsdk under `$HOME/emsdk-*`, run them through the helper:
 ```bash
 ./scripts/pf-with-emsdk.sh web-toolchain-check
 ./scripts/pf-with-emsdk.sh web-build-c-wasm
 ./scripts/pf-with-emsdk.sh web-build-fortran-wasm
 ```
 
-The script sources `emsdk_env.sh` from the first matching `/home/punk/emsdk-*` directory (override `EMSDK_ROOT` if needed) so `emcc`, `wasm-pack`, `wat2wasm`, `clang`, and `opt-18` become available to pf.
+The script sources `emsdk_env.sh` from the first matching `$HOME/emsdk-*` directory (override `EMSDK_ROOT` if needed) so `emcc`, `wasm-pack`, `wat2wasm`, `clang`, and `opt-18` become available to pf.
 
 ## What the installer does
 
-1. ✅ Checks prerequisites (Python 3.8+, Git, pip)
-2. ✅ Installs system dependencies (unless `--skip-deps` is requested)
-3. ✅ Creates a per-prefix Python virtual environment (user installs only)
-4. ✅ Installs Python dependencies (fabric, lark, typer)
-5. ✅ Copies pf-runner into `${PREFIX}/lib/pf-runner`
-6. ✅ Creates the `pf` executable wrapper in `${PREFIX}/bin`
-7. ✅ Deploys shell completions (bash/zsh) when possible
-8. ✅ Validates the native `pf` command (`pf list`, `pf --version`)
+1. Checks prerequisites (Python 3.8+, Git, pip)
+2. Installs system dependencies (unless `--skip-deps` is requested)
+3. Creates a per-prefix Python virtual environment (user installs only)
+4. Installs Python dependencies (fabric, lark, typer)
+5. Copies pf-runner into `${PREFIX}/lib/pf-runner`
+6. Creates the `pf` executable wrapper in `${PREFIX}/bin`
+7. Deploys shell completions (bash/zsh) when possible
+8. Validates the native `pf` command (`pf list`, `pf --version`)
 
 ## Installation Options
 
@@ -98,7 +98,7 @@ If you get "command not found" after installation:
 2. **Verify installation location**:
    ```bash
    # System install
-   ls -la /usr/local/bin/pf
+   ls -la /usr/bin/pf
    
    # User install  
    ls -la ~/.local/bin/pf
@@ -134,10 +134,10 @@ If you get permission errors:
 
 ### System install
 ```bash
-sudo rm -f /usr/local/bin/pf
-sudo rm -rf /usr/local/lib/pf-runner
+sudo rm -f /usr/bin/pf
+sudo rm -rf /usr/lib/pf-runner
 sudo rm -f /etc/bash_completion.d/pf
-sudo rm -f /usr/local/share/zsh/site-functions/_pf
+sudo rm -f /usr/share/zsh/vendor-completions/_pf
 ```
 
 ### User install

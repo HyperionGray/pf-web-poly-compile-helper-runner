@@ -21,7 +21,7 @@ make install-completions # Installs shell completions (bash & zsh)
 **System-wide with static binary:**
 ```bash
 make build              # Creates static executable
-make install            # Installs to /usr/local/bin with completions (requires sudo)
+make install            # Installs to /usr/bin with completions (requires sudo)
 ```
 
 
@@ -598,7 +598,7 @@ Options: `subcommand=<build|test|...>`, `output=<path>`, `tags=<list>`, `race=tr
 ```text
 task configure
   describe Run configure script
-  configure prefix=/usr/local shared=true ssl=true
+  configure prefix=/usr shared=true ssl=true
 end
 ```
 

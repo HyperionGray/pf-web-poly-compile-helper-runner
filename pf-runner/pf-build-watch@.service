@@ -7,13 +7,13 @@ After=network.target
 Type=simple
 User=%i
 Group=%i
-WorkingDirectory=${PF_WATCH_DIR:-/home/%i}
+WorkingDirectory=${PF_WATCH_DIR}
 ExecStart=/bin/bash -c 'if command -v inotifywait >/dev/null 2>&1; then echo "Watching for changes..."; while inotifywait -r -e modify,create,delete --exclude "\.git|node_modules|target|build" . 2>/dev/null; do echo "[$(date)] File change detected, triggering build..."; pf autobuild >/dev/null 2>&1 && echo "Build successful" || echo "Build failed"; done; else echo "inotifywait not available, using polling..."; while true; do pf autobuild >/dev/null 2>&1 && echo "Build check complete" || echo "Build issues detected"; sleep 10; done; fi'
 Restart=on-failure
 RestartSec=5
 
 # Environment configuration
-Environment=PF_WATCH_DIR=/home/%i
+Environment=PF_WATCH_DIR=%h
 Environment=PF_BUILD_INTERVAL=10
 EnvironmentFile=-/etc/default/pf-build-watch
 

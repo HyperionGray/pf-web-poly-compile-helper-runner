@@ -7,7 +7,7 @@ After=network.target
 Type=simple
 User=%i
 Group=%i
-WorkingDirectory=/opt/pf-runner
+WorkingDirectory=/usr/lib/pf-runner
 ExecStart=/bin/bash -c 'LOG_DIR="${PF_LOG_DIR:-/var/log/pf}"; mkdir -p "$LOG_DIR"; echo "Aggregating logs to $LOG_DIR"; if command -v journalctl >/dev/null 2>&1; then echo "Collecting systemd logs..."; journalctl --user -f --output=json | while read -r line; do echo "$line" >> "$LOG_DIR/systemd.log"; done & fi; echo "Monitoring application logs..."; tail -f /var/log/syslog 2>/dev/null | while read -r line; do if echo "$line" | grep -q "pf-"; then echo "$line" >> "$LOG_DIR/pf-services.log"; fi; done 2>/dev/null || echo "syslog not accessible, monitoring local logs only"'
 Restart=on-failure
 RestartSec=10

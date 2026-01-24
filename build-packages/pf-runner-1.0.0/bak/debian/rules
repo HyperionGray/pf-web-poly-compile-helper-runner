@@ -1,0 +1,69 @@
+#!/usr/bin/make -f
+
+# Debian package build rules for pf-runner
+# Uses debhelper and dh-python for Python package management
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf build/
+	rm -rf *.egg-info/
+	find . -name "*.pyc" -delete
+	find . -name "__pycache__" -type d -exec rm -rf {} + || true
+
+override_dh_auto_build:
+	# Build Python components
+	cd pf-runner && python3 setup.py build
+	
+override_dh_auto_install:
+	# Install pf-runner core files
+	dh_auto_install
+	
+	# Create installation directories
+	mkdir -p debian/pf-runner-core/usr/lib/pf-runner
+	mkdir -p debian/pf-runner-core/usr/bin
+	mkdir -p debian/pf-runner-core/usr/share/bash-completion/completions
+	mkdir -p debian/pf-runner-core/usr/share/zsh/vendor-completions
+	mkdir -p debian/pf-runner-core/etc/systemd/system
+	
+	# Install core pf-runner files
+	cp -r pf-runner/* debian/pf-runner-core/usr/lib/pf-runner/
+	
+	# Install bundled fabric library
+	cp -r fabric debian/pf-runner-core/usr/lib/pf-runner/
+	
+	# Create main executable
+	echo '#!/usr/bin/env python3' > debian/pf-runner-core/usr/bin/pf
+	echo 'import sys, os' >> debian/pf-runner-core/usr/bin/pf
+	echo 'sys.path.insert(0, "/usr/lib/pf-runner")' >> debian/pf-runner-core/usr/bin/pf
+	echo 'from pf_main import main' >> debian/pf-runner-core/usr/bin/pf
+	echo 'if __name__ == "__main__": main()' >> debian/pf-runner-core/usr/bin/pf
+	chmod +x debian/pf-runner-core/usr/bin/pf
+	
+	# Install shell completions
+	cp pf-runner/completions/pf-completion.bash debian/pf-runner-core/usr/share/bash-completion/completions/pf
+	cp pf-runner/completions/_pf debian/pf-runner-core/usr/share/zsh/vendor-completions/_pf
+	
+	# Install systemd service files
+	cp pf-runner/*.service debian/pf-runner-core/etc/systemd/system/ || true
+	
+	# Clean up unnecessary files
+	find debian/pf-runner-core/usr/lib/pf-runner -name "*.pyc" -delete
+	find debian/pf-runner-core/usr/lib/pf-runner -name "__pycache__" -type d -exec rm -rf {} + || true
+	rm -f debian/pf-runner-core/usr/lib/pf-runner/Makefile
+	rm -f debian/pf-runner-core/usr/lib/pf-runner/test*.pf
+	rm -f debian/pf-runner-core/usr/lib/pf-runner/*.md
+
+override_dh_fixperms:
+	dh_fixperms
+	chmod +x debian/pf-runner-core/usr/bin/pf
+	chmod +x debian/pf-runner-core/usr/lib/pf-runner/pf_main.py || true
+
+override_dh_python3:
+	dh_python3 --package=pf-runner-core /usr/lib/pf-runner
+
+# Skip tests for now (can be enabled later)
+override_dh_auto_test:
+	@echo "Skipping tests during package build"

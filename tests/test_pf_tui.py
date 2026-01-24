@@ -58,12 +58,11 @@ class TestPfTUIInitialization(unittest.TestCase):
         try:
             category = pf_tui.TaskCategory(
                 name="test",
-                description="Test category",
                 tasks=[]
             )
             self.assertEqual(category.name, "test")
-            self.assertEqual(category.description, "Test category")
             self.assertEqual(len(category.tasks), 0)
+            self.assertTrue(hasattr(category, "color"))
         except Exception as e:
             self.fail(f"TaskCategory creation failed: {e}")
     
@@ -72,10 +71,13 @@ class TestPfTUIInitialization(unittest.TestCase):
         try:
             pfyfile = pf_tui.PfyFile(
                 path="/test/path.pf",
-                categories=[]
+                name="Test",
+                category="test",
             )
             self.assertEqual(pfyfile.path, "/test/path.pf")
-            self.assertEqual(len(pfyfile.categories), 0)
+            self.assertEqual(pfyfile.name, "Test")
+            self.assertEqual(pfyfile.category, "test")
+            self.assertEqual(len(pfyfile.tasks), 0)
         except Exception as e:
             self.fail(f"PfyFile creation failed: {e}")
 
