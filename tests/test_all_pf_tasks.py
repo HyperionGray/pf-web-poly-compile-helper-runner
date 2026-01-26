@@ -30,46 +30,46 @@ def run_command(cmd, cwd=None, capture_output=True):
 
 def test_pf_installation():
     """Test if pf is properly installed and accessible"""
-    print("[INFO] Testing pf installation...")
+    print("🔍 Testing pf installation...")
     
     # Check if pf command exists
     returncode, stdout, stderr = run_command("which pf")
     if returncode != 0:
-        print("[WARN] pf command not found in PATH, trying pf-runner directly...")
+        print("❌ pf command not found in PATH, trying pf-runner directly...")
         # Try using pf-runner directly
         returncode, stdout, stderr = run_command("python3 pf-runner/pf_main.py --help")
         if returncode != 0:
-            print(f"[ERR] pf-runner also failed: {stderr}")
+            print(f"❌ pf-runner also failed: {stderr}")
             return False
         else:
-            print("[OK] pf-runner works directly")
+            print("✅ pf-runner works directly")
             return True
     
-    print(f"[OK] pf found at: {stdout.strip()}")
+    print(f"✅ pf found at: {stdout.strip()}")
     
     # Test basic pf functionality
     returncode, stdout, stderr = run_command("pf --help")
     if returncode != 0:
-        print(f"[ERR] pf --help failed: {stderr}")
+        print(f"❌ pf --help failed: {stderr}")
         return False
     
-    print("[OK] pf --help works")
+    print("✅ pf --help works")
     return True
 
 def test_pf_list():
     """Test pf list command to see all available tasks"""
-    print("\n[INFO] Testing pf list command...")
+    print("\n🔍 Testing pf list command...")
     
     # Try pf first, then pf-runner directly
-    returncode, stdout, stderr = run_command("pf --file pf-files/Pfyfile.pf list")
+    returncode, stdout, stderr = run_command("pf list")
     if returncode != 0:
-        print("[WARN] pf list failed, trying pf-runner directly...")
-        returncode, stdout, stderr = run_command("python3 pf-runner/pf_main.py --file pf-files/Pfyfile.pf list")
+        print("❌ pf list failed, trying pf-runner directly...")
+        returncode, stdout, stderr = run_command("python3 pf-runner/pf_main.py list")
         if returncode != 0:
-            print(f"[ERR] pf-runner list also failed: {stderr}")
+            print(f"❌ pf-runner list also failed: {stderr}")
             return False, []
     
-    print("[OK] pf list works")
+    print("✅ pf list works")
     
     # Parse tasks from output
     tasks = []
@@ -84,12 +84,12 @@ def test_pf_list():
                 if task_name and not task_name.startswith('['):
                     tasks.append(task_name)
     
-    print(f"[INFO] Found {len(tasks)} tasks")
+    print(f"📊 Found {len(tasks)} tasks")
     return True, tasks
 
 def validate_pfyfile_syntax(pfyfile_path):
     """Validate syntax of a single Pfyfile"""
-    print(f"[INFO] Validating {pfyfile_path}...")
+    print(f"🔍 Validating {pfyfile_path}...")
     
     try:
         with open(pfyfile_path, 'r') as f:
@@ -166,28 +166,28 @@ def validate_pfyfile_syntax(pfyfile_path):
         
         if issues:
             strict = os.environ.get("PF_SYNTAX_STRICT", "0") == "1"
-            print(f"{'[ERR]' if strict else '[WARN]'} {pfyfile_path} has {len(issues)} syntax issues:")
+            print(f"{'❌' if strict else '⚠️'} {pfyfile_path} has {len(issues)} syntax issues:")
             for issue in issues:
                 print(f"   {issue}")
             return False if strict else True
         else:
-            print(f"[OK] {pfyfile_path} syntax is valid")
+            print(f"✅ {pfyfile_path} syntax is valid")
             return True
             
     except Exception as e:
-        print(f"[ERR] Error reading {pfyfile_path}: {e}")
+        print(f"❌ Error reading {pfyfile_path}: {e}")
         return False
 
 def test_all_pfyfiles():
     """Test syntax of all Pfyfile.*.pf files"""
-    print("\n[INFO] Testing Pfyfile syntax...")
+    print("\n🔍 Testing all Pfyfile syntax...")
     
-    pfyfiles = sorted(set(glob.glob("pf-files/**/*.pf", recursive=True)))
+    pfyfiles = glob.glob("Pfyfile*.pf")
     if not pfyfiles:
-        print("[ERR] No .pf files found under pf-files/")
+        print("❌ No Pfyfile.*.pf files found")
         return False
     
-    print(f"[INFO] Found {len(pfyfiles)} .pf file(s)")
+    print(f"📊 Found {len(pfyfiles)} Pfyfile(s)")
     
     all_valid = True
     for pfyfile in sorted(pfyfiles):
@@ -196,12 +196,12 @@ def test_all_pfyfiles():
     
     return all_valid
 
-def sample_tasks(tasks):
+def test_sample_tasks(tasks):
     """Test a sample of tasks to ensure they can be parsed"""
-    print("\n[INFO] Testing sample task parsing...")
+    print("\n🔍 Testing sample task parsing...")
 
     if os.environ.get("PF_SAMPLE_TASKS_STRICT", "0") != "1":
-        print("[INFO] Skipping sample task parsing in non-strict mode")
+        print("ℹ️ Skipping sample task parsing in non-strict mode")
         return True
     
     # Test a few representative tasks
@@ -210,34 +210,34 @@ def sample_tasks(tasks):
         sample_tasks.append(task)
     
     if not sample_tasks:
-        print("[ERR] No tasks to test")
+        print("❌ No tasks to test")
         return False
     
     success_count = 0
     for task in sample_tasks:
         print(f"  Testing task: {task}")
         # Try pf first, then pf-runner directly
-        returncode, stdout, stderr = run_command(f"pf --file pf-files/Pfyfile.pf help {task}")
+        returncode, stdout, stderr = run_command(f"pf {task} --help")
         if returncode != 0:
-            returncode, stdout, stderr = run_command(f"python3 pf-runner/pf_main.py --file pf-files/Pfyfile.pf help {task}")
+            returncode, stdout, stderr = run_command(f"python3 pf-runner/pf_main.py {task} --help")
         
         if returncode == 0 or "describe" in stdout.lower():
-            print(f"    [OK] {task} - parseable")
+            print(f"    ✅ {task} - parseable")
             success_count += 1
         else:
-            print(f"    [ERR] {task} - failed: {stderr}")
+            print(f"    ❌ {task} - failed: {stderr}")
     
-    print(f"[INFO] {success_count}/{len(sample_tasks)} sample tasks passed")
+    print(f"📊 {success_count}/{len(sample_tasks)} sample tasks passed")
     return success_count == len(sample_tasks)
 
 def analyze_novel_features():
     """Analyze the most novel features in the pf system"""
-    print("\n[INFO] Analyzing novel features...")
+    print("\n🔍 Analyzing novel features...")
     
     novel_features = {
         "Polyglot Shell Support": {
             "description": "Execute code in 40+ languages inline",
-            "files": ["pf-files/Pfyfile.pf", "pf-runner/addon/polyglot.py"],
+            "files": ["Pfyfile.pf", "pf-runner/addon/polyglot.py"],
             "examples": ["shell [lang:python]", "shell [lang:rust]", "shell_lang python"]
         },
         "Unified Build System": {
@@ -247,37 +247,27 @@ def analyze_novel_features():
         },
         "Container Integration": {
             "description": "Seamless container and quadlet management",
-            "files": ["pf-files/containers/Pfyfile.containers.pf", "containers/"],
+            "files": ["Pfyfile.containers.pf", "containers/"],
             "examples": ["container-build-all", "quadlet-install"]
         },
         "WebAssembly Compilation": {
             "description": "Multi-language WASM compilation pipeline",
-            "files": ["pf-files/Pfyfile.pf", "demos/pf-web-polyglot-demo-plus-c/"],
+            "files": ["Pfyfile.pf", "demos/pf-web-polyglot-demo-plus-c/"],
             "examples": ["web-build-all-wasm", "web-build-rust-wasm"]
         },
         "Security/Exploit Tools": {
             "description": "Integrated exploit development and security testing",
-            "files": [
-                "pf-files/exploit-writing/Pfyfile.exploit.pf",
-                "pf-files/vuln-hunting/Pfyfile.security.pf",
-                "pf-files/vuln-hunting/Pfyfile.fuzzing.pf",
-            ],
+            "files": ["Pfyfile.exploit.pf", "Pfyfile.security.pf", "Pfyfile.fuzzing.pf"],
             "examples": ["install-exploit-tools", "heap-spray-demo"]
         },
         "OS Container Management": {
             "description": "Switch between different OS environments",
-            "files": [
-                "pf-files/distro-switching/Pfyfile.os-containers.pf",
-                "pf-files/distro-switching/Pfyfile.distro-switch.pf",
-            ],
+            "files": ["Pfyfile.os-containers.pf", "Pfyfile.distro-switch.pf"],
             "examples": ["os-container-ubuntu", "distro-switch"]
         },
         "Binary Analysis Tools": {
             "description": "Integrated binary lifting and analysis",
-            "files": [
-                "pf-files/llvm-lifting/Pfyfile.lifting.pf",
-                "pf-files/debugging/Pfyfile.debug-tools.pf",
-            ],
+            "files": ["Pfyfile.lifting.pf", "Pfyfile.debug-tools.pf"],
             "examples": ["install-oryx", "install-binsider", "binary-lift"]
         },
         "Flexible Parameter Passing": {
@@ -287,9 +277,9 @@ def analyze_novel_features():
         }
     }
     
-    print("Most novel features identified:")
+    print("🚀 Most Novel Features Identified:")
     for feature, details in novel_features.items():
-        print(f"\n  - {feature}")
+        print(f"\n  📌 {feature}")
         print(f"     {details['description']}")
         print(f"     Examples: {', '.join(details['examples'])}")
     
@@ -298,35 +288,34 @@ def analyze_novel_features():
 def generate_report(test_results):
     """Generate a comprehensive test report"""
     print("\n" + "="*60)
-    print("COMPREHENSIVE PF TASK VALIDATION REPORT")
+    print("📋 COMPREHENSIVE PF TASK VALIDATION REPORT")
     print("="*60)
     
     total_tests = len(test_results)
     passed_tests = sum(1 for result in test_results.values() if result)
     
-    print(f"Overall Results: {passed_tests}/{total_tests} tests passed")
-    print(f"Success Rate: {(passed_tests/total_tests)*100:.1f}%")
+    print(f"📊 Overall Results: {passed_tests}/{total_tests} tests passed")
+    print(f"✅ Success Rate: {(passed_tests/total_tests)*100:.1f}%")
     
-    print("\nTest Details:")
+    print("\n📝 Test Details:")
     for test_name, result in test_results.items():
-        status = "PASS" if result else "FAIL"
+        status = "✅ PASS" if result else "❌ FAIL"
         print(f"  {status} {test_name}")
     
     if passed_tests == total_tests:
-        print("\nAll tests passed. The pf system is ready for use.")
+        print("\n🎉 All tests passed! The pf system is ready for use.")
     else:
-        print(f"\n{total_tests - passed_tests} test(s) failed. Review the issues above.")
+        print(f"\n⚠️  {total_tests - passed_tests} test(s) failed. Review the issues above.")
     
     return passed_tests == total_tests
 
 def main():
     """Main test execution"""
-    print("Starting comprehensive pf task validation")
+    print("🚀 Starting Comprehensive pf Task Validation")
     print("="*50)
     
-    # Change to repository root (tests/ is one level below)
-    repo_root = Path(__file__).resolve().parents[1]
-    os.chdir(repo_root)
+    # Change to workspace directory
+    os.chdir('/workspace')
     
     test_results = {}
     
@@ -342,7 +331,7 @@ def main():
     
     # Test 4: Sample task parsing (only if list worked)
     if list_success and tasks:
-        test_results["Sample Task Parsing"] = sample_tasks(tasks)
+        test_results["Sample Task Parsing"] = test_sample_tasks(tasks)
     else:
         test_results["Sample Task Parsing"] = False
     
@@ -353,15 +342,15 @@ def main():
     all_passed = generate_report(test_results)
     
     # Recommendations
-    print("\nRECOMMENDATIONS:")
-    print("1. QUICKSTART.md is comprehensive and well-structured")
-    print("2. Unified API through 'pf' command is working")
-    print("3. Most novel features to highlight:")
+    print("\n🎯 RECOMMENDATIONS:")
+    print("1. ✅ QUICKSTART.md is comprehensive and well-structured")
+    print("2. ✅ Unified API through 'pf' command is working")
+    print("3. 🚀 Most novel features to highlight:")
     print("   - Polyglot shell support (40+ languages)")
     print("   - WebAssembly multi-language compilation")
     print("   - Container/OS switching capabilities")
     print("   - Integrated security/exploit tools")
-    print("4. Suggested direction: Focus on the polyglot + WASM pipeline")
+    print("4. 📈 Suggested direction: Focus on the polyglot + WASM pipeline")
     print("   as it's unique in the ecosystem")
     
     return 0 if all_passed else 1

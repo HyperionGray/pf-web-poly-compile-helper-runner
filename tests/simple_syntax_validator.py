@@ -266,13 +266,30 @@ def main():
     print("🚀 Starting pf Task Syntax Validation")
     print("="*50)
     
+    # Change to repository root (parent of this tests directory)
     repo_root = Path(__file__).resolve().parent.parent
     os.chdir(repo_root)
-    
-    # Find all Pfyfiles (now organized under pf-files/)
-    pfyfiles = sorted(glob.glob("pf-files/**/Pfyfile*.pf", recursive=True))
+
+    # Find Pfyfiles across the repo (avoid packaged copies and build artifacts)
+    search_roots = [
+        repo_root / "pf-files",
+        repo_root / "pf-runner",
+        repo_root / ".github" / "hg_actions",
+    ]
+
+    pfyfiles = []
+    for root in search_roots:
+        if not root.exists():
+            continue
+        pfyfiles.extend(
+            sorted(
+                str(path.relative_to(repo_root))
+                for path in root.rglob("Pfyfile*.pf")
+            )
+        )
+
     if not pfyfiles:
-        print("❌ No Pfyfile*.pf files found under pf-files/")
+        print("❌ No Pfyfile.*.pf files found")
         return 1
     
     print(f"📊 Found {len(pfyfiles)} Pfyfile(s)")

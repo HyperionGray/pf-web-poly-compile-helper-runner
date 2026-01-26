@@ -22,6 +22,7 @@
 ./run-all-tests.sh
 ./test_native_installer.sh
 ./test_all_comprehensive.py
+./master_validation.sh
 ./test_pf_tui.py
 ./run_tests.sh
 ./comprehensive_test.sh
@@ -34,6 +35,7 @@
 ./run_final_tests.py
 ./test_smart_workflows.py
 ./test_line_continuation.py
+./test_heredoc_and_lang_bracket.py
 ./installation/test-native-install.sh
 ./install/test-install-wrapper.sh
 ./simple_test.py
@@ -43,6 +45,7 @@
 ./debugging/test-debugging-workflows.sh
 ./test_demo_tui.py
 ./test_build_script.sh
+./validate_workflows.sh
 ./run_comprehensive_tests.py
 ./tui/README.md
 ./test_screenshot_tui.py

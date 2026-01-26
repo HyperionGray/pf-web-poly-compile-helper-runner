@@ -60,7 +60,7 @@ except ImportError:
 
 # Import from existing pf modules
 from pf_parser import (
-    _find_pfyfile, _load_pfy_source_with_includes, parse_pfyfile_text
+    _find_pfyfile, _load_pfy_source_with_includes, parse_pfyfile_text, _parse_heredoc_start
 )
 
 # Import custom exceptions
@@ -256,12 +256,26 @@ class PfSyntaxChecker:
         # Track block structure
         block_stack = []  # Stack of (type, line_number, name)
         current_task = None
+        shell_continuation = False
+        heredoc_terminator: Optional[str] = None
         
         for i, line in enumerate(lines, 1):
             stripped = line.strip()
             
             # Skip empty lines and comments
             if not stripped or stripped.startswith('#'):
+                continue
+
+            # Ignore lines that are part of a multi-line shell continuation (bash-style `\`)
+            # or an active heredoc body.
+            if heredoc_terminator is not None:
+                if stripped == heredoc_terminator:
+                    heredoc_terminator = None
+                continue
+            if shell_continuation:
+                if stripped.endswith("\\"):
+                    continue
+                shell_continuation = False
                 continue
             
             # Track task blocks
@@ -358,6 +372,17 @@ class PfSyntaxChecker:
             else:
                 verb = stripped.split()[0] if stripped else None
                 if verb and current_task:  # Inside a task
+                    # Shell commands may contain bashisms like `for ...; do` or heredocs.
+                    # Avoid treating those as pf DSL `for`/`if` blocks.
+                    if verb == "shell":
+                        if stripped.rstrip().endswith("\\"):
+                            shell_continuation = True
+                        else:
+                            shell_cmd = stripped[len("shell ") :].strip()
+                            tag = _parse_heredoc_start(shell_cmd)
+                            if tag:
+                                heredoc_terminator = tag
+
                     # Check for invalid operators in conditionals
                     if '===' in stripped:
                         ctx_before, ctx_after = self._get_context_lines(lines, i)

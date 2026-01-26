@@ -2,7 +2,7 @@ import py_compile
 import sys
 from pathlib import Path
 
-repo_root = Path(__file__).resolve().parents[1]
+repo_root = Path(__file__).resolve().parent.parent
 pf_runner_dir = repo_root / "pf-runner"
 pf_polyglot_path = pf_runner_dir / "pf_polyglot.py"
 

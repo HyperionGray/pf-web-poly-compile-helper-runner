@@ -530,6 +530,15 @@ def _canonical_lang(lang_hint: str) -> str:
 # Regex to parse [lang:xxx] syntax from shell command
 # re.DOTALL makes . match newlines, allowing multi-line code blocks
 _LANG_BRACKET_RE = re.compile(r"^\s*\[lang:([^\]]+)\]\s*(.*)$", re.IGNORECASE | re.DOTALL)
+_HEREDOC_START_RE = re.compile(r"<<-?\s*(?P<q>['\"]?)(?P<tag>[A-Za-z0-9_]+)(?P=q)")
+
+
+def _parse_heredoc_start(cmd: str) -> Optional[str]:
+    """Return heredoc terminator token if `cmd` contains a heredoc start, else None."""
+    match = _HEREDOC_START_RE.search(cmd)
+    if match:
+        return match.group("tag")
+    return None
 
 # Regex to parse heredoc syntax: << DELIMITER [> output_file]
 # Allow uppercase or mixed case delimiters (following bash convention)
@@ -961,20 +970,26 @@ def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str], List[str]]:
 
 def _process_line_continuation(lines: List[str], start_idx: int) -> Tuple[str, int]:
     """
-    Process backslash line continuation starting from the given index.
+    Process bash-style backslash line continuation starting from the given index.
+
+    Lines ending with a trailing backslash ('\\') are concatenated with subsequent
+    lines until a line without a trailing backslash is encountered. Indentation
+    from continuation lines is ignored so the joined command does not accumulate
+    extra internal spaces.
 
     Args:
-        lines: List of all lines (stripped)
+        lines: List of all lines (raw, as read from the file)
         start_idx: Index of the first line to process
 
     Returns:
         Tuple of (combined_line, next_index_to_process)
     """
-    combined_parts = []
+    combined_parts: List[str] = []
     current_idx = start_idx
 
     while current_idx < len(lines):
-        line = lines[current_idx]
+        raw_line = lines[current_idx]
+        line = raw_line.strip()
 
         # Skip empty lines and comments during continuation
         if not line or line.startswith("#"):
@@ -985,18 +1000,16 @@ def _process_line_continuation(lines: List[str], start_idx: int) -> Tuple[str, i
         if line.endswith("\\"):
             # Remove the backslash and add to combined parts
             line_without_backslash = line[:-1].rstrip()
-            if line_without_backslash:  # Only add non-empty parts
+            if line_without_backslash:
                 combined_parts.append(line_without_backslash)
             current_idx += 1
             continue
-        else:
-            # This line doesn't end with backslash, add it and we're done
-            if line:  # Only add non-empty lines
-                combined_parts.append(line)
-            current_idx += 1
-            break
 
-    # Join all parts with single space, preserving the structure
+        # This line doesn't end with backslash, add it and we're done
+        combined_parts.append(line)
+        current_idx += 1
+        break
+
     combined_line = " ".join(combined_parts) if combined_parts else ""
     return combined_line, current_idx
 
@@ -1267,16 +1280,17 @@ def parse_pfyfile_text(
     while i < len(lines):
         line = lines[i]
         stripped = line.strip()
-        
+        next_i = i + 1
+
         # Handle line continuation
-        if stripped.endswith('\\'):
-            combined_line, new_i = _process_line_continuation(lines, i)
-            stripped = combined_line.strip()
-            i = new_i
+        if stripped.endswith("\\"):
+            combined_line, next_i = _process_line_continuation(lines, i)
+            line = combined_line
+            stripped = line.strip()
         
         # Skip empty lines and comments
         if not stripped or stripped.startswith('#'):
-            i += 1
+            i = next_i
             continue
         
         # Parse task definition
@@ -1290,13 +1304,13 @@ def parse_pfyfile_text(
             except (ValueError, PFSyntaxError):
                 # Skip malformed task definitions
                 pass
-            i += 1
+            i = next_i
             continue
         
         # End of task
         if stripped == 'end':
             current_task = None
-            i += 1
+            i = next_i
             continue
         
         # Task body lines
@@ -1335,6 +1349,30 @@ def parse_pfyfile_text(
                 i = j
                 continue
 
+            # Heredoc blocks inside shell lines:
+            #
+            #   shell cat << 'EOF'
+            #   hello
+            #   EOF
+            #
+            # These should be treated as a single "shell" line containing embedded newlines.
+            if stripped.startswith("shell "):
+                shell_cmd = stripped[6:].strip()
+                heredoc_tag = _parse_heredoc_start(shell_cmd)
+                if heredoc_tag:
+                    block: List[str] = [line]
+                    j = i + 1
+                    while j < len(lines):
+                        nxt = lines[j]
+                        block.append(nxt)
+                        if nxt.strip() == heredoc_tag:
+                            j += 1
+                            break
+                        j += 1
+                    current_task.add("\n".join(block))
+                    i = j
+                    continue
+
             if stripped.startswith('describe '):
                 current_task.description = stripped[9:].strip()
             elif stripped.startswith('synopsis '):
@@ -1356,9 +1394,9 @@ def parse_pfyfile_text(
             elif stripped.startswith('tag '):
                 current_task.add_tag(stripped[4:].strip())
             else:
-                current_task.add(line)
-        
-        i += 1
+                current_task.add(stripped)
+
+        i = next_i
     
     return tasks_dict
 

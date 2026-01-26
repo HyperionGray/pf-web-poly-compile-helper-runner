@@ -4,6 +4,13 @@
 
 set -euo pipefail
 
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
 # Test results tracking
 TOTAL_TESTS=0
 PASSED_TESTS=0
@@ -12,19 +19,19 @@ SKIPPED_TESTS=0
 
 # Logging functions
 log_info() {
-    echo "[INFO] $1"
+    echo -e "${BLUE}[INFO]${NC} $1"
 }
 
 log_success() {
-    echo "[OK] $1"
+    echo -e "${GREEN}[✓]${NC} $1"
 }
 
 log_warning() {
-    echo "[WARN] $1"
+    echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
 log_error() {
-    echo "[ERR] $1"
+    echo -e "${RED}[✗]${NC} $1"
 }
 
 # Test result tracking
@@ -53,7 +60,7 @@ test_pf_syntax() {
     
     if [[ ! -f "$pf_file" ]]; then
         test_failed "$pf_file: File not found"
-        return 0
+        return 1
     fi
     
     # Try basic syntax checks using grep patterns
@@ -63,13 +70,13 @@ test_pf_syntax() {
     
     if [[ $task_count -ne $end_count ]]; then
         test_failed "$pf_file: Mismatched task/end pairs (tasks: $task_count, ends: $end_count)"
-        return 0
+        return 1
     fi
     
     # Check for basic syntax issues
     if grep -q "^task.*\$" "$pf_file" && ! grep -q "describe\|shell\|env" "$pf_file"; then
         test_failed "$pf_file: Empty tasks detected"
-        return 0
+        return 1
     fi
     
     test_passed "$pf_file: Basic syntax valid (tasks: $task_count, ends: $end_count)"
@@ -83,7 +90,7 @@ test_install_tasks_present() {
     
     if [[ ! -f "$pf_file" ]]; then
         test_skipped "$pf_file: File not found"
-        return 0
+        return 1
     fi
     
     # Check if file has install tasks
@@ -93,7 +100,7 @@ test_install_tasks_present() {
         return 0
     else
         test_skipped "$pf_file: No install tasks found"
-        return 0
+        return 1
     fi
 }
 
@@ -108,7 +115,7 @@ test_task_exists() {
         return 0
     else
         test_failed "$task_name: Task not found in file"
-        return 0
+        return 1
     fi
 }
 
@@ -122,8 +129,8 @@ test_task_description() {
         test_passed "$task_name: Has description"
         return 0
     else
-        test_skipped "$task_name: Missing description"
-        return 0
+        test_warning "$task_name: Missing description"
+        return 1
     fi
 }
 
@@ -134,8 +141,8 @@ main() {
     echo "╚════════════════════════════════════════════════════════════╝"
     echo ""
     
-    # Get repository root (tests/ lives under repo root)
-    REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    # Get repository root
+    REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     cd "$REPO_ROOT"
     
     log_info "Repository root: $REPO_ROOT"
@@ -145,60 +152,66 @@ main() {
     echo "═══════════════════════════════════════════════════════════"
     echo "TEST GROUP 1: Core Installation Files"
     echo "═══════════════════════════════════════════════════════════"
-    test_pf_syntax "pf-files/always-available/Pfyfile.always-available.pf"
-    test_install_tasks_present "pf-files/always-available/Pfyfile.always-available.pf"
-    test_pf_syntax "pf-files/Pfyfile.pf"
-    test_install_tasks_present "pf-files/Pfyfile.pf"
+    test_pf_syntax "Pfyfile.always-available.pf"
+    test_install_tasks_present "Pfyfile.always-available.pf"
+    test_pf_syntax "Pfyfile.pf"
+    test_install_tasks_present "Pfyfile.pf"
     echo ""
     
     # Test Group 2: Always-On Installation Files
     echo "═══════════════════════════════════════════════════════════"
     echo "TEST GROUP 2: Always-On Installation Files"
     echo "═══════════════════════════════════════════════════════════"
-    test_pf_syntax "pf-files/always-available/Pfyfile.always-on.pf"
-    test_install_tasks_present "pf-files/always-available/Pfyfile.always-on.pf"
+    test_pf_syntax "pf-runner/Pfyfile.always-on-packages.pf"
+    test_install_tasks_present "pf-runner/Pfyfile.always-on-packages.pf"
+    test_pf_syntax "pf-runner/Pfyfile.always-on-debug.pf"
+    test_install_tasks_present "pf-runner/Pfyfile.always-on-debug.pf"
+    test_pf_syntax "pf-runner/Pfyfile.always-on-exploit.pf"
+    test_install_tasks_present "pf-runner/Pfyfile.always-on-exploit.pf"
+    test_pf_syntax "pf-runner/Pfyfile.always-on-tui.pf"
+    test_install_tasks_present "pf-runner/Pfyfile.always-on-tui.pf"
     echo ""
     
     # Test Group 3: Tool Installation Files
     echo "═══════════════════════════════════════════════════════════"
     echo "TEST GROUP 3: Tool Installation Files"
     echo "═══════════════════════════════════════════════════════════"
-    test_pf_syntax "pf-files/debugging/Pfyfile.debug-tools.pf"
-    test_install_tasks_present "pf-files/debugging/Pfyfile.debug-tools.pf"
-    test_pf_syntax "pf-files/exploit-writing/Pfyfile.exploit.pf"
-    test_install_tasks_present "pf-files/exploit-writing/Pfyfile.exploit.pf"
-    test_pf_syntax "pf-files/vuln-hunting/Pfyfile.fuzzing.pf"
-    test_install_tasks_present "pf-files/vuln-hunting/Pfyfile.fuzzing.pf"
-    test_pf_syntax "pf-files/debugging/Pfyfile.debugging.pf"
-    test_install_tasks_present "pf-files/debugging/Pfyfile.debugging.pf"
+    test_pf_syntax "Pfyfile.debug-tools.pf"
+    test_install_tasks_present "Pfyfile.debug-tools.pf"
+    test_pf_syntax "Pfyfile.exploit.pf"
+    test_install_tasks_present "Pfyfile.exploit.pf"
+    test_pf_syntax "Pfyfile.fuzzing.pf"
+    test_install_tasks_present "Pfyfile.fuzzing.pf"
+    test_pf_syntax "Pfyfile.debugging.pf"
+    test_install_tasks_present "Pfyfile.debugging.pf"
     echo ""
     
     # Test Group 4: Package Manager and Container Files
     echo "═══════════════════════════════════════════════════════════"
     echo "TEST GROUP 4: Package Manager and Container Files"
     echo "═══════════════════════════════════════════════════════════"
-    test_pf_syntax "pf-files/distro-switching/Pfyfile.package-manager.pf"
-    test_install_tasks_present "pf-files/distro-switching/Pfyfile.package-manager.pf"
-    test_pf_syntax "pf-files/containers/Pfyfile.containers.pf"
-    test_install_tasks_present "pf-files/containers/Pfyfile.containers.pf"
-    test_pf_syntax "pf-files/distro-switching/Pfyfile.distro-switch.pf"
-    test_install_tasks_present "pf-files/distro-switching/Pfyfile.distro-switch.pf"
+    test_pf_syntax "Pfyfile.package-manager.pf"
+    test_install_tasks_present "Pfyfile.package-manager.pf"
+    test_pf_syntax "Pfyfile.containers.pf"
+    test_install_tasks_present "Pfyfile.containers.pf"
+    test_pf_syntax "Pfyfile.distro-switch.pf"
+    test_install_tasks_present "Pfyfile.distro-switch.pf"
     echo ""
     
     # Test Group 5: Security and Additional Tool Files
     echo "═══════════════════════════════════════════════════════════"
     echo "TEST GROUP 5: Security and Additional Tool Files"
     echo "═══════════════════════════════════════════════════════════"
-    test_pf_syntax "pf-files/vuln-hunting/Pfyfile.security.pf"
-    test_install_tasks_present "pf-files/vuln-hunting/Pfyfile.security.pf"
-    test_pf_syntax "pf-files/always-available/Pfyfile.tui.pf"
-    test_install_tasks_present "pf-files/always-available/Pfyfile.tui.pf"
-    test_pf_syntax "pf-files/gitops/Pfyfile.git-cleanup.pf"
-    test_install_tasks_present "pf-files/gitops/Pfyfile.git-cleanup.pf"
-    test_pf_syntax "pf-files/llvm-lifting/Pfyfile.lifting.pf"
-    test_install_tasks_present "pf-files/llvm-lifting/Pfyfile.lifting.pf"
-    test_pf_syntax "pf-files/vuln-hunting/Pfyfile.injection.pf"
-    test_install_tasks_present "pf-files/vuln-hunting/Pfyfile.injection.pf"
+    test_pf_syntax "Pfyfile.security.pf"
+    test_install_tasks_present "Pfyfile.security.pf"
+    test_pf_syntax "Pfyfile.tui.pf"
+    test_install_tasks_present "Pfyfile.tui.pf"
+    test_pf_syntax "Pfyfile.git-cleanup.pf"
+    test_install_tasks_present "Pfyfile.git-cleanup.pf"
+    test_pf_syntax "Pfyfile.lifting.pf"
+    test_install_tasks_present "Pfyfile.lifting.pf"
+    test_pf_syntax "Pfyfile.injection.pf"
+    test_install_tasks_present "Pfyfile.injection.pf"
     echo ""
     
     # Print summary
@@ -207,13 +220,13 @@ main() {
     echo "╚════════════════════════════════════════════════════════════╝"
     echo ""
     echo "Total Tests:   $TOTAL_TESTS"
-    echo "Passed:        $PASSED_TESTS"
-    echo "Failed:        $FAILED_TESTS"
-    echo "Skipped:       $SKIPPED_TESTS"
+    echo -e "Passed:        ${GREEN}$PASSED_TESTS${NC}"
+    echo -e "Failed:        ${RED}$FAILED_TESTS${NC}"
+    echo -e "Skipped:       ${YELLOW}$SKIPPED_TESTS${NC}"
     echo ""
     
     if [[ $FAILED_TESTS -eq 0 ]]; then
-        log_success "All tests passed"
+        log_success "All tests passed! ✓"
         exit 0
     else
         log_error "$FAILED_TESTS test(s) failed"

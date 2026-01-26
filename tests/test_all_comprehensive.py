@@ -55,10 +55,9 @@ class ComprehensiveTestRunner:
     """Main test runner class"""
     
     def __init__(self, workspace_dir: str = None):
-        # Default to repo root instead of hard-coded /workspace
+        # Default to repo root (directory of this script) instead of hard-coded /workspace
         script_dir = Path(__file__).resolve().parent
-        repo_root = script_dir.parent
-        self.workspace_dir = workspace_dir or str(repo_root)
+        self.workspace_dir = workspace_dir or str(script_dir)
         self.test_runs: List[TestRun] = []
         self.discovered_tests: List[str] = []
         self.temp_dirs: List[str] = []

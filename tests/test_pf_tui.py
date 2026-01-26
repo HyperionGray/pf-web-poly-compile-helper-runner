@@ -314,11 +314,9 @@ class TestPfTUIErrorHandling(unittest.TestCase):
             # Test that TUI handles exceptions gracefully
             if hasattr(tui, 'run'):
                 # This might raise exceptions, but should be handled
-                try:
-                    tui.run()
-                except Exception:
-                    # Expected in test environment
-                    pass
+                with patch.object(pf_tui.PfTUI, "show_main_menu", return_value="quit"):
+                    rc = tui.run()
+                    self.assertIsInstance(rc, int)
                     
         except Exception as e:
             self.fail(f"Exception handling test failed: {e}")

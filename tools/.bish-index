@@ -35,6 +35,7 @@
 ./SMART_WORKFLOWS_README.md
 ./fuzzing/create-examples.sh
 ./fuzzing/generate-template.sh
+./screenshot_tui.py
 ./lifting/install-retdec.sh
 ./lifting/quick-reference.sh
 ./unified/unified_checksec.py

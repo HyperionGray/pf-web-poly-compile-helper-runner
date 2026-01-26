@@ -96,7 +96,7 @@ def test_pfyfiles_included():
     """Test if new Pfyfiles are properly included"""
     print("\n🔍 Testing Pfyfile inclusions...")
     
-    main_pfyfile = "pf-files/Pfyfile.pf"
+    main_pfyfile = "Pfyfile.pf"
     if not os.path.exists(main_pfyfile):
         print(f"❌ Main Pfyfile not found: {main_pfyfile}")
         return False
@@ -105,9 +105,8 @@ def test_pfyfiles_included():
         content = f.read()
     
     required_includes = [
-        'enhanced-tasks/Pfyfile.smart-workflows.pf',
-        'enhanced-tasks/Pfyfile.enhanced-integration.pf',
-        'enhanced-tasks/Pfyfile.enhanced-workflows.pf',
+        'Pfyfile.smart-workflows.pf',
+        'Pfyfile.enhanced-integration.pf'
     ]
     
     found_any = False

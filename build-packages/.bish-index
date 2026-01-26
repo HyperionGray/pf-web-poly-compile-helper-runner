@@ -1,3 +1,4 @@
+./build-packages.sh
 ./pf-runner-1.0.0/QUICKSTART.md
 ./pf-runner-1.0.0/CHANGELOG.md
 ./pf-runner-1.0.0/README.md

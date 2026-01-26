@@ -6,9 +6,9 @@ Test script to verify TUI functionality with all pf commands
 import sys
 import os
 
-# Add pf-runner to path
+repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 script_dir = os.path.dirname(os.path.abspath(__file__))
-pf_runner_path = os.path.join(script_dir, 'pf-runner')
+pf_runner_path = os.path.join(repo_root, "pf-runner")
 sys.path.insert(0, pf_runner_path)
 
 from pf_tui import PfTUI
@@ -96,7 +96,7 @@ def test_tui_functionality():
     
     missing_scripts = []
     for script in tool_scripts:
-        full_path = os.path.join(script_dir, script)
+        full_path = os.path.join(repo_root, script)
         if not os.path.exists(full_path):
             missing_scripts.append(script)
         elif not os.access(full_path, os.X_OK):

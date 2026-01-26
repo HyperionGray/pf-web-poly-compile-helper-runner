@@ -30,31 +30,6 @@ test_hardcoded_paths() {
     log_info "Testing for hardcoded paths..."
     
     local hardcoded_found=false
-    local grep_root="."
-
-    # Prefer scanning only tracked files to avoid false positives from local venvs/build artifacts
-    if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        grep_root="(git-tracked files)"
-
-        # Check for /home/punk paths
-        if git grep -n "/home/punk" -- . 2>/dev/null; then
-            log_error "Found hardcoded /home/punk paths"
-            hardcoded_found=true
-        fi
-
-        # Check for suspicious hardcoded venv paths in shebangs
-        if git grep -nE "#!/.*home.*venv" -- . 2>/dev/null; then
-            log_error "Found hardcoded venv paths in shebangs"
-            hardcoded_found=true
-        fi
-
-        if [[ "$hardcoded_found" == false ]]; then
-            log_success "No hardcoded paths found in ${grep_root}"
-            return 0
-        else
-            return 1
-        fi
-    fi
     
     # Check for /home/punk paths
     if grep -r "/home/punk" . --exclude-dir=.git 2>/dev/null; then

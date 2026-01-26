@@ -47,6 +47,8 @@ from pf_parser import (
     _c_for,
     _dedupe_preserve_order,
     _interpolate,
+    _parse_lang_bracket,
+    _parse_heredoc_start,
     _render_polyglot_command,
     _exec_line_fabric,
     BUILTINS,
@@ -1014,11 +1016,68 @@ class PfRunner:
                                     )
                                 continue
 
+                            # Support per-command language tags: `shell [lang:python] ...`
+                            # and polyglot heredocs: `shell [lang:python] << EOF ... EOF`.
+                            lang_hint, remaining_cmd = _parse_lang_bracket(shell_cmd)
+                            effective_lang = lang_hint or current_lang
+
+                            # Heredoc-as-script blocks: `shell <<EOF ... EOF`
+                            # (optionally with a [lang:...] tag or active shell_lang).
+                            if "\n" in remaining_cmd and remaining_cmd.lstrip().startswith("<<"):
+                                heredoc_lines = remaining_cmd.splitlines()
+                                heredoc_tag = _parse_heredoc_start(heredoc_lines[0]) if heredoc_lines else None
+                                if heredoc_tag:
+                                    body_lines: List[str] = []
+                                    for ln in heredoc_lines[1:]:
+                                        if ln.strip() == heredoc_tag:
+                                            break
+                                        body_lines.append(ln)
+                                    script_body = textwrap.dedent("\n".join(body_lines))
+                                    script_body = _interpolate(script_body, params, task_env)
+
+                                    failed_cmd = ""
+                                    if effective_lang:
+                                        rendered_cmd, _lang = _render_polyglot_command(
+                                            effective_lang, script_body, os.getcwd()
+                                        )
+                                        failed_cmd = rendered_cmd or script_body
+                                        rc = _exec_line_fabric(
+                                            rendered_cmd or script_body,
+                                            connection,
+                                            task_env,
+                                            task_name,
+                                            args.sudo,
+                                            args.sudo_user,
+                                        )
+                                    else:
+                                        heredoc_cmd = f"bash <<'PF_EOF'\n{script_body}\nPF_EOF"
+                                        failed_cmd = heredoc_cmd
+                                        rc = _exec_line_fabric(
+                                            heredoc_cmd,
+                                            connection,
+                                            task_env,
+                                            task_name,
+                                            args.sudo,
+                                            args.sudo_user,
+                                        )
+
+                                    if rc != 0:
+                                        raise PFExecutionError(
+                                            message=f"Command failed with exit code {rc}",
+                                            task_name=task_name,
+                                            command=failed_cmd,
+                                            exit_code=rc,
+                                            environment=task_env,
+                                            suggestion="Check the command output above for details",
+                                        )
+                                    i += 1
+                                    continue
+
                             # If a default language is set, render polyglot wrapper
                             rendered_cmd = None
-                            if current_lang:
+                            if effective_lang:
                                 rendered_cmd, _lang = _render_polyglot_command(
-                                    current_lang, shell_cmd, os.getcwd()
+                                    effective_lang, remaining_cmd, os.getcwd()
                                 )
 
                             if rendered_cmd:
