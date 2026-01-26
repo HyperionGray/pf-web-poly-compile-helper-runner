@@ -1,6 +1,0 @@
-{
-  "name": "Trigger Workflow on All Repos",
-  "description": "Manually trigger a workflow across all repositories in the P4X-ng organization. Requires GH_PAT secret with repo, workflow, and read:org scopes.",
-  "iconName": "workflow",
-  "categories": ["Automation", "CI/CD", "Deployment"]
-}

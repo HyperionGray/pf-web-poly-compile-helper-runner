@@ -1,3 +1,0 @@
-  2 //{"HyperionGray/repo-name": { "issue": { "title": "Issue Title","body": "Issue Body","assignees": ["copilot", "user"]}}}                                                                                      
-  3 //{"TeamHG-Memex/P4X-ng/repo-name": { "issue": { "title": "Issue Title","body": "Issue Body","assignees": ["copilot", "user"]}}}                                                                               
-  4 //{"ALL": {"issue": [{"title": "Global Issue","body": "This goes to all repos"}]}}  
