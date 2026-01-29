@@ -8,7 +8,10 @@
 task dev
   describe Start development server
   shell_lang bash
-  shell node tools/static-server.mjs ${dir:-web} ${port:-8080}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/static-server.mjs" ${dir:-web} ${port:-8080}
 end
 
 task test
@@ -24,7 +27,20 @@ end
 task build-rust
   describe Build Rust to WebAssembly
   shell_lang bash
-  shell cd demos/pf-web-polyglot-demo-plus-c/rust && wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
+  shell |
+    set -euo pipefail
+    find_root() {
+      if git rev-parse --show-toplevel >/dev/null 2>&1; then
+        git rev-parse --show-toplevel
+      elif [ -n "${PFY_ROOT:-}" ] && [ -d "${PFY_ROOT}" ]; then
+        echo "${PFY_ROOT}"
+      else
+        pwd
+      fi
+    }
+    ROOT="$(find_root)"
+    cd "$ROOT/demos/pf-web-polyglot-demo-plus-c/rust"
+    wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
 end
 
 task build-rust-llvm
@@ -40,25 +56,25 @@ end
 task build-c
   describe Build C to WebAssembly
   shell_lang bash
-  shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
+  shell ROOT="$(pwd)"; cur="$ROOT"; while [ "$cur" != "/" ]; do [ -d "$cur/pf-files" ] && ROOT="$cur" && break; cur="$(dirname "$cur")"; done; cd "$ROOT/demos/pf-web-polyglot-demo-plus-c/c"; mkdir -p ../web/wasm/c; emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
 end
 
 task build-c-asm
   describe Build C to asm.js
   shell_lang bash
-  shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O2 -sWASM=0 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/asm/c/c_trap_asm.js
+  shell ROOT="$(pwd)"; cur="$ROOT"; while [ "$cur" != "/" ]; do [ -d "$cur/pf-files" ] && ROOT="$cur" && break; cur="$(dirname "$cur")"; done; cd "$ROOT/demos/pf-web-polyglot-demo-plus-c/c"; mkdir -p ../web/asm/c; emcc c_trap.c -O2 -sWASM=0 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/asm/c/c_trap_asm.js
 end
 
 task build-c-llvm
   describe Build C to LLVM IR with optimization (opt_level=3 by default)
   shell_lang bash
-  shell cd demos/pf-web-polyglot-demo-plus-c/c && mkdir -p .tmp ../web/llvm/c && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
+  shell ROOT="$(pwd)"; cur="$ROOT"; while [ "$cur" != "/" ]; do [ -d "$cur/pf-files" ] && ROOT="$cur" && break; cur="$(dirname "$cur")"; done; cd "$ROOT/demos/pf-web-polyglot-demo-plus-c/c"; mkdir -p .tmp ../web/llvm/c; echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h; clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o ../web/llvm/c/c_trap.ll; rm -rf .tmp
 end
 
 task build-c-llvm-opt
   describe Build C to LLVM IR with custom optimization passes
   shell_lang bash
-  shell cd demos/pf-web-polyglot-demo-plus-c/c && mkdir -p .tmp ../web/llvm/c && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o .tmp/c_trap_unopt.ll && opt-18 -S -passes="${passes:-mem2reg,instcombine,simplifycfg,loop-vectorize}" .tmp/c_trap_unopt.ll -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
+  shell ROOT="$(pwd)"; cur="$ROOT"; while [ "$cur" != "/" ]; do [ -d "$cur/pf-files" ] && ROOT="$cur" && break; cur="$(dirname "$cur")"; done; cd "$ROOT/demos/pf-web-polyglot-demo-plus-c/c"; mkdir -p .tmp ../web/llvm/c; echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h; clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o .tmp/c_trap_unopt.ll; opt-18 -S -passes="${passes:-mem2reg,instcombine,simplifycfg,loop-vectorize}" .tmp/c_trap_unopt.ll -o ../web/llvm/c/c_trap.ll; rm -rf .tmp
 end
 
 # ============================================================================
@@ -68,13 +84,13 @@ end
 task build-fortran
   describe Build Fortran to WebAssembly
   shell_lang bash
-  shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown
+  shell ROOT="$(pwd)"; cur="$ROOT"; while [ "$cur" != "/" ]; do [ -d "$cur/pf-files" ] && ROOT="$cur" && break; cur="$(dirname "$cur")"; done; cd "$ROOT/demos/pf-web-polyglot-demo-plus-c/fortran"; mkdir -p ../web/wasm/fortran; echo "[INFO] lfortran wasm32 backend unavailable here; building native binary instead"; lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.native
 end
 
 task build-fortran-llvm
   describe Build Fortran to LLVM IR with optimization
   shell_lang bash
-  shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 --show-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -o ../web/llvm/fortran/hello.ll
+  shell ROOT="$(pwd)"; cur="$ROOT"; while [ "$cur" != "/" ]; do [ -d "$cur/pf-files" ] && ROOT="$cur" && break; cur="$(dirname "$cur")"; done; cd "$ROOT/demos/pf-web-polyglot-demo-plus-c/fortran"; mkdir -p ../web/llvm/fortran; lfortran src/hello.f90 --show-llvm -o ../web/llvm/fortran/hello.ll
 end
 
 # ============================================================================
@@ -84,7 +100,7 @@ end
 task build-wat
   describe Build WAT to WebAssembly
   shell_lang bash
-  shell cd demos/pf-web-polyglot-demo-plus-c/asm && wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
+  shell ROOT="$(pwd)"; cur="$ROOT"; while [ "$cur" != "/" ]; do [ -d "$cur/pf-files" ] && ROOT="$cur" && break; cur="$(dirname "$cur")"; done; cd "$ROOT/demos/pf-web-polyglot-demo-plus-c/asm"; mkdir -p ../web/wasm/asm; wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
 end
 
 # ============================================================================

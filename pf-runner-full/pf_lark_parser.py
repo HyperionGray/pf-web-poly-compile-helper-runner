@@ -5,6 +5,7 @@ This module provides a robust, grammar-based parser using Lark,
 replacing the simple string-based parsing in pf_parser.py.
 """
 
+import re
 from typing import Dict, List, Optional, Any
 from lark import Lark, Transformer, Tree, Token
 from pathlib import Path
@@ -27,6 +28,7 @@ class PfTransformer(Transformer):
         super().__init__()
         self.tasks = {}
         self.current_task = None
+        self.file_default_lang: Optional[str] = None
     
     @staticmethod
     def _strip_quotes(value: str) -> str:
@@ -49,6 +51,7 @@ class PfTransformer(Transformer):
         task_name = str(items[0])
         params = {}
         body_items = []
+        task_default_lang = self.file_default_lang
         
         # Skip the task name and collect params and body
         i = 1
@@ -63,6 +66,8 @@ class PfTransformer(Transformer):
                 if 'type' in item:
                     # It's a body item
                     body_items.append(item)
+                    if item.get('type') == 'default_lang':
+                        task_default_lang = item.get('lang')
                 else:
                     # It's a param
                     params.update(item)
@@ -72,7 +77,8 @@ class PfTransformer(Transformer):
             'name': task_name,
             'params': params,
             'body': body_items,
-            'description': None
+            'description': None,
+            'default_lang': task_default_lang
         }
         
         # Extract description if present
@@ -101,7 +107,7 @@ class PfTransformer(Transformer):
     
     def shell(self, items):
         """Process a shell command."""
-        command = str(items[0])
+        command = "".join(str(item) for item in items if item is not None)
         return {'type': 'shell', 'command': command}
     
     def env_stmt(self, items):
@@ -298,6 +304,39 @@ class PfTransformer(Transformer):
     def env_var(self, items):
         """Process global env var (ignored for now)."""
         return None
+
+    def lang_shebang(self, items):
+        """Capture file-level language shebang (#!lang:xyz)."""
+        if not items:
+            return None
+        raw = str(items[0])
+        m = re.search(r"lang\s*[:=]\s*([A-Za-z0-9_-]+)", raw, re.IGNORECASE)
+        if m:
+            self.file_default_lang = m.group(1)
+        return {'type': 'lang_shebang', 'lang': self.file_default_lang}
+
+    def default_lang(self, items):
+        """Process task-level default_lang directive."""
+        lang = self._strip_quotes(str(items[0])) if items else None
+        return {'type': 'default_lang', 'lang': lang}
+
+    def shell_pipe_line(self, items):
+        """Line inside a shell | block."""
+        return str(items[0])
+
+    def shell_pipe(self, items):
+        """Process shell | passthrough block."""
+        raw = str(items[0]) if items else ""
+        lines = raw.splitlines()
+        # Drop the leading 'shell |' line if present
+        script_lines = lines[1:] if len(lines) > 1 else []
+        script = "\n".join(script_lines)
+        return {'type': 'shell_pipe', 'script': script}
+
+    def inline_stmt(self, items):
+        """Process raw inline line (bash-friendly)."""
+        text = str(items[0]) if items else ""
+        return {'type': 'inline', 'text': text}
     
     def _process_args(self, items):
         """Helper to process list of arguments."""

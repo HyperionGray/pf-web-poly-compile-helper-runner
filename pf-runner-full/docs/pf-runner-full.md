@@ -3,26 +3,21 @@
 ## Quick Install (One Command)
 
 ```bash
-# Clone and install pf with completions
-cd pf-runner && make setup && make install-local && make install-completions
+# Canonical installer (.deb)
+sudo dpkg -i build-packages/deb/pf-runner_latest.deb || sudo apt-get -f install -y
 ```
 
-That's it! The `pf` command is now available in your shell with tab completions.
+Need a fresh build? Regenerate and install the .deb in one go:
+
+```bash
+./build-packages/build-packages.sh --install deb --version 1.0.1
+```
+
+Pyproject/pip installs are deprecated—use the Debian package so you always get the full dependency set, completions, and consistent entrypoints.
 
 ### Alternative Install Methods
 
-**Development/Local:**
-```bash
-make setup              # Creates ./pf symlink for local use
-make install-local      # Installs pf to ~/.local/bin
-make install-completions # Installs shell completions (bash & zsh)
-```
-
-**System-wide with static binary:**
-```bash
-make build              # Creates static executable
-make install            # Installs to /usr/local/bin with completions (requires sudo)
-```
+None. The .deb is the supported installer; everything else is deprecated.
 
 
 ## WHAT IS IT!?
@@ -112,10 +107,17 @@ the Packet CPU executors.
 
 ## Install
 
+**Canonical (preferred):**
+
 ```bash
-pip install "fabric>=3.2,<4"
-chmod +x pf.py
+sudo dpkg -i build-packages/deb/pf-runner_latest.deb || sudo apt-get -f install -y
+# or rebuild & install the latest:
+./build-packages/build-packages.sh --install deb --version 1.0.1
 ```
+
+**Deprecated (pip/pyproject):**
+
+Deprecated methods (pip/editable, make install-local) are no longer supported—use the .deb.
 
 ## Quickstart
 
@@ -505,7 +507,7 @@ end
 1. **Cargo** (Cargo.toml) → `cargo build`
 2. **Go** (go.mod) → `go build`
 3. **npm** (package.json) → `npm run build` or `npm install`
-4. **Python** (setup.py, pyproject.toml) → `pip install -e .` or `python setup.py build`
+4. **Python** (setup.py, pyproject.toml) → `python -m build` (editable/pip installs are discouraged)
 5. **Maven** (pom.xml) → `mvn compile`
 6. **Gradle** (build.gradle) → `gradle build`
 7. **CMake** (CMakeLists.txt) → `cmake` + `cmake --build`

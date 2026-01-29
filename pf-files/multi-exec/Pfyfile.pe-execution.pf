@@ -22,6 +22,14 @@ task pe-build-windows-server
     podman build -t localhost/pf-pe-windows-server:latest -f "$ROOT/containers/dockerfiles/Dockerfile.pe-windows-server" "$ROOT"
 end
 
+task pe-build-windows-nano
+  describe Build Windows Server Nano PE execution container
+  shell_lang bash
+  shell |
+    ROOT="$(git rev-parse --show-toplevel)"
+    podman build -t localhost/pf-pe-windows-nano:latest -f "$ROOT/containers/dockerfiles/Dockerfile.pe-windows-nano" "$ROOT"
+end
+
 task pe-build-reactos
   describe Build ReactOS PE execution container
   shell_lang bash
@@ -107,6 +115,40 @@ task pe-execute-windows pe_file=""
         --volume /tmp:/tmp \
         localhost/pf-pe-windows-server:latest \
         pf-execute-pe "/workspace/$PE_NAME"
+end
+
+task pe-execute-nano pe_file=""
+  describe Execute Windows PE file using Windows Server Nano container
+  shell_lang bash
+  shell |
+    if [ -z "${pe_file}" ]; then
+        echo "Usage: pf pe-execute-nano pe_file=<path-to-pe-file>"
+        echo "Requires a Nano Server VHDX (set NANOSERVER_VHD_URL or mount to /opt/windows-images)."
+        exit 1
+    fi
+
+    PE_PATH="${pe_file}"
+    if [ ! -f "$PE_PATH" ]; then
+        echo "Error: PE file not found: $PE_PATH"
+        exit 1
+    fi
+
+    PE_ABS="$(realpath "$PE_PATH")"
+    PE_DIR="$(dirname "$PE_ABS")"
+    PE_NAME="$(basename "$PE_ABS")"
+
+    OUT_DIR="${PWD}/pe-output"
+    mkdir -p "$OUT_DIR"
+
+    echo "Executing PE file in Windows Server Nano: $PE_ABS"
+    podman run --rm -it \
+        --privileged \
+        --device /dev/kvm:/dev/kvm \
+        --volume "$PE_DIR":/workspace:ro \
+        --volume "$OUT_DIR":/artifacts/pe-results \
+        --volume /tmp:/tmp \
+        localhost/pf-pe-windows-nano:latest \
+        pf-execute-pe-nano "/workspace/$PE_NAME"
 end
 
 task pe-execute-reactos pe_file=""
@@ -201,6 +243,20 @@ task pe-prepare-windows
         pf-prepare-windows
 end
 
+task pe-prepare-windows-nano
+  describe Prepare Windows Server Nano VM template
+  shell_lang bash
+  shell |
+    echo "Preparing Windows Server Nano VM template..."
+    echo "Reminder: set NANOSERVER_VHD_URL or mount a Nano VHDX into ./windows-images before running."
+    podman run --rm -it \
+        --privileged \
+        --volume $(pwd):/workspace \
+        --volume /tmp:/tmp \
+        localhost/pf-pe-windows-nano:latest \
+        pf-prepare-windows-nano
+end
+
 task pe-prepare-reactos
   describe Prepare ReactOS VM template
   shell_lang bash
@@ -252,6 +308,15 @@ task pe-status
     fi
     
     echo ""
+    echo "Windows Server Nano Container:"
+    if podman image exists localhost/pf-pe-windows-nano:latest; then
+        echo "  OK Available"
+        podman run --rm localhost/pf-pe-windows-nano:latest pf-pe-nano-status
+    else
+        echo "  NO Not built (run: pf pe-build-windows-nano)"
+    fi
+    
+    echo ""
     echo "ReactOS Container:"
     if podman image exists localhost/pf-pe-reactos:latest; then
         echo "  OK Available"
@@ -284,6 +349,15 @@ task pe-shell container=""
                 localhost/pf-pe-windows-server:latest \
                 /bin/bash
             ;;
+        nano|windows-nano)
+            echo "Opening shell in Windows Server Nano container..."
+            podman run --rm -it \
+                --privileged \
+                --device /dev/kvm:/dev/kvm \
+                --volume $(pwd):/workspace \
+                localhost/pf-pe-windows-nano:latest \
+                /bin/bash
+            ;;
         reactos)
             echo "Opening shell in ReactOS container..."
             podman run --rm -it \
@@ -304,9 +378,10 @@ task pe-shell container=""
                 /bin/bash
             ;;
         *)
-            echo "Usage: pf pe-shell container=<windows|reactos|macos>"
+            echo "Usage: pf pe-shell container=<windows|nano|reactos|macos>"
             echo "Available containers:"
             echo "  windows    - Windows Server Core (default)"
+            echo "  nano       - Windows Server Nano"
             echo "  reactos    - ReactOS"
             echo "  macos      - macOS QEMU"
             exit 1
@@ -392,6 +467,7 @@ task analyze-binary binary_file=""
         echo "Detected: Windows PE executable"
         echo "Recommended execution:"
         echo "  pf pe-execute pe_file=${binary_file}           # Windows Server Core"
+        echo "  pf pe-execute-nano pe_file=${binary_file}      # Windows Server Nano"
         echo "  pf pe-execute-reactos pe_file=${binary_file}   # ReactOS (open source)"
     elif echo "$FILE_TYPE" | grep -q "Mach-O"; then
         echo ""
@@ -460,12 +536,14 @@ PE Execution and Cross-Platform Binary Execution Commands
 BUILD COMMANDS:
   pf pe-build-all                    Build all PE execution containers
   pf pe-build-windows-server         Build Windows Server Core container
+  pf pe-build-windows-nano           Build Windows Server Nano container
   pf pe-build-reactos                Build ReactOS container
   pf pe-build-macos-qemu             Build macOS QEMU container
 
 PE EXECUTION:
   pf pe-execute pe_file=<file>       Execute PE in Windows Server Core (default)
   pf pe-execute-windows pe_file=<file>    Execute PE in Windows Server Core
+  pf pe-execute-nano pe_file=<file>       Execute PE in Windows Server Nano
   pf pe-execute-reactos pe_file=<file>    Execute PE in ReactOS
 
 MACOS EXECUTION:
@@ -473,6 +551,7 @@ MACOS EXECUTION:
 
 TEMPLATE PREPARATION:
   pf pe-prepare-windows              Prepare Windows Server Core template
+  pf pe-prepare-windows-nano         Prepare Windows Server Nano template
   pf pe-prepare-reactos              Prepare ReactOS template
   pf macos-prepare                   Prepare macOS template
 
@@ -507,6 +586,7 @@ EXAMPLES:
 
 LEGAL NOTICES:
   - Windows Server Core: Ensure proper licensing for containerized use
+  - Windows Server Nano: Bring-your-own Nano Server VHDX (evaluation VHDX works)
   - ReactOS: Open source, free to use
   - macOS: Ensure compliance with Apple's Software License Agreement
   - macOS virtualization may only be legal on Apple hardware

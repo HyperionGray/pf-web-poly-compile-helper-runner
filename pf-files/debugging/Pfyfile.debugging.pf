@@ -8,7 +8,15 @@
 task install-debuggers
   describe Install GDB, LLDB, and pwndbg for advanced debugging
   shell_lang bash
-  shell bash tools/debugging/install-debuggers.sh
+  shell |
+    set -euo pipefail
+    ROOT="${PF_ROOT:-$(pwd)}"
+    SCRIPT="$ROOT/tools/debugging/install-debuggers.sh"
+    if [ ! -x "$SCRIPT" ]; then
+      echo "[ERR] install-debuggers script not found at $SCRIPT" >&2
+      exit 127
+    fi
+    bash "$SCRIPT"
 end
 
 task check-debuggers

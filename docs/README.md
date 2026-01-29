@@ -43,6 +43,17 @@ npm run security:all
 
 ## Quick Start
 
+**Install (canonical, Debian/Ubuntu):**
+
+```bash
+sudo dpkg -i build-packages/deb/pf-runner_latest.deb || sudo apt-get -f install -y
+# or: ./build-packages/build-packages.sh --install deb --version 1.0.1
+```
+
+Pyproject/pip installs are deprecated; use the packaged installer to get all deps, completions, and service units in one shot.
+
+> Canonical layout: `pf-runner-full/` is the source of truth and builds the .deb. The older `pf-runner/` tree has been removed to avoid confusion.
+
 **New to pf?** Check out the [**QUICKSTART.md**](QUICKSTART.md) for a comprehensive guide with examples!
 
 **Want to organize tasks with subcommands?** See [**SUBCOMMANDS.md**](SUBCOMMANDS.md) for grouping and organizing your tasks!
@@ -535,7 +546,7 @@ See [Distro Container Management Guide](DISTRO-CONTAINER-MANAGEMENT.md) for comp
 - Git
 - Podman (for building/running the pf container)
 
-**Note:** For a host-only install, use `./install.sh --mode native`. The default install path is container-first.
+**Note:** For a host-only install, use `./install.sh`. The default install path is package-first.
 
 ### Optional Prerequisites
 The container image already bundles the pf runtime; language toolchains are installed inside the containers defined under `containers/`.
@@ -607,10 +618,10 @@ For a host-only install (no containers):
 
 ```bash
 # System-wide install (requires sudo)
-sudo ./install.sh --mode native
+sudo ./install.sh
 
 # Or install to user directory (no sudo needed)
-./install.sh --mode native --prefix ~/.local
+./install.sh --prefix ~/.local
 ```
 
 What this does:
@@ -635,7 +646,7 @@ pf install-base  # Alias to install (for compatibility)
 - `localhost/pf-runner:latest` container image
 - `pf` wrapper in `~/.local/bin` (or your prefix)
 
-**Native install (`./install.sh --mode native`):**
+**Native install (`./install.sh`):**
 - `pf` executable in `/usr/bin` (or `~/.local/bin`)
 - `pf-runner` library in `/usr/lib/pf-runner` (or `~/.local/lib/pf-runner`)
 - Python dependencies (fabric, lark, typer)
@@ -665,7 +676,7 @@ This automatically detects your system and chooses the best installation method.
 
 **Native install (no containers):**
 ```bash
-./install.sh --mode native --prefix ~/.local
+./install.sh --prefix ~/.local
 ```
 
 **Debian/Ubuntu package:**
@@ -691,10 +702,10 @@ For a host-only install (no containers):
 
 ```bash
 # System-wide install (requires sudo)
-sudo ./install.sh --mode native
+sudo ./install.sh
 
 # User install (no sudo needed)
-./install.sh --mode native --prefix ~/.local
+./install.sh --prefix ~/.local
 ```
 
 #### Manual Installation
@@ -1466,14 +1477,14 @@ Additional documentation in `../pf-runner/`:
 
 #### pf command not found
 - Run `./install.sh --runtime podman` to reinstall the container wrapper
-- For native user install: `./install.sh --mode native --prefix ~/.local`
-- For native system install: `sudo ./install.sh --mode native`
+- For native user install: `./install.sh --prefix ~/.local`
+- For native system install: `sudo ./install.sh`
 - Run `source ~/.bashrc` (or `~/.zshrc`) to reload your shell configuration
 - Check that the install path is in your PATH
 
 #### Fabric import error
 - Run `pip install --user "fabric>=3.2,<4"` to install the dependency
-- Or reinstall with: `./install.sh --mode native` (dependencies are installed automatically)
+- Or reinstall with: `./install.sh` (dependencies are installed automatically)
 
 #### Installation script fails
 - Ensure Python 3.10+ is installed: `python3 --version`

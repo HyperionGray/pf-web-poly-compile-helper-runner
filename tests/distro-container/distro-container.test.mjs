@@ -127,9 +127,16 @@ async function runTests() {
   console.log(`\n${colors.cyan}Testing CLI Interface...${colors.reset}\n`);
 
   try {
-    const helpOutput = execSync(`node ${join(toolsDir, 'distro-container-manager.mjs')} --help`, {
+    // Prefer the current Node binary (process.execPath) so we keep import-attributes support.
+    const nodeBin = process.env.NODE_BIN || process.execPath;
+    const childEnv = {
+      ...process.env,
+      PATH: `${dirname(nodeBin)}:${process.env.PATH}`
+    };
+    const helpOutput = execSync(`${nodeBin} ${join(toolsDir, 'distro-container-manager.mjs')} --help`, {
       encoding: 'utf-8',
-      cwd: projectRoot
+      cwd: projectRoot,
+      env: childEnv,
     });
     assert(helpOutput.includes('Distro Container Manager'), 'Help shows tool name');
     assert(helpOutput.includes('install'), 'Help shows install command');

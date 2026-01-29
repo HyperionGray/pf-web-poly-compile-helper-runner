@@ -6,7 +6,7 @@ FROM ubuntu:22.04
 LABEL maintainer="pf-runner"
 LABEL description="ReactOS-based container for native PE execution"
 LABEL os.type="pe-reactos"
-LABEL os.version="0.4.14"
+LABEL os.version="0.4.15"
 LABEL execution.type="pe"
 
 # Prevent interactive prompts
@@ -42,26 +42,63 @@ RUN cat > /reactos/scripts/setup-reactos.sh << 'SETUP'
 #!/bin/bash
 # Download and setup ReactOS for PE execution
 
-set -e
+set -euo pipefail
 
-REACTOS_VERSION="${REACTOS_VERSION:-0.4.14}"
+REACTOS_VERSION="${REACTOS_VERSION:-0.4.15}"
+REACTOS_RELEASE="${REACTOS_RELEASE:-0.4.15-release}"
+REACTOS_IMAGE_NAME="${REACTOS_IMAGE_NAME:-ReactOS-0.4.15-release-1-gdbb43bbaeb2-x86-live.zip}"
 IMAGE_DIR="/reactos/images"
-ISO_URL="https://sourceforge.net/projects/reactos/files/ReactOS/${REACTOS_VERSION}/ReactOS-${REACTOS_VERSION}-live.iso/download"
+TARGET_ISO="${IMAGE_DIR}/reactos-live.iso"
 
-echo "Setting up ReactOS ${REACTOS_VERSION}..."
+download_live_image() {
+    local url
+    for url in \
+        "https://downloads.sourceforge.net/project/reactos.mirror/${REACTOS_RELEASE}/${REACTOS_IMAGE_NAME}" \
+        "https://sourceforge.net/projects/reactos.mirror/files/${REACTOS_RELEASE}/${REACTOS_IMAGE_NAME}/download" \
+        "https://downloads.sourceforge.net/project/reactos/ReactOS/${REACTOS_VERSION}/ReactOS-${REACTOS_VERSION}-live.iso" \
+        "https://sourceforge.net/projects/reactos/files/ReactOS/${REACTOS_VERSION}/ReactOS-${REACTOS_VERSION}-live.iso/download"; do
+        echo "Trying download: ${url}"
+        if wget -q --show-progress -O "${IMAGE_DIR}/${REACTOS_IMAGE_NAME}" "$url"; then
+            return 0
+        fi
+        echo "Download failed, trying next source..."
+    done
+    return 1
+}
 
-# Download ReactOS LiveCD if not present
-if [ ! -f "${IMAGE_DIR}/reactos-live.iso" ]; then
-    echo "Downloading ReactOS LiveCD..."
-    wget -q --show-progress -O "${IMAGE_DIR}/reactos-live.iso" "$ISO_URL" || {
-        echo "Primary download failed, trying mirror..."
-        wget -q --show-progress -O "${IMAGE_DIR}/reactos-live.iso" \
-            "https://downloads.sourceforge.net/project/reactos/ReactOS/${REACTOS_VERSION}/ReactOS-${REACTOS_VERSION}-live.iso" || {
-            echo "Error: Could not download ReactOS ISO"
-            echo "Please download manually from: https://reactos.org/download"
+extract_iso() {
+    local downloaded="${IMAGE_DIR}/${REACTOS_IMAGE_NAME}"
+    if [[ "${downloaded}" == *.zip ]]; then
+        echo "Extracting ISO from zip..."
+        unzip -qo "${downloaded}" -d "${IMAGE_DIR}"
+        local iso_found
+        iso_found=$(find "${IMAGE_DIR}" -maxdepth 1 -type f -name '*.iso' | head -n1 || true)
+        if [ -z "$iso_found" ]; then
+            echo "Error: ISO not found inside ${downloaded}"
             exit 1
-        }
-    }
+        fi
+        mv "$iso_found" "$TARGET_ISO"
+        rm -f "${downloaded}"
+    else
+        mv "${downloaded}" "$TARGET_ISO"
+    fi
+}
+
+echo "Setting up ReactOS ${REACTOS_VERSION} (release ${REACTOS_RELEASE})..."
+
+# Download ReactOS Live image if missing
+if [ ! -f "${TARGET_ISO}" ]; then
+    mkdir -p "${IMAGE_DIR}"
+    echo "Downloading ReactOS Live image..."
+    if download_live_image; then
+        extract_iso
+    else
+        echo "Error: Could not download ReactOS Live image from any source."
+        echo "Please download manually from: https://reactos.org/download"
+        exit 1
+    fi
+else
+    echo "Using existing ISO at ${TARGET_ISO}"
 fi
 
 # Create disk image for persistent storage
@@ -321,5 +358,7 @@ CMD ["pf-pe-help.sh"]
 
 # Environment
 ENV OS_TYPE=pe-reactos
-ENV REACTOS_VERSION=0.4.14
+ENV REACTOS_VERSION=0.4.15
+ENV REACTOS_RELEASE=0.4.15-release
+ENV REACTOS_IMAGE_NAME=ReactOS-0.4.15-release-1-gdbb43bbaeb2-x86-live.zip
 ENV QEMU_AUDIO_DRV=none

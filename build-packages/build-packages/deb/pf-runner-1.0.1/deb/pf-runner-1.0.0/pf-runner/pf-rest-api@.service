@@ -1,0 +1,34 @@
+[Unit]
+Description=pf REST API Server
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=/opt/pf-runner
+ExecStart=/usr/bin/python3 -m uvicorn pf_api:app --host ${PF_API_HOST:-127.0.0.1} --port ${PF_API_PORT:-8000} --workers ${PF_API_WORKERS:-4}
+Restart=on-failure
+RestartSec=5
+
+# Environment configuration
+# Override these in /etc/default/pf-rest-api or via drop-in files
+Environment=PF_API_HOST=127.0.0.1
+Environment=PF_API_PORT=8000
+Environment=PF_API_WORKERS=4
+EnvironmentFile=-/etc/default/pf-rest-api
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/log/pf
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target

@@ -1,8 +1,8 @@
 #!/bin/bash
-# Development Environment Setup Script
-# This script sets up the complete development environment for pf-web-poly-compile-helper-runner
+# Development Environment Setup Script (no venv required)
+# Sets up Python + Node tooling and validates pf from anywhere in the repo tree.
 
-set -e
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -10,6 +10,31 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Resolve paths up-front so the script works from any directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if git -C "$SCRIPT_DIR" rev-parse --show-toplevel >/dev/null 2>&1; then
+    REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
+else
+    # script lives under build-packages/pf-runner-1.0.0 → repo root is two levels up
+    REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+fi
+PF_SRC="$REPO_ROOT/pf-runner-full"
+NODE_ROOT="$REPO_ROOT"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+
+# Default pip flags: user install when not root, allow system-breaking installs on distros with PEP 668
+if [[ -z "${PIP_FLAGS:-}" ]]; then
+    if [[ $(id -u) -eq 0 ]]; then
+        PIP_FLAGS="--break-system-packages"
+    else
+        PIP_FLAGS="--user --break-system-packages"
+    fi
+fi
+
+# Split into an array for safe reuse
+IFS=' ' read -r -a PIP_FLAGS_ARR <<< "$PIP_FLAGS"
+PATH="$HOME/.local/bin:$PATH"  # ensure user bin is searchable during the run
 
 # Function to print colored output
 print_status() {
@@ -54,18 +79,18 @@ check_system_requirements() {
         print_status "success" "Python $python_version found"
     fi
     
-    # Check Node.js
+    # Check Node.js (optional; warn but do not fail)
     if ! command -v node &> /dev/null; then
-        missing_deps+=("node")
+        print_status "warning" "Node.js not found (web/ui tasks will be skipped)"
     else
         local node_version
         node_version=$(node --version)
         print_status "success" "Node.js $node_version found"
     fi
-    
-    # Check npm
+
+    # Check npm (optional; warn but do not fail)
     if ! command -v npm &> /dev/null; then
-        missing_deps+=("npm")
+        print_status "warning" "npm not found (web/ui deps will be skipped)"
     else
         local npm_version
         npm_version=$(npm --version)
@@ -84,13 +109,9 @@ check_system_requirements() {
     if [ ${#missing_deps[@]} -ne 0 ]; then
         print_status "error" "Missing required dependencies: ${missing_deps[*]}"
         echo ""
-        echo "Please install the missing dependencies and run this script again."
-        echo ""
-        echo "On Ubuntu/Debian:"
-        echo "  sudo apt update && sudo apt install python3 python3-pip nodejs npm git"
-        echo ""
-        echo "On macOS:"
-        echo "  brew install python3 node npm git"
+        echo "Install prerequisites, then re-run:"
+        echo "  Ubuntu/Debian: sudo apt update && sudo apt install python3 python3-pip git"
+        echo "  macOS:         brew install python3 git"
         echo ""
         exit 1
     fi
@@ -100,16 +121,16 @@ check_system_requirements() {
 
 # Install Python dependencies
 install_python_dependencies() {
-    print_status "info" "Installing Python dependencies..."
-    
-    # Core dependencies
+    print_status "info" "Installing Python dependencies (no venv)..."
+
+    # Core runtime deps mirror pyproject
     local core_deps=(
         "fabric>=3.2,<4"
-        "rich"
-        "lark"
+        "lark>=1.1,<2.0"
+        "typer>=0.12"
     )
-    
-    # Development dependencies
+
+    # Dev-quality tools (optional)
     local dev_deps=(
         "pytest"
         "pytest-cov"
@@ -122,73 +143,50 @@ install_python_dependencies() {
         "mypy"
         "isort"
     )
-    
-    # Install core dependencies
-    for dep in "${core_deps[@]}"; do
-        print_status "info" "Installing $dep..."
-        pip3 install "$dep" || {
-            print_status "error" "Failed to install $dep"
-            exit 1
-        }
-    done
-    
-    # Install development dependencies
-    for dep in "${dev_deps[@]}"; do
-        print_status "info" "Installing $dep..."
-        pip3 install "$dep" || {
-            print_status "warning" "Failed to install $dep (non-critical)"
-        }
-    done
-    
+
+    # Install core deps
+    "$PYTHON_BIN" -m pip install "${PIP_FLAGS_ARR[@]}" "${core_deps[@]}" || {
+        print_status "error" "Failed to install core Python deps"
+        exit 1
+    }
+
+    # Install dev deps best-effort
+    "$PYTHON_BIN" -m pip install "${PIP_FLAGS_ARR[@]}" "${dev_deps[@]}" || {
+        print_status "warning" "Some dev deps failed; continuing"
+    }
+
     print_status "success" "Python dependencies installed"
 }
 
 # Install Node.js dependencies
 install_node_dependencies() {
-    print_status "info" "Installing Node.js dependencies..."
-    
-    if [ -f "package.json" ]; then
-        npm ci || {
-            print_status "error" "Failed to install Node.js dependencies"
-            exit 1
-        }
-    else
-        print_status "warning" "No package.json found, skipping Node.js dependencies"
+    # Optional step; skip cleanly if npm is absent
+    if ! command -v npm >/dev/null 2>&1; then
+        print_status "warning" "npm not available; skipping Node deps"
         return
     fi
-    
-    # Install additional development tools
-    local dev_tools=(
-        "@typescript-eslint/parser"
-        "@typescript-eslint/eslint-plugin"
-        "eslint-plugin-security"
-        "eslint-plugin-import"
-        "prettier"
-    )
-    
-    for tool in "${dev_tools[@]}"; do
-        print_status "info" "Installing $tool..."
-        npm install --save-dev "$tool" || {
-            print_status "warning" "Failed to install $tool (non-critical)"
-        }
-    done
-    
+
+    print_status "info" "Installing Node.js dependencies..."
+
+    (cd "$NODE_ROOT" && npm ci) || {
+        print_status "warning" "npm ci failed; skipping web tooling"
+        return
+    }
+
     print_status "success" "Node.js dependencies installed"
 }
 
 # Install Playwright browsers
 install_playwright_browsers() {
-    print_status "info" "Installing Playwright browsers..."
-    
-    if command -v npx &> /dev/null; then
-        npx playwright install --with-deps || {
-            print_status "warning" "Failed to install Playwright browsers (non-critical)"
-            return
-        }
-        print_status "success" "Playwright browsers installed"
-    else
-        print_status "warning" "npx not available, skipping Playwright browsers"
+    if ! command -v npx >/dev/null 2>&1; then
+        print_status "warning" "npx not available; skipping Playwright browsers"
+        return
     fi
+
+    print_status "info" "Installing Playwright browsers..."
+    (cd "$NODE_ROOT" && npx playwright install --with-deps) || {
+        print_status "warning" "Playwright browser install failed (non-critical)"
+    }
 }
 
 # Set up Git hooks
@@ -224,6 +222,20 @@ EOF
     
     git config commit.template .git/commit-template
     print_status "success" "Git commit template configured"
+}
+
+# Install a user-scoped pf shim that works without a venv
+install_pf_shim() {
+    print_status "info" "Installing user pf shim..."
+    local shim_dir="$HOME/.local/bin"
+    mkdir -p "$shim_dir"
+    local target="$REPO_ROOT/pf.sh"
+    if ln -sfn "$target" "$shim_dir/pf"; then
+        chmod +x "$target"
+        print_status "success" "pf shim linked to $target"
+    else
+        print_status "warning" "Could not link pf shim (path: $shim_dir/pf)"
+    fi
 }
 
 # Create development configuration files
@@ -303,36 +315,30 @@ EOF
 
 # Run initial tests
 run_initial_tests() {
-    print_status "info" "Running initial tests to verify setup..."
-    
-    # Test Python syntax
-    if [ -d "pf-runner" ]; then
-        for py_file in pf-runner/*.py; do
-            if [[ "$py_file" != *"pf_grammar.py" ]]; then
-                python3 -m py_compile "$py_file" || {
-                    print_status "error" "Python syntax error in $py_file"
-                    exit 1
-                }
-            fi
+    print_status "info" "Running smoke checks (no venv)..."
+
+    # Python syntax for core files
+    if [ -d "$PF_SRC" ]; then
+        for py_file in "$PF_SRC"/pf_*.py "$PF_SRC"/pfuck.py; do
+            [[ -f "$py_file" ]] || continue
+            "$PYTHON_BIN" -m py_compile "$py_file" || {
+                print_status "error" "Python syntax error in $py_file"
+                exit 1
+            }
         done
         print_status "success" "Python syntax check passed"
     fi
-    
-    # Test Node.js syntax
-    if [ -f "package.json" ]; then
-        npm run test:unit --silent || {
-            print_status "warning" "Some Node.js tests failed (this may be expected in initial setup)"
-        }
+
+    # pf list using the source tree (works without venv)
+    if [ -f "$PF_SRC/pf_main.py" ]; then
+        PYTHONPATH="$PF_SRC" "$PYTHON_BIN" -m pf_main --version >/dev/null 2>&1 || print_status "warning" "pf --version failed"
+        PYTHONPATH="$PF_SRC" "$PYTHON_BIN" -m pf_main list >/dev/null 2>&1 || print_status "warning" "pf list failed"
+        print_status "success" "pf source runner smoke check complete"
     fi
-    
-    # Test basic pf-runner functionality
-    if [ -f "pf-runner/pf_main.py" ]; then
-        cd pf-runner
-        python3 pf_main.py --help > /dev/null || {
-            print_status "warning" "pf-runner help test failed (may need additional setup)"
-        }
-        cd ..
-        print_status "success" "Basic pf-runner functionality verified"
+
+    # Minimal Node lint smoke (optional)
+    if command -v npm >/dev/null 2>&1 && [ -f "$NODE_ROOT/package.json" ]; then
+        (cd "$NODE_ROOT" && npm run lint --if-present --silent) || print_status "warning" "npm lint failed (non-blocking)"
     fi
 }
 
@@ -352,7 +358,7 @@ display_summary() {
     echo -e "${BLUE}🚀 Next Steps:${NC}"
     echo "  1. Run comprehensive tests: python3 run_comprehensive_tests.py"
     echo "  2. Start development server: npm run dev"
-    echo "  3. Run TUI: cd pf-runner && python3 pf_tui.py"
+    echo "  3. Run TUI: PYTHONPATH=$PF_SRC $PYTHON_BIN -m pf_tui"
     echo "  4. View documentation: open README.md"
     echo ""
     echo -e "${BLUE}🔧 Available Commands:${NC}"
@@ -377,6 +383,7 @@ main() {
     install_node_dependencies
     install_playwright_browsers
     setup_git_hooks
+    install_pf_shim
     create_dev_configs
     run_initial_tests
     display_summary

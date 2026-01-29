@@ -18,6 +18,7 @@
 ./test_smart_integration.py
 ./README-COMPREHENSIVE.md
 ./run_syntax_check.py
+./conftest.py
 ./compilation/test-all-targets.sh
 ./run-all-tests.sh
 ./test_native_installer.sh

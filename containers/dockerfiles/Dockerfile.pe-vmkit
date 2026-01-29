@@ -189,14 +189,36 @@ create_reactos_image() {
     echo "Creating ReactOS VM image..."
     
     # Download ReactOS LiveCD if not present
+    REACTOS_RELEASE="${REACTOS_RELEASE:-0.4.15-release}"
+    REACTOS_IMAGE_NAME="${REACTOS_IMAGE_NAME:-ReactOS-0.4.15-release-1-gdbb43bbaeb2-x86-live.zip}"
     REACTOS_ISO="${OUTPUT_DIR}/reactos-livecd.iso"
+    REACTOS_ZIP="${OUTPUT_DIR}/${REACTOS_IMAGE_NAME}"
     if [ ! -f "$REACTOS_ISO" ]; then
         echo "Downloading ReactOS LiveCD..."
-        wget -q -O "$REACTOS_ISO" \
-            "https://sourceforge.net/projects/reactos/files/ReactOS/0.4.14/ReactOS-0.4.14-live.iso/download" || \
-        wget -q -O "$REACTOS_ISO" \
-            "https://downloads.sourceforge.net/project/reactos/ReactOS/0.4.14/ReactOS-0.4.14-live.iso" || \
-        echo "Warning: Could not download ReactOS ISO. Please download manually."
+        for url in \
+            "https://downloads.sourceforge.net/project/reactos.mirror/${REACTOS_RELEASE}/${REACTOS_IMAGE_NAME}" \
+            "https://sourceforge.net/projects/reactos.mirror/files/${REACTOS_RELEASE}/${REACTOS_IMAGE_NAME}/download"; do
+            echo "Trying ${url}..."
+            if wget -q -O "$REACTOS_ZIP" "$url"; then
+                break
+            fi
+        done
+
+        if [ -f "$REACTOS_ZIP" ]; then
+            echo "Extracting ISO..."
+            unzip -qo "$REACTOS_ZIP" -d "$OUTPUT_DIR"
+            ISO_FOUND=$(find "$OUTPUT_DIR" -maxdepth 1 -type f -name '*.iso' | head -n1 || true)
+            if [ -n "$ISO_FOUND" ]; then
+                mv "$ISO_FOUND" "$REACTOS_ISO"
+            else
+                echo "Warning: ISO not found inside ${REACTOS_IMAGE_NAME}"
+            fi
+            rm -f "$REACTOS_ZIP"
+        fi
+
+        if [ ! -f "$REACTOS_ISO" ]; then
+            echo "Warning: Could not download ReactOS ISO. Please download manually."
+        fi
     fi
     
     # Create QCOW2 image

@@ -5,17 +5,19 @@
 # Installation Tasks
 # ============================================================================
 
-task install-retdec
+task install-retdec skip_build="false" force_build="false"
   describe Install RetDec for binary lifting to LLVM IR
   shell_lang bash
-  shell bash tools/lifting/install-retdec.sh
+  shell force_build=${force_build} skip_build=${skip_build} tools/lifting/install-retdec-wrapper.sh
 end
 
 task install-lifting-tools
   describe Install all LLVM lifting tools
   shell_lang bash
-  shell echo "Installing LLVM lifting tools..."
-  shell bash tools/lifting/install-retdec.sh
+  shell |
+    set -euo pipefail
+    echo "Installing LLVM lifting tools..."
+    pf install-retdec
 end
 
 # ============================================================================

@@ -35,6 +35,11 @@ from typing import List, Dict, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+# Prefer bundled vendor deps (for .deb installs) before falling back to site-packages.
+VENDOR_PATH = Path(__file__).resolve().parent / "vendor"
+if VENDOR_PATH.exists():
+    sys.path.insert(0, str(VENDOR_PATH))
+
 # Import existing pf functionality
 from pf_parser import (
     get_alias_map,
@@ -49,6 +54,9 @@ from pf_parser import (
     _c_for,
     _dedupe_preserve_order,
     _interpolate,
+    _parse_heredoc_syntax,
+    _parse_lang_bracket,
+    _canonical_lang,
     _render_polyglot_command,
     _exec_line_fabric,
     BUILTINS,
@@ -481,10 +489,41 @@ class PfRunner:
             
             # Parse parameters for this task
             cli_params: Dict[str, str] = {}
-            while i < len(task_args) and '=' in task_args[i] and not task_args[i].startswith('--'):
-                key, value = task_args[i].split('=', 1)
-                cli_params[key] = value
-                i += 1
+            while i < len(task_args):
+                tok = task_args[i]
+
+                # Stop if the next token looks like a new task name
+                if tok in valid_task_names:
+                    break
+
+                # --key=value
+                if tok.startswith('--') and '=' in tok:
+                    key, value = tok[2:].split('=', 1)
+                    cli_params[key] = value
+                    i += 1
+                    continue
+
+                # --key value (treat lone --key as boolean true)
+                if tok.startswith('--'):
+                    key = tok[2:]
+                    if (i + 1) < len(task_args) and task_args[i + 1] not in valid_task_names and not task_args[i + 1].startswith('--'):
+                        value = task_args[i + 1]
+                        i += 2
+                    else:
+                        value = "true"
+                        i += 1
+                    cli_params[key] = value
+                    continue
+
+                # key=value
+                if '=' in tok:
+                    key, value = tok.split('=', 1)
+                    cli_params[key] = value
+                    i += 1
+                    continue
+
+                # Anything else likely begins the next task
+                break
             
             # Get task lines
             if resolved_name in BUILTINS:
@@ -600,6 +639,9 @@ class PfRunner:
             for task_name, lines, params, task_default_lang in selected_tasks:
                 print(f"{prefix} --> {task_name}")
                 task_env = dict(global_env)
+                # Expose task parameters as environment variables so heredoc blocks
+                # (which are not interpolated) can still read them.
+                task_env.update(params)
                 implicit_lang: Optional[str] = task_default_lang or params.get("default_lang")
                 shell_lang: Optional[str] = None
                 pending_script: List[str] = []
@@ -675,6 +717,20 @@ class PfRunner:
                             flush_pending()
                             shell_cmd = _interpolate(stripped[6:].strip(), params, task_env)
 
+                            line_lang = None
+                            # Allow per-line language with [lang:python] prefix
+                            try:
+                                line_lang, shell_cmd = _parse_lang_bracket(shell_cmd)
+                                if line_lang:
+                                    line_lang = _canonical_lang(line_lang)
+                            except PFExecutionError as e:
+                                raise PFExecutionError(
+                                    message=e.message,
+                                    task_name=task_name,
+                                    command=stripped,
+                                    suggestion=e.suggestion,
+                                )
+
                             if shell_cmd.startswith("|"):
                                 block_lines: List[str] = []
                                 i += 1
@@ -690,18 +746,54 @@ class PfRunner:
 
                                 script_body = "\n".join(block_lines)
                                 shell_bin = "bash"
-                                if shell_lang in ("bash", "sh", "zsh", "dash", "ksh", "fish"):
-                                    shell_bin = "bash" if shell_lang == "sh" else shell_lang
+                                lang_for_block = line_lang or shell_lang
+                                if lang_for_block in ("bash", "sh", "zsh", "dash", "ksh", "fish"):
+                                    shell_bin = "bash" if lang_for_block == "sh" else lang_for_block
                                 heredoc_cmd = f"{shell_bin} <<'PF_EOF'\n{script_body}\nPF_EOF"
                                 rc = _exec_line_fabric(
                                     heredoc_cmd, connection, task_env, task_name,
                                     args.sudo, args.sudo_user
                                 )
+                            elif "<<" in shell_cmd:
+                                delimiter, outfile, strip_tabs = _parse_heredoc_syntax(shell_cmd)
+                                if delimiter:
+                                    heredoc_lines: List[str] = []
+                                    i += 1
+                                    while i < len(lines):
+                                        body_line = lines[i]
+                                        if body_line.strip() == delimiter:
+                                            break
+                                        heredoc_lines.append(body_line)
+                                        i += 1
+                                    else:
+                                        raise PFExecutionError(
+                                            message=f"Heredoc delimiter '{delimiter}' not found",
+                                            task_name=task_name,
+                                            command=shell_cmd,
+                                            environment=task_env,
+                                            suggestion="Ensure heredoc terminator is present"
+                                        )
+
+                                    heredoc_content = "\n".join(heredoc_lines)
+                                    if strip_tabs:
+                                        heredoc_content = "\n".join(line.lstrip("\t") for line in heredoc_lines)
+                                    redir = f" > {outfile}" if outfile else ""
+                                    heredoc_cmd = f"{shell_cmd}{redir}\n{heredoc_content}\n{delimiter}"
+                                    rc = _exec_line_fabric(
+                                        heredoc_cmd, connection, task_env, task_name,
+                                        args.sudo, args.sudo_user
+                                    )
+                                else:
+                                    rc = execute_shell_command(
+                                        shell_cmd, task_env, args.sudo, args.sudo_user,
+                                        connection, prefix
+                                    )
                             else:
                                 rendered_cmd = None
-                                if shell_lang:
+                                lang_for_line = line_lang or shell_lang
+                                if lang_for_line:
                                     rendered_cmd, _lang = _render_polyglot_command(
-                                        shell_lang, shell_cmd, os.getcwd()
+                                        lang_for_line, shell_cmd, os.getcwd()
                                     )
                                 if rendered_cmd:
                                     rc = _exec_line_fabric(

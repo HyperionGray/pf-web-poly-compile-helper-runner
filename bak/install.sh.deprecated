@@ -1,0 +1,384 @@
+#!/usr/bin/env bash
+# pf-runner installer (deb-first, no venv)
+#
+# Installs the bundled pf-runner .deb into a sane prefix (default /usr/local),
+# ensures the base interpreters (bash, fish, python3) are present, and installs
+# completions for bash and fish.
+
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR" && git rev-parse --show-toplevel 2>/dev/null || cd "$SCRIPT_DIR" && pwd)"
+
+DEFAULT_PREFIX_NATIVE="/usr/local"
+DEFAULT_PREFIX_USER="${HOME:-/usr/local}/.local"
+
+PREFIX=""
+PREFIX_SET=false
+SKIP_DEPS=false
+DEB_OVERRIDE=""
+SHOW_HELP=false
+
+log_info()   { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_warn()   { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error()  { echo -e "${RED}[ERROR]${NC} $1" >&2; }
+log_success(){ echo -e "${GREEN}[OK]${NC} $1"; }
+
+usage() {
+  cat <<'EOF'
+pf-runner installer (deb-first, no venv)
+
+Usage: ./install.sh [--prefix PATH] [--deb PATH] [--skip-deps] [--help]
+
+Options:
+  --prefix PATH   Install prefix (default: /usr/local as root, ~/.local otherwise)
+  --deb PATH      Explicit path to pf-runner_*.deb (otherwise auto-discovered)
+  --skip-deps     Skip installing base deps (bash, fish, python3); you install them
+  --help, -h      Show this help
+
+Behaviour:
+  - Prefers installing the bundled .deb via dpkg when prefix is /usr/local
+  - Falls back to extracting the .deb into the chosen prefix when not root or when
+    a custom prefix is requested
+  - Avoids virtualenvs entirely; uses system python3
+  - Installs bash and fish completions
+EOF
+}
+
+run_as_root() {
+  if [[ $EUID -eq 0 ]]; then
+    "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    log_error "Root privileges required for: $*"
+    exit 1
+  fi
+}
+
+resolve_path() {
+  local p="$1"
+  p="${p/#\~/$HOME}"
+  if [[ "$p" != /* ]]; then
+    p="$(pwd)/$p"
+  fi
+  # Remove trailing slashes
+  p="${p%/}"
+  echo "$p"
+}
+
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --prefix)
+        PREFIX="$2"; PREFIX_SET=true; shift 2 ;;
+      --prefix=*)
+        PREFIX="${1#*=}"; PREFIX_SET=true; shift ;;
+      --deb)
+        DEB_OVERRIDE="$2"; shift 2 ;;
+      --deb=*)
+        DEB_OVERRIDE="${1#*=}"; shift ;;
+      --skip-deps)
+        SKIP_DEPS=true; shift ;;
+      --help|-h)
+        SHOW_HELP=true; shift ;;
+      *)
+        log_error "Unknown option: $1"; SHOW_HELP=true; shift ;;
+    esac
+  done
+}
+
+ensure_prefix() {
+  if [[ "$PREFIX_SET" == false ]]; then
+    if [[ $EUID -eq 0 ]]; then
+      PREFIX="$DEFAULT_PREFIX_NATIVE"
+    else
+      PREFIX="$DEFAULT_PREFIX_USER"
+    fi
+  fi
+  PREFIX="$(resolve_path "$PREFIX")"
+}
+
+find_deb() {
+  if [[ -n "$DEB_OVERRIDE" ]]; then
+    if [[ -f "$DEB_OVERRIDE" ]]; then
+      echo "$(resolve_path "$DEB_OVERRIDE")"
+      return 0
+    fi
+    log_error "Specified --deb not found: $DEB_OVERRIDE"
+    exit 1
+  fi
+
+  local patterns=(
+    "$SCRIPT_DIR/pf-runner_*.deb"
+    "$SCRIPT_DIR/../deb/pf-runner_*.deb"
+    "$SCRIPT_DIR/../build/pf-runner_*.deb"
+    "$REPO_ROOT/build-packages/deb/pf-runner_*.deb"
+    "$REPO_ROOT/debian/build/pf-runner_*.deb"
+  )
+
+  local matches=()
+  local pat
+  for pat in "${patterns[@]}"; do
+    for candidate in $pat; do
+      [[ -f "$candidate" ]] && matches+=("$candidate")
+    done
+  done
+
+  if [[ ${#matches[@]} -eq 0 ]]; then
+    while IFS= read -r f; do
+      matches+=("$f")
+    done < <(find "$REPO_ROOT" -maxdepth 5 -name 'pf-runner_*.deb' 2>/dev/null | sort)
+  fi
+
+  if [[ ${#matches[@]} -eq 0 ]]; then
+    log_error "Could not find pf-runner_*.deb under $REPO_ROOT"
+    exit 1
+  fi
+
+  echo "$(resolve_path "${matches[0]}")"
+}
+
+ensure_base_langs() {
+  if [[ "$SKIP_DEPS" == true ]]; then
+    log_info "Skipping base dependency installation (--skip-deps)."
+    return
+  fi
+
+  local missing_bins=()
+  for bin in bash fish python3 pip3; do
+    command -v "$bin" >/dev/null 2>&1 || missing_bins+=("$bin")
+  done
+
+  if [[ ${#missing_bins[@]} -eq 0 ]]; then
+    log_success "Base interpreters present (bash, fish, python3, pip3)."
+    return
+  fi
+
+  if command -v apt-get >/dev/null 2>&1; then
+    local pkgs=()
+    for b in "${missing_bins[@]}"; do
+      case "$b" in
+        pip3) pkgs+=("python3-pip") ;;
+        *)    pkgs+=("$b") ;;
+      esac
+    done
+    log_info "Installing missing packages: ${pkgs[*]}"
+    run_as_root apt-get update -y
+    run_as_root apt-get install -y "${pkgs[@]}"
+  else
+    log_warn "Missing interpreters (${missing_bins[*]}) and no apt-get available. Install them manually."
+  fi
+}
+
+install_system_deb() {
+  log_info "Installing via dpkg into /usr/local (requires root)."
+  run_as_root dpkg -i "$DEB_PATH" || true
+  if [[ "$SKIP_DEPS" == false ]] && command -v apt-get >/dev/null 2>&1; then
+    run_as_root apt-get install -f -y
+  elif [[ "$SKIP_DEPS" == true ]]; then
+    log_warn "Skipped apt-get -f (you chose --skip-deps); resolve package deps manually if needed."
+  fi
+  PF_BIN="/usr/local/bin/pf"
+}
+
+install_prefix_via_extract() {
+  log_info "Installing by extracting .deb into prefix: $PREFIX"
+  command -v dpkg-deb >/dev/null 2>&1 || { log_error "dpkg-deb is required to extract the package."; exit 1; }
+
+  local tmp
+  tmp="$(mktemp -d)"
+  dpkg-deb -x "$DEB_PATH" "$tmp"
+
+  mkdir -p "$PREFIX/lib" "$PREFIX/bin"
+  cp -a "$tmp/usr/local/lib/pf-runner" "$PREFIX/lib/"
+  install -m 755 "$tmp/usr/local/bin/pf" "$PREFIX/bin/pf"
+  sed -i "s|/usr/local/lib/pf-runner|$PREFIX/lib/pf-runner|g" "$PREFIX/bin/pf"
+
+  # Ensure pf_main.py knows about the vendored dependency directory
+  local pf_main="$PREFIX/lib/pf-runner/pf_main.py"
+  if [[ -f "$pf_main" ]] && ! grep -q "_VENDOR_DIR" "$pf_main"; then
+    python3 - "$pf_main" <<'PY'
+import sys, pathlib
+path = pathlib.Path(sys.argv[1])
+lines = path.read_text().splitlines()
+target = "from pathlib import Path"
+if any("_VENDOR_DIR" in line for line in lines):
+    sys.exit(0)
+out = []
+inserted = False
+for line in lines:
+    out.append(line)
+    if not inserted and line.strip() == target:
+        out.append("")
+        out.append("# Add vendored dependencies (installed by prefix installer) to sys.path")
+        out.append('_VENDOR_DIR = Path(__file__).resolve().parent / "vendor"')
+        out.append("if _VENDOR_DIR.is_dir():")
+        out.append("    sys.path.insert(0, str(_VENDOR_DIR))")
+        inserted = True
+
+if not inserted:
+    sys.stderr.write("Failed to insert vendor sys.path shim into pf_main.py\n")
+    sys.exit(1)
+
+path.write_text("\n".join(out) + "\n")
+PY
+  fi
+
+  PF_BIN="$PREFIX/bin/pf"
+  rm -rf "$tmp"
+}
+
+install_python_vendor_deps() {
+  local vendor_dir="$PREFIX/lib/pf-runner/vendor"
+  mkdir -p "$vendor_dir"
+  log_info "Installing Python deps into $vendor_dir"
+  if ! python3 -m pip install --quiet --target "$vendor_dir" "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12"; then
+    log_error "pip failed to install dependencies into $vendor_dir"
+    exit 1
+  fi
+  log_success "Vendored Python dependencies installed"
+}
+
+install_bash_completion() {
+  local source_candidates=(
+    "$PREFIX/lib/pf-runner/completions/pf-completion.bash"
+    "$REPO_ROOT/pf-runner/completions/pf-completion.bash"
+    "$SCRIPT_DIR/pf-runner/completions/pf-completion.bash"
+  )
+
+  local src=""
+  for cand in "${source_candidates[@]}"; do
+    if [[ -f "$cand" ]]; then
+      src="$cand"; break
+    fi
+  done
+
+  if [[ -z "$src" ]]; then
+    log_warn "Bash completion script not found; skipping bash completions."
+    return
+  fi
+
+  if [[ -d "/etc/bash_completion.d" ]]; then
+    run_as_root install -m 644 "$src" /etc/bash_completion.d/pf
+    log_success "Installed bash completion to /etc/bash_completion.d/pf"
+  else
+    local user_dir="$HOME/.local/share/bash-completion/completions"
+    mkdir -p "$user_dir"
+    install -m 644 "$src" "$user_dir/pf"
+    log_success "Installed bash completion to $user_dir/pf"
+  fi
+}
+
+fish_completion_payload() {
+  cat <<'EOF'
+# pf fish completions (lightweight)
+function __pf_tasks_for_completion
+    command pf list 2>/dev/null | string match -r '^[[:space:]]{2,}([A-Za-z0-9_.:-]+)' -g 1 | sort -u
+end
+
+complete -c pf -f
+complete -c pf -s f -l file   -d 'Pfyfile path' -r
+complete -c pf -s h -l help   -d 'Show help'
+complete -c pf      -l version -d 'Show version'
+complete -c pf -n '__fish_use_subcommand' -a 'list run help update upgrade' -d 'pf built-ins'
+complete -c pf -a '(__pf_tasks_for_completion)' -d 'pf task'
+EOF
+}
+
+install_fish_completion() {
+  if ! command -v fish >/dev/null 2>&1; then
+    log_warn "fish not installed; skipping fish completions."
+    return
+  fi
+
+  local source_candidates=(
+    "$PREFIX/lib/pf-runner/completions/pf.fish"
+    "$REPO_ROOT/pf-runner/completions/pf.fish"
+    "$SCRIPT_DIR/pf-runner/completions/pf.fish"
+  )
+
+  local src=""
+  for cand in "${source_candidates[@]}"; do
+    [[ -f "$cand" ]] && { src="$cand"; break; }
+  done
+
+  local dest
+  if [[ $EUID -eq 0 ]]; then
+    dest="/usr/share/fish/vendor_completions.d/pf.fish"
+    mkdir -p "$(dirname "$dest")"
+    if [[ -n "$src" ]]; then
+      cp "$src" "$dest"
+    else
+      fish_completion_payload > "$dest"
+    fi
+  else
+    dest="$HOME/.config/fish/completions/pf.fish"
+    mkdir -p "$(dirname "$dest")"
+    if [[ -n "$src" ]]; then
+      cp "$src" "$dest"
+    else
+      fish_completion_payload > "$dest"
+    fi
+  fi
+  log_success "Installed fish completion to $dest"
+}
+
+validate_install() {
+  if [[ ! -x "$PF_BIN" ]]; then
+    log_error "pf executable not found at $PF_BIN"
+    exit 1
+  fi
+
+  if ! "$PF_BIN" --version >/dev/null 2>&1; then
+    log_warn "pf --version failed; ensure python3 can run $PF_BIN"
+  else
+    log_success "pf is runnable: $PF_BIN"
+  fi
+}
+
+path_hint() {
+  local bin_dir="$(dirname "$PF_BIN")"
+  if [[ ":$PATH:" != *":${bin_dir}:"* ]]; then
+    log_warn "${bin_dir} is not in PATH. Add: export PATH=\"${bin_dir}:\$PATH\""
+  fi
+}
+
+main() {
+  parse_args "$@"
+
+  if [[ "$SHOW_HELP" == true ]]; then
+    usage
+    exit 0
+  fi
+
+  ensure_prefix
+  DEB_PATH="$(find_deb)"
+
+  log_info "Using installer prefix: $PREFIX"
+  log_info "Using package: $DEB_PATH"
+
+  ensure_base_langs
+
+  if [[ "$PREFIX" == "/usr/local" ]]; then
+    install_system_deb
+  else
+    install_prefix_via_extract
+    install_python_vendor_deps
+  fi
+
+  install_bash_completion
+  install_fish_completion
+  validate_install
+  path_hint
+
+  log_success "Installation completed"
+}
+
+main "$@"

@@ -29,6 +29,57 @@ task category-installation-help
   shell echo "System Setup:"
 end
 
+# Module-oriented install entrypoints (improves discoverability)
+task module-install-help
+  describe Show install entrypoints grouped by module
+  shell echo " MODULE INSTALL SHORTCUTS"
+  shell echo ""
+  shell echo "  pf install-module-core        # Install pf runner to user prefix (~/.local)"
+  shell echo "  pf install-module-debug       # Debug/RE toolchain (radare2, snowman, oryx, binsider)"
+  shell echo "  pf install-module-exploit     # Exploit dev tools (pwntools, checksec, ropper, ROPgadget)"
+  shell echo "  pf install-module-fuzzing     # Fuzzing stack (AFL++, libfuzzer, sanitizers)"
+  shell echo "  pf install-module-injection   # Injection helpers (patchelf, nasm, binaryen)"
+  shell echo "  pf install-module-rest        # REST API systemd unit"
+  shell echo "  pf install-module-containers  # Quadlet/systemd integration files"
+  shell echo ""
+  shell echo "Tip: use prefix=~/pf-root with install-module-core to avoid sudo."
+end
+
+task install-module-core prefix="$HOME/.local"
+  describe Install pf runner into the given prefix (defaults to ~/.local)
+  shell pf install prefix=${prefix}
+end
+
+task install-module-debug
+  describe Install debugging and RE toolchain
+  shell pf install-all-debug-tools
+end
+
+task install-module-exploit
+  describe Install exploit development toolchain
+  shell pf install-exploit-tools
+end
+
+task install-module-fuzzing
+  describe Install fuzzing toolchain (AFL++, libfuzzer, sanitizers)
+  shell pf install-fuzzing-tools
+end
+
+task install-module-injection
+  describe Install binary injection helpers (patchelf, nasm, binaryen)
+  shell pf install-injection-tools
+end
+
+task install-module-rest
+  describe Install REST API systemd unit
+  shell pf rest-install
+end
+
+task install-module-containers
+  describe Install quadlet files for containerized services
+  shell pf quadlet-install
+end
+
 # Always-Available PF Tasks
 # These tasks are general OS-level commands that work anywhere,
 # independent of the current working directory or project context.
@@ -127,13 +178,19 @@ end
 task pkg-formats
   describe Show available package formats on this system
   shell_lang bash
-  shell node tools/package-manager.mjs formats
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/package-manager.mjs" formats
 end
 
 task pkg-matrix
   describe Show conversion compatibility matrix
   shell_lang bash
-  shell node tools/package-manager.mjs matrix
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/package-manager.mjs" matrix
 end
 
 # --
@@ -214,7 +271,10 @@ end
 task exploit-demo
   describe Run exploit development demo with vulnerable binary
   shell echo "Building vulnerable demo binary..."
-  shell gcc -o /tmp/vuln_demo -fno-stack-protector -z execstack -no-pie tools/exploit/demo/vulnerable.c
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    gcc -o /tmp/vuln_demo -fno-stack-protector -z execstack -no-pie "$ROOT/tools/exploit/demo/vulnerable.c"
   shell echo "Running exploit workflow on demo binary..."
   shell pf exploit-workflow binary=/tmp/vuln_demo output=demo_exploit.py
   shell echo "Demo complete! Check demo_exploit.py for generated exploit."
@@ -285,13 +345,19 @@ end
 task smart-analyze
   describe Comprehensive smart analysis of any target
   shell echo "Running smart analysis on ${target}"
-  shell python3 tools/smart-workflows/target_detector.py ${target} --format json > .smart_target_info.json
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    python3 "$ROOT/tools/smart-workflows/target_detector.py" ${target} --format json > .smart_target_info.json
   shell echo "Analysis complete"
 end
 
 task smart-verify-tools
   describe Verify all tools are working correctly
-  shell node tools/orchestration/tool-detector.mjs --verify --format table
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/orchestration/tool-detector.mjs" --verify --format table
 end
 
 task smart-help
@@ -490,7 +556,10 @@ end
 task pkg-help
   describe Show package manager tool help
   shell_lang bash
-  shell node tools/package-manager.mjs --help
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/package-manager.mjs" --help
 end
 
 # System Information
@@ -534,19 +603,28 @@ end
 task web-dev
   describe Start development server with REST API support
   shell_lang bash
-  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/api-server.mjs" ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
 end
 
 task web-dev-static
   describe Start basic static file server (legacy)
   shell_lang bash
-  shell node tools/static-server.mjs ${dir:-web} ${port:-8080}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/static-server.mjs" ${dir:-web} ${port:-8080}
 end
 
 task api-server
   describe Start REST API server
   shell_lang bash
-  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/api-server.mjs" ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
 end
 
 # Build Tools

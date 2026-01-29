@@ -5,91 +5,136 @@ task install-pr-tools
   describe Install dependencies for PR management (GitHub CLI, GitLab CLI, etc.)
   shell echo " Installing PR management tools..."
   shell_lang bash
-  shell bash scripts/gitops/install-pr-tools.sh
+  shell |
+    set -euo pipefail
+    ROOT="${PF_ROOT:-$(pwd)}"
+    bash "$ROOT/scripts/gitops/install-pr-tools.sh"
 end
 
 task pr-discover
   describe Discover all open pull requests across configured repositories
   shell echo " Discovering open pull requests..."
-  shell node tools/pr-discovery.mjs ${repo:-} ${platform:-auto}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-discovery.mjs" ${repo:-} ${platform:-auto}
 end
 
 task pr-list
   describe List all discovered pull requests with status
   shell echo " Listing pull requests..."
-  shell node tools/pr-list.mjs ${filter:-all} ${format:-table}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-list.mjs" ${filter:-all} ${format:-table}
 end
 
 task pr-review-ai
   describe AI-powered code review of specified pull request
   shell echo " Starting AI code review..."
-  shell node tools/pr-ai-review.mjs ${pr_id} ${provider:-openai} ${model:-gpt-4}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-ai-review.mjs" ${pr_id} ${provider:-openai} ${model:-gpt-4}
 end
 
 task pr-review-all-ai
   describe Run AI review on all open pull requests
   shell echo " Running AI review on all open PRs..."
-  shell node tools/pr-ai-review-batch.mjs ${provider:-openai} ${model:-gpt-4} ${max_concurrent:-3}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-ai-review-batch.mjs" ${provider:-openai} ${model:-gpt-4} ${max_concurrent:-3}
 end
 
 task pr-merge-safe
   describe Safely merge a pull request with pre-merge checks
   shell echo " Performing safe PR merge..."
-  shell node tools/pr-merge-safe.mjs ${pr_id} ${strategy:-squash} ${auto_delete_branch:-true}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-merge-safe.mjs" ${pr_id} ${strategy:-squash} ${auto_delete_branch:-true}
 end
 
 task pr-merge-all
   describe Merge all approved pull requests automatically
   shell echo " Merging all approved PRs..."
-  shell node tools/pr-merge-batch.mjs ${strategy:-squash} ${require_reviews:-true} ${require_ai_approval:-true}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-merge-batch.mjs" ${strategy:-squash} ${require_reviews:-true} ${require_ai_approval:-true}
 end
 
 task pr-conflict-detect
   describe Detect potential merge conflicts across PRs
   shell echo "[WARN]  Detecting merge conflicts..."
-  shell node tools/pr-conflict-detector.mjs ${check_all:-true}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-conflict-detector.mjs" ${check_all:-true}
 end
 
 task pr-conflict-resolve
   describe AI-assisted conflict resolution for specified PR
   shell echo " Resolving conflicts with AI assistance..."
-  shell node tools/pr-conflict-resolver.mjs ${pr_id} ${provider:-openai} ${auto_apply:-false}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-conflict-resolver.mjs" ${pr_id} ${provider:-openai} ${auto_apply:-false}
 end
 
 task pr-status-dashboard
   describe Show comprehensive PR status dashboard
   shell echo " PR Status Dashboard"
-  shell node tools/pr-dashboard.mjs ${refresh_interval:-30}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-dashboard.mjs" ${refresh_interval:-30}
 end
 
 task pr-setup-webhooks
   describe Setup webhooks for automated PR processing
   shell echo " Setting up PR webhooks..."
-  shell node tools/pr-webhook-setup.mjs ${endpoint_url} ${secret}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-webhook-setup.mjs" ${endpoint_url} ${secret}
 end
 
 task pr-ai-config
   describe Configure AI providers and models for PR review
   shell echo "  Configuring AI settings..."
-  shell node tools/pr-ai-config.mjs ${provider} ${api_key} ${model} ${review_criteria}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-ai-config.mjs" ${provider} ${api_key} ${model} ${review_criteria}
 end
 
 task pr-batch-process
   describe Process multiple PRs with AI review and auto-merge
   shell echo " Batch processing PRs..."
-  shell node tools/pr-batch-processor.mjs ${filter:-ready} ${max_concurrent:-5} ${dry_run:-false}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-batch-processor.mjs" ${filter:-ready} ${max_concurrent:-5} ${dry_run:-false}
 end
 
 task pr-analytics
   describe Generate analytics and reports on PR activity
   shell echo " Generating PR analytics..."
-  shell node tools/pr-analytics.mjs ${period:-30d} ${format:-html} ${output:-pr-report.html}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-analytics.mjs" ${period:-30d} ${format:-html} ${output:-pr-report.html}
 end
 
 task pr-cleanup
   describe Clean up merged branches and stale PRs
   shell echo " Cleaning up merged PRs and branches..."
-  shell node tools/pr-cleanup.mjs ${days_old:-30} ${dry_run:-false}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/pr-cleanup.mjs" ${days_old:-30} ${dry_run:-false}
 end
 
 task pr-help

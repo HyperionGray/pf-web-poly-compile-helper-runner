@@ -222,7 +222,9 @@ For more help on a specific subcommand:
             )
             subparser.add_argument("task", help="Task name to run")
             subparser.add_argument(
-                "params", nargs="*", help="Task parameters (key=value)"
+                "params",
+                nargs=argparse.REMAINDER,
+                help="Task parameters (key=value or --key value)",
             )
 
             # Store task list for this subcommand
@@ -413,7 +415,16 @@ For more help on a specific subcommand:
         modern_args = self.parse_legacy_args(args)
 
         try:
-            return self.parser.parse_args(modern_args)
+            namespace, unknown = self.parser.parse_known_args(modern_args)
+            # Preserve unknown tokens (e.g., task params like --key val) by appending
+            # them to the task/param list when we're in the run command path.
+            if unknown:
+                if getattr(namespace, "command", None) == "run" and hasattr(namespace, "tasks"):
+                    namespace.tasks.extend(unknown)
+                elif hasattr(namespace, "params"):
+                    existing = getattr(namespace, "params", []) or []
+                    setattr(namespace, "params", existing + unknown)
+            return namespace
         except SystemExit:
             # If parsing fails, try legacy fallback
             return self._parse_legacy_fallback(args)
@@ -443,6 +454,23 @@ For more help on a specific subcommand:
         # Parse key=value pairs
         while i < len(args):
             arg = args[i]
+
+            # GNU-style task params: --key=value or --key value (boolean if lone)
+            if arg.startswith("--"):
+                stripped = arg[2:]
+                if "=" in stripped:
+                    namespace.tasks.append(stripped)
+                    i += 1
+                    continue
+                # value as next token
+                if (i + 1) < len(args) and not args[i + 1].startswith("-"):
+                    namespace.tasks.append(f"{stripped}={args[i + 1]}")
+                    i += 2
+                else:
+                    namespace.tasks.append(f"{stripped}=true")
+                    i += 1
+                continue
+
             if "=" in arg and not arg.startswith("--"):
                 key, value = arg.split("=", 1)
                 if key == "env":

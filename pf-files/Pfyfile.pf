@@ -110,19 +110,28 @@ end
 task web-dev
   describe Start development server with REST API support
   shell_lang bash
-  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/api-server.mjs" ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
 end
 
 task web-dev-static
   describe Start basic static file server (legacy)
   shell_lang bash
-  shell node tools/static-server.mjs ${dir:-web} ${port:-8080}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/static-server.mjs" ${dir:-web} ${port:-8080}
 end
 
 task api-server
   describe Start REST API server
   shell_lang bash
-  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/api-server.mjs" ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
 end
 
 task web-test
@@ -237,42 +246,31 @@ task web-toolchain-check
   shell_lang bash
   shell |
     python3 - <<'PY'
-    import shutil, sys
-    
-    reqs = ["wasm-pack", "emcc", "wat2wasm", "clang"]
-    missing = [c for c in reqs if shutil.which(c) is None]
-    
-    if not missing:
-        print("[OK] Web toolchain ready:", ", ".join(reqs))
-    else:
-        print("[ERR] Missing toolchain components:", " ".join(missing))
-        print("Install hints:")
-        print("  - emcc/emsdk: https://emscripten.org/docs/getting_started/downloads.html")
-        print("  - wasm-pack: https://rustwasm.github.io/wasm-pack/installer/")
-        print("  - wat2wasm: install wabt package")
-        print("  - clang: apt install clang")
-        sys.exit(1)
-    PY
-end
+import shutil
+reqs = ["wasm-pack", "emcc", "wat2wasm", "clang", "lfortran"]
+missing = [c for c in reqs if shutil.which(c) is None]
+if missing: print('[ERR] Missing toolchain components:', ' '.join(missing)); print('Install hints:'); print('  - emcc/emsdk: https://emscripten.org/docs/getting_started/downloads.html'); print('  - wasm-pack: https://rustwasm.github.io/wasm-pack/installer/')
+else: print('[OK] Web toolchain ready:', ', '.join(reqs))
+PY
+ end
 
+    if [ -n "$DEB" ] && [ -f "$DEB" ] && command -v dpkg >/dev/null 2>&1; then
+      echo "[install] Installing pf from deb: $DEB (deb controls prefix)"
+      sudo dpkg -i "$DEB" || { echo "[install] Fixing deps..."; sudo apt-get -f install -y && sudo dpkg -i "$DEB"; }
+      exit 0
+    fi
 
-task web-build-c-llvm-opt
-  describe Build C to LLVM IR with custom optimization passes (passes="pass1,pass2,..." uses new pass manager)
-  
-  shell cd demos/pf-web-polyglot-demo-plus-c/c && mkdir -p .tmp ../web/llvm/c && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o .tmp/c_trap_unopt.ll && opt-18 -S -passes="${passes:-mem2reg,instcombine,simplifycfg,loop-vectorize}" .tmp/c_trap_unopt.ll -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
-end
+    if [ ! -x "$INSTALLER" ]; then
+      echo "[ERR] canonical installer not found at $INSTALLER" >&2
+      echo "      Build it with: pf build-packages (or consult build-packages/pf-runner-1.0.0)" >&2
+      exit 127
+    fi
 
-task install prefix=/usr/local
-  describe Install pf (default /usr/local; override with prefix=PATH)
-  shell_lang bash
-  env prefix=${prefix}
-  shell |
-    set -euo pipefail
-    echo "Installing to prefix=$prefix"
+    echo "Installing to prefix=$prefix using $INSTALLER"
     if [ "$(id -u)" -ne 0 ] && [ "$prefix" = "/usr/local" ]; then
-      sudo bash install.sh --mode native --prefix "$prefix"
+      sudo "$INSTALLER" --prefix "$prefix"
     else
-      bash install.sh --mode native --prefix "$prefix"
+      "$INSTALLER" --prefix "$prefix"
     fi
 end
 
@@ -304,7 +302,53 @@ task install-smoke-test
     trap 'rm -rf "$PREFIX"' EXIT
 
     echo "Using PREFIX=$PREFIX"
-    ./install.sh --prefix "$PREFIX" --skip-deps
+    find_root() {
+      if [ -n "${PFY_ROOT:-}" ] && [ -d "${PFY_ROOT}" ]; then
+        if [ -f "${PFY_ROOT}/Pfyfile.pf" ]; then
+          echo "$(cd "${PFY_ROOT}/.." && pwd)"
+        else
+          echo "${PFY_ROOT}"
+        fi
+        return
+      fi
+      if [ -n "${PFY_FILE_PATH:-}" ] && [ -f "${PFY_FILE_PATH}" ]; then
+        echo "$(cd "$(dirname "${PFY_FILE_PATH}")/.." && pwd)"
+        return
+      fi
+      if git rev-parse --show-toplevel >/dev/null 2>&1; then
+        git rev-parse --show-toplevel
+        return
+      fi
+      cur="$PWD"
+      while [ "$cur" != "/" ]; do
+        if [ -d "$cur/pf-files" ] && [ -f "$cur/pf-files/Pfyfile.pf" ]; then
+          echo "$cur"
+          return
+        fi
+        cur="$(dirname "$cur")"
+      done
+      python3 - <<'PY'
+import importlib.util, pathlib
+spec = importlib.util.find_spec("pf_main")
+root = pathlib.Path(spec.origin).resolve().parent.parent if spec and spec.origin else pathlib.Path().resolve()
+print(root)
+PY
+    }
+
+    ROOT="${PF_ROOT:-$(pwd)}"
+    DEB="$(ls -1 "$ROOT"/build-packages/deb/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
+    INSTALLER="$ROOT/build-packages/pf-runner-1.0.0/install.sh"
+    if [ -n "$DEB" ] && [ -f "$DEB" ] && command -v dpkg >/dev/null 2>&1; then
+      echo "[install-smoke-test] Installing pf from deb: $DEB"
+      sudo dpkg -i "$DEB" || { echo "[install-smoke-test] Fixing deps..."; sudo apt-get -f install -y && sudo dpkg -i "$DEB"; }
+    else
+      if [ ! -x "$INSTALLER" ]; then
+        echo "[ERR] canonical installer not found at $INSTALLER" >&2
+        echo "      Build it with: pf build-packages (or consult build-packages/pf-runner-1.0.0)" >&2
+        exit 127
+      fi
+      "$INSTALLER" --prefix "$PREFIX" --skip-deps
+    fi
 
     PATH="$PREFIX/bin:$PATH" pf --version
     PATH="$PREFIX/bin:$PATH" pf list >/dev/null
@@ -328,4 +372,10 @@ task sync-demo
   shell echo "  Excludes: sync src=./ dest=/backup/ excludes=[\"*.log\",\"*.tmp\"] delete dry"
   shell echo "  From file: sync src=./ dest=/backup/ exclude_file=.rsync-exclude"
   shell echo "See pf-runner/SYNC.md for full documentation"
+end
+
+task thing
+     describe "Do python instead"
+     shell_lang
+     print("I'm a python script!")
 end

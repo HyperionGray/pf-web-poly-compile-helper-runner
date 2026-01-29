@@ -1,0 +1,33 @@
+include ./cleanup/Pfyfile.cleanup.pf
+
+#!lang:bash
+include ./shells/Pfyfile.shells.pf
+include ./build-helpers/Pfyfile.build-helpers.pf
+include ./tests/Pfyfile.tests.pf
+include ./pasm/Pfyfile.pasm.pf
+include ./dev/Pfyfile.dev.pf
+include ./builds/Pfyfile.builds.pf
+# Note: Pfyfile.web-demo.pf excluded to avoid duplicates with main Pfyfile.web.pf
+image alpine:latest
+
+task default-task
+  describe This is a task from the default Pfyfile.pf
+  shell echo "Hello from the default Pfyfile.pf"
+end
+
+task setup
+  describe Install core polyglot toolchains (Java, Android build tools, Go, LLVM, Ninja, Fortran)
+  shell sudo apt-get update
+  shell sudo apt-get install -y java google-android-build-tools-34.0.0-installer 'openjdk-25-*' golang llvm ninja ninja-build gfortran
+end
+
+task setup-optional
+  describe Install optional interpreters (LuaJIT, zsh-static, ch) and rustup
+  shell sudo apt-get install -y luajit2 zsh-static ch
+  shell if ! command -v rustup >/dev/null 2>&1; then curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; else echo \"rustup already installed\"; fi
+end
+
+task install
+  describe Build pf-runner container image and install pf wrapper
+  shell cd .. && bash install.sh
+end

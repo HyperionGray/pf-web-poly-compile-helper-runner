@@ -4,7 +4,7 @@ Minimal steps to install, run tasks, and write your own.
 
 ## Install (pick one)
 - Container (recommended): `./install.sh --runtime podman`
-- Host-only: `./install.sh --mode native --prefix ~/.local`
+- Host-only: `./install.sh --prefix ~/.local`
 - Editable (already cloned): `pip install -e pf-runner`
 
 Check: `pf list`

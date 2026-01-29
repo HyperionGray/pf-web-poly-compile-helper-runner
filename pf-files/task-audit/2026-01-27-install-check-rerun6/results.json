@@ -1,0 +1,15 @@
+[
+  {
+    "task": "install-aflplusplus",
+    "source": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/vuln-hunting/Pfyfile.fuzzing.pf",
+    "description": "Install AFL++ fuzzer with LLVM instrumentation",
+    "aliases": [],
+    "default_params": {},
+    "status": "fail",
+    "exit_code": 1,
+    "duration_s": 128.106,
+    "timed_out": false,
+    "failure_class": "missing_path",
+    "log": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/task-audit/2026-01-27-install-check-rerun6/logs/0219-install-aflplusplus.log"
+  }
+]

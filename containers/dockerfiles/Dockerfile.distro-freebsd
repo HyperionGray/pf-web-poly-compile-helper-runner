@@ -1,0 +1,29 @@
+# FreeBSD container for pkg-based package extraction
+# WARNING: Requires a host kernel capable of running FreeBSD userland.
+# - Works on FreeBSD hosts with podman/docker.
+# - On Linux, you must have binfmt set up for FreeBSD via qemu-user-static; otherwise
+#   the image will not run. The manager will refuse to build on incompatible hosts.
+
+FROM docker.io/tgasiba/freebsd-minimal:15.0
+
+LABEL maintainer="pf-web-poly-compile-helper-runner"
+LABEL description="FreeBSD 15.0 userland for pkg extraction (pf distro manager)"
+LABEL pf.distro="freebsd"
+LABEL pf.package-manager="pkg"
+
+# Prep pkg metadata and output dirs
+RUN ASSUME_ALWAYS_YES=yes pkg update -f || true && \
+    mkdir -p /output/bin /output/lib /output/share /output/etc
+
+# Copy extractor
+COPY containers/scripts/distro-extract.sh /usr/local/bin/distro-extract
+RUN chmod +x /usr/local/bin/distro-extract
+
+# Create non-root user
+RUN pw useradd pfuser -m -s /bin/sh || true && \
+    chown -R pfuser:pfuser /output
+
+USER pfuser
+WORKDIR /home/pfuser
+
+CMD ["/bin/sh"]

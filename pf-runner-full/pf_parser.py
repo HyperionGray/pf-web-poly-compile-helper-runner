@@ -673,12 +673,16 @@ def _canonical_lang(lang_hint: str) -> str:
 # re.DOTALL makes . match newlines, allowing multi-line code blocks
 _LANG_BRACKET_RE = re.compile(r"^\s*\[lang:([^\]]+)\]\s*(.*)$", re.IGNORECASE | re.DOTALL)
 
-# Regex to parse heredoc syntax: << DELIMITER [> output_file]
-# Allow uppercase or mixed case delimiters (following bash convention)
-_HEREDOC_RE = re.compile(r"<<\s*([A-Za-z][A-Za-z0-9_]*)\s*(?:>\s*([^\s]+))?$")
+# Regex to parse heredoc syntax: <<[-] ['"]?DELIM['"]? [> output_file]
+# Supports optional tab-stripping (<<-), optional quoting of the delimiter,
+# and an optional redirection target for heredoc output.
+_HEREDOC_RE = re.compile(
+    r"<<(?P<strip>-?)\s*(?:['\"]?)(?P<delim>[A-Za-z][A-Za-z0-9_]*)(?:['\"]?)"
+    r"\s*(?:>\s*(?P<outfile>[^\s]+))?$"
+)
 
 
-def _parse_heredoc_syntax(cmd: str) -> Tuple[Optional[str], Optional[str]]:
+def _parse_heredoc_syntax(cmd: str) -> Tuple[Optional[str], Optional[str], bool]:
     """
     Parse heredoc syntax from a command line.
     
@@ -686,19 +690,20 @@ def _parse_heredoc_syntax(cmd: str) -> Tuple[Optional[str], Optional[str]]:
         cmd: The command string that may contain << DELIMITER [> output_file]
     
     Returns:
-        Tuple of (delimiter or None, output_file or None)
+        Tuple of (delimiter or None, output_file or None, strip_tabs_flag)
     
     Examples:
-        "<< PYEOF" -> ("PYEOF", None)
-        "<< PYEOF > output.txt" -> ("PYEOF", "output.txt")
-        "print('hello')" -> (None, None)
+        "<< PYEOF" -> ("PYEOF", None, False)
+        "<<- PYEOF > output.txt" -> ("PYEOF", "output.txt", True)
+        "print('hello')" -> (None, None, False)
     """
     match = _HEREDOC_RE.search(cmd)
     if match:
-        delimiter = match.group(1)
-        output_file = match.group(2) if match.group(2) else None
-        return delimiter, output_file
-    return None, None
+        delimiter = match.group("delim")
+        output_file = match.group("outfile") if match.group("outfile") else None
+        strip_tabs = bool(match.group("strip"))
+        return delimiter, output_file, strip_tabs
+    return None, None, False
 
 
 def _parse_lang_bracket(cmd: str) -> Tuple[Optional[str], str]:
@@ -1033,6 +1038,9 @@ def _load_pfy_source_with_includes(
         base_dir = os.path.dirname(os.path.abspath(pfy_resolved)) or "."
         global PFY_ROOT
         PFY_ROOT = base_dir
+        # Export Pfyfile location for shell tasks so they can resolve repo-relative paths
+        os.environ.setdefault("PFY_ROOT", PFY_ROOT)
+        os.environ.setdefault("PFY_FILE_PATH", pfy_resolved)
         visited: set[str] = {os.path.abspath(pfy_resolved)}
         main_text = _read_text_file(pfy_resolved)
         user_text, user_sources = _expand_includes_from_text(
@@ -1400,29 +1408,57 @@ def run_task_by_name(
 
     lines = dsl_tasks[task_name].lines
     task_env: Dict[str, str] = {}
-    params = {}
+    params: Dict[str, str] = {}
+
+    # Parse task arguments of the form key=value (pf CLI forwards trailing args here)
+    for arg in task_args or []:
+        if "=" in arg:
+            key, val = arg.split("=", 1)
+            params[key] = val
+            # Expose params as env vars too so shell blocks can read them directly.
+            task_env.setdefault(key, val)
 
     rc = 0
-    for line in lines:
+    i = 0
+    while i < len(lines):
+        line = lines[i]
         stripped = line.strip()
+
         if stripped.startswith("env "):
             for tok in shlex.split(stripped)[1:]:
                 if "=" in tok:
                     k, v = tok.split("=", 1)
                     task_env[k] = _interpolate(v, params, task_env)
+            i += 1
             continue
 
         if stripped.startswith("shell "):
             cmd = stripped[6:].strip()
             cmd = _interpolate(cmd, params, task_env)
+            if "<<" in cmd:
+                delimiter, outfile, strip_tabs = _parse_heredoc_syntax(cmd)
+                if delimiter:
+                    heredoc_lines: List[str] = []
+                    i += 1
+                    while i < len(lines):
+                        body_line = lines[i]
+                        if body_line.strip() == delimiter:
+                            break
+                        heredoc_lines.append(body_line)
+                        i += 1
+                    if strip_tabs:
+                        heredoc_lines = [ln.lstrip('\t') for ln in heredoc_lines]
+                    heredoc_body = "\n".join(heredoc_lines)
+                    cmd = f"{cmd}\n{heredoc_body}\n{delimiter}"
             rc = _exec_line_fabric(cmd, None, task_env, task_name, False, None)
-        else:
-            print(f"[skip] unsupported verb in task '{task_name}': {stripped}", file=sys.stderr)
+            i += 1
+            if rc != 0:
+                print(f"Command failed with exit code {rc}: {stripped}", file=sys.stderr)
+                return rc
             continue
 
-        if rc != 0:
-            print(f"Command failed with exit code {rc}: {stripped}", file=sys.stderr)
-            return rc
+        print(f"[skip] unsupported verb in task '{task_name}': {stripped}", file=sys.stderr)
+        i += 1
 
     return rc
 
@@ -1487,6 +1523,9 @@ def parse_pfyfile_text(
                 # Get source file if available
                 source_file = task_sources.get(task_name) if task_sources else None
                 current_task = Task(task_name, source_file, params, aliases)
+                # Allow task header to set default language: task foo default_lang=python
+                if "default_lang" in current_task.params:
+                    current_task.default_lang = current_task.params.pop("default_lang")
                 tasks_dict[task_name] = current_task
             except (ValueError, PFSyntaxError):
                 # Skip malformed task definitions

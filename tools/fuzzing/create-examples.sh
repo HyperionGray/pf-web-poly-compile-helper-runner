@@ -8,6 +8,7 @@ cat > demos/fuzzing/examples/vulnerable.c << 'CEOF'
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 // Vulnerable function with multiple bugs for fuzzing demo
 int parse_input(const char *input, size_t len) {

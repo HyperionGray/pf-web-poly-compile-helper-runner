@@ -1,0 +1,50 @@
+[project]
+name = "pf-runner"
+version = "0.1.0"
+description = "Central PacketFS command: iprogs, events, pGPU, dispatch, REPL"
+readme = "docs/README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "typer>=0.12",
+  "fabric>=3.2",
+  "lark>=1.1.0",
+  "fastapi>=0.109.1",
+  "uvicorn[standard]>=0.27",
+]
+
+[tool.setuptools]
+py-modules = [
+  "pf_main",
+  "pf_parser",
+  "pf_shell",
+  "pf_args",
+  "pf_grammar",
+  "pf_lark_parser",
+  "pf_exceptions",
+  "pf_api",
+  "pf_tui",
+  "pf_containerize",
+  "pf_polyglot",
+  "pf_prune",
+  "pf_subcommand_manager",
+  "pf_builtin_commands",
+  "pf_task_executor",
+  "pfuck",
+]
+
+[project.optional-dependencies]
+api = [
+  "fastapi>=0.109.1",
+  "uvicorn[standard]>=0.27",
+]
+tui = [
+  "rich>=13",
+]
+
+[project.scripts]
+# Console entrypoint uses shim that forwards argv
+pf = "pf_main:console_main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"

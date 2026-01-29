@@ -48,8 +48,8 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
    ./install.sh --runtime podman
 
    # Native host install (optional)
-   sudo ./install.sh --mode native
-   ./install.sh --mode native --prefix ~/.local
+   sudo ./install.sh
+   ./install.sh --prefix ~/.local
    ```
 
 5. **Install development dependencies**:

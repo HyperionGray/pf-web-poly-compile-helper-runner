@@ -1,5 +1,4 @@
 ./build_with_asan.sh
-./install-containers.sh
 ./pf-with-emsdk.sh
 ./os/os-setup-environment.sh
 ./os/os-create-mirror-container.sh
@@ -9,11 +8,13 @@
 ./assign-issues-to-copilot.sh
 ./injection/install-injection-tools.sh
 ./injection/demo-wasm-injection.sh
+./bak/install-containers.sh
 ./manage-containers.sh
 ./gitops/git-repo-size.sh
 ./gitops/git-analyze-large-files.sh
 ./gitops/install-git-filter-repo.sh
 ./gitops/install-pr-tools.sh
+./pf-install-in-container.sh
 ./validate-build.sh
 ./build.sh
 ./ci-cd-review/README.md

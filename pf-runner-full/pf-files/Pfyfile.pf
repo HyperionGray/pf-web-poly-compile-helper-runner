@@ -28,6 +28,23 @@ task setup-optional
 end
 
 task install
-  describe Build pf-runner container image and install pf wrapper
-  shell cd .. && bash install.sh
+  describe Install pf from packaged .deb (no shared venv required)
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    # Probe common locations then fall back to a quick search.
+    for cand in \
+      "$ROOT/build-packages/deb/pf-runner_1.0.0.deb" \
+      "$ROOT/debian/build/pf-runner_1.0.0.deb" \
+      $(find "$ROOT" -maxdepth 4 -name 'pf-runner_*.deb' 2>/dev/null | head -n1); do
+      if [ -n "${cand:-}" ] && [ -f "$cand" ]; then DEB_FILE="$cand"; break; fi
+    done
+    if [ -z "${DEB_FILE:-}" ]; then
+      echo "pf .deb not found (looked under build-packages/deb and debian/build)"; exit 1;
+    fi
+    echo "Installing pf from $DEB_FILE"
+    if [ "$EUID" -ne 0 ]; then SUDO=sudo; else SUDO=; fi
+    $SUDO dpkg -i "$DEB_FILE"
+    echo "pf installed. Ensure /usr/local/bin is on PATH."
 end

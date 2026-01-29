@@ -23,7 +23,7 @@ if ! command -v "$RUNTIME" >/dev/null 2>&1; then
     echo "     - See https://docs.docker.com/get-docker/" >&2
   fi
   echo "  2. Use docker instead: PF_RUNTIME=docker pf ..." >&2
-  echo "  3. Install the native runner: sudo ./install.sh --mode native" >&2
+  echo "  3. Install the native runner: sudo ./install.sh" >&2
   exit 1
 fi
 
@@ -48,7 +48,7 @@ if [[ -z "${PF_IMAGE:-}" ]]; then
     echo "  1. Build the image from the repo root:" >&2
     echo "     ./install.sh --runtime $RUNTIME" >&2
     echo "  2. Or install the native runner:" >&2
-    echo "     sudo ./install.sh --mode native" >&2
+    echo "     sudo ./install.sh" >&2
     echo "  3. Or specify a different image:" >&2
     echo "     PF_IMAGE=<your-image> pf ..." >&2
     exit 1

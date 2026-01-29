@@ -168,12 +168,9 @@ Test infrastructure:
 
 ## Build and Installation
 
-Use the Makefile for common operations:
+Install via the packaged .deb:
 ```bash
-make setup              # Local development setup
-make install-local      # Install to ~/.local/bin
-make build              # Create static executable
-make install            # System-wide installation
+sudo dpkg -i build-packages/deb/pf-runner_1.0.0.deb
 ```
 
 See the main [README.md](README.md) for complete installation instructions.

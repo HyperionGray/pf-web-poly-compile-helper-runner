@@ -7,7 +7,7 @@ set -euo pipefail
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build-packages"
-VERSION="1.0.0"
+VERSION="1.0.1"
 RELEASE="1"
 
 
@@ -304,7 +304,7 @@ install_packages() {
 
 # Main execution
 main() {
-    echo -e "${BLUE}pf-runner Package Builder${NC}"
+    echo -e "pf-runner Package Builder"
     echo "========================="
     echo ""
     

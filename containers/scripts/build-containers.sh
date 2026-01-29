@@ -47,7 +47,7 @@ USAGE:
 
 TARGETS:
     os        Build OS distribution containers (CentOS, Fedora, Arch, openSUSE, macOS-like)
-    pe        Build PE execution containers (VMKit, Windows Server Core, ReactOS, macOS QEMU)
+    pe        Build PE execution containers (VMKit, Windows Server Core, Windows Server Nano, ReactOS, macOS QEMU)
 
 OPTIONS:
     --no-cache    Build without using cache
@@ -128,19 +128,19 @@ build_pe_containers() {
     build_image "pe-vmkit" "Dockerfile.pe-vmkit"
     build_image "pe-reactos" "Dockerfile.pe-reactos"
     build_image "macos-qemu" "Dockerfile.macos-qemu"
-    log_info "Building Windows Server Core PE execution container..."
-    build_image "pe-windows-server" "Dockerfile.pe-windows-server"
-    
-    log_info "Building ReactOS PE execution container..."
-    build_image "pe-reactos" "Dockerfile.pe-reactos"
-    
     log_info "Building macOS QEMU virtualization container..."
     build_image "macos-qemu" "Dockerfile.os-macos-qemu"
+    log_info "Building Windows Server Core PE execution container..."
+    build_image "pe-windows-server" "Dockerfile.pe-windows-server"
+
+    log_info "Building Windows Server Nano PE execution container..."
+    build_image "pe-windows-nano" "Dockerfile.pe-windows-nano"
     
     log_warn "PE execution containers require:"
     log_warn "  - KVM support for hardware acceleration"
     log_warn "  - Sufficient RAM (2GB+ for Windows, 8GB+ for macOS)"
     log_warn "  - Proper licensing for Windows Server Core"
+    log_warn "  - Nano Server VHDX supplied via NANOSERVER_VHD_URL or host mount"
     log_warn "  - Apple Software License Agreement compliance for macOS"
 }
 

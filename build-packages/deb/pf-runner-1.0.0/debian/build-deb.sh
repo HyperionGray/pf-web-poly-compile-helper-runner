@@ -7,9 +7,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-VERSION="${1:-1.0.0}"
+VERSION="${1:-1.0.1}"
 PKG_NAME="pf-runner"
 PKG_DIR="${SCRIPT_DIR}/build/${PKG_NAME}_${VERSION}"
+SOURCE_DIR="${REPO_ROOT}/pf-runner-full"
+if [[ ! -d "${SOURCE_DIR}" ]]; then
+    SOURCE_DIR="${REPO_ROOT}/pf-runner"
+fi
 
 # Colors
 GREEN='\033[0;32m'
@@ -42,7 +46,7 @@ cp "${SCRIPT_DIR}/postinst" "${PKG_DIR}/DEBIAN/postinst"
 chmod 755 "${PKG_DIR}/DEBIAN/postinst"
 
 # Copy pf-runner files (exclude caches/build artifacts)
-log_info "Copying pf-runner files..."
+log_info "Copying pf-runner files from ${SOURCE_DIR}..."
 if command -v rsync >/dev/null 2>&1; then
     rsync -a \
         --exclude "__pycache__/" \
@@ -53,9 +57,9 @@ if command -v rsync >/dev/null 2>&1; then
         --exclude ".pf-venv/" \
         --exclude ".venv/" \
         --exclude "bak/" \
-        "${REPO_ROOT}/pf-runner/" "${PKG_DIR}/usr/local/lib/pf-runner/"
+        "${SOURCE_DIR}/" "${PKG_DIR}/usr/local/lib/pf-runner/"
 else
-    cp -r "${REPO_ROOT}/pf-runner"/* "${PKG_DIR}/usr/local/lib/pf-runner/"
+    cp -r "${SOURCE_DIR}"/* "${PKG_DIR}/usr/local/lib/pf-runner/"
     find "${PKG_DIR}/usr/local/lib/pf-runner" -type d -name "__pycache__" -prune -exec rm -rf {} + || true
     find "${PKG_DIR}/usr/local/lib/pf-runner" -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete || true
     rm -rf "${PKG_DIR}/usr/local/lib/pf-runner/bak" || true

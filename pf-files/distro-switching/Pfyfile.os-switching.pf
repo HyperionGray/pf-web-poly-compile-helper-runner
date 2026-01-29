@@ -79,7 +79,10 @@ end
 task os-create-mirror-container
   describe Create MirrorOS container for continuous snapshots
   shell_lang bash
-  shell bash scripts/os/os-create-mirror-container.sh
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    bash "$ROOT/scripts/os/os-create-mirror-container.sh"
 end
 
 task os-start-mirror

@@ -461,7 +461,10 @@ end
 task demo-wasm-injection
   describe Demonstrate WASM component injection workflow
   shell_lang bash
-  shell bash scripts/injection/demo-wasm-injection.sh
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    bash "$ROOT/scripts/injection/demo-wasm-injection.sh"
 end
 
 # ============================================================================
@@ -471,7 +474,10 @@ end
 task install-injection-tools
   describe Install tools needed for binary injection (patchelf, nasm, binaryen)
   shell_lang bash
-  shell bash scripts/injection/install-injection-tools.sh
+  shell |
+    set -euo pipefail
+    ROOT="${PF_ROOT:-$(pwd)}"
+    bash "$ROOT/scripts/injection/install-injection-tools.sh"
 end
 
 # ============================================================================

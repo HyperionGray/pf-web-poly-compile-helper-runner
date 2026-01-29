@@ -106,7 +106,20 @@ task always-on-install-all [alias=aoia]
   shell_lang bash
   shell <<'EOF'
 echo "Installing always-on service units..."
-PF_RUNNER_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || PF_RUNNER_DIR="$(pwd)/pf-runner"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+PF_RUNNER_DIR=""
+for dir in "$ROOT/pf-runner-full" "$ROOT/pf-runner" "$ROOT/build-packages/pf-runner-1.0.0/pf-runner"; do
+  if [ -d "$dir" ]; then
+    PF_RUNNER_DIR="$dir"
+    break
+  fi
+done
+
+if [ -z "$PF_RUNNER_DIR" ]; then
+  echo "[ERR] Could not locate pf-runner directory under $ROOT" >&2
+  exit 1
+fi
+
 services=("pf-security-monitor@.service" "pf-build-watch@.service" "pf-container-health@.service" "pf-dev-proxy@.service" "pf-log-aggregator@.service" "pf-file-watch@.service")
 for service in "${services[@]}"; do
   if [ -f "$PF_RUNNER_DIR/$service" ]; then

@@ -140,19 +140,28 @@ end
 task fuzz-stack-overflow
   describe Fuzz stack overflow binary with random inputs
   shell_lang bash
-  shell python3 scripts/practice/fuzz_stack_overflow.py
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    python3 "$ROOT/scripts/practice/fuzz_stack_overflow.py"
 end
 
 task fuzz-format-string
   describe Fuzz format string binary with format string mutations
   shell_lang bash
-  shell python3 scripts/practice/fuzz_format_string.py
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    python3 "$ROOT/scripts/practice/fuzz_format_string.py"
 end
 
 task fuzz-cmd-injection
   describe Fuzz command injection binary with various payloads
   shell_lang bash
-  shell python3 scripts/practice/fuzz_cmd_injection.py
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    python3 "$ROOT/scripts/practice/fuzz_cmd_injection.py"
 end
 
 # Help task

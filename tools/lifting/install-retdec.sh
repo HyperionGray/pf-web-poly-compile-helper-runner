@@ -40,6 +40,31 @@ echo "Installation directory: $INSTALL_DIR"
 echo "Build directory: $RETDEC_DIR"
 echo ""
 
+# Fast path: download official prebuilt archive if available
+VERSION="v5.0"
+ARCHIVE="RetDec-${VERSION}-Linux-Release.tar.xz"
+URL="https://github.com/avast/retdec/releases/download/${VERSION}/${ARCHIVE}"
+TMPDIR="$(mktemp -d)"
+trap 'rm -rf "${TMPDIR}"' EXIT
+
+echo ""
+echo "Attempting fast install from official prebuilt release..."
+if command -v curl >/dev/null 2>&1 && curl -fL "$URL" -o "$TMPDIR/$ARCHIVE"; then
+    echo "Downloaded prebuilt archive; extracting..."
+    tar -C "$TMPDIR" -xf "$TMPDIR/$ARCHIVE"
+    if [ -x "$TMPDIR/bin/retdec-decompiler" ] || [ -x "$TMPDIR/bin/retdec-decompiler.py" ]; then
+        mkdir -p "$INSTALL_DIR"
+        rsync -a "$TMPDIR"/ "$INSTALL_DIR/"
+        echo "✓ RetDec installed from prebuilt archive to $INSTALL_DIR"
+        echo "Add to PATH if needed: export PATH=\"$INSTALL_DIR/bin:\\$PATH\""
+        exit 0
+    fi
+    echo "[WARN] Prebuilt archive layout unexpected or missing binaries, falling back to source build..."
+else
+    echo "[WARN] Could not download prebuilt archive; falling back to source build..."
+fi
+
+echo "Building RetDec from source (this may take 10-30 minutes)..."
 # Clone or update RetDec
 if [ -d "$RETDEC_DIR" ]; then
     echo "RetDec directory exists, updating..."
@@ -51,8 +76,6 @@ else
     cd "$RETDEC_DIR"
 fi
 
-echo ""
-echo "Building RetDec (this may take 10-30 minutes)..."
 mkdir -p build
 cd build
 

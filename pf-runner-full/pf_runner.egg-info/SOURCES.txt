@@ -23,3 +23,4 @@ pf_runner.egg-info/dependency_links.txt
 pf_runner.egg-info/entry_points.txt
 pf_runner.egg-info/requires.txt
 pf_runner.egg-info/top_level.txt
+tests/test_heredoc.py

@@ -30,6 +30,9 @@
 ./pf_prune.py
 ./pf_args.py
 ./pf_api.py
+./tests/conftest.py
+./tests/test_bash_passthrough.py
+./tests/test_heredoc.py
 ./docs/CHANGELOG_GRAMMAR_UPDATE.md
 ./docs/IMPLEMENTATION-SUMMARY.md
 ./docs/LANGS.md

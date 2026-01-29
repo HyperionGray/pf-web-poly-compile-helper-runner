@@ -7,17 +7,38 @@
 # ==========================================
 
 
+task pe-build-all
+  describe Build all PE container images (VMKit, ReactOS, macOS)
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    pf pe-build-vmkit
+    pf pe-reactos-setup || true
+    pf pe-build-macos
+end
+
 task pe-build-vmkit
   describe Build VMKit container for PE execution with full passthrough
   shell_lang bash
-  shell podman build -t localhost/pf-pe-vmkit:latest -f containers/dockerfiles/Dockerfile.pe-vmkit .
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    podman build -t localhost/pf-pe-vmkit:latest -f "$ROOT/containers/dockerfiles/Dockerfile.pe-vmkit" "$ROOT"
 end
 
 
 task pe-build-macos
   describe Build macOS QEMU container
   shell_lang bash
-  shell podman build -t localhost/pf-macos-qemu:latest -f containers/dockerfiles/Dockerfile.macos-qemu .
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    RUNTIME="${CONTAINER_RT:-podman}"
+    echo "[*] Building macOS QEMU image with ${RUNTIME}..."
+    "${RUNTIME}" build \
+      -t localhost/pf-macos-qemu:latest \
+      -f "$ROOT/containers/dockerfiles/Dockerfile.os-macos-qemu" \
+      "$ROOT"
 end
 
 # ==========================================
@@ -92,13 +113,7 @@ end
 task pe-reactos-setup
   describe Download and set up ReactOS for PE execution
   shell_lang bash
-  shell |
-    echo "Setting up ReactOS..."
-    mkdir -p reactos-images
-    podman run --rm -it \
-      -v ${PWD}/reactos-images:/reactos/images \
-      localhost/pf-pe-reactos:latest \
-      setup-reactos.sh
+  shell set -euo pipefail; echo "Setting up ReactOS..."; mkdir -p reactos-images; podman run --rm -v "${PWD}/reactos-images:/reactos/images" localhost/pf-pe-reactos:latest setup-reactos.sh
 end
 
 task pe-reactos-run pe=""
@@ -113,7 +128,7 @@ task pe-reactos-run pe=""
     PE_DIR=$(dirname "${pe}")
     PE_FILE=$(basename "${pe}")
     
-    podman run --rm -it \
+    podman run --rm \
       --device /dev/kvm \
       -v ${PWD}/reactos-images:/reactos/images \
       -v ${PE_DIR}:/reactos/pe-input \
@@ -134,7 +149,7 @@ task pe-reactos-analyze pe=""
     PE_DIR=$(dirname "${pe}")
     PE_FILE=$(basename "${pe}")
     
-    podman run --rm -it \
+    podman run --rm \
       -v ${PE_DIR}:/reactos/pe-input \
       localhost/pf-pe-reactos:latest \
       analyze-pe.sh "/reactos/pe-input/${PE_FILE}"
@@ -159,12 +174,20 @@ task macos-setup
   describe Create macOS disk image and prepare environment
   shell_lang bash
   shell |
+    RUNTIME="${CONTAINER_RT:-podman}"
+    IMAGE="localhost/pf-macos-qemu:latest"
+    if ! "${RUNTIME}" image exists "${IMAGE}" >/dev/null 2>&1; then
+      echo "[error] macOS executor image not found."
+      echo "Build it first: pf pe-build-macos-qemu"
+      exit 1
+    fi
+
     echo "Setting up macOS QEMU environment..."
     mkdir -p macos-images
-    podman run --rm -it \
-      -v ${PWD}/macos-images:/macos/images \
-      localhost/pf-macos-qemu:latest \
-      create-macos-image.sh 64G
+    "${RUNTIME}" run --rm --pull=never \
+      -v "${PWD}/macos-images:/macos/images" \
+      "${IMAGE}" \
+      create-macos-image.sh "${size:-64G}"
     echo ""
     echo "Disk image created. See container help for next steps."
 end
@@ -173,13 +196,21 @@ task macos-run
   describe Start macOS VM
   shell_lang bash
   shell |
+    RUNTIME="${CONTAINER_RT:-podman}"
+    IMAGE="localhost/pf-macos-qemu:latest"
+    if ! "${RUNTIME}" image exists "${IMAGE}" >/dev/null 2>&1; then
+      echo "[error] macOS executor image not found."
+      echo "Build it first: pf pe-build-macos-qemu"
+      exit 1
+    fi
+
     echo "Starting macOS VM..."
-    podman run --rm -it \
+    "${RUNTIME}" run --rm --pull=never \
       --device /dev/kvm \
-      -v ${PWD}/macos-images:/macos/images \
+      -v "${PWD}/macos-images:/macos/images" \
       -p 5901:5901 \
       -p 10022:10022 \
-      localhost/pf-macos-qemu:latest \
+      "${IMAGE}" \
       run-macos.sh
 end
 
@@ -187,14 +218,22 @@ task macos-run-headless
   describe Start macOS VM in headless mode
   shell_lang bash
   shell |
+    RUNTIME="${CONTAINER_RT:-podman}"
+    IMAGE="localhost/pf-macos-qemu:latest"
+    if ! "${RUNTIME}" image exists "${IMAGE}" >/dev/null 2>&1; then
+      echo "[error] macOS executor image not found."
+      echo "Build it first: pf pe-build-macos-qemu"
+      exit 1
+    fi
+
     echo "Starting macOS VM (headless)..."
-    podman run -d --rm \
+    "${RUNTIME}" run -d --rm --pull=never \
       --name pf-macos-vm \
       --device /dev/kvm \
-      -v ${PWD}/macos-images:/macos/images \
+      -v "${PWD}/macos-images:/macos/images" \
       -p 5901:5901 \
       -p 10022:10022 \
-      localhost/pf-macos-qemu:latest \
+      "${IMAGE}" \
       run-macos.sh
     echo ""
     echo "macOS VM started in background"
@@ -208,13 +247,22 @@ task macos-stop
   describe Stop running macOS VM
   shell_lang bash
   shell |
-    podman stop pf-macos-vm 2>/dev/null || echo "No macOS VM running"
+    RUNTIME="${CONTAINER_RT:-podman}"
+    "${RUNTIME}" stop pf-macos-vm 2>/dev/null || echo "No macOS VM running"
 end
 
 task macos-run-app app=""
   describe Run application in running macOS VM
   shell_lang bash
   shell |
+    RUNTIME="${CONTAINER_RT:-podman}"
+    IMAGE="localhost/pf-macos-qemu:latest"
+    if ! "${RUNTIME}" image exists "${IMAGE}" >/dev/null 2>&1; then
+      echo "[error] macOS executor image not found."
+      echo "Build it first: pf pe-build-macos-qemu"
+      exit 1
+    fi
+
     if [ -z "${app}" ]; then
       echo "Usage: pf macos-run-app app=/path/to/app"
       exit 1
@@ -223,10 +271,10 @@ task macos-run-app app=""
     APP_DIR=$(dirname "${app}")
     APP_FILE=$(basename "${app}")
     
-    podman run --rm -it \
-      -v ${APP_DIR}:/macos/input \
+    "${RUNTIME}" run --rm --pull=never \
+      -v "${APP_DIR}:/macos/input" \
       --network host \
-      localhost/pf-macos-qemu:latest \
+      "${IMAGE}" \
       run-macos-app.sh "/macos/input/${APP_FILE}"
 end
 
@@ -234,10 +282,92 @@ task macos-shell
   describe Open shell in macOS container
   shell_lang bash
   shell |
-    podman run --rm -it \
-      -v ${PWD}/macos-images:/macos/images \
-      localhost/pf-macos-qemu:latest \
+    RUNTIME="${CONTAINER_RT:-podman}"
+    IMAGE="localhost/pf-macos-qemu:latest"
+    if ! "${RUNTIME}" image exists "${IMAGE}" >/dev/null 2>&1; then
+      echo "[error] macOS executor image not found."
+      echo "Build it first: pf pe-build-macos-qemu"
+      exit 1
+    fi
+
+    "${RUNTIME}" run --rm -it --pull=never \
+      -v "${PWD}/macos-images:/macos/images" \
+      "${IMAGE}" \
       /bin/bash
+end
+
+# ==========================================
+# macOS (dockurr/macos) convenience tasks
+# ==========================================
+
+task macos-pull-dockur version="14"
+  describe Pull dockurr/macos image (defaults to macOS 14 / Sonoma)
+  shell_lang bash
+  shell |
+    RUNTIME="${CONTAINER_RT:-podman}"
+    IMAGE="docker.io/dockurr/macos"
+    echo "[*] Pulling ${IMAGE}..."
+    "${RUNTIME}" pull "${IMAGE}"
+    echo "[*] Done. Image tags available with: ${RUNTIME} images dockurr/macos"
+end
+
+task macos-run-dockur version="14" ram="8G" cpus="4" disk_size="64G" storage_dir=""
+  describe Launch dockurr/macos with web UI on :8006 (KVM required; Apple EULA applies)
+  shell_lang bash
+  shell |
+    RUNTIME="${CONTAINER_RT:-podman}"
+    IMAGE="docker.io/dockurr/macos"
+    NAME="macos-dockur"
+    STORAGE="${storage_dir:-${PWD}/macos-dockur}"
+
+    if [ ! -e /dev/kvm ]; then
+      echo "[warn] /dev/kvm not available; performance will be extremely slow or fail."
+    fi
+
+    mkdir -p "${STORAGE}"
+    "${RUNTIME}" run -d --rm --pull=always \
+      --name "${NAME}" \
+      -e "VERSION=${version:-14}" \
+      -e "RAM_SIZE=${ram:-8G}" \
+      -e "CPU_CORES=${cpus:-4}" \
+      -e "DISK_SIZE=${disk_size:-64G}" \
+      --device=/dev/kvm \
+      --device=/dev/net/tun \
+      --cap-add NET_ADMIN \
+      -p 8006:8006 \
+      -p 5900:5900/tcp \
+      -p 5900:5900/udp \
+      -v "${STORAGE}:/storage" \
+      --stop-timeout 120 \
+      "${IMAGE}"
+
+    echo ""
+    echo "macOS installer will appear at http://localhost:8006 (or VNC on 5900)."
+    echo "Container name: ${NAME} (stop with: ${RUNTIME} stop ${NAME})"
+    echo "Storage dir: ${STORAGE}"
+    echo "Reminder: Run only on Apple hardware to comply with the Apple EULA."
+end
+
+task macos-stop-dockur
+  describe Stop dockurr/macos container
+  shell_lang bash
+  shell |
+    RUNTIME="${CONTAINER_RT:-podman}"
+    NAME="macos-dockur"
+    "${RUNTIME}" stop "${NAME}" 2>/dev/null || echo "No dockur macOS container running (${NAME})"
+end
+
+task macos-shell-dockur
+  describe Open shell inside running dockurr/macos container
+  shell_lang bash
+  shell |
+    RUNTIME="${CONTAINER_RT:-podman}"
+    NAME="macos-dockur"
+    if ! "${RUNTIME}" ps --format '{{.Names}}' | grep -q "^${NAME}$"; then
+      echo "Container ${NAME} not running. Start with: pf macos-run-dockur"
+      exit 1
+    fi
+    "${RUNTIME}" exec -it "${NAME}" /bin/bash
 end
 
 # ==========================================
@@ -315,4 +445,41 @@ end
 # Status and Help Tasks
 # ==========================================
 
+task pe-help
+  describe Show PE container helper commands
+  shell_lang bash
+  shell cat << 'EOF'
 
+PE Container Commands
+=====================
+
+BUILD:
+  pf pe-build-all          Build all PE containers (vmkit, reactos, macos)
+  pf pe-build-vmkit        Build VMKit container
+  pf pe-build-macos        Build macOS QEMU container
+
+VMKIT:
+  pf pe-vmkit-setup        Create VMKit images (ReactOS, minimal)
+  pf pe-vmkit-run pe=...   Run PE in VMKit VM
+  pf pe-vmkit-analyze pe=... Analyze PE before running
+  pf pe-vmkit-shell        Open shell in VMKit container
+
+REACTOS:
+  pf pe-reactos-setup      Download/setup ReactOS images
+  pf pe-reactos-run pe=... Run PE in ReactOS VM
+  pf pe-reactos-analyze    Analyze PE using ReactOS container
+  pf pe-reactos-shell      Shell inside ReactOS container
+
+MACOS:
+  pf macos-setup           Prepare macOS image
+  pf macos-run             Start macOS VM (foreground)
+  pf macos-run-headless    Start macOS VM headless
+  pf macos-run-app app=... Run an app in macOS VM
+  pf macos-shell           Shell inside macOS container
+
+WORKFLOWS:
+  pf pe-setup-all          Build & setup all environments
+  pf pe-analyze-and-run    Analyze then run PE (vmkit or reactos)
+
+EOF
+end

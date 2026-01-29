@@ -31,25 +31,15 @@ make install-completions
 
 Simplified installation to a single command:
 
-**Before:**
+**Before (legacy pip/editable flow, now removed)**
+
+**After (current):**
 ```bash
-cd pf-runner
-pip install "fabric>=3.2,<4"
-make setup
-# Manual symlink creation
-# No completions
+sudo dpkg -i build-packages/deb/pf-runner_1.0.0.deb
 ```
 
-**After:**
-```bash
-cd pf-runner && make setup && make install-local && make install-completions
-```
-
-**New Makefile Targets:**
-- `install-completions` - Install shell completions
-- `uninstall-completions` - Remove shell completions
-- Updated `install` to include completions automatically
-- Fixed `install-local` to use `~/.local/bin` correctly
+**Notes:**
+- pip/editable installs are deprecated; the .deb ships vendored deps and completions.
 
 ### 3. Documentation Improvements
 

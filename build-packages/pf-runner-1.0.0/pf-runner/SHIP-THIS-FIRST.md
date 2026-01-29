@@ -7,12 +7,8 @@
 ### Installation
 
 ```bash
-# Build the pf-runner container image and wrapper
-cd .. && ./install.sh --runtime docker
-
-# Legacy host-only (optional)
-pip install --user "fabric>=3.2,<4"
-make install-local
+# Install from bundled .deb (preferred, no pip/venv)
+sudo dpkg -i build-packages/deb/pf-runner_1.0.0.deb
 ```
 
 ### Basic Usage

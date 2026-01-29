@@ -4,5 +4,8 @@
 
 task hga-run file="" execute="true"
   describe Run an HGActions workflow
-  shell .github/hg_actions/scripts/hga_run.sh "$file" "$execute"
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    "$ROOT/.github/hg_actions/scripts/hga_run.sh" "$file" "$execute"
 end

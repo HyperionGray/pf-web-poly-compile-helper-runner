@@ -180,8 +180,8 @@ end
 task kernel-debug-install-deps
   describe Install kernel debugging dependencies
   packages install python3-pip python3-dev build-essential
-  shell pip3 install --user r2pipe
-  shell pip3 install --user fabric
+  shell python3 -m pip install --break-system-packages --user r2pipe
+  shell python3 -m pip install --break-system-packages --user fabric
   shell echo "Installing radare2..."
   shell sudo apt-get update && sudo apt-get install -y radare2
   shell echo "Installing LLDB..."
@@ -199,38 +199,121 @@ task kernel-debug-install-optional
   shell sudo apt-get install -y qemu-system-x86 qemu-utils
   shell sudo apt-get install -y gdb-multiarch
   shell sudo apt-get install -y strace ltrace
-  shell pip3 install --user angr
+  shell python3 -m pip install --break-system-packages --user angr
   shell echo "Optional tools installed."
 end
 
 task kernel-debug-setup
   describe Set up kernel debugging environment
-  shell pf kernel-debug-install-deps
-  shell chmod +x tools/kernel-debug/ioctl/ioctl_detector.py
-  shell chmod +x tools/kernel-debug/firmware/firmware_extractor.py
-  shell chmod +x tools/kernel-debug/breakpoints/lldb_integration.py
-  shell chmod +x tools/kernel-debug/fuzzing/kernel_fuzzer.py
-  shell chmod +x tools/kernel-debug/plugins/r2_kernel_analysis.py
-  shell chmod +x tools/kernel-debug/vmkit/microvm_swarm.py
-  shell echo "Kernel debugging environment ready!"
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    pf kernel-debug-install-deps
+
+    find_root() {
+      if [ -n "${PFY_ROOT:-}" ] && [ -d "${PFY_ROOT}" ]; then
+        if git -C "${PFY_ROOT}" rev-parse --show-toplevel >/dev/null 2>&1; then
+          git -C "${PFY_ROOT}" rev-parse --show-toplevel
+        else
+          echo "${PFY_ROOT}"
+        fi
+        return
+      fi
+      if [ -n "${PFY_FILE_PATH:-}" ] && [ -f "${PFY_FILE_PATH}" ]; then
+        PFY_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+        if git -C "${PFY_DIR}" rev-parse --show-toplevel >/dev/null 2>&1; then
+          git -C "${PFY_DIR}" rev-parse --show-toplevel
+        else
+          echo "${PFY_DIR}"
+        fi
+        return
+      fi
+      if git rev-parse --show-toplevel >/dev/null 2>&1; then
+        git rev-parse --show-toplevel
+        return
+      fi
+      if [ -n "${PFY_FILE:-}" ] && git -C "$(dirname "$PFY_FILE")" rev-parse --show-toplevel >/dev/null 2>&1; then
+        git -C "$(dirname "$PFY_FILE")" rev-parse --show-toplevel
+        return
+      fi
+      cur="$PWD"
+      while [ "$cur" != "/" ]; do
+        if [ -d "$cur/pf-files" ] && [ -f "$cur/pf-files/Pfyfile.pf" ]; then
+          echo "$cur"
+          return
+        fi
+        cur="$(dirname "$cur")"
+      done
+      echo "$PWD"
+    }
+
+    ROOT="$(find_root)"
+    chmod +x "$ROOT/tools/kernel-debug/ioctl/ioctl_detector.py"
+    chmod +x "$ROOT/tools/kernel-debug/firmware/firmware_extractor.py"
+    chmod +x "$ROOT/tools/kernel-debug/breakpoints/lldb_integration.py"
+    chmod +x "$ROOT/tools/kernel-debug/fuzzing/kernel_fuzzer.py"
+    chmod +x "$ROOT/tools/kernel-debug/plugins/r2_kernel_analysis.py"
+    chmod +x "$ROOT/tools/kernel-debug/vmkit/microvm_swarm.py"
+    echo "Kernel debugging environment ready!"
 end
 
 # Testing and Validation
 task kernel-debug-test
   describe Test kernel debugging tools
-  shell echo "Testing IOCTL detector..."
-  shell python3 tools/kernel-debug/ioctl/ioctl_detector.py --help
-  shell echo "Testing firmware extractor..."
-  shell python3 tools/kernel-debug/firmware/firmware_extractor.py --help
-  shell echo "Testing LLDB integration..."
-  shell python3 tools/kernel-debug/breakpoints/lldb_integration.py --help
-  shell echo "Testing kernel fuzzer..."
-  shell python3 tools/kernel-debug/fuzzing/kernel_fuzzer.py --help
-  shell echo "Testing radare2 plugin..."
-  shell python3 tools/kernel-debug/plugins/r2_kernel_analysis.py --help
-  shell echo "Testing VM orchestrator..."
-  shell python3 tools/kernel-debug/vmkit/microvm_swarm.py --help
-  shell echo "All tools tested successfully!"
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    find_root() {
+      if [ -n "${PFY_ROOT:-}" ] && [ -d "${PFY_ROOT}" ]; then
+        if git -C "${PFY_ROOT}" rev-parse --show-toplevel >/dev/null 2>&1; then
+          git -C "${PFY_ROOT}" rev-parse --show-toplevel
+        else
+          echo "${PFY_ROOT}"
+        fi
+        return
+      fi
+      if [ -n "${PFY_FILE_PATH:-}" ] && [ -f "${PFY_FILE_PATH}" ]; then
+        PFY_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+        if git -C "${PFY_DIR}" rev-parse --show-toplevel >/dev/null 2>&1; then
+          git -C "${PFY_DIR}" rev-parse --show-toplevel
+        else
+          echo "${PFY_DIR}"
+        fi
+        return
+      fi
+      if git rev-parse --show-toplevel >/dev/null 2>&1; then
+        git rev-parse --show-toplevel
+        return
+      fi
+      if [ -n "${PFY_FILE:-}" ] && git -C "$(dirname "$PFY_FILE")" rev-parse --show-toplevel >/dev/null 2>&1; then
+        git -C "$(dirname "$PFY_FILE")" rev-parse --show-toplevel
+        return
+      fi
+      cur="$PWD"
+      while [ "$cur" != "/" ]; do
+        if [ -d "$cur/pf-files" ] && [ -f "$cur/pf-files/Pfyfile.pf" ]; then
+          echo "$cur"
+          return
+        fi
+        cur="$(dirname "$cur")"
+      done
+      echo "$PWD"
+    }
+
+    ROOT="$(find_root)"
+    echo "Testing IOCTL detector..."
+    python3 "$ROOT/tools/kernel-debug/ioctl/ioctl_detector.py" --help
+    echo "Testing firmware extractor..."
+    python3 "$ROOT/tools/kernel-debug/firmware/firmware_extractor.py" --help
+    echo "Testing LLDB integration..."
+    python3 "$ROOT/tools/kernel-debug/breakpoints/lldb_integration.py" --help
+    echo "Testing kernel fuzzer..."
+    python3 "$ROOT/tools/kernel-debug/fuzzing/kernel_fuzzer.py" --help
+    echo "Testing radare2 plugin..."
+    python3 "$ROOT/tools/kernel-debug/plugins/r2_kernel_analysis.py" --help
+    echo "Testing VM orchestrator..."
+    python3 "$ROOT/tools/kernel-debug/vmkit/microvm_swarm.py" --help
+    echo "All tools tested successfully!"
 end
 
 # Help and Documentation

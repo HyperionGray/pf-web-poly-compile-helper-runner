@@ -49,22 +49,62 @@ task rest-status [alias=rstat]
         fi
 end
 
-task rest-dev [alias=rdev]
+task rest-dev [alias=rdev] host="127.0.0.1" port="8000"
   describe Start REST API in development mode (foreground with auto-reload)
   shell_lang bash
-  shell cd "$(dirname "$0")" 2>/dev/null || cd pf-runner; \
-        echo "Starting pf REST API in development mode..."; \
-        echo "API docs will be at http://${PF_API_HOST:-127.0.0.1}:${PF_API_PORT:-8000}/docs"; \
-        python3 pf_api.py --reload --host "${PF_API_HOST:-127.0.0.1}" --port "${PF_API_PORT:-8000}"
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    PF_RUNNER_DIR=""
+    for dir in \
+      "$ROOT/pf-runner-full" \
+      "$ROOT/pf-runner" \
+      "$ROOT/build-packages/pf-runner-1.0.0/pf-runner"; do
+      if [ -d "$dir" ]; then
+        PF_RUNNER_DIR="$dir"
+        break
+      fi
+    done
+    if [ -z "$PF_RUNNER_DIR" ]; then
+      echo "[ERR] Could not locate pf runner directory under $ROOT" >&2
+      exit 1
+    fi
+
+    cd "$PF_RUNNER_DIR"
+    echo "Starting pf REST API in development mode..."
+    echo "API docs will be at http://${host}:${port}/docs"
+    python3 pf_api.py --reload --host "${host}" --port "${port}"
 end
 
 task rest-install [alias=rinst]
   describe Install the REST API systemd service unit
   shell_lang bash
-  shell PF_RUNNER_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || PF_RUNNER_DIR="$(pwd)/pf-runner"; \
-        sudo cp "$PF_RUNNER_DIR/pf-rest-api@.service" /etc/systemd/system/ && \
-        sudo systemctl daemon-reload && \
-        echo "pf REST API service installed. Use 'pf rest-on' to start."
+  shell |
+    set -euo pipefail
+    ROOT="${PF_ROOT:-$(pwd)}"
+    PF_RUNNER_DIR=""
+    for candidate in "$ROOT/pf-runner-full" "$ROOT/pf-runner" "$ROOT/build-packages/pf-runner-1.0.0/pf-runner"; do
+      if [ -f "$candidate/pf-rest-api@.service" ]; then
+        PF_RUNNER_DIR="$candidate"
+        break
+      fi
+    done
+
+    if [ -z "$PF_RUNNER_DIR" ]; then
+      echo "[ERR] Could not locate pf-runner directory (looked under $ROOT)" >&2
+      exit 1
+    fi
+
+    UNIT_SRC="$PF_RUNNER_DIR/pf-rest-api@.service"
+    if [ ! -f "$UNIT_SRC" ]; then
+      echo "[ERR] Service file not found at $UNIT_SRC" >&2
+      exit 1
+    fi
+
+    echo "Installing systemd unit from $UNIT_SRC"
+    sudo install -m 0644 "$UNIT_SRC" /etc/systemd/system/pf-rest-api@.service
+    sudo systemctl daemon-reload
+    echo "pf REST API service installed. Use 'pf rest-on' to start."
 end
 
 task rest-uninstall [alias=runinst]

@@ -6,6 +6,15 @@
 # PE Container Build Tasks
 # ==========================================
 
+task pe-build-all
+  describe Build all PE container images (VMKit, ReactOS, macOS)
+  shell_lang bash
+  shell |
+    ROOT="$(git rev-parse --show-toplevel)"
+    pf pe-build-vmkit
+    pf pe-reactos-setup || true
+    pf pe-build-macos
+end
 
 task pe-build-vmkit
   describe Build VMKit container for PE execution with full passthrough
@@ -96,13 +105,7 @@ end
 task pe-reactos-setup
   describe Download and set up ReactOS for PE execution
   shell_lang bash
-  shell |
-    echo "Setting up ReactOS..."
-    mkdir -p reactos-images
-    podman run --rm -it \
-      -v ${PWD}/reactos-images:/reactos/images \
-      localhost/pf-pe-reactos:latest \
-      setup-reactos.sh
+  shell set -euo pipefail; echo "Setting up ReactOS..."; mkdir -p reactos-images; podman run --rm -v "${PWD}/reactos-images:/reactos/images" localhost/pf-pe-reactos:latest setup-reactos.sh
 end
 
 task pe-reactos-run pe=""
@@ -117,7 +120,7 @@ task pe-reactos-run pe=""
     PE_DIR=$(dirname "${pe}")
     PE_FILE=$(basename "${pe}")
     
-    podman run --rm -it \
+    podman run --rm \
       --device /dev/kvm \
       -v ${PWD}/reactos-images:/reactos/images \
       -v ${PE_DIR}:/reactos/pe-input \
@@ -138,7 +141,7 @@ task pe-reactos-analyze pe=""
     PE_DIR=$(dirname "${pe}")
     PE_FILE=$(basename "${pe}")
     
-    podman run --rm -it \
+    podman run --rm \
       -v ${PE_DIR}:/reactos/pe-input \
       localhost/pf-pe-reactos:latest \
       analyze-pe.sh "/reactos/pe-input/${PE_FILE}"
@@ -327,4 +330,41 @@ end
 # Status and Help Tasks
 # ==========================================
 
+task pe-help
+  describe Show PE container helper commands
+  shell_lang bash
+  shell cat << 'EOF'
 
+PE Container Commands
+=====================
+
+BUILD:
+  pf pe-build-all          Build all PE containers (vmkit, reactos, macos)
+  pf pe-build-vmkit        Build VMKit container
+  pf pe-build-macos        Build macOS QEMU container
+
+VMKIT:
+  pf pe-vmkit-setup        Create VMKit images (ReactOS, minimal)
+  pf pe-vmkit-run pe=...   Run PE in VMKit VM
+  pf pe-vmkit-analyze pe=... Analyze PE before running
+  pf pe-vmkit-shell        Open shell in VMKit container
+
+REACTOS:
+  pf pe-reactos-setup      Download/setup ReactOS images
+  pf pe-reactos-run pe=... Run PE in ReactOS VM
+  pf pe-reactos-analyze    Analyze PE using ReactOS container
+  pf pe-reactos-shell      Shell inside ReactOS container
+
+MACOS:
+  pf macos-setup           Prepare macOS image
+  pf macos-run             Start macOS VM (foreground)
+  pf macos-run-headless    Start macOS VM headless
+  pf macos-run-app app=... Run an app in macOS VM
+  pf macos-shell           Shell inside macOS container
+
+WORKFLOWS:
+  pf pe-setup-all          Build & setup all environments
+  pf pe-analyze-and-run    Analyze then run PE (vmkit or reactos)
+
+EOF
+end

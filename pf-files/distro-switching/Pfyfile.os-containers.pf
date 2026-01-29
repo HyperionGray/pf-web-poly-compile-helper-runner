@@ -9,37 +9,70 @@
 task os-build-all
   describe Build all OS distribution containers
   shell_lang bash
-  shell ./containers/scripts/build-containers.sh os
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    "$ROOT/containers/scripts/build-containers.sh" os
 end
 
 task os-build-centos
   describe Build CentOS Stream 9 container
   shell_lang bash
-  shell podman build -t localhost/pf-os-centos:latest -f containers/dockerfiles/Dockerfile.os-centos .
+  shell |
+    set -euo pipefail
+    ROOT="$(pwd -P)"
+    while [ "$ROOT" != "/" ] && [ ! -d "$ROOT/containers/dockerfiles" ]; do
+      ROOT="$(dirname "$ROOT")"
+    done
+    podman build -t localhost/pf-os-centos:latest -f "$ROOT/containers/dockerfiles/Dockerfile.os-centos" "$ROOT"
 end
 
 task os-build-fedora
   describe Build Fedora 39 container
   shell_lang bash
-  shell podman build -t localhost/pf-os-fedora:latest -f containers/dockerfiles/Dockerfile.os-fedora .
+  shell |
+    set -euo pipefail
+    ROOT="$(pwd -P)"
+    while [ "$ROOT" != "/" ] && [ ! -d "$ROOT/containers/dockerfiles" ]; do
+      ROOT="$(dirname "$ROOT")"
+    done
+    podman build -t localhost/pf-os-fedora:latest -f "$ROOT/containers/dockerfiles/Dockerfile.os-fedora" "$ROOT"
 end
 
 task os-build-arch
   describe Build Arch Linux container
   shell_lang bash
-  shell podman build -t localhost/pf-os-arch:latest -f containers/dockerfiles/Dockerfile.os-arch .
+  shell |
+    set -euo pipefail
+    ROOT="$(pwd -P)"
+    while [ "$ROOT" != "/" ] && [ ! -d "$ROOT/containers/dockerfiles" ]; do
+      ROOT="$(dirname "$ROOT")"
+    done
+    podman build -t localhost/pf-os-arch:latest -f "$ROOT/containers/dockerfiles/Dockerfile.os-arch" "$ROOT"
 end
 
 task os-build-opensuse
   describe Build openSUSE Tumbleweed container
   shell_lang bash
-  shell podman build -t localhost/pf-os-opensuse:latest -f containers/dockerfiles/Dockerfile.os-opensuse .
+  shell |
+    set -euo pipefail
+    ROOT="$(pwd -P)"
+    while [ "$ROOT" != "/" ] && [ ! -d "$ROOT/containers/dockerfiles" ]; do
+      ROOT="$(dirname "$ROOT")"
+    done
+    podman build -t localhost/pf-os-opensuse:latest -f "$ROOT/containers/dockerfiles/Dockerfile.os-opensuse" "$ROOT"
 end
 
 task os-build-macos-like
   describe Build macOS-like container with Homebrew
   shell_lang bash
-  shell podman build -t localhost/pf-os-macos-like:latest -f containers/dockerfiles/Dockerfile.os-macos-like .
+  shell |
+    set -euo pipefail
+    ROOT="$(pwd -P)"
+    while [ "$ROOT" != "/" ] && [ ! -d "$ROOT/containers/dockerfiles" ]; do
+      ROOT="$(dirname "$ROOT")"
+    done
+    podman build -t localhost/pf-os-macos-like:latest -f "$ROOT/containers/dockerfiles/Dockerfile.os-macos-like" "$ROOT"
 end
 
 # ==========================================
@@ -60,7 +93,10 @@ end
 task os-setup-environment
   describe Set up OS container environment and PATH management
   shell_lang bash
-  shell bash scripts/os/os-setup-environment.sh
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    bash "$ROOT/scripts/os/os-setup-environment.sh"
 end
 
 # ==========================================
@@ -77,13 +113,10 @@ task os-install-package os="" package=""
     fi
     
     echo "Installing ${package} in ${os} container..."
+    sudo mkdir -p /opt/pf-os/${os}/{bin,lib,share,etc}
     
-    # Run container with volume mounts
-    podman run --rm -it \
-        --volume /opt/pf-os/${os}:/artifacts:rshared \
-        --volume $(pwd):/workspace:ro \
-        localhost/pf-os-${os}:latest \
-        pf-install-package "${package}"
+    # Run container with volume mounts (avoid TTY to prevent hangs in non-interactive contexts)
+    podman run --rm --user root --security-opt label=disable --volume /opt/pf-os/${os}:/artifacts --volume "$(pwd)":/workspace:ro localhost/pf-os-${os}:latest pf-install-package "${package}"
     
     echo "Package ${package} installed and artifacts available in /opt/pf-os/${os}/"
 end
@@ -99,7 +132,9 @@ task os-search-package os="" query=""
     
     echo "Searching for '${query}' in ${os} container..."
     
-    podman run --rm -it \
+    podman run --rm \
+        --user root \
+        --security-opt label=disable \
         localhost/pf-os-${os}:latest \
         pf-search-package "${query}"
 end
@@ -115,7 +150,9 @@ task os-package-info os="" package=""
     
     echo "Getting info for ${package} in ${os} container..."
     
-    podman run --rm -it \
+    podman run --rm \
+        --user root \
+        --security-opt label=disable \
         localhost/pf-os-${os}:latest \
         pf-package-info "${package}"
 end
