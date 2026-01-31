@@ -42,6 +42,7 @@ coverage.xml
 .coverage
 .pytest_cache/
 *.cover
+tui-test-report.json
 
 # CodeQL artifacts
 _codeql_*
@@ -68,3 +69,5 @@ __pycache__/
 \#*\#
 *.bak
 *.tmp
+venv/
+venv
