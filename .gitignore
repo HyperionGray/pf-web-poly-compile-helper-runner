@@ -2,7 +2,7 @@
 **tar.gz
 **.tar
 **.code-workspace
-
+**bak/**
 # Build artifacts
 demos/**/web/wasm/**/pkg/
 demos/**/web/wasm/**/*.js
