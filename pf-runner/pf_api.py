@@ -25,6 +25,9 @@ import shlex
 from typing import Dict, List, Optional, Any
 from contextlib import asynccontextmanager
 
+# Central JSON5 config (no PF_* env vars for configuration)
+import pf_config
+
 try:
     from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
     from fastapi.responses import JSONResponse, StreamingResponse
@@ -49,9 +52,10 @@ from pf_parser import (
 
 # Configuration
 API_VERSION = "1.0.0"
-DEFAULT_HOST = os.environ.get("PF_API_HOST", "127.0.0.1")
-DEFAULT_PORT = int(os.environ.get("PF_API_PORT", "8000"))
-DEFAULT_WORKERS = int(os.environ.get("PF_API_WORKERS", "4"))
+_CFG, _CFG_PATH = pf_config.load_config(start_dir=os.getcwd())
+DEFAULT_HOST = str(pf_config.get(_CFG, "api.host", "127.0.0.1"))
+DEFAULT_PORT = pf_config.get_int(_CFG, "api.port", 8000)
+DEFAULT_WORKERS = pf_config.get_int(_CFG, "api.workers", 4)
 
 # Reserved paths that should not be treated as task aliases
 RESERVED_PATHS = frozenset(

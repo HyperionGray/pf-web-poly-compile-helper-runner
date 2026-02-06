@@ -3,6 +3,9 @@
 # Runs all tests and provides comprehensive installer validation
 set -euo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$REPO_ROOT"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -68,10 +71,25 @@ apply_fixes() {
     
     # Fix 3: Check for other hardcoded paths
     log_info "Checking for remaining hardcoded paths..."
-    if grep -r "/home/punk" . --exclude-dir=.git --exclude="*.backup" 2>/dev/null; then
-        log_warning "Found additional hardcoded paths that may need fixing"
+    local hardcoded_home_regex='/home/[^/]+/|/Users/[^/]+/'
+    if grep -R -n -E "$hardcoded_home_regex" \
+        --exclude-dir=.git \
+        --exclude-dir=build-packages \
+        --exclude-dir=.venv \
+        --exclude-dir=node_modules \
+        --exclude-dir=_asan \
+        --exclude-dir=_fuzzer \
+        --exclude-dir=aflfuzz \
+        --exclude-dir=bak \
+        --exclude="*.backup" \
+        --exclude="*.broken" \
+        --include="*.sh" \
+        --include="*.py" \
+        --include="*.pf" \
+        . 2>/dev/null; then
+        log_warning "Found hardcoded home-directory paths that may need fixing"
     else
-        log_success "No additional hardcoded paths found"
+        log_success "No hardcoded home-directory paths found"
     fi
     
     echo ""

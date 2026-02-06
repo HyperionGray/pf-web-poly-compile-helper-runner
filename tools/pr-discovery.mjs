@@ -9,34 +9,19 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+import { ensureDir, loadPrContext, writeJson } from './pr-common.mjs';
+
 class PRDiscovery {
     constructor() {
-        this.configPath = path.join(process.env.HOME, '.config', 'pf', 'pr-config.json');
+        this.ctx = loadPrContext();
+        this.configPath = this.ctx.paths.discoveryConfigFile;
         this.config = this.loadConfig();
         this.results = [];
     }
 
     loadConfig() {
-        try {
-            if (fs.existsSync(this.configPath)) {
-                return JSON.parse(fs.readFileSync(this.configPath, 'utf8'));
-            }
-        } catch (error) {
-            console.warn('⚠️  Could not load PR config, using defaults');
-        }
-        
-        return {
-            repositories: [],
-            platforms: {
-                github: { enabled: true },
-                gitlab: { enabled: true }
-            },
-            filters: {
-                states: ['open'],
-                labels: [],
-                authors: []
-            }
-        };
+        // Prefer central pf.config.json5 (with legacy pr-config.json fallback in pr-common).
+        return this.ctx.pr;
     }
 
     async discoverGitHubPRs(repo) {
@@ -183,13 +168,9 @@ class PRDiscovery {
     }
 
     saveResults() {
-        const outputDir = path.join(process.env.HOME, '.config', 'pf');
-        if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
-        }
-        
-        const outputFile = path.join(outputDir, 'discovered-prs.json');
-        fs.writeFileSync(outputFile, JSON.stringify(this.results, null, 2));
+        const outputFile = this.ctx.paths.discoveredPrsFile;
+        ensureDir(path.dirname(outputFile));
+        writeJson(outputFile, this.results);
         console.log(`💾 Results saved to ${outputFile}`);
     }
 

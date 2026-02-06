@@ -20,16 +20,20 @@ import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
 import ora from 'ora';
 
+import { getConfigValue, loadPfConfig, resolveHomePath } from './pf-config.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const { config: PF_CONFIG } = loadPfConfig(path.join(__dirname, '..'));
 
 // Configuration
 const CONFIG = {
   // Base directory for OS switching operations
-  switchBase: process.env.PF_SWITCH_BASE || path.join(process.env.HOME, '.pf/os-switch'),
+  switchBase: resolveHomePath(getConfigValue(PF_CONFIG, 'os.switchBaseDir', '~/.pf/os-switch')),
   
   // Container runtime
-  runtime: process.env.CONTAINER_RT || 'podman',
+  runtime: String(getConfigValue(PF_CONFIG, 'container.runtime', 'podman')),
   
   // Supported target OS containers
   targetOS: {
@@ -630,9 +634,9 @@ ${chalk.cyan('Safety Features:')}
   - kexec for rebootless switching
   - Multiple snapshot methods (btrfs, zfs, rsync)
 
-${chalk.cyan('Environment Variables:')}
-  PF_SWITCH_BASE   Base directory for operations (default: ~/.pf/os-switch)
-  CONTAINER_RT     Container runtime (default: podman)
+${chalk.cyan('Config (pf.config.json5):')}
+  os.switchBaseDir     Base directory for operations (default: ~/.pf/os-switch)
+  container.runtime    Container runtime (default: podman)
 
 ${chalk.red('⚠️  CAUTION:')}
   This tool can modify your system at a low level.

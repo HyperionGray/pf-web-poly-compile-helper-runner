@@ -4,7 +4,8 @@
 echo "🧪 Quick Verification Test"
 echo "=========================="
 
-cd /workspace
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 # Make scripts executable
 chmod +x test_all_comprehensive.py

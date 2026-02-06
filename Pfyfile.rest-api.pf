@@ -19,7 +19,7 @@ task rest-on [alias=ron]
   shell_lang bash
   shell if command -v systemctl >/dev/null 2>&1; then \
           sudo systemctl enable --now pf-rest-api@$USER.service && \
-          echo "pf REST API started. API docs at http://localhost:${PF_API_PORT:-8000}/docs"; \
+          python3 -c 'import sys; sys.path.insert(0,"pf-runner"); import pf_config; cfg,_=pf_config.load_config(); host=cfg["api"]["host"]; port=cfg["api"]["port"]; print(f"pf REST API started. API docs at http://{host}:{port}/docs")'; \
         else \
           echo "systemd not available. Use 'pf rest-dev' to start in foreground mode."; \
           exit 1; \
@@ -52,10 +52,7 @@ end
 task rest-dev [alias=rdev]
   describe Start REST API in development mode (foreground with auto-reload)
   shell_lang bash
-  shell cd "$(dirname "$0")" 2>/dev/null || cd pf-runner; \
-        echo "Starting pf REST API in development mode..."; \
-        echo "API docs will be at http://${PF_API_HOST:-127.0.0.1}:${PF_API_PORT:-8000}/docs"; \
-        python3 pf_api.py --reload --host "${PF_API_HOST:-127.0.0.1}" --port "${PF_API_PORT:-8000}"
+  shell cd pf-runner && echo "Starting pf REST API in development mode..." && python3 pf_api.py --reload
 end
 
 task rest-install [alias=rinst]
@@ -89,15 +86,5 @@ end
 task rest-config [alias=rcfg]
   describe Show REST API configuration
   shell_lang bash
-  shell echo "pf REST API Configuration:"; \
-        echo "  Host: ${PF_API_HOST:-127.0.0.1}"; \
-        echo "  Port: ${PF_API_PORT:-8000}"; \
-        echo "  Workers: ${PF_API_WORKERS:-4}"; \
-        echo ""; \
-        echo "Environment variables:"; \
-        echo "  PF_API_HOST   - Bind address (default: 127.0.0.1)"; \
-        echo "  PF_API_PORT   - Port number (default: 8000)"; \
-        echo "  PF_API_WORKERS - Number of workers (default: 4)"; \
-        echo ""; \
-        echo "Override in /etc/default/pf-rest-api for systemd service."
+  shell python3 -c 'import sys; sys.path.insert(0,"pf-runner"); import pf_config; cfg,path=pf_config.load_config(); api=cfg["api"]; print("pf REST API Configuration:"); print(f"  Host: {api[\"host\"]}"); print(f"  Port: {api[\"port\"]}"); print(f"  Workers: {api[\"workers\"]}"); print(f"  Config: {path or \"defaults\"}")'
 end

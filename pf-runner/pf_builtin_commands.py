@@ -45,7 +45,7 @@ class BuiltinCommandHandler:
             debug_file = os.path.expanduser("~/.pf_debug")
             with open(debug_file, 'w') as f:
                 f.write("1")
-            print("Debug mode enabled. Set PF_DEBUG=1 in your environment or run with --debug.")
+            print("Debug mode enabled.")
             return 0
         except Exception as e:
             print(f"Failed to enable debug mode: {e}", file=sys.stderr)

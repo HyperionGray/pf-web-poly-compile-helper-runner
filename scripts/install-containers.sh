@@ -16,8 +16,59 @@ NC='\033[0m' # No Color
 
 # Configuration
 INSTALL_MODE="${1:-interactive}"
-GPU_SUPPORT="${GPU_SUPPORT:-false}"
-USE_QUADLET="${USE_QUADLET:-true}"
+PF_CONFIG_PATH="${PROJECT_ROOT}/pf.config.json5"
+
+json5_get() {
+    local dotted_key="$1"
+    local default="$2"
+
+    if [[ ! -f "$PF_CONFIG_PATH" ]]; then
+        echo "$default"
+        return 0
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "$default"
+        return 0
+    fi
+
+    python3 - "$PF_CONFIG_PATH" "$dotted_key" "$default" <<'PY' 2>/dev/null || echo "$default"
+import sys
+
+cfg_path = sys.argv[1]
+key = sys.argv[2]
+default = sys.argv[3]
+
+try:
+    import json5  # type: ignore
+except Exception:
+    print(default)
+    raise SystemExit(0)
+
+try:
+    with open(cfg_path, "r", encoding="utf-8") as f:
+        data = json5.load(f)
+except Exception:
+    print(default)
+    raise SystemExit(0)
+
+cur = data
+for part in key.split("."):
+    if not isinstance(cur, dict) or part not in cur:
+        print(default)
+        raise SystemExit(0)
+    cur = cur[part]
+
+if isinstance(cur, bool):
+    print("true" if cur else "false")
+elif cur is None:
+    print(default)
+else:
+    print(str(cur))
+PY
+}
+
+GPU_SUPPORT="$(json5_get "devEnvironment.gpuSupport" "false")"
+USE_QUADLET="$(json5_get "devEnvironment.useQuadlet" "true")"
 
 # Functions
 log_info() {
@@ -213,22 +264,12 @@ Options:
     --no-quadlet   Use podman-compose instead of Quadlet
     --help         Show this help message
 
-Environment Variables:
-    GPU_SUPPORT    Enable GPU support (true/false)
-    USE_QUADLET    Use Quadlet for service management (true/false)
-
 Examples:
     # Interactive installation
     $0 interactive
     
-    # Auto install with GPU support
-    GPU_SUPPORT=true $0 auto
-    
     # Build images only
     $0 build-only
-    
-    # Install with podman-compose
-    USE_QUADLET=false $0 auto
 EOF
 }
 

@@ -66,6 +66,7 @@ setup(
     # Dependencies
     install_requires=[
         "lark>=1.1.0",
+        "json5>=0.13.0",
         # fabric is bundled, so we don't list it as a dependency
     ],
     

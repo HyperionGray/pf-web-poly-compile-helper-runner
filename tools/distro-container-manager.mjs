@@ -16,16 +16,20 @@ import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
 import ora from 'ora';
 
+import { getConfigValue, loadPfConfig, resolveHomePath } from './pf-config.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const { config: PF_CONFIG } = loadPfConfig(path.join(__dirname, '..'));
 
 // Configuration
 const CONFIG = {
   // Base directory for distro artifacts
-  artifactBase: process.env.PF_DISTRO_ARTIFACTS || path.join(process.env.HOME, '.pf/distros'),
+  artifactBase: resolveHomePath(getConfigValue(PF_CONFIG, 'os.distroArtifactsDir', '~/.pf/distros')),
   
   // Container runtime (podman preferred, docker fallback)
-  runtime: process.env.CONTAINER_RT || 'podman',
+  runtime: String(getConfigValue(PF_CONFIG, 'container.runtime', 'podman')),
   
   // Supported distributions
   distros: {
@@ -502,9 +506,9 @@ ${chalk.cyan('Supported Distros:')}
   arch      - Arch Linux (Pacman)
   opensuse  - openSUSE (Zypper)
 
-${chalk.cyan('Environment Variables:')}
-  PF_DISTRO_ARTIFACTS  Base directory for artifacts (default: ~/.pf/distros)
-  CONTAINER_RT         Container runtime (default: podman)
+${chalk.cyan('Config (pf.config.json5):')}
+  os.distroArtifactsDir  Base directory for artifacts (default: ~/.pf/distros)
+  container.runtime      Container runtime (default: podman)
 
 ${chalk.cyan('Technical Details:')}
   - Uses rshared bind mounts for efficient artifact extraction

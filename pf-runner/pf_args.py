@@ -68,10 +68,18 @@ Environment Variables:
   
 For more help on a specific subcommand:
   pf <subcommand> --help
+
+Config:
+  pf reads configuration from a central JSON5 file (default: pf.config.json5).
+  You can override the config path via --config.
             """,
         )
 
         # Global options that apply to all subcommands
+        self.parser.add_argument(
+            "--config",
+            help="Path to pf.config.json5 (default: search parents / ~/.config/pf)",
+        )
         self.parser.add_argument(
             "-f", "--file", help="Specify Pfyfile location (default: Pfyfile.pf)"
         )
@@ -235,6 +243,17 @@ For more help on a specific subcommand:
             arg = args[i]
             
             # Handle modern global options
+            if arg == "--config":
+                if i + 1 < len(args):
+                    modern_global_opts.extend([arg, args[i + 1]])
+                    i += 2
+                    continue
+                i += 1
+                continue
+            elif arg.startswith("--config="):
+                modern_global_opts.append(arg)
+                i += 1
+                continue
             if arg in ('-f', '--file'):
                 if i + 1 < len(args):
                     file_arg = args[i + 1]
@@ -396,6 +415,7 @@ For more help on a specific subcommand:
         # Create a minimal namespace with legacy parsing
         namespace = argparse.Namespace()
         namespace.command = "run"
+        namespace.config = None
         namespace.file = None
         namespace.env = []
         namespace.hosts = None
@@ -408,9 +428,19 @@ For more help on a specific subcommand:
 
         # Parse legacy format manually
         i = 0
-        if args and (os.path.exists(args[0]) or args[0].endswith(".pf")):
-            namespace.file = args[0]
+        if args and args[0] == "--config":
+            if len(args) > 1:
+                namespace.config = args[1]
+                i = 2
+            else:
+                i = 1
+        elif args and args[0].startswith("--config="):
+            namespace.config = args[0].split("=", 1)[1]
             i = 1
+
+        if i < len(args) and (os.path.exists(args[i]) or args[i].endswith(".pf")):
+            namespace.file = args[i]
+            i += 1
 
         # Parse key=value pairs
         while i < len(args):

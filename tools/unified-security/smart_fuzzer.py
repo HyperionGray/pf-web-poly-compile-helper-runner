@@ -17,7 +17,8 @@ class SmartFuzzer:
     """Intelligent fuzzing guided by comprehensive analysis results"""
     
     def __init__(self):
-        self.workspace = Path('/workspace')
+        # Repo root (works both locally and in containers where the repo is mounted at /workspace).
+        self.workspace = Path(__file__).resolve().parents[2]
         self.results = {}
     
     def fuzz_targets(self, targets_file: str, analysis_files: List[str]) -> Dict[str, Any]:

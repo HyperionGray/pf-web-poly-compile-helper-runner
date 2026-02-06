@@ -1,4 +1,7 @@
-./install-containers.sh
-./assign-issues-to-copilot.sh
 ./validate-build.sh
+./ci-cd-review/README.md
+./validate-pf-tasks.sh
+./assign-issues-to-copilot.sh
+./install-containers.sh
+./build.sh
 ./manage-containers.sh

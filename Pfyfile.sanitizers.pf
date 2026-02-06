@@ -10,10 +10,10 @@ task install-sanitizer-tools
   shell echo "╚════════════════════════════════════════════════════════════╝"
   shell echo ""
   shell echo "[1/4] Installing clang and LLVM tools..."
-  packages clang llvm llvm-dev libc++-dev libc++abi-dev
+  packages install clang llvm llvm-dev libc++-dev libc++abi-dev
   shell echo ""
   shell echo "[2/4] Installing additional sanitizer dependencies..."
-  packages gcc-multilib g++-multilib
+  packages install gcc-multilib g++-multilib
   shell echo ""
   shell echo "[3/4] Setting up sanitizer environment..."
   shell mkdir -p ~/.local/bin ~/.local/lib/sanitizers
@@ -109,16 +109,6 @@ task sanitizer-test
   shell echo '#include <limits.h>' | cat - <(echo 'int main(){int x=INT_MAX; return x+1;}') | clang -x c -fsanitize=undefined -o $TEST_UBSAN - 2>&1 | head -5 || true
   shell echo ""
   shell echo "✅ Sanitizer installation test complete!"
-=======
-  shell echo "1. Testing clang with AddressSanitizer..."
-  shell echo 'int main(){char *p=malloc(10); p[10]=1; return 0;}' | clang -x c -fsanitize=address -o /tmp/test_asan -
-  shell echo "2. Testing clang with MemorySanitizer..."
-  shell echo 'int main(){int x; return x;}' | clang -x c -fsanitize=memory -o /tmp/test_msan - 2>/dev/null || echo "MSan requires special libc (expected)"
-  shell echo "3. Testing clang with UBSan..."
-  shell echo 'int main(){int x=INT_MAX; return x+1;}' | clang -x c -fsanitize=undefined -o /tmp/test_ubsan -
-  shell echo ""
-  shell echo "✅ Sanitizer installation test complete!"
-  shell rm -f /tmp/test_asan /tmp/test_msan /tmp/test_ubsan
 end
 
 # Advanced Sanitizer Features

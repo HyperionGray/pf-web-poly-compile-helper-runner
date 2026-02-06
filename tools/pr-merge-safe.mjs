@@ -9,9 +9,12 @@ import { execSync } from 'child_process';
 import { promises as fsPromises } from 'fs';
 import path from 'path';
 
+import { loadPrContext } from './pr-common.mjs';
+
 class SafeMerger {
     constructor() {
-        this.prDataPath = path.join(process.env.HOME, '.config', 'pf', 'discovered-prs.json');
+        this.ctx = loadPrContext();
+        this.prDataPath = this.ctx.paths.discoveredPrsFile;
         this.prs = [];
     }
     
@@ -143,7 +146,7 @@ class SafeMerger {
         console.log('💾 Creating backup before merge...');
         
         try {
-            const backupDir = path.join(process.env.HOME, '.config', 'pf', 'merge-backups');
+            const backupDir = this.ctx.paths.mergeBackupsDir;
             
             // recursive: true handles existing directories gracefully
             await fsPromises.mkdir(backupDir, { recursive: true });
@@ -308,7 +311,7 @@ class SafeMerger {
     }
 
     async saveMergeResult(pr, result, backupFile) {
-        const resultsDir = path.join(process.env.HOME, '.config', 'pf', 'merge-results');
+        const resultsDir = this.ctx.paths.mergeResultsDir;
         
         // recursive: true handles existing directories gracefully
         await fsPromises.mkdir(resultsDir, { recursive: true });

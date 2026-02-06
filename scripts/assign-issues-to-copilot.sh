@@ -4,13 +4,121 @@
 
 set -euo pipefail
 
-REPO_OWNER="${REPO_OWNER:-P4X-ng}"
-REPO_NAME="${REPO_NAME:-pf-web-poly-compile-helper-runner}"
-GITHUB_TOKEN="${GITHUB_TOKEN:-}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+PROJECT_CONFIG="${REPO_ROOT}/pf.config.json5"
+USER_CONFIG=""
+if [[ -n "${HOME:-}" ]]; then
+    [[ -f "${HOME}/.config/pf/pf.config.json5" ]] && USER_CONFIG="${HOME}/.config/pf/pf.config.json5"
+    [[ -z "${USER_CONFIG}" && -f "${HOME}/.pf/pf.config.json5" ]] && USER_CONFIG="${HOME}/.pf/pf.config.json5"
+fi
+
+json5_get() {
+    local cfg_path="$1"
+    local dotted_key="$2"
+    local default="$3"
+
+    if [[ -z "${cfg_path}" || ! -f "${cfg_path}" ]]; then
+        echo "$default"
+        return 0
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "$default"
+        return 0
+    fi
+
+    python3 - "$cfg_path" "$dotted_key" "$default" <<'PY' 2>/dev/null || echo "$default"
+import sys
+
+cfg_path = sys.argv[1]
+key = sys.argv[2]
+default = sys.argv[3]
+
+try:
+    import json5  # type: ignore
+except Exception:
+    print(default)
+    raise SystemExit(0)
+
+try:
+    with open(cfg_path, "r", encoding="utf-8") as f:
+        data = json5.load(f)
+except Exception:
+    print(default)
+    raise SystemExit(0)
+
+cur = data
+for part in key.split("."):
+    if not isinstance(cur, dict) or part not in cur:
+        print(default)
+        raise SystemExit(0)
+    cur = cur[part]
+
+if cur is None:
+    print(default)
+elif isinstance(cur, bool):
+    print("true" if cur else "false")
+else:
+    print(str(cur))
+PY
+}
+
+cfg_get() {
+    local dotted_key="$1"
+    local default="$2"
+
+    local v=""
+    if [[ -n "${USER_CONFIG}" ]]; then
+        v="$(json5_get "${USER_CONFIG}" "$dotted_key" "")"
+    fi
+    if [[ -z "${v}" ]]; then
+        v="$(json5_get "${PROJECT_CONFIG}" "$dotted_key" "$default")"
+    fi
+    echo "$v"
+}
+
+detect_repo_from_git() {
+    if ! command -v git >/dev/null 2>&1; then
+        return 0
+    fi
+
+    local remote_url=""
+    remote_url="$(git -C "${REPO_ROOT}" remote get-url origin 2>/dev/null || true)"
+    if [[ -z "${remote_url}" ]]; then
+        return 0
+    fi
+
+    # Match: git@github.com:owner/name(.git) or https://github.com/owner/name(.git)
+    if [[ "${remote_url}" =~ github\.com[:/]+([^/]+)/([^/]+)(\.git)?$ ]]; then
+        echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
+        return 0
+    fi
+    return 0
+}
+
+REPO_OWNER="$(cfg_get "github.repoOwner" "")"
+REPO_NAME="$(cfg_get "github.repoName" "")"
+GITHUB_TOKEN="$(cfg_get "github.token" "")"
+
+if [[ -z "${REPO_OWNER}" || -z "${REPO_NAME}" ]]; then
+    if git_guess="$(detect_repo_from_git)"; then
+        if [[ -n "${git_guess}" ]]; then
+            REPO_OWNER="${REPO_OWNER:-${git_guess%% *}}"
+            REPO_NAME="${REPO_NAME:-${git_guess##* }}"
+        fi
+    fi
+fi
+
+if [[ -z "${REPO_OWNER}" || -z "${REPO_NAME}" ]]; then
+    echo "Error: GitHub repo not configured."
+    echo "Set github.repoOwner and github.repoName in pf.config.json5."
+    exit 1
+fi
 
 if [[ -z "$GITHUB_TOKEN" ]]; then
-    echo "Error: GITHUB_TOKEN environment variable is required"
-    echo "Usage: GITHUB_TOKEN=ghp_your_token ./scripts/assign-issues-to-copilot.sh"
+    echo "Error: GitHub token is required."
+    echo "Set github.token in ~/.config/pf/pf.config.json5 (preferred) or ${PROJECT_CONFIG}"
     exit 1
 fi
 

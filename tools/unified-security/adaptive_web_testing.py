@@ -16,7 +16,8 @@ class AdaptiveWebTester:
     """Intelligent web security testing guided by binary analysis"""
     
     def __init__(self):
-        self.workspace = Path('/workspace')
+        # Repo root (works both locally and in containers where the repo is mounted at /workspace).
+        self.workspace = Path(__file__).resolve().parents[2]
         self.results = {}
     
     def test_targets(self, targets_file: str, binary_intel_file: str) -> Dict[str, Any]:

@@ -14,7 +14,8 @@ class SecurityStatusChecker:
     """Check status of all security tools and components"""
     
     def __init__(self):
-        self.workspace = Path('/workspace')
+        # Repo root (works both locally and in containers where the repo is mounted at /workspace).
+        self.workspace = Path(__file__).resolve().parents[2]
         self.status = {}
     
     def check_all_status(self):

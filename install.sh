@@ -413,7 +413,7 @@ setup_python_env() {
     
     # Install Python dependencies
     log_info "Installing Python dependencies..."
-    $PIP_CMD install "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12"
+    $PIP_CMD install "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12" "json5>=0.13.0"
     
     log_success "Python environment setup complete"
 }
@@ -523,14 +523,22 @@ install_container_wrapper() {
     cp "${PF_RUNNER_DIR}/pf_universal" "${lib_dir}/pf_universal"
     chmod +x "${lib_dir}/pf_universal"
 
+    # Write a local config next to the wrapper so container runtime/image are not
+    # controlled via environment variables.
+    if [[ ! -f "${lib_dir}/pf.config.json5" ]]; then
+      cat > "${lib_dir}/pf.config.json5" << EOF
+{
+  container: {
+    runtime: "${CONTAINER_RT}",
+    image: "${CONTAINER_IMAGE}",
+  },
+}
+EOF
+      chmod 0644 "${lib_dir}/pf.config.json5" || true
+    fi
+
     cat > "${bin_dir}/pf" << EOF
 #!/usr/bin/env bash
-if [[ -z "\${PF_IMAGE:-}" ]]; then
-  export PF_IMAGE="${CONTAINER_IMAGE}"
-fi
-if [[ -z "\${PF_RUNTIME:-}" ]]; then
-  export PF_RUNTIME="${CONTAINER_RT}"
-fi
 exec "${lib_dir}/pf_universal" "\$@"
 EOF
     chmod +x "${bin_dir}/pf"
@@ -703,7 +711,7 @@ main() {
                 echo "  1. Install the wrapper later with:"
                 echo "     ./install.sh --mode container --runtime ${CONTAINER_RT}"
                 echo "  2. Or run directly with:"
-                echo "     PF_IMAGE=${CONTAINER_IMAGE} PF_RUNTIME=${CONTAINER_RT} ${PF_RUNNER_DIR}/pf_universal"
+                echo "     ${PF_RUNNER_DIR}/pf_universal"
             fi
             echo ""
             log_success "Happy task running! 🚀"

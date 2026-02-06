@@ -51,47 +51,129 @@ def parse_shell_command(cmd_line: str) -> Tuple[Dict[str, str], str]:
     Raises:
         PFExecutionError: If command parsing fails
     """
-    env_vars = {}
-    
-    # Use shlex to properly handle quoted strings
-    try:
-        tokens = shlex.split(cmd_line)
-    except ValueError as e:
-        # If shlex fails, raise a detailed error
-        raise PFExecutionError(
-            message=f"Failed to parse shell command: {e}",
-            command=cmd_line,
-            suggestion="Check for unclosed quotes or invalid escape sequences"
-        )
-    
-    # Find environment variable assignments at the start
-    remaining_tokens = []
-    for i, token in enumerate(tokens):
-        if '=' in token and not token.startswith('-'):
-            # Check if this looks like an environment variable assignment
-            key, value = token.split('=', 1)
-            # Environment variable names should be valid identifiers
-            if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', key):
-                env_vars[key] = value
+    env_vars: Dict[str, str] = {}
+
+    # Multi-line commands are treated as scripts. In that case, leading `KEY=value`
+    # assignments are almost certainly shell variables (e.g. `tmpdir=$(mktemp -d)`)
+    # rather than environment-prefix assignments, so do not peel them off.
+    if "\n" in cmd_line:
+        return {}, cmd_line.strip()
+
+    # Preserve the command string exactly as written.
+    #
+    # We only peel off leading `KEY=value` assignments (space-separated) and return the
+    # remaining substring untouched, so quoting, grouping, and operators like `||` keep
+    # their original shell semantics.
+    def _scan_shell_word_end(src: str, start: int) -> int:
+        in_single = False
+        in_double = False
+        escaped = False
+
+        i = start
+        while i < len(src):
+            ch = src[i]
+
+            if escaped:
+                escaped = False
+                i += 1
                 continue
-        
-        # Not an env var assignment, rest is the command
-        remaining_tokens = tokens[i:]
-        break
-    
-    # Reconstruct the command from remaining tokens
-    if remaining_tokens:
-        # Preserve shell operators like &&, ||, |, ; without quoting so they keep their semantics.
-        shell_operators = {"&&", "||", "|", ";", "&", "|&", ">", "<", ">>", "<<", "2>", "2>&1"}
 
-        def _quote_preserving_ops(token: str) -> str:
-            return token if token in shell_operators else shlex.quote(token)
+            if in_single:
+                if ch == "'":
+                    in_single = False
+                i += 1
+                continue
 
-        remaining_cmd = ' '.join(_quote_preserving_ops(token) for token in remaining_tokens)
-    else:
-        remaining_cmd = ''
-    
-    return env_vars, remaining_cmd
+            if in_double:
+                if ch == '"':
+                    in_double = False
+                    i += 1
+                    continue
+                if ch == "\\":
+                    escaped = True
+                    i += 1
+                    continue
+                i += 1
+                continue
+
+            # Unquoted context
+            if ch.isspace():
+                break
+            if ch == "'":
+                in_single = True
+                i += 1
+                continue
+            if ch == '"':
+                in_double = True
+                i += 1
+                continue
+            if ch == "\\":
+                escaped = True
+                i += 1
+                continue
+
+            i += 1
+
+        if escaped:
+            raise PFExecutionError(
+                message="Failed to parse shell command: trailing backslash",
+                command=cmd_line,
+                suggestion="Remove the trailing backslash or escape it properly",
+            )
+        if in_single or in_double:
+            raise PFExecutionError(
+                message="Failed to parse shell command: unclosed quote",
+                command=cmd_line,
+                suggestion="Check for unclosed quotes in the command",
+            )
+
+        return i
+
+    i = 0
+    n = len(cmd_line)
+    while i < n and cmd_line[i].isspace():
+        i += 1
+
+    env_key_re = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+    while i < n:
+        word_start = i
+        word_end = _scan_shell_word_end(cmd_line, word_start)
+        word = cmd_line[word_start:word_end]
+
+        try:
+            parts = shlex.split(word, posix=True)
+        except ValueError as e:
+            raise PFExecutionError(
+                message=f"Failed to parse shell command: {e}",
+                command=cmd_line,
+                suggestion="Check for unclosed quotes or invalid escape sequences",
+            )
+
+        if len(parts) != 1:
+            return env_vars, cmd_line[word_start:].lstrip()
+
+        token = parts[0]
+        if "=" in token and not token.startswith("-"):
+            key, value = token.split("=", 1)
+            if env_key_re.match(key):
+                # If the value contains shell expansion (`$VAR`, `$(...)`, backticks),
+                # keep the assignment in the command string so the shell can expand it.
+                #
+                # Example: PATH="$PREFIX/bin:$PATH" pf --version
+                if "$" in value or "`" in value:
+                    return env_vars, cmd_line[word_start:].lstrip()
+
+                env_vars[key] = value
+
+                i = word_end
+                while i < n and cmd_line[i].isspace():
+                    i += 1
+                continue
+
+        return env_vars, cmd_line[word_start:].lstrip()
+
+    return env_vars, ""
 
 
 def build_shell_command(env_vars: Dict[str, str], command: str, 
@@ -146,6 +228,32 @@ def _has_shell_metacharacters(cmd: str) -> bool:
     Returns:
         True if shell features are detected, False otherwise
     """
+    # Shell builtins and reserved words are not executable binaries, so they
+    # require a real shell even when the command otherwise looks "simple".
+    #
+    # This matters a lot for pf's flexible syntax where plain lines are treated
+    # as shell commands (e.g. `cd build`, `export FOO=bar`, `if ...; then ...`).
+    try:
+        first = shlex.split(cmd, posix=True)[0] if cmd.strip() else ""
+    except ValueError:
+        # Unclosed quotes etc: let the shell handle the error message.
+        return True
+
+    shell_builtins = {
+        ".", ":", "alias", "bg", "bind", "break", "builtin", "cd", "command",
+        "continue", "declare", "dirs", "disown", "echo", "enable", "eval",
+        "exec", "exit", "export", "false", "fc", "fg", "getopts", "hash",
+        "help", "history", "jobs", "kill", "let", "local", "logout", "popd",
+        "printf", "pushd", "pwd", "read", "readonly", "return", "set", "shift",
+        "shopt", "source", "suspend", "test", "times", "trap", "true", "type",
+        "typeset", "ulimit", "umask", "unalias", "unset", "wait",
+        # Common reserved words / grammar constructs (bash/sh)
+        "case", "do", "done", "elif", "else", "esac", "fi", "for", "function",
+        "if", "in", "select", "then", "time", "until", "while",
+    }
+    if first in shell_builtins:
+        return True
+
     # Comprehensive list of shell metacharacters and features
     shell_chars = [
         '|', '>', '<', '&', ';', '`', '$',  # Basic operators
@@ -159,7 +267,7 @@ def _has_shell_metacharacters(cmd: str) -> bool:
 
 def execute_shell_command(cmd_line: str, task_env: Optional[Dict[str, str]] = None,
                          sudo: bool = False, sudo_user: Optional[str] = None,
-                         connection=None, prefix: str = "") -> int:
+                         connection=None, prefix: str = "", cwd: Optional[str] = None) -> int:
     """
     Execute a shell command with proper environment variable handling.
     
@@ -199,6 +307,7 @@ def execute_shell_command(cmd_line: str, task_env: Optional[Dict[str, str]] = No
         sudo_user: Specific sudo user
         connection: Fabric connection (None for local)
         prefix: Output prefix for logging
+        cwd: Working directory for local execution (ignored for remote)
         
     Returns:
         Exit code
@@ -255,20 +364,20 @@ def execute_shell_command(cmd_line: str, task_env: Optional[Dict[str, str]] = No
                 # CWE-78: Command injection is mitigated by input sanitization
                 if sudo:
                     # sudo commands are wrapped in quoted bash -lc for proper execution
-                    p = subprocess.Popen(full_command, shell=True, env=proc_env)
+                    p = subprocess.Popen(full_command, shell=True, env=proc_env, cwd=cwd)
                 else:
                     # Non-sudo commands with shell features
-                    p = subprocess.Popen(command, shell=True, env=proc_env)
+                    p = subprocess.Popen(command, shell=True, env=proc_env, cwd=cwd)
             else:
                 # SECURITY: Use shell=False for simple commands (more secure)
                 # Parse command into argument list to avoid shell interpretation
                 try:
                     cmd_args = shlex.split(command)
-                    p = subprocess.Popen(cmd_args, shell=False, env=proc_env)
+                    p = subprocess.Popen(cmd_args, shell=False, env=proc_env, cwd=cwd)
                 except ValueError:
                     # If shlex.split fails (e.g., unclosed quotes), fall back to shell=True
                     # Still safe due to input sanitization upstream
-                    p = subprocess.Popen(command, shell=True, env=proc_env)
+                    p = subprocess.Popen(command, shell=True, env=proc_env, cwd=cwd)
             
             exit_code = p.wait()
             return exit_code

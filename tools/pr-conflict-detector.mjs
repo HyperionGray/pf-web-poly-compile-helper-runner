@@ -9,9 +9,12 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+import { ensureDir, loadPrContext, writeJson } from './pr-common.mjs';
+
 class ConflictDetector {
     constructor() {
-        this.prDataPath = path.join(process.env.HOME, '.config', 'pf', 'discovered-prs.json');
+        this.ctx = loadPrContext();
+        this.prDataPath = this.ctx.paths.discoveredPrsFile;
         this.prs = this.loadPRs();
         this.conflicts = [];
     }
@@ -292,10 +295,8 @@ class ConflictDetector {
     }
 
     saveResults() {
-        const resultsDir = path.join(process.env.HOME, '.config', 'pf', 'conflict-analysis');
-        if (!fs.existsSync(resultsDir)) {
-            fs.mkdirSync(resultsDir, { recursive: true });
-        }
+        const resultsDir = this.ctx.paths.conflictAnalysisDir;
+        ensureDir(resultsDir);
         
         const filename = `conflict-analysis-${Date.now()}.json`;
         const filepath = path.join(resultsDir, filename);
@@ -307,7 +308,7 @@ class ConflictDetector {
             conflicts: this.conflicts
         };
         
-        fs.writeFileSync(filepath, JSON.stringify(results, null, 2));
+        writeJson(filepath, results);
         console.log(`💾 Conflict analysis saved to ${filepath}`);
     }
 
@@ -327,7 +328,7 @@ class ConflictDetector {
         });
         
         // Save updated PR data
-        fs.writeFileSync(this.prDataPath, JSON.stringify(this.prs, null, 2));
+        writeJson(this.prDataPath, this.prs);
         console.log('✅ PR data updated with conflict information');
     }
 }

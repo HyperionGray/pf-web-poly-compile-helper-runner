@@ -2,6 +2,9 @@
 # Test script to validate installer functionality
 set -euo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$REPO_ROOT"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -31,14 +34,42 @@ test_hardcoded_paths() {
     
     local hardcoded_found=false
     
-    # Check for /home/punk paths
-    if grep -r "/home/punk" . --exclude-dir=.git 2>/dev/null; then
-        log_error "Found hardcoded /home/punk paths"
+    # Check for hardcoded home-directory paths (Linux/macOS)
+    local hardcoded_home_regex='/home/[^/]+/|/Users/[^/]+/'
+    if grep -R -n -E "$hardcoded_home_regex" \
+        --exclude-dir=.git \
+        --exclude-dir=build-packages \
+        --exclude-dir=.venv \
+        --exclude-dir=node_modules \
+        --exclude-dir=_asan \
+        --exclude-dir=_fuzzer \
+        --exclude-dir=aflfuzz \
+        --exclude-dir=bak \
+        --exclude="*.backup" \
+        --exclude="*.broken" \
+        --include="*.sh" \
+        --include="*.py" \
+        --include="*.pf" \
+        . 2>/dev/null; then
+        log_error "Found hardcoded home-directory paths"
         hardcoded_found=true
     fi
     
     # Check for other suspicious hardcoded paths
-    if grep -r "#!/.*home.*venv" . --exclude-dir=.git 2>/dev/null; then
+    local hardcoded_venv_shebang_regex='^#!.*(/home/|/Users/).*\\.?(venv|virtualenv)/'
+    if grep -R -n -E "$hardcoded_venv_shebang_regex" \
+        --exclude-dir=.git \
+        --exclude-dir=build-packages \
+        --exclude-dir=.venv \
+        --exclude-dir=node_modules \
+        --exclude-dir=_asan \
+        --exclude-dir=_fuzzer \
+        --exclude-dir=aflfuzz \
+        --exclude-dir=bak \
+        --exclude="*.backup" \
+        --exclude="*.broken" \
+        --include="*.py" \
+        . 2>/dev/null; then
         log_error "Found hardcoded venv paths in shebangs"
         hardcoded_found=true
     fi

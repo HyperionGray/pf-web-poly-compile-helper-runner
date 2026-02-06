@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/home/punk/miniconda3/bin/python3
 """
 pf_parser.py - Core DSL parser and task runner for pf
 
@@ -41,6 +41,9 @@ import textwrap
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Tuple, Optional, Callable, Any
 
+# Central JSON5 config (no PF_* env vars for configuration)
+import pf_config
+
 # Add bundled fabric to path if available
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 _bundled_fabric = os.path.join(_script_dir, "fabric")
@@ -78,7 +81,11 @@ except ImportError:
         return str(exc)
 
 # ---------- CONFIG ----------
-PFY_FILE = os.environ.get("PFY_FILE", "Pfyfile.pf")
+_PF_CONFIG: Optional[Dict[str, Any]] = None
+_PF_CONFIG_PATH: Optional[str] = None
+
+PFY_FILE = "Pfyfile.pf"
+PFY_SEARCH_PARENTS = "git"  # git|all|none
 PFY_ROOT: Optional[str] = None  # Set by main() when loading the Pfyfile
 ENV_MAP: Dict[str, List[str] | str] = {
     "local": ["@local"],
@@ -99,29 +106,108 @@ except ImportError:
     HELP_VARIATIONS = {"help", "--help", "-h", "hlep", "hepl", "heelp", "hlp"}
 
 
-# ---------- Pfyfile discovery ----------
-def _find_pfyfile(
-    start_dir: Optional[str] = None, file_arg: Optional[str] = None
-) -> str:
-    if file_arg:
-        if os.path.isabs(file_arg):
-            return file_arg
-        return os.path.abspath(file_arg)
+def configure(config: Optional[Dict[str, Any]] = None, config_path: Optional[str] = None) -> None:
+    """
+    Configure pf_parser defaults from the central JSON5 config.
 
-    # Allow empty env to fall back to default
-    pf_hint = os.environ.get("PFY_FILE") or "Pfyfile.pf"
-    if os.path.isabs(pf_hint):
-        return pf_hint
-    cur = os.path.abspath(start_dir or os.getcwd())
+    The caller (pf_main) should prefer passing an already-loaded config dict.
+    """
+    global _PF_CONFIG, _PF_CONFIG_PATH, PFY_FILE, PFY_SEARCH_PARENTS
+
+    if config is None:
+        cfg, resolved = pf_config.load_config(start_dir=os.getcwd(), explicit_path=config_path)
+        _PF_CONFIG = cfg
+        _PF_CONFIG_PATH = str(resolved) if resolved else None
+    else:
+        _PF_CONFIG = config
+        _PF_CONFIG_PATH = config_path
+
+    PFY_FILE = pf_config.get(_PF_CONFIG, "pfy.file", "Pfyfile.pf") or "Pfyfile.pf"
+    PFY_SEARCH_PARENTS = pf_config.get(_PF_CONFIG, "pfy.searchParents", "git") or "git"
+
+
+def _ensure_config_loaded() -> None:
+    if _PF_CONFIG is None:
+        configure()
+
+
+# ---------- Pfyfile discovery ----------
+def _pfy_search_mode() -> str:
+    """
+    Control how pf discovers a Pfyfile when no explicit file is provided.
+
+    Config:
+      pfy.searchParents:
+        - "git" (default): search upwards but stop at the git repo root (directory containing .git)
+        - "all": search upwards to the filesystem root
+        - "none": do not search parent directories (only check start_dir/cwd)
+    """
+    _ensure_config_loaded()
+    raw = (PFY_SEARCH_PARENTS or "git").strip().lower()
+    if raw in {"0", "false", "no", "off", "none"}:
+        return "none"
+    if raw in {"1", "true", "yes", "on", "all"}:
+        return "all"
+    return "git"
+
+
+def _git_root(start_dir: str) -> Optional[str]:
+    """Best-effort detection of git repo root (supports .git dir or file)."""
+    cur = os.path.abspath(start_dir)
     while True:
-        candidate = os.path.join(cur, pf_hint)
-        if os.path.isfile(candidate):
-            return candidate
+        if os.path.exists(os.path.join(cur, ".git")):
+            return cur
         parent = os.path.dirname(cur)
         if parent == cur:
-            # Last resort: current working directory + default hint
-            return os.path.join(os.getcwd(), pf_hint)
+            return None
         cur = parent
+
+
+def _find_pfyfile(start_dir: Optional[str] = None, file_arg: Optional[str] = None) -> str:
+    cur = os.path.abspath(start_dir or os.getcwd())
+
+    if file_arg:
+        file_arg = os.path.expanduser(os.path.expandvars(file_arg))
+        if os.path.isabs(file_arg):
+            return file_arg
+        return os.path.abspath(os.path.join(cur, file_arg))
+
+    _ensure_config_loaded()
+    pf_hint = PFY_FILE or "Pfyfile.pf"
+    pf_hint = os.path.expanduser(os.path.expandvars(pf_hint))
+    if os.path.isabs(pf_hint):
+        return pf_hint
+
+    direct = os.path.join(cur, pf_hint)
+    if os.path.isfile(direct):
+        return os.path.abspath(direct)
+
+    mode = _pfy_search_mode()
+    if mode == "none":
+        return os.path.abspath(direct)
+
+    stop_dir = None
+    if mode == "git":
+        stop_dir = _git_root(cur)
+        # In the default "git" mode, avoid searching parent directories when the
+        # caller is not inside a git repo. This prevents surprising cross-project
+        # Pfyfile discovery (and expensive filesystem walks).
+        if stop_dir is None:
+            return os.path.abspath(direct)
+
+    walk = cur
+    while True:
+        candidate = os.path.join(walk, pf_hint)
+        if os.path.isfile(candidate):
+            return os.path.abspath(candidate)
+
+        if stop_dir and walk == stop_dir:
+            return os.path.abspath(direct)
+
+        parent = os.path.dirname(walk)
+        if parent == walk:
+            return os.path.abspath(direct)
+        walk = parent
 
 
 # ---------- Interpolation ----------
@@ -235,11 +321,14 @@ def _build_compile_command(
 def _build_browser_js_command(code: str, args: List[str]) -> str:
     code = _ensure_newline(code)
     arg_str = _poly_args(args)
+    _ensure_config_loaded()
+    headful = pf_config.get_bool(_PF_CONFIG or {}, "runner.playwright.headful", False)
+    headless_js = "false" if headful else "true"
     snippet = textwrap.indent(code, "  ")
     body = (
         "const { chromium } = require('playwright');\n"
         "(async () => {\n"
-        "  const browser = await chromium.launch({ headless: process.env.PF_HEADFUL ? false : true });\n"
+        f"  const browser = await chromium.launch({{ headless: {headless_js} }});\n"
         "  const page = await browser.newPage();\n"
         f"{snippet}"
         "  await browser.close();\n"
@@ -534,6 +623,15 @@ _LANG_BRACKET_RE = re.compile(r"^\s*\[lang:([^\]]+)\]\s*(.*)$", re.IGNORECASE | 
 # Regex to parse heredoc syntax: << DELIMITER [> output_file]
 # Allow uppercase or mixed case delimiters (following bash convention)
 _HEREDOC_RE = re.compile(r"<<\s*([A-Za-z][A-Za-z0-9_]*)\s*(?:>\s*([^\s]+))?$")
+_POLYGLOT_HEREDOC_HEADER_RE = re.compile(
+    r"^\s*<<-?\s*([A-Za-z][A-Za-z0-9_]*)\s*(?:>\s*([^\s]+))?\s*$"
+)
+
+# Regex to parse shell_lang BLOCK headers
+_SHELL_LANG_BLOCK_RE = re.compile(
+    r"^shell_lang\s+(.+?)\s+BLOCK(?:\s+#.*)?$", re.IGNORECASE
+)
+_SHELL_LANG_BLOCK_END_RE = re.compile(r"^ENDBLOCK(?:\s+#.*)?$", re.IGNORECASE)
 
 
 def _parse_heredoc_syntax(cmd: str) -> Tuple[Optional[str], Optional[str]]:
@@ -646,6 +744,7 @@ class Task:
         source_file: Optional[str] = None,
         params: Optional[Dict[str, str]] = None,
         aliases: Optional[List[str]] = None,
+        rc: bool = False,
     ):
         self.name = name
         self.lines: List[str] = []
@@ -653,6 +752,7 @@ class Task:
         self.source_file = source_file  # Track which file this task came from
         self.params: Dict[str, str] = params or {}  # Default parameter values
         self.aliases: List[str] = aliases or []  # Command aliases for this task
+        self.rc: bool = bool(rc)  # Export as a shell alias via ~/.bashrc (opt-in)
         
         # Enhanced documentation metadata
         self.synopsis: Optional[str] = None  # Brief usage synopsis
@@ -788,6 +888,8 @@ def _load_pfy_source_with_includes(
     Always includes Pfyfile.always-available.pf which contains context-free
     tasks that work from any directory (TUI, tool installation, etc.)
     """
+    global PFY_ROOT
+
     # Load always-available tasks first
     # Find the always-available file relative to this script
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -811,10 +913,13 @@ def _load_pfy_source_with_includes(
     # Now load the user's Pfyfile (or fallback)
     pfy_resolved = _find_pfyfile(file_arg=file_arg)
     if os.path.exists(pfy_resolved):
+        PFY_ROOT = os.path.dirname(os.path.abspath(pfy_resolved)) or os.getcwd()
         base_dir = os.path.dirname(os.path.abspath(pfy_resolved)) or "."
         visited: set[str] = {os.path.abspath(pfy_resolved)}
         main_text = _read_text_file(pfy_resolved)
-        user_text, user_sources = _expand_includes_from_text(main_text, base_dir, visited)
+        user_text, user_sources = _expand_includes_from_text(
+            main_text, base_dir, visited, os.path.abspath(pfy_resolved)
+        )
         
         # Merge task sources
         combined_sources = {}
@@ -829,6 +934,10 @@ def _load_pfy_source_with_includes(
     # If user explicitly specified a file that doesn't exist, raise an error
     if file_arg and not os.path.exists(pfy_resolved):
         raise FileNotFoundError(f"Specified Pfyfile not found: {file_arg}")
+
+    # When running without a project Pfyfile, keep root tied to invocation cwd so
+    # built-ins remain predictable.
+    PFY_ROOT = os.getcwd()
     
     # Otherwise, return always-available tasks only (or PFY_EMBED if that doesn't exist)
     if always_available_text:
@@ -836,20 +945,22 @@ def _load_pfy_source_with_includes(
     return PFY_EMBED, {}
 
 
-def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str], List[str]]:
+def _parse_task_definition_with_meta(line: str) -> Tuple[str, Dict[str, str], List[str], bool]:
     """
     Parse a task definition line to extract task name, parameters, and aliases.
+    Also supports `rc=true` metadata to opt into shell alias export.
 
     Examples:
-        "task my-task" -> ("my-task", {}, [])
-        "task my-task param1=value1" -> ("my-task", {"param1": "value1"}, [])
-        "task my-task param1=\"\" param2=default" -> ("my-task", {"param1": "", "param2": "default"}, [])
-        "task long-command [alias cmd]" -> ("long-command", {}, ["cmd"])
-        "task long-command [alias=cmd]" -> ("long-command", {}, ["cmd"])
-        "task long-command [alias cmd|alias=c]" -> ("long-command", {}, ["cmd", "c"])
+        "task my-task" -> ("my-task", {}, [], False)
+        "task my-task param1=value1" -> ("my-task", {"param1": "value1"}, [], False)
+        "task my-task rc=true" -> ("my-task", {}, [], True)
+        "task my-task param1=\"\" param2=default" -> ("my-task", {"param1": "", "param2": "default"}, [], False)
+        "task long-command [alias cmd]" -> ("long-command", {}, ["cmd"], False)
+        "task long-command [alias=cmd]" -> ("long-command", {}, ["cmd"], False)
+        "task long-command [alias cmd|alias=c]" -> ("long-command", {}, ["cmd", "c"], False)
 
     Returns:
-        Tuple of (task_name, parameters_dict, aliases_list)
+        Tuple of (task_name, parameters_dict, aliases_list, rc_enabled)
     """
     # Remove "task " prefix
     rest = line[5:].strip()
@@ -899,60 +1010,300 @@ def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str], List[str]]:
 
     task_name = tokens[0]
     params: Dict[str, str] = {}
+    rc_enabled = False
 
     # Parse parameter definitions (key=value pairs)
     for token in tokens[1:]:
         if "=" in token:
             key, value = token.split("=", 1)
+            if key == "rc":
+                rc_enabled = str(value).strip().lower() in {"1", "true", "yes", "on"}
+                continue
             params[key] = value
         else:
             # If a token doesn't have '=', it might be part of task name (shouldn't happen with proper syntax)
             # For now, we'll just skip it to be lenient
             pass
 
-    return task_name, params, aliases
+    return task_name, params, aliases, rc_enabled
+
+
+def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str], List[str]]:
+    """
+    Backward-compatible wrapper (legacy callers/tests expect 3-tuple).
+
+    Prefer `_parse_task_definition_with_meta()` when you need task metadata like `rc=true`.
+    """
+    name, params, aliases, _ = _parse_task_definition_with_meta(line)
+    return name, params, aliases
 
 
 def _process_line_continuation(lines: List[str], start_idx: int) -> Tuple[str, int]:
     """
-    Process backslash line continuation starting from the given index.
+    Process bash-style backslash line continuation starting from the given index.
 
-    Args:
-        lines: List of all lines (stripped)
-        start_idx: Index of the first line to process
+    Continuations are joined with a single space and leading indentation is removed
+    from each physical line. This turns:
+
+      shell echo "a" \\
+            && echo "b"
+
+    into a single logical line:
+
+      shell echo "a" && echo "b"
 
     Returns:
-        Tuple of (combined_line, next_index_to_process)
+        (combined_line, next_index_to_process)
     """
-    combined_parts = []
-    current_idx = start_idx
+    combined_parts: List[str] = []
+    i = start_idx
 
-    while current_idx < len(lines):
-        line = lines[current_idx]
+    while i < len(lines):
+        raw = lines[i].rstrip("\n")
+        stripped = raw.strip()
 
         # Skip empty lines and comments during continuation
-        if not line or line.startswith("#"):
-            current_idx += 1
+        if not stripped or stripped.startswith("#"):
+            i += 1
             continue
 
-        # Check if this line ends with backslash (line continuation)
-        if line.endswith("\\"):
-            # Remove the backslash and add to combined parts
-            line_without_backslash = line[:-1].rstrip()
-            if line_without_backslash:  # Only add non-empty parts
-                combined_parts.append(line_without_backslash)
-            current_idx += 1
-            continue
-        else:
-            # This line doesn't end with backslash, add it and we're done
-            if line:  # Only add non-empty lines
-                combined_parts.append(line)
-            current_idx += 1
+        has_backslash = stripped.endswith("\\")
+        if has_backslash:
+            stripped = stripped[:-1].rstrip()
+
+        if stripped:
+            combined_parts.append(stripped)
+
+        i += 1
+        if not has_backslash:
             break
 
-    # Join all parts with single space, preserving the structure
-    combined_line = " ".join(combined_parts) if combined_parts else ""
-    return combined_line, current_idx
+    return " ".join(combined_parts).strip(), i
+
+
+_SHELL_HEREDOC_START_RE = re.compile(r"<<-?\s*(['\"]?)([A-Za-z][A-Za-z0-9_]*)\1")
+
+
+def _extract_heredoc_delimiter(shell_stmt: str) -> Optional[str]:
+    """
+    Best-effort heredoc delimiter extraction for shell statements like:
+      shell cat << EOF
+      shell cat << 'EOF'
+      shell cat <<-EOF
+    """
+    m = _SHELL_HEREDOC_START_RE.search(shell_stmt)
+    if not m:
+        return None
+    return m.group(2)
+
+
+def _consume_shell_heredoc(lines: List[str], start_idx: int, first_line: str, delimiter: str) -> Tuple[str, int]:
+    """
+    Consume a shell heredoc starting at `start_idx` (the line containing the heredoc opener).
+
+    Returns:
+        (combined_shell_command, next_index_to_process)
+
+    The combined command preserves heredoc content lines exactly as written.
+    """
+    parts: List[str] = [first_line.rstrip("\n")]
+    i = start_idx + 1
+
+    while i < len(lines):
+        raw = lines[i].rstrip("\n")
+        parts.append(raw)
+        i += 1
+        if raw.strip() == delimiter:
+            return "\n".join(parts), i
+
+    raise PFSyntaxError(
+        message=f"Unclosed heredoc: missing terminator '{delimiter}'",
+        suggestion=f"Add a line containing only {delimiter} to close the heredoc",
+        line_number=start_idx + 1,
+    )
+
+
+def _extract_polyglot_heredoc(cmd: str) -> Optional[Tuple[str, Optional[str]]]:
+    """
+    Extract a polyglot heredoc body from a command string.
+
+    Supported forms:
+      << DELIM
+      <code>
+      DELIM
+
+      << DELIM > /path/to/output.txt
+      <code>
+      DELIM
+    """
+    if "\n" not in cmd:
+        return None
+
+    lines = cmd.splitlines()
+    if not lines:
+        return None
+
+    header = lines[0].strip()
+    m = _POLYGLOT_HEREDOC_HEADER_RE.match(header)
+    if not m:
+        return None
+
+    delimiter = m.group(1)
+    output_path = m.group(2)
+
+    terminator_idx = None
+    for idx in range(1, len(lines)):
+        if lines[idx].strip() == delimiter:
+            terminator_idx = idx
+            break
+
+    if terminator_idx is None:
+        raise PFExecutionError(
+            message=f"Unclosed heredoc: missing terminator '{delimiter}'",
+            command=header,
+            suggestion=f"Add a line containing only {delimiter} to close the heredoc",
+        )
+
+    code = "\n".join(lines[1:terminator_idx])
+    if code and not code.endswith("\n"):
+        code += "\n"
+    return code, output_path
+
+
+def _parse_shell_lang_block_header(line: str) -> Optional[str]:
+    """
+    Parse a shell_lang BLOCK header like:
+      shell_lang python BLOCK
+      shell_lang bash BLOCK # comment
+
+    Returns the language name or None if not a block header.
+    """
+    match = _SHELL_LANG_BLOCK_RE.match(line)
+    if not match:
+        return None
+    lang = match.group(1).strip()
+    if not lang:
+        raise PFSyntaxError(
+            message="shell_lang BLOCK requires a language name",
+            suggestion="Use syntax: shell_lang bash BLOCK",
+        )
+    if lang.lower() in {"default", "none"}:
+        raise PFSyntaxError(
+            message="shell_lang BLOCK requires an explicit language",
+            suggestion="Use syntax: shell_lang bash BLOCK",
+        )
+    return lang
+
+
+def _consume_shell_lang_block(
+    lines: List[str],
+    start_idx: int,
+    shell_indent: int,
+    lang: str,
+) -> Tuple[str, int]:
+    """
+    Consume a `shell_lang <lang> BLOCK` block inside a task.
+
+    The block ends at an `ENDBLOCK` line aligned with the header indentation.
+    """
+    i = start_idx + 1
+    block_raw: List[str] = []
+
+    closed = False
+    while i < len(lines):
+        raw = lines[i].rstrip("\n")
+        stripped = raw.strip()
+        indent = len(raw) - len(raw.lstrip(" "))
+
+        if _SHELL_LANG_BLOCK_END_RE.match(stripped):
+            if indent == shell_indent:
+                closed = True
+                i += 1
+                break
+
+        block_raw.append(raw)
+        i += 1
+
+    if not closed:
+        raise PFSyntaxError(
+            message="Unclosed shell_lang BLOCK: missing ENDBLOCK",
+            suggestion="Add a line containing only ENDBLOCK to close the block",
+            line_number=start_idx + 1,
+        )
+
+    # Dedent based on the first non-empty line to preserve indentation-sensitive code.
+    base_dedent = 0
+    for raw in block_raw:
+        if raw.strip():
+            base_dedent = len(raw) - len(raw.lstrip(" "))
+            break
+
+    dedented: List[str] = []
+    for raw in block_raw:
+        if not raw.strip():
+            dedented.append("")
+            continue
+        leading = len(raw) - len(raw.lstrip(" "))
+        if base_dedent and leading >= base_dedent:
+            dedented.append(raw[base_dedent:])
+        else:
+            dedented.append(raw)
+
+    code = "\n".join(dedented)
+    combined = f"shell [lang:{lang}] {code}".rstrip()
+    return combined, i
+
+
+def _consume_shell_pipe_block(lines: List[str], start_idx: int, shell_indent: int) -> Tuple[str, int]:
+    """
+    Consume a `shell |` literal block inside a task.
+
+    The block ends either at an explicit `|` terminator line aligned with the
+    `shell |` indentation, or at the task's `end` line.
+    """
+    i = start_idx + 1
+    block_raw: List[str] = []
+
+    while i < len(lines):
+        raw = lines[i].rstrip("\n")
+        stripped = raw.strip()
+
+        # Explicit terminator line aligned with the `shell |` indentation
+        if stripped == "|":
+            indent = len(raw) - len(raw.lstrip(" "))
+            if indent == shell_indent:
+                i += 1
+                break
+
+        # Task end closes the block implicitly
+        if stripped == "end":
+            break
+
+        block_raw.append(raw)
+        i += 1
+
+    # Dedent based on the first non-empty line to preserve heredoc bodies that
+    # must remain unindented (e.g., `cat << 'EOF'` content).
+    base_dedent = 0
+    for raw in block_raw:
+        if raw.strip():
+            base_dedent = len(raw) - len(raw.lstrip(" "))
+            break
+
+    dedented: List[str] = []
+    for raw in block_raw:
+        if not raw.strip():
+            dedented.append("")
+            continue
+        leading = len(raw) - len(raw.lstrip(" "))
+        if base_dedent and leading >= base_dedent:
+            dedented.append(raw[base_dedent:])
+        else:
+            dedented.append(raw)
+
+    code = "\n".join(dedented)
+    combined = f"shell {code}".rstrip()
+    return combined, i
 
 
 # Built-in tasks
@@ -1053,7 +1404,8 @@ def _exec_line_fabric(
     env_vars: Dict[str, str],
     task_name: str,
     sudo: bool = False,
-    sudo_user: Optional[str] = None
+    sudo_user: Optional[str] = None,
+    cwd: Optional[str] = None,
 ) -> int:
     """Execute a line using Fabric."""
     if connection is None:
@@ -1064,7 +1416,8 @@ def _exec_line_fabric(
                 ln,
                 shell=True,
                 env={**os.environ, **env_vars},
-                capture_output=False
+                capture_output=False,
+                cwd=cwd,
             )
             return result.returncode
         except Exception as e:
@@ -1136,6 +1489,7 @@ def run_task_by_name(
     params = {}
 
     rc = 0
+    shell_lang: Optional[str] = None
     for line in lines:
         stripped = line.strip()
         if stripped.startswith("env "):
@@ -1145,14 +1499,42 @@ def run_task_by_name(
                     task_env[k] = _interpolate(v, params, task_env)
             continue
 
-        if stripped.startswith("shell "):
-            cmd = stripped[6:].strip()
-            cmd = _interpolate(cmd, params, task_env)
-            rc = _exec_line_fabric(cmd, None, task_env, task_name, False, None)
-        else:
+        if stripped == "shell_lang" or stripped.startswith("shell_lang "):
+            lang = stripped[len("shell_lang") :].strip()
+            if not lang or lang.lower() in {"default", "none"}:
+                shell_lang = None
+            else:
+                shell_lang = lang
+            continue
+
+        if not stripped.startswith("shell "):
             print(f"[skip] unsupported verb in task '{task_name}': {stripped}", file=sys.stderr)
             continue
 
+        shell_cmd = stripped[6:].strip()
+
+        shell_cmd = _interpolate(shell_cmd, params, task_env)
+
+        lang_hint = shell_lang
+        m = _LANG_BRACKET_RE.match(shell_cmd)
+        if m:
+            lang_hint = m.group(1).strip()
+            shell_cmd = m.group(2)
+
+        output_path = None
+        if lang_hint:
+            heredoc = _extract_polyglot_heredoc(shell_cmd)
+            if heredoc:
+                shell_cmd, output_path = heredoc
+
+            rendered, _ = _render_polyglot_command(lang_hint, shell_cmd, None)
+            if rendered:
+                shell_cmd = rendered
+
+            if output_path:
+                shell_cmd = f"(\n{shell_cmd}\n) > {shlex.quote(output_path)}"
+
+        rc = _exec_line_fabric(shell_cmd, None, task_env, task_name, False, None)
         if rc != 0:
             print(f"Command failed with exit code {rc}: {stripped}", file=sys.stderr)
             return rc
@@ -1195,71 +1577,120 @@ def parse_pfyfile_text(
     """
     tasks_dict: Dict[str, Task] = {}
     current_task: Optional[Task] = None
-    lines = text.splitlines()
+    lines = text.splitlines(keepends=True)
     i = 0
-    
+
     while i < len(lines):
-        line = lines[i]
-        stripped = line.strip()
-        
-        # Handle line continuation
-        if stripped.endswith('\\'):
-            combined_line, new_i = _process_line_continuation(lines, i)
-            stripped = combined_line.strip()
-            i = new_i
-        
+        raw = lines[i]
+        stripped = raw.strip()
+
         # Skip empty lines and comments
-        if not stripped or stripped.startswith('#'):
+        if not stripped or stripped.startswith("#"):
             i += 1
             continue
-        
+
         # Parse task definition
-        if stripped.startswith('task '):
+        if stripped.startswith("task "):
             try:
-                task_name, params, aliases = _parse_task_definition(stripped)
-                # Get source file if available
+                task_name, params, aliases, rc_enabled = _parse_task_definition_with_meta(stripped)
                 source_file = task_sources.get(task_name) if task_sources else None
-                current_task = Task(task_name, source_file, params, aliases)
+                current_task = Task(task_name, source_file, params, aliases, rc=rc_enabled)
                 tasks_dict[task_name] = current_task
             except (ValueError, PFSyntaxError):
-                # Skip malformed task definitions
-                pass
+                current_task = None
             i += 1
             continue
-        
+
         # End of task
-        if stripped == 'end':
+        if stripped == "end":
             current_task = None
             i += 1
             continue
-        
-        # Task body lines
-        if current_task is not None:
-            if stripped.startswith('describe '):
-                current_task.description = stripped[9:].strip()
-            elif stripped.startswith('synopsis '):
-                current_task.synopsis = stripped[9:].strip()
-            elif stripped.startswith('category '):
-                current_task.category = stripped[9:].strip()
-            elif stripped.startswith('example '):
-                current_task.add_example(stripped[8:].strip())
-            elif stripped.startswith('prerequisite '):
-                current_task.add_prerequisite(stripped[13:].strip())
-            elif stripped.startswith('troubleshooting '):
-                current_task.add_troubleshooting(stripped[16:].strip())
-            elif stripped.startswith('see-also '):
-                current_task.add_see_also(stripped[9:].strip())
-            elif stripped.startswith('use-case '):
-                current_task.add_use_case(stripped[9:].strip())
-            elif stripped.startswith('note '):
-                current_task.add_note(stripped[5:].strip())
-            elif stripped.startswith('tag '):
-                current_task.add_tag(stripped[4:].strip())
+
+        # Ignore non-task lines at top level
+        if current_task is None:
+            i += 1
+            continue
+
+        # ----- Inside a task body -----
+        # Handle `shell_lang <lang> BLOCK` blocks (must happen before continuation/heredoc handling).
+        lang_block = _parse_shell_lang_block_header(stripped)
+        if lang_block is not None:
+            shell_indent = len(raw) - len(raw.lstrip(" "))
+            combined, i = _consume_shell_lang_block(lines, i, shell_indent, lang_block)
+            stripped = combined.strip()
+            raw = combined
+        # Handle `shell |` blocks (must happen before continuation/heredoc handling).
+        elif stripped == "shell |":
+            shell_indent = len(raw) - len(raw.lstrip(" "))
+            combined, i = _consume_shell_pipe_block(lines, i, shell_indent)
+            stripped = combined.strip()
+            raw = combined
+        else:
+            # Handle backslash line continuation for normal single-line statements.
+            if stripped.endswith("\\"):
+                combined, i = _process_line_continuation(lines, i)
+                stripped = combined.strip()
+                raw = combined
             else:
-                current_task.add(line)
-        
-        i += 1
-    
+                raw = stripped
+                i += 1
+
+            # Handle shell heredocs like:
+            #   shell cat << 'EOF'
+            #   [lang:python] << PYEOF
+            #   cat << EOF
+            #
+            # Note: We intentionally detect heredocs even when the explicit `shell`
+            # verb is omitted, to support the flexible syntax where plain lines are
+            # treated as shell commands by default.
+            delim = _extract_heredoc_delimiter(stripped)
+            if delim:
+                combined, i = _consume_shell_heredoc(lines, i - 1, stripped, delim)
+                stripped = combined.strip()
+                raw = combined
+
+        # Metadata statements
+        if stripped.startswith("describe "):
+            current_task.description = stripped[9:].strip()
+            continue
+        if stripped.startswith("synopsis "):
+            current_task.synopsis = stripped[9:].strip()
+            continue
+        if stripped.startswith("category "):
+            current_task.category = stripped[9:].strip()
+            continue
+        if stripped.startswith("example "):
+            current_task.add_example(stripped[8:].strip())
+            continue
+        if stripped.startswith("prerequisite "):
+            current_task.add_prerequisite(stripped[13:].strip())
+            continue
+        if stripped.startswith("troubleshooting "):
+            current_task.add_troubleshooting(stripped[16:].strip())
+            continue
+        if stripped.startswith("see-also "):
+            current_task.add_see_also(stripped[9:].strip())
+            continue
+        if stripped.startswith("use-case "):
+            current_task.add_use_case(stripped[9:].strip())
+            continue
+        if stripped.startswith("note "):
+            current_task.add_note(stripped[5:].strip())
+            continue
+        if stripped.startswith("tag "):
+            current_task.add_tag(stripped[4:].strip())
+            continue
+
+        # Store executable/task lines (verbatim, already de-indented).
+        current_task.add(raw)
+
+    if current_task is not None:
+        raise PFSyntaxError(
+            message=f"Unclosed task block: '{current_task.name}'",
+            suggestion="Add 'end' to close the task block",
+        )
+
     return tasks_dict
 
 

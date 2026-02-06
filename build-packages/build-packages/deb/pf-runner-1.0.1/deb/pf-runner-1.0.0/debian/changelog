@@ -1,0 +1,19 @@
+pf-runner (1.0.1-2) unstable; urgency=medium
+
+  * Make .deb turnkey: expand Depends with python3-venv, python3-setuptools,
+    openssh-client, ca-certificates, emscripten, lfortran, clang, lld to cover
+    core web/WASM and remote-exec workflows; recommend curl and build-essential.
+
+ -- PF Runner Team <maintainer@example.com>  Wed, 28 Jan 2026 12:00:00 +0000
+
+pf-runner (1.0.1-1) unstable; urgency=medium
+
+  * Initial release of pf-runner
+  * Polyglot task runner with symbol-free DSL
+  * Support for 40+ programming languages
+  * Container and native installation modes
+  * Package management and build system integration
+  * Web development and security testing tools
+  * Binary analysis and debugging capabilities
+
+ -- PF Runner Team <maintainer@example.com>  Tue, 27 Jan 2026 00:00:00 +0000

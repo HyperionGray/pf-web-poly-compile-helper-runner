@@ -2,13 +2,112 @@
 set -euo pipefail
 
 # Default container image/runtime for the pf wrapper.
-# Override with:
-#   PF_IMAGE=... PF_RUNTIME=... pf ...
+# Configure via pf.config.json5 (preferred) or rely on defaults below.
 DEFAULT_IMAGE="localhost/pf-runner:latest"
 DEFAULT_RUNTIME="podman"
 
-IMAGE="${PF_IMAGE:-$DEFAULT_IMAGE}"
-RUNTIME="${PF_RUNTIME:-$DEFAULT_RUNTIME}"
+find_pf_config() {
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+  local start="${PWD}"
+  local cur="$start"
+
+  while true; do
+    if [[ -f "${cur}/pf.config.json5" ]]; then
+      echo "${cur}/pf.config.json5"
+      return 0
+    fi
+
+    # Stop at git root if present; otherwise walk to filesystem root.
+    if [[ -e "${cur}/.git" ]]; then
+      break
+    fi
+
+    local parent
+    parent="$(dirname "$cur")"
+    if [[ "$parent" == "$cur" ]]; then
+      break
+    fi
+    cur="$parent"
+  done
+
+  if [[ -n "${HOME:-}" ]]; then
+    if [[ -f "${HOME}/.config/pf/pf.config.json5" ]]; then
+      echo "${HOME}/.config/pf/pf.config.json5"
+      return 0
+    fi
+    if [[ -f "${HOME}/.pf/pf.config.json5" ]]; then
+      echo "${HOME}/.pf/pf.config.json5"
+      return 0
+    fi
+  fi
+
+  if [[ -f "${script_dir}/pf.config.json5" ]]; then
+    echo "${script_dir}/pf.config.json5"
+    return 0
+  fi
+
+  return 1
+}
+
+json5_get() {
+  local cfg_path="$1"
+  local dotted_key="$2"
+  local default="$3"
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "$default"
+    return 0
+  fi
+
+  python3 - "$cfg_path" "$dotted_key" "$default" <<'PY' 2>/dev/null || echo "$default"
+import sys
+
+cfg_path = sys.argv[1]
+key = sys.argv[2]
+default = sys.argv[3]
+
+try:
+  import json5  # type: ignore
+except Exception:
+  print(default)
+  raise SystemExit(0)
+
+try:
+  with open(cfg_path, "r", encoding="utf-8") as f:
+    data = json5.load(f)
+except Exception:
+  print(default)
+  raise SystemExit(0)
+
+cur = data
+for part in key.split("."):
+  if not isinstance(cur, dict) or part not in cur:
+    print(default)
+    raise SystemExit(0)
+  cur = cur[part]
+
+if cur is None:
+  print(default)
+elif isinstance(cur, bool):
+  print("true" if cur else "false")
+else:
+  print(str(cur))
+PY
+}
+
+PF_CONFIG_PATH=""
+if PF_CONFIG_PATH="$(find_pf_config 2>/dev/null)"; then
+  :
+fi
+
+IMAGE="$DEFAULT_IMAGE"
+RUNTIME="$DEFAULT_RUNTIME"
+if [[ -n "${PF_CONFIG_PATH}" ]]; then
+  IMAGE="$(json5_get "$PF_CONFIG_PATH" "container.image" "$DEFAULT_IMAGE")"
+  RUNTIME="$(json5_get "$PF_CONFIG_PATH" "container.runtime" "$DEFAULT_RUNTIME")"
+fi
 
 if ! command -v "$RUNTIME" >/dev/null 2>&1; then
   echo "Error: container runtime '$RUNTIME' not found." >&2
@@ -22,14 +121,14 @@ if ! command -v "$RUNTIME" >/dev/null 2>&1; then
   else
     echo "     - See https://docs.docker.com/get-docker/" >&2
   fi
-  echo "  2. Use docker instead: PF_RUNTIME=docker pf ..." >&2
-  echo "  3. Install the native runner: sudo ./install.sh --mode native" >&2
+  echo "  2. Update container.runtime in pf.config.json5 to use docker." >&2
+  echo "  3. Or install the native runner: sudo ./install.sh --mode native" >&2
   exit 1
 fi
 
-# If the user did not override PF_IMAGE, avoid confusing 'trying to pull localhost/...'
-# behavior by checking for the local image first.
-if [[ -z "${PF_IMAGE:-}" ]]; then
+# Avoid confusing 'trying to pull localhost/...' behavior by checking for the
+# local image first (when using a localhost-tagged image).
+if [[ "$IMAGE" == localhost/* ]]; then
   IMAGE_EXISTS=false
   if [[ "$RUNTIME" = "podman" ]]; then
     if podman image exists "$IMAGE" >/dev/null 2>&1; then
@@ -40,7 +139,7 @@ if [[ -z "${PF_IMAGE:-}" ]]; then
       IMAGE_EXISTS=true
     fi
   fi
-  
+
   if [[ "$IMAGE_EXISTS" = "false" ]]; then
     echo "Error: container image '$IMAGE' not found locally." >&2
     echo "" >&2
@@ -50,8 +149,7 @@ if [[ -z "${PF_IMAGE:-}" ]]; then
     echo "     # or: ./containers/scripts/build-containers.sh api" >&2
     echo "  2. Or install the native runner:" >&2
     echo "     sudo ./install.sh --mode native" >&2
-    echo "  3. Or specify a different image:" >&2
-    echo "     PF_IMAGE=<your-image> pf ..." >&2
+    echo "  3. Or update container.image in pf.config.json5" >&2
     exit 1
   fi
 fi
@@ -94,7 +192,5 @@ if command -v podman >/dev/null 2>&1; then
   [[ -d "/etc/containers" ]] && ARGS+=(-v "/etc/containers:/etc/containers:ro")
   [[ -d "/usr/share/containers" ]] && ARGS+=(-v "/usr/share/containers:/usr/share/containers:ro")
 fi
-
-ARGS+=(-e "PFY_FILE=${PFY_FILE:-}")
 
 exec "$RUNTIME" "${ARGS[@]}" "${USER_FLAG[@]}" "$IMAGE" pf "$@"

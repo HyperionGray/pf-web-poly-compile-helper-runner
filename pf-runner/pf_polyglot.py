@@ -24,6 +24,8 @@ import shlex
 import textwrap
 from typing import List, Dict, Tuple, Optional, Callable
 
+import pf_config
+
 # Import custom exceptions
 try:
     from pf_exceptions import PFSyntaxError, PFExecutionError
@@ -139,11 +141,14 @@ def _build_browser_js_command(code: str, args: List[str]) -> str:
     """Build command for browser JavaScript using Playwright."""
     code = _ensure_newline(code)
     arg_str = _poly_args(args)
+    cfg, _ = pf_config.load_config(start_dir=os.getcwd())
+    headful = pf_config.get_bool(cfg, "runner.playwright.headful", False)
+    headless_js = "false" if headful else "true"
     snippet = textwrap.indent(code, "  ")
     body = (
         "const { chromium } = require('playwright');\n"
         "(async () => {\n"
-        "  const browser = await chromium.launch({ headless: process.env.PF_HEADFUL ? false : true });\n"
+        f"  const browser = await chromium.launch({{ headless: {headless_js} }});\n"
         "  const page = await browser.newPage();\n"
         f"{snippet}"
         "  await browser.close();\n"

@@ -82,6 +82,36 @@ include Pfyfile.always-on.pf
 # Include smart workflows (NEW - intelligent tool integration)
 include Pfyfile.smart-workflows.pf
 
+task repo-validate
+  describe Run repository build validation (scripts/validate-build.sh)
+  shell_lang bash
+  shell bash scripts/validate-build.sh
+end
+
+task repo-build
+  describe Run repository build helper (scripts/build.sh)
+  shell_lang bash
+  shell bash scripts/build.sh
+end
+
+task pf-validate
+  describe Static validation of all pf tasks (includes + referenced paths)
+  shell_lang bash
+  shell bash scripts/validate-pf-tasks.sh
+end
+
+task dev-env-install
+  describe Install/start the dev container environment (scripts/install-containers.sh)
+  shell_lang bash
+  shell bash scripts/install-containers.sh ${mode:-interactive} ${opt1:-} ${opt2:-}
+end
+
+task dev-env
+  describe Manage the dev container environment (scripts/manage-containers.sh)
+  shell_lang bash
+  shell bash scripts/manage-containers.sh ${command:-status} ${arg1:-} ${arg2:-}
+end
+
 task web-dev
   describe Start development server with REST API support
   shell_lang bash
@@ -101,12 +131,12 @@ task api-server
 end
 
 task web-test
-  
+  describe Run Playwright end-to-end tests
   shell npx playwright test --reporter=list
 end
 
 task web-build-rust
-  
+  describe Build Rust to WebAssembly (legacy alias for web-build-rust-wasm)
   shell cd demos/pf-web-polyglot-demo-plus-c/rust && wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
 end
 
@@ -123,7 +153,7 @@ task web-build-rust-llvm
 end
 
 task web-build-c
-  
+  describe Build C to WebAssembly (legacy alias for web-build-c-wasm)
   shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
 end
 
@@ -146,7 +176,7 @@ task web-build-c-llvm
 end
 
 task web-build-fortran
-  
+  describe Build Fortran to WebAssembly (legacy alias for web-build-fortran-wasm)
   shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown
 end
 
@@ -163,7 +193,7 @@ task web-build-fortran-llvm
 end
 
 task web-build-wat
-  
+  describe Build WAT to WebAssembly (legacy alias for web-build-wat-wasm)
   shell cd demos/pf-web-polyglot-demo-plus-c/asm && wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
 end
 
@@ -174,6 +204,7 @@ task web-build-wat-wasm
 end
 
 task web-build-all
+  describe Build all languages to WebAssembly (legacy alias for web-build-all-wasm)
   shell pf web-toolchain-check
   shell pf web-build-rust
   shell pf web-build-c

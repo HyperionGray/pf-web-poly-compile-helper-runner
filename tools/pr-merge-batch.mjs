@@ -9,9 +9,12 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+import { ensureDir, loadPrContext, writeJson } from './pr-common.mjs';
+
 class BatchMerger {
     constructor() {
-        this.prDataPath = path.join(process.env.HOME, '.config', 'pf', 'discovered-prs.json');
+        this.ctx = loadPrContext();
+        this.prDataPath = this.ctx.paths.discoveredPrsFile;
         this.prs = this.loadPRs();
         this.mergeResults = [];
     }
@@ -259,15 +262,13 @@ class BatchMerger {
     }
 
     saveMergeResults() {
-        const resultsDir = path.join(process.env.HOME, '.config', 'pf', 'merge-results');
-        if (!fs.existsSync(resultsDir)) {
-            fs.mkdirSync(resultsDir, { recursive: true });
-        }
+        const resultsDir = this.ctx.paths.mergeResultsDir;
+        ensureDir(resultsDir);
         
         const filename = `batch-merge-${Date.now()}.json`;
         const filepath = path.join(resultsDir, filename);
         
-        fs.writeFileSync(filepath, JSON.stringify(this.mergeResults, null, 2));
+        writeJson(filepath, this.mergeResults);
         console.log(`\n💾 Merge results saved to ${filepath}`);
     }
 
@@ -317,7 +318,7 @@ class BatchMerger {
         });
         
         // Save updated PR data
-        fs.writeFileSync(this.prDataPath, JSON.stringify(this.prs, null, 2));
+        writeJson(this.prDataPath, this.prs);
         console.log('✅ PR data updated with merge results');
     }
 }

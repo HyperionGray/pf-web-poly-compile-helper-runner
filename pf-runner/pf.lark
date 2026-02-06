@@ -47,6 +47,7 @@ alias_def: "[" "alias" (IDENTIFIER | "=" IDENTIFIER) "]"
 task_body: describe 
          | shell 
          | shell_lang 
+         | shell_lang_block
          | env_stmt 
          | for_loop 
          | if_stmt 
@@ -81,6 +82,14 @@ shell: "shell" TEXT_LINE
 //   shell_lang default
 //   shell_lang none
 shell_lang: "shell_lang" IDENTIFIER
+
+// Language block for multi-line scripts
+// Examples:
+//   shell_lang python BLOCK
+//   print("hello")
+//   ENDBLOCK
+shell_lang_block: "shell_lang" IDENTIFIER "BLOCK" NEWLINE block_body "ENDBLOCK"
+block_body: (TEXT_LINE? NEWLINE)*
 
 // Task-local environment variable (applies to remaining commands)
 // Example: env VAR1=value VAR2=value

@@ -2,6 +2,9 @@
 # Apply fixes to the repository
 set -euo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$REPO_ROOT"
+
 echo "Applying fixes to pf-runner repository..."
 
 # Fix 1: Replace hardcoded shebang in pf_parser.py
@@ -43,10 +46,25 @@ fi
 
 # Fix 4: Check for other potential hardcoded paths
 echo "Checking for other hardcoded paths..."
-if grep -r "/home/punk" . --exclude-dir=.git --exclude="*.backup" 2>/dev/null; then
-    echo "✗ Found additional hardcoded paths that need fixing"
+HARD_CODED_HOME_REGEX='/home/[^/]+/|/Users/[^/]+/'
+if grep -R -n -E "$HARD_CODED_HOME_REGEX" \
+    --exclude-dir=.git \
+    --exclude-dir=build-packages \
+    --exclude-dir=.venv \
+    --exclude-dir=node_modules \
+    --exclude-dir=_asan \
+    --exclude-dir=_fuzzer \
+    --exclude-dir=aflfuzz \
+    --exclude-dir=bak \
+    --exclude="*.backup" \
+    --exclude="*.broken" \
+    --include="*.sh" \
+    --include="*.py" \
+    --include="*.pf" \
+    . 2>/dev/null; then
+    echo "✗ Found hardcoded home-directory paths that need fixing"
 else
-    echo "✓ No additional hardcoded paths found"
+    echo "✓ No hardcoded home-directory paths found"
 fi
 
 echo "Repository fixes applied successfully!"

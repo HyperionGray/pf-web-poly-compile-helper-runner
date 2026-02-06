@@ -1,8 +1,15 @@
 #!/bin/bash
 set -e
 
-# Ensure PATH includes local bin and Ghidra
-export PATH="/home/pf/.local/bin:/opt/ghidra/support:$PATH"
+# Prefer env-provided paths; fall back to common container defaults.
+WORKSPACE_DIR="${WORKSPACE:-/workspace}"
+HOME_DIR="${HOME:-$(getent passwd "$(id -u)" 2>/dev/null | cut -d: -f6)}"
+
+# Ensure PATH includes local bin and Ghidra.
+export PATH="/opt/ghidra/support:$PATH"
+if [[ -n "${HOME_DIR:-}" ]] && [[ -d "${HOME_DIR}/.local/bin" ]]; then
+    export PATH="${HOME_DIR}/.local/bin:$PATH"
+fi
 export GHIDRA_INSTALL_DIR="/opt/ghidra"
 
 # Function to start GDB with pwndbg
@@ -52,10 +59,11 @@ run_ghidra_analysis() {
     fi
     
     echo "Running Ghidra headless analysis on: $binary"
-    mkdir -p /workspace/ghidra-projects
+    local projects_dir="${WORKSPACE_DIR}/ghidra-projects"
+    mkdir -p "$projects_dir"
     
     exec /opt/ghidra/support/analyzeHeadless \
-        /workspace/ghidra-projects "$project" \
+        "$projects_dir" "$project" \
         -import "$binary" \
         -postScript /opt/ghidra/Ghidra/Features/Base/ghidra_scripts/ExportFunctionsScript.java
 }
@@ -178,7 +186,7 @@ show_info() {
     
     echo ""
     echo "Available exploit development tools:"
-    ls -la tools/exploit/ 2>/dev/null || echo "No exploit tools directory"
+    ls -la "${WORKSPACE_DIR}/tools/exploit/" 2>/dev/null || echo "No exploit tools directory"
 }
 
 # Function to show help
@@ -202,19 +210,19 @@ Commands:
 
 Examples:
     # Debug a binary with GDB
-    $0 gdb /workspace/demos/vulnerable_binary
+    $0 gdb ${WORKSPACE_DIR}/demos/vulnerable_binary
     
     # Analyze binary with multiple tools
     $0 analyze /bin/ls
     
     # Find ROP gadgets
-    $0 rop-gadgets /workspace/demos/vulnerable_binary 50
+    $0 rop-gadgets ${WORKSPACE_DIR}/demos/vulnerable_binary 50
     
     # Start exploit development
     $0 exploit-env
     
     # Reverse engineer with Radare2
-    $0 radare2 /workspace/demos/target_binary
+    $0 radare2 ${WORKSPACE_DIR}/demos/target_binary
 
 Environment Variables:
     BINARY              Default binary to analyze

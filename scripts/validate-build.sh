@@ -2,7 +2,11 @@
 # Build validation script for CI/CD
 # Validates essential project files exist without requiring compilation
 
-set -eu
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "${REPO_ROOT}"
 
 echo "✅ Build validation: Checking project structure..."
 

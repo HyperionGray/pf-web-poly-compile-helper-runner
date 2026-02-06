@@ -2,7 +2,8 @@
 # Comprehensive Test Runner - "Test it all again and again and again. That's thrice."
 # This script runs all tests three times with fresh environment setup
 
-cd /workspace
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 echo "🚀 Starting Comprehensive Test Suite"
 echo "Testing it all again and again and again. That's thrice!"

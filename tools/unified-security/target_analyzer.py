@@ -219,9 +219,10 @@ class TargetAnalyzer:
         
         try:
             # Use existing checksec functionality
+            workspace = Path(__file__).resolve().parents[2]
             checksec_result = subprocess.run([
-                'python3', 'tools/security/checksec.py', '--json', target
-            ], capture_output=True, text=True, cwd='/workspace')
+                'python3', str(workspace / 'tools/security/checksec.py'), '--json', target
+            ], capture_output=True, text=True, cwd=str(workspace))
             
             if checksec_result.returncode == 0:
                 checksec_data = json.loads(checksec_result.stdout)

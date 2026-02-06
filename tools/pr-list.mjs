@@ -8,9 +8,12 @@
 import fs from 'fs';
 import path from 'path';
 
+import { loadPrContext } from './pr-common.mjs';
+
 class PRList {
     constructor() {
-        this.configPath = path.join(process.env.HOME, '.config', 'pf', 'discovered-prs.json');
+        this.ctx = loadPrContext();
+        this.configPath = this.ctx.paths.discoveredPrsFile;
         this.prs = this.loadPRs();
     }
 

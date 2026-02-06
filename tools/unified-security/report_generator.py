@@ -17,7 +17,8 @@ class UnifiedReportGenerator:
     """Generate comprehensive security assessment reports"""
     
     def __init__(self):
-        self.workspace = Path('/workspace')
+        # Repo root (works both locally and in containers where the repo is mounted at /workspace).
+        self.workspace = Path(__file__).resolve().parents[2]
         self.report_data = {}
     
     def generate_report(self, input_files: List[str], output_prefix: str) -> Dict[str, Any]:

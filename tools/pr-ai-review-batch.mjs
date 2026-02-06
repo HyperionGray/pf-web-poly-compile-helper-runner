@@ -9,9 +9,12 @@ import fs from 'fs';
 import path from 'path';
 import AIReviewer from './pr-ai-review.mjs';
 
+import { ensureDir, loadPrContext, writeJson } from './pr-common.mjs';
+
 class BatchAIReviewer {
     constructor() {
-        this.prDataPath = path.join(process.env.HOME, '.config', 'pf', 'discovered-prs.json');
+        this.ctx = loadPrContext();
+        this.prDataPath = this.ctx.paths.discoveredPrsFile;
         this.prs = this.loadPRs();
         this.reviewer = new AIReviewer();
         this.results = [];
@@ -175,15 +178,13 @@ class BatchAIReviewer {
     }
 
     saveBatchResults() {
-        const resultsDir = path.join(process.env.HOME, '.config', 'pf', 'batch-reviews');
-        if (!fs.existsSync(resultsDir)) {
-            fs.mkdirSync(resultsDir, { recursive: true });
-        }
+        const resultsDir = this.ctx.paths.batchReviewsDir;
+        ensureDir(resultsDir);
         
         const filename = `batch-review-${Date.now()}.json`;
         const filepath = path.join(resultsDir, filename);
         
-        fs.writeFileSync(filepath, JSON.stringify(this.results, null, 2));
+        writeJson(filepath, this.results);
         console.log(`\n💾 Batch review results saved to ${filepath}`);
     }
 }

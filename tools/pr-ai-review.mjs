@@ -9,44 +9,20 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+import { loadPrContext } from './pr-common.mjs';
+
 class AIReviewer {
     constructor() {
-        this.configPath = path.join(process.env.HOME, '.config', 'pf', 'ai-providers.json');
-        this.prDataPath = path.join(process.env.HOME, '.config', 'pf', 'discovered-prs.json');
+        this.ctx = loadPrContext();
+        this.configPath = this.ctx.paths.aiProvidersFile;
+        this.prDataPath = this.ctx.paths.discoveredPrsFile;
         this.config = this.loadConfig();
         this.prs = this.loadPRs();
     }
 
     loadConfig() {
-        try {
-            if (fs.existsSync(this.configPath)) {
-                return JSON.parse(fs.readFileSync(this.configPath, 'utf8'));
-            }
-        } catch (error) {
-            console.warn('⚠️  Could not load AI config, using defaults');
-        }
-        
-        return {
-            providers: {
-                openai: {
-                    apiKey: process.env.OPENAI_API_KEY,
-                    model: 'gpt-4',
-                    enabled: !!process.env.OPENAI_API_KEY
-                },
-                anthropic: {
-                    apiKey: process.env.ANTHROPIC_API_KEY,
-                    model: 'claude-3-sonnet-20240229',
-                    enabled: !!process.env.ANTHROPIC_API_KEY
-                }
-            },
-            reviewCriteria: {
-                security: true,
-                performance: true,
-                maintainability: true,
-                testCoverage: true,
-                documentation: true
-            }
-        };
+        // Prefer central pf.config.json5 (with legacy ai-providers.json fallback in pr-common).
+        return this.ctx.pr.ai;
     }
 
     loadPRs() {
@@ -290,7 +266,7 @@ Please provide your review in the following JSON format:
     }
 
     saveReview(pr, reviewData) {
-        const reviewsDir = path.join(process.env.HOME, '.config', 'pf', 'reviews');
+        const reviewsDir = this.ctx.paths.reviewsDir;
         if (!fs.existsSync(reviewsDir)) {
             fs.mkdirSync(reviewsDir, { recursive: true });
         }

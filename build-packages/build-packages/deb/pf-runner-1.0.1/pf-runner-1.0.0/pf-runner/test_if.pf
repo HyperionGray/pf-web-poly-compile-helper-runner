@@ -1,0 +1,25 @@
+# Test if-then statements
+env environment="production"
+env debug=""
+
+task deploy environment="dev"
+  describe Deploy with conditional logic
+  
+  if $environment == "production"
+    shell echo "🚀 Production deployment!"
+    shell echo "Using production config..."
+  else
+    shell echo "🧪 Development deployment!"
+    shell echo "Using dev config..."
+  end
+  
+  if $debug
+    shell echo "Debug mode is ON"
+  end
+  
+  if `which podman`
+    shell echo "✅ Podman is available"
+  else
+    shell echo "❌ Podman not found"
+  end
+end

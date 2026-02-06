@@ -1,4 +1,7 @@
 #!/bin/bash
 # Make build.sh executable
-chmod +x /workspace/scripts/build.sh
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+chmod +x "${REPO_ROOT}/scripts/build.sh"
 echo "Made build.sh executable"

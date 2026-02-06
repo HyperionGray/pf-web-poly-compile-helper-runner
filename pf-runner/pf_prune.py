@@ -142,13 +142,19 @@ class ValidationResult:
 
 class PfSyntaxChecker:
     """Syntax checker for pf DSL files with verbose error reporting."""
+
+    _SHELL_HEREDOC_START_RE = re.compile(r"<<-?\s*(['\"]?)([A-Za-z][A-Za-z0-9_]*)\1")
+    _SHELL_LANG_BLOCK_RE = re.compile(
+        r"^shell_lang\s+(.+?)\s+BLOCK(?:\s+#.*)?$", re.IGNORECASE
+    )
+    _SHELL_LANG_BLOCK_END_RE = re.compile(r"^ENDBLOCK(?:\s+#.*)?$", re.IGNORECASE)
     
     # Known DSL verbs and their expected patterns
     KNOWN_VERBS = {
         'shell': {'min_args': 1, 'pattern': r'shell\s+.+'},
         'describe': {'min_args': 1, 'pattern': r'describe\s+.+'},
         'env': {'min_args': 1, 'pattern': r'env\s+\S+.*'},
-        'shell_lang': {'min_args': 1, 'pattern': r'shell_lang\s+\w+'},
+        'shell_lang': {'min_args': 1, 'pattern': r'shell_lang\s+\S+(?:\s+BLOCK)?(?:\s+#.*)?'},
         'packages': {'min_args': 2, 'pattern': r'packages\s+(install|remove)\s+.+'},
         'service': {'min_args': 2, 'pattern': r'service\s+(start|stop|enable|disable|restart)\s+\S+'},
         'directory': {'min_args': 1, 'pattern': r'directory\s+\S+'},
@@ -256,14 +262,73 @@ class PfSyntaxChecker:
         # Track block structure
         block_stack = []  # Stack of (type, line_number, name)
         current_task = None
+
+        # Skip parsing of embedded shell content.
+        # Many Pfyfiles use:
+        #   - `shell |` literal blocks (multi-line shell / python code, etc.)
+        #   - bash `\` line continuation in a single `shell ...` statement
+        #   - shell heredocs (e.g. `shell cat << 'EOF' ... EOF`)
+        # Those blocks may contain lines that look like pf DSL (`if`, `for`, `end`)
+        # but are actually part of the embedded script.
+        in_shell_pipe_block = False
+        shell_pipe_indent = 0
+        in_shell_lang_block = False
+        shell_lang_block_indent = 0
+        in_shell_continuation = False
+        pending_heredoc_delim: Optional[str] = None
         
         for i, line in enumerate(lines, 1):
             stripped = line.strip()
+            indent = len(line) - len(line.lstrip(" "))
+
+            # Skip heredoc bodies until the terminator line.
+            if pending_heredoc_delim is not None:
+                if stripped == pending_heredoc_delim:
+                    pending_heredoc_delim = None
+                continue
+
+            # Skip backslash line continuation fragments after a `shell ... \` line.
+            if in_shell_continuation:
+                if stripped.endswith("\\"):
+                    continue
+                in_shell_continuation = False
+                continue
+
+            # Skip `shell_lang <lang> BLOCK` blocks until ENDBLOCK terminator (aligned).
+            if in_shell_lang_block:
+                if self._SHELL_LANG_BLOCK_END_RE.match(stripped) and indent == shell_lang_block_indent:
+                    in_shell_lang_block = False
+                    continue
+                continue
+
+            # Skip `shell |` literal blocks until `|` terminator (aligned) or task `end`.
+            if in_shell_pipe_block:
+                if stripped == "|":
+                    if indent == shell_pipe_indent:
+                        in_shell_pipe_block = False
+                        continue
+                if stripped == "end":
+                    in_shell_pipe_block = False
+                    # Fall through: the task-ending `end` must be processed by the DSL.
+                else:
+                    continue
             
             # Skip empty lines and comments
             if not stripped or stripped.startswith('#'):
                 continue
-            
+
+            # Detect start of a `shell_lang <lang> BLOCK` block (inside a task only)
+            if current_task and self._SHELL_LANG_BLOCK_RE.match(stripped):
+                in_shell_lang_block = True
+                shell_lang_block_indent = indent
+                continue
+
+            # Detect start of a `shell |` block (inside a task only)
+            if current_task and stripped == "shell |":
+                in_shell_pipe_block = True
+                shell_pipe_indent = indent
+                continue
+
             # Track task blocks
             if stripped.startswith('task '):
                 try:
@@ -358,19 +423,19 @@ class PfSyntaxChecker:
             else:
                 verb = stripped.split()[0] if stripped else None
                 if verb and current_task:  # Inside a task
-                    # Check for invalid operators in conditionals
-                    if '===' in stripped:
-                        ctx_before, ctx_after = self._get_context_lines(lines, i)
-                        errors.append(SyntaxError(
-                            line_number=i,
-                            column=stripped.find('===') + 1,
-                            line_content=line.rstrip(),
-                            error_message="Invalid operator '===', use '==' instead",
-                            task_name=current_task,
-                            suggestion="pf uses '==' for equality, not '===' (JavaScript style)",
-                            context_before=ctx_before,
-                            context_after=ctx_after
-                        ))
+                    # Detect `... \` line continuations (common in long shell commands).
+                    # Continuation lines can contain `if`/`for` shell syntax which must
+                    # not be parsed as pf DSL.
+                    if stripped.endswith("\\"):
+                        in_shell_continuation = True
+
+                    # Detect heredocs like:
+                    #   shell cat << 'EOF'
+                    #   cat << EOF
+                    #   [lang:python] << PYEOF
+                    m = self._SHELL_HEREDOC_START_RE.search(stripped)
+                    if m:
+                        pending_heredoc_delim = m.group(2)
                     
                     # Check packages action
                     if verb == 'packages':
@@ -409,6 +474,17 @@ class PfSyntaxChecker:
                                     context_after=ctx_after
                                 ))
         
+        # Check for unclosed shell_lang BLOCK
+        if in_shell_lang_block:
+            errors.append(SyntaxError(
+                line_number=len(lines),
+                column=1,
+                line_content=lines[-1].rstrip() if lines else "",
+                error_message="Unclosed shell_lang BLOCK - missing ENDBLOCK",
+                task_name=current_task,
+                suggestion="Add ENDBLOCK to close the block"
+            ))
+
         # Check for unclosed blocks
         while block_stack:
             block_type, line_num, name = block_stack.pop()

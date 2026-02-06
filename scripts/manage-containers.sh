@@ -14,8 +14,59 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-USE_QUADLET="${USE_QUADLET:-true}"
-GPU_SUPPORT="${GPU_SUPPORT:-false}"
+PF_CONFIG_PATH="${PROJECT_ROOT}/pf.config.json5"
+
+json5_get() {
+    local dotted_key="$1"
+    local default="$2"
+
+    if [[ ! -f "$PF_CONFIG_PATH" ]]; then
+        echo "$default"
+        return 0
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "$default"
+        return 0
+    fi
+
+    python3 - "$PF_CONFIG_PATH" "$dotted_key" "$default" <<'PY' 2>/dev/null || echo "$default"
+import sys
+
+cfg_path = sys.argv[1]
+key = sys.argv[2]
+default = sys.argv[3]
+
+try:
+    import json5  # type: ignore
+except Exception:
+    print(default)
+    raise SystemExit(0)
+
+try:
+    with open(cfg_path, "r", encoding="utf-8") as f:
+        data = json5.load(f)
+except Exception:
+    print(default)
+    raise SystemExit(0)
+
+cur = data
+for part in key.split("."):
+    if not isinstance(cur, dict) or part not in cur:
+        print(default)
+        raise SystemExit(0)
+    cur = cur[part]
+
+if isinstance(cur, bool):
+    print("true" if cur else "false")
+elif cur is None:
+    print(default)
+else:
+    print(str(cur))
+PY
+}
+
+USE_QUADLET="$(json5_get "devEnvironment.useQuadlet" "true")"
+GPU_SUPPORT="$(json5_get "devEnvironment.gpuSupport" "false")"
 
 # Functions
 log_info() {
@@ -328,8 +379,7 @@ Examples:
     $0 exec security
 
 Environment Variables:
-    USE_QUADLET         Use Quadlet instead of podman-compose (true/false)
-    GPU_SUPPORT         Enable GPU support (true/false)
+    (deprecated) Use pf.config.json5 instead.
 EOF
 }
 
@@ -379,8 +429,8 @@ main() {
     esac
 }
 
-# Auto-detect deployment type if not set
-if [ -z "$USE_QUADLET" ] || [ -z "$GPU_SUPPORT" ]; then
+# Auto-detect deployment type only when no repo config exists.
+if [[ ! -f "$PF_CONFIG_PATH" ]]; then
     detect_deployment_type 2>/dev/null || true
 fi
 

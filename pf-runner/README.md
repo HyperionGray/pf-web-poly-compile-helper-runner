@@ -76,6 +76,23 @@ end
 
 This properly preserves quoting and passes environment variables to the command.
 
+### Working Directory + Path Autofix
+
+By default, **each task runs from the directory of the Pfyfile where it is defined**
+(including tasks coming from `include` files). This makes relative paths predictable.
+
+If a command runs a script but the script assumes a different base directory (a very
+common source of `No such file or directory` errors), pf can auto-fix it:
+
+- Resolve missing script paths by searching the task cwd + project root
+- For shell scripts, generate a `*.corrected` copy (in `~/.cache/pf/corrected/` by default)
+  that rewrites common relative-path pitfalls like `source ./helpers.sh` into absolute paths
+  based on the script location
+
+This behavior is controlled by `runner.pathAutofix` in `pf.config.json5`.
+To write corrected scripts next to the original file instead, set
+`runner.pathAutofixWriteCorrectedNextToScript=true`.
+
 ### pfuck - Autocorrect Failed Commands
 Like `thefuck` but specifically for pf tasks! When a task fails due to a typo:
 
@@ -258,6 +275,28 @@ task multi
   shell_lang default   # back to whatever the task inherited
   shell echo "done"
 end
+```
+
+#### `shell_lang ... BLOCK` (multi-line blocks)
+
+For longer scripts, you can wrap a block and end it with `ENDBLOCK`:
+
+```text
+task block-demo
+  shell_lang python BLOCK
+  import sys
+  print("Hello from a block")
+  ENDBLOCK
+end
+```
+
+This syntax is additive: existing `shell_lang`, `shell [lang:...]`, and heredoc forms still work.
+
+To convert existing task bodies into block form (default language: bash), use:
+
+```bash
+python pf_block_converter.py --lang bash --in-place Pfyfile.pf
+# or: python pf_block_converter.py --lang python -o Pfyfile.blocks.pf Pfyfile.pf
 ```
 
 Place `#!lang:python` (or `#!lang:fish`) at the very top of a Pfyfile to set a repository-default language; `shell_lang none` clears the override inside a task.

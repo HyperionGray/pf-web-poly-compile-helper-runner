@@ -1,9 +1,24 @@
 #!/bin/bash
 set -e
 
-# Ensure PATH includes local bin
-export PATH="/home/pf/.local/bin:$PATH"
-export PYTHONPATH="/workspace/pf-runner:$PYTHONPATH"
+# Prefer env-provided paths; fall back to common container defaults.
+WORKSPACE_DIR="${WORKSPACE:-/workspace}"
+HOME_DIR="${HOME:-$(getent passwd "$(id -u)" 2>/dev/null | cut -d: -f6)}"
+
+# Prefer operating from the workspace when available.
+if [[ -d "$WORKSPACE_DIR" ]]; then
+    cd "$WORKSPACE_DIR"
+fi
+
+# Ensure PATH includes user-local bin.
+if [[ -n "${HOME_DIR:-}" ]] && [[ -d "${HOME_DIR}/.local/bin" ]]; then
+    export PATH="${HOME_DIR}/.local/bin:$PATH"
+fi
+
+# Ensure Python can find pf-runner when the workspace is mounted.
+if [[ -d "${WORKSPACE_DIR}/pf-runner" ]]; then
+    export PYTHONPATH="${WORKSPACE_DIR}/pf-runner${PYTHONPATH:+:$PYTHONPATH}"
+fi
 
 # Function to run pf command
 run_pf() {
@@ -93,14 +108,11 @@ Examples:
     # Interactive shell
     $0 bash
 
-Environment Variables:
-    PF_TASK         Default task to run if no command specified
-    PF_ARGS         Default arguments for pf commands
 EOF
 }
 
 # Handle different commands
-COMMAND="${1:-${PF_TASK:-bash}}"
+COMMAND="${1:-bash}"
 
 case "$COMMAND" in
     "pf")

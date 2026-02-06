@@ -6,7 +6,7 @@
 # COMPREHENSIVE SECURITY ASSESSMENT WORKFLOWS
 # ============================================================================
 
-task security-assess-comprehensive
+task security-assess-comprehensive [alias=sac]
   describe 🎯 Complete security assessment combining web, binary, and kernel analysis
   describe Intelligently orchestrates multiple tools for maximum coverage with minimal effort
   shell echo "╔════════════════════════════════════════════════════════════╗"
@@ -54,7 +54,7 @@ task security-assess-comprehensive
   shell echo "  3. Run focused testing: pf security-focus-high-risk"
 end
 
-task security-focus-high-risk
+task security-focus-high-risk [alias=shr]
   describe 🔥 Focus testing on highest-risk findings from previous assessment
   describe Automatically prioritizes and deep-dives into the most critical vulnerabilities
   shell echo "🔥 Focusing on high-risk findings..."
@@ -66,7 +66,7 @@ end
 # SMART EXPLOIT DEVELOPMENT WORKFLOWS
 # ============================================================================
 
-task exploit-develop-smart
+task exploit-develop-smart [alias=sed]
   describe 🚀 Automated exploit development from vulnerability discovery to working exploit
   describe Combines binary analysis, ROP chain building, and payload generation intelligently
   shell echo "╔════════════════════════════════════════════════════════════╗"
@@ -113,7 +113,7 @@ end
 # ADAPTIVE FUZZING WORKFLOWS
 # ============================================================================
 
-task fuzz-adaptive
+task fuzz-adaptive [alias=fad]
   describe ⚡ Intelligent fuzzing that adapts based on binary analysis and previous findings
   describe Uses complexity analysis and parse function detection to guide fuzzing efforts
   shell echo "╔════════════════════════════════════════════════════════════╗"
@@ -146,7 +146,7 @@ end
 # CONTINUOUS SECURITY MONITORING
 # ============================================================================
 
-task security-monitor-continuous
+task security-monitor-continuous [alias=smc]
   describe 🔄 Long-running security monitoring with adaptive testing
   describe Continuously monitors targets and adapts testing based on changes and findings
   shell echo "🔄 Starting continuous security monitoring..."
@@ -184,23 +184,5 @@ end
 # ============================================================================
 # QUICK ACCESS ALIASES
 # ============================================================================
-
-[alias sac]
-task security-assess-comprehensive
-end
-
-[alias sed]
-task exploit-develop-smart
-end
-
-[alias fad]
-task fuzz-adaptive
-end
-
-[alias smc]
-task security-monitor-continuous
-end
-
-[alias shr]
-task security-focus-high-risk
-end
+#
+# Aliases are declared inline on task definitions (e.g., `task name [alias=...]`).
