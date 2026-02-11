@@ -40,15 +40,15 @@ Examples:
   pf build-debug-examples
 
   # Start interactive debugging
-  pf debug binary=demos/debugging/examples/bin/vulnerable
+  pf debug binary=${PFY_ROOT:-.}/demos/debugging/examples/bin/vulnerable
 
   # Debug directly with GDB
-  pf debug-gdb binary=demos/debugging/examples/bin/vulnerable
+  pf debug-gdb binary=${PFY_ROOT:-.}/demos/debugging/examples/bin/vulnerable
 
   # Show binary information
-  pf debug-info binary=demos/debugging/examples/bin/debug_cpp
+  pf debug-info binary=${PFY_ROOT:-.}/demos/debugging/examples/bin/debug_cpp
 
   # Disassemble a binary
-  pf disassemble binary=demos/debugging/examples/bin/debug_rust
+  pf disassemble binary=${PFY_ROOT:-.}/demos/debugging/examples/bin/debug_rust
 
 EOF

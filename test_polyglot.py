@@ -1,19 +1,37 @@
 #!/usr/bin/env python3
-"""
-Test script to verify pf_polyglot.py syntax and imports
-"""
+"""Test script to verify pf_polyglot.py syntax and imports."""
 
 import sys
 import os
+from pathlib import Path
+
+
+def repo_root() -> Path:
+    """Resolve the repository root without assuming /workspace."""
+    for env_var in ("PF_WORKSPACE", "WORKSPACE"):
+        env_path = os.environ.get(env_var)
+        if env_path:
+            candidate = Path(env_path).expanduser()
+            if candidate.exists():
+                return candidate
+    return Path(__file__).resolve().parent
+
+
+REPO_ROOT = repo_root()
+PF_RUNNER_DIR = REPO_ROOT / "pf-runner"
+PF_POLYGLOT_PATH = PF_RUNNER_DIR / "pf_polyglot.py"
+
+if not PF_POLYGLOT_PATH.exists():
+    raise FileNotFoundError(f"pf_polyglot.py not found at expected location: {PF_POLYGLOT_PATH}")
 
 # Add pf-runner to path
-sys.path.insert(0, '/workspace/pf-runner')
+sys.path.insert(0, str(PF_RUNNER_DIR))
 
 def test_syntax():
     """Test that pf_polyglot.py has valid syntax"""
     try:
         import py_compile
-        py_compile.compile('/workspace/pf-runner/pf_polyglot.py', doraise=True)
+        py_compile.compile(str(PF_POLYGLOT_PATH), doraise=True)
         print("✅ Syntax check passed")
         return True
     except py_compile.PyCompileError as e:

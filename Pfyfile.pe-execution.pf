@@ -9,7 +9,7 @@
 task pe-build-all
   describe Build all PE execution container images
   shell_lang bash
-  shell ./containers/scripts/build-containers.sh pe
+  shell "${PFY_ROOT:-.}/containers/scripts/build-containers.sh" pe
 end
 
 task pe-build-windows-server
@@ -49,14 +49,17 @@ task pe-execute pe_file=""
         exit 1
     fi
     
+    PE_DIR=$(dirname "${pe_file}")
+    PE_FILE=$(basename "${pe_file}")
+
     echo "Executing PE file: ${pe_file}"
     podman run --rm -it \
         --privileged \
         --device /dev/kvm:/dev/kvm \
-        --volume $(pwd):/workspace \
+        --volume "${PE_DIR}:/workspace" \
         --volume /tmp:/tmp \
         localhost/pf-pe-windows-server:latest \
-        pf-execute-pe "/workspace/${pe_file}"
+        pf-execute-pe "/workspace/${PE_FILE}"
 end
 
 task pe-execute-windows pe_file=""
@@ -73,14 +76,17 @@ task pe-execute-windows pe_file=""
         exit 1
     fi
     
+    PE_DIR=$(dirname "${pe_file}")
+    PE_FILE=$(basename "${pe_file}")
+
     echo "Executing PE file in Windows Server Core: ${pe_file}"
     podman run --rm -it \
         --privileged \
         --device /dev/kvm:/dev/kvm \
-        --volume $(pwd):/workspace \
+        --volume "${PE_DIR}:/workspace" \
         --volume /tmp:/tmp \
         localhost/pf-pe-windows-server:latest \
-        pf-execute-pe "/workspace/${pe_file}"
+        pf-execute-pe "/workspace/${PE_FILE}"
 end
 
 task pe-execute-reactos pe_file=""
@@ -97,14 +103,17 @@ task pe-execute-reactos pe_file=""
         exit 1
     fi
     
+    PE_DIR=$(dirname "${pe_file}")
+    PE_FILE=$(basename "${pe_file}")
+
     echo "Executing PE file in ReactOS: ${pe_file}"
     podman run --rm -it \
         --privileged \
         --device /dev/kvm:/dev/kvm \
-        --volume $(pwd):/workspace \
+        --volume "${PE_DIR}:/workspace" \
         --volume /tmp:/tmp \
         localhost/pf-pe-reactos:latest \
-        pf-execute-pe-reactos "/workspace/${pe_file}"
+        pf-execute-pe-reactos "/workspace/${PE_FILE}"
 end
 
 # ==========================================
@@ -129,15 +138,18 @@ task macos-execute binary_file=""
         exit 1
     fi
     
+    BIN_DIR=$(dirname "${binary_file}")
+    BIN_FILE=$(basename "${binary_file}")
+
     echo "Executing macOS binary: ${binary_file}"
     echo "Legal Notice: Ensure compliance with Apple's Software License Agreement"
     podman run --rm -it \
         --privileged \
         --device /dev/kvm:/dev/kvm \
-        --volume $(pwd):/workspace \
+        --volume "${BIN_DIR}:/workspace" \
         --volume /tmp:/tmp \
         localhost/pf-macos-qemu:latest \
-        pf-execute-macos "/workspace/${binary_file}"
+        pf-execute-macos "/workspace/${BIN_FILE}"
 end
 
 # ==========================================

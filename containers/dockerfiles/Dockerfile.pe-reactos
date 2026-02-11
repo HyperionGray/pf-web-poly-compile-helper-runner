@@ -1,7 +1,7 @@
 # ReactOS Container for PE Execution
 # Lightweight Windows-compatible OS for running Portable Executables
 # Uses ReactOS in QEMU for native PE execution without Wine
-FROM ubuntu:22.04
+FROM docker.io/library/ubuntu:22.04
 
 LABEL maintainer="pf-runner"
 LABEL description="ReactOS-based container for native PE execution"

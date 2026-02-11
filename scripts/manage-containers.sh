@@ -1,440 +1,122 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
 # pf Development Environment Container Management Script
+#
+# Configuration comes from `pf.config.json5` (and CLI flags), not environment variables.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+CONFIG_PATH_DEFAULT="${PROJECT_ROOT}/pf.config.json5"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Configuration
-PF_CONFIG_PATH="${PROJECT_ROOT}/pf.config.json5"
-
-json5_get() {
-    local dotted_key="$1"
-    local default="$2"
-
-    if [[ ! -f "$PF_CONFIG_PATH" ]]; then
-        echo "$default"
-        return 0
-    fi
-    if ! command -v python3 >/dev/null 2>&1; then
-        echo "$default"
-        return 0
-    fi
-
-    python3 - "$PF_CONFIG_PATH" "$dotted_key" "$default" <<'PY' 2>/dev/null || echo "$default"
-import sys
-
-cfg_path = sys.argv[1]
-key = sys.argv[2]
-default = sys.argv[3]
-
-try:
-    import json5  # type: ignore
-except Exception:
-    print(default)
-    raise SystemExit(0)
-
-try:
-    with open(cfg_path, "r", encoding="utf-8") as f:
-        data = json5.load(f)
-except Exception:
-    print(default)
-    raise SystemExit(0)
-
-cur = data
-for part in key.split("."):
-    if not isinstance(cur, dict) or part not in cur:
-        print(default)
-        raise SystemExit(0)
-    cur = cur[part]
-
-if isinstance(cur, bool):
-    print("true" if cur else "false")
-elif cur is None:
-    print(default)
-else:
-    print(str(cur))
-PY
-}
-
-USE_QUADLET="$(json5_get "devEnvironment.useQuadlet" "true")"
-GPU_SUPPORT="$(json5_get "devEnvironment.gpuSupport" "false")"
-
-# Functions
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-detect_deployment_type() {
-    if systemctl --user is-active pf-main-pod.service &> /dev/null || \
-       systemctl --user is-active pf-main-pod-gpu.service &> /dev/null; then
-        USE_QUADLET=true
-        if systemctl --user is-active pf-main-pod-gpu.service &> /dev/null; then
-            GPU_SUPPORT=true
-        fi
-    elif podman pod exists pf-main-pod &> /dev/null || \
-         podman pod exists pf-main-pod-gpu &> /dev/null; then
-        USE_QUADLET=false
-        if podman pod exists pf-main-pod-gpu &> /dev/null; then
-            GPU_SUPPORT=true
-        fi
-    else
-        log_warning "No active deployment detected"
-        return 1
-    fi
-}
-
-show_status() {
-    log_info "Checking pf Development Environment status..."
-    
-    if ! detect_deployment_type; then
-        log_error "No deployment found"
-        return 1
-    fi
-    
-    echo ""
-    echo "Deployment Type: $([ "$USE_QUADLET" = "true" ] && echo "Quadlet" || echo "Podman Compose")"
-    echo "GPU Support: $([ "$GPU_SUPPORT" = "true" ] && echo "Enabled" || echo "Disabled")"
-    echo ""
-    
-    if [ "$USE_QUADLET" = "true" ]; then
-        local pod_service="pf-main-pod.service"
-        if [ "$GPU_SUPPORT" = "true" ]; then
-            pod_service="pf-main-pod-gpu.service"
-        fi
-        
-        echo "Pod Status:"
-        systemctl --user status "$pod_service" --no-pager -l
-        echo ""
-        
-        echo "Container Services:"
-        systemctl --user list-units 'pf-*-service.service' --no-pager
-    else
-        cd "$PROJECT_ROOT"
-        echo "Podman Compose Status:"
-        podman-compose ps
-    fi
-    
-    echo ""
-    echo "Container Status:"
-    podman ps --filter label=app=pf-development --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-    
-    echo ""
-    echo "Network Status:"
-    podman network ls --filter name=pf-network
-    
-    echo ""
-    echo "Volume Status:"
-    podman volume ls --filter label=app=pf-development
-}
-
-start_services() {
-    log_info "Starting pf Development Environment..."
-    
-    if [ "$USE_QUADLET" = "true" ]; then
-        local pod_service="pf-main-pod.service"
-        if [ "$GPU_SUPPORT" = "true" ]; then
-            pod_service="pf-main-pod-gpu.service"
-        fi
-        
-        systemctl --user start "$pod_service"
-        log_success "Services started via Quadlet"
-    else
-        cd "$PROJECT_ROOT"
-        if [ "$GPU_SUPPORT" = "true" ]; then
-            podman-compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
-        else
-            podman-compose up -d
-        fi
-        log_success "Services started via Podman Compose"
-    fi
-}
-
-stop_services() {
-    log_info "Stopping pf Development Environment..."
-    
-    if [ "$USE_QUADLET" = "true" ]; then
-        local pod_service="pf-main-pod.service"
-        if [ "$GPU_SUPPORT" = "true" ]; then
-            pod_service="pf-main-pod-gpu.service"
-        fi
-        
-        systemctl --user stop "$pod_service"
-        log_success "Services stopped via Quadlet"
-    else
-        cd "$PROJECT_ROOT"
-        podman-compose down
-        log_success "Services stopped via Podman Compose"
-    fi
-}
-
-restart_services() {
-    log_info "Restarting pf Development Environment..."
-    stop_services
-    sleep 2
-    start_services
-}
-
-show_logs() {
-    local service="${1:-all}"
-    
-    if [ "$USE_QUADLET" = "true" ]; then
-        case "$service" in
-            "all")
-                local pod_service="pf-main-pod.service"
-                if [ "$GPU_SUPPORT" = "true" ]; then
-                    pod_service="pf-main-pod-gpu.service"
-                fi
-                journalctl --user -u "$pod_service" -f
-                ;;
-            "web")
-                journalctl --user -u pf-web-service.service -f
-                ;;
-            "build")
-                journalctl --user -u pf-build-service.service -f
-                ;;
-            "security")
-                journalctl --user -u pf-security-service.service -f
-                ;;
-            "dev")
-                journalctl --user -u pf-dev-service.service -f
-                ;;
-            *)
-                log_error "Unknown service: $service"
-                return 1
-                ;;
-        esac
-    else
-        cd "$PROJECT_ROOT"
-        if [ "$service" = "all" ]; then
-            podman-compose logs -f
-        else
-            podman-compose logs -f "$service-service"
-        fi
-    fi
-}
-
-exec_container() {
-    local container="$1"
-    local command="${2:-bash}"
-    
-    case "$container" in
-        "web")
-            podman exec -it pf-web-service "$command"
-            ;;
-        "build")
-            podman exec -it pf-build-service "$command"
-            ;;
-        "security")
-            podman exec -it pf-security-service "$command"
-            ;;
-        "dev")
-            podman exec -it pf-dev-service "$command"
-            ;;
-        *)
-            log_error "Unknown container: $container"
-            echo "Available containers: web, build, security, dev"
-            return 1
-            ;;
-    esac
-}
-
-run_pf_command() {
-    local pf_args="$*"
-    log_info "Running pf command: $pf_args"
-    podman exec -it pf-dev-service pf $pf_args
-}
-
-build_wasm() {
-    local language="${1:-all}"
-    
-    case "$language" in
-        "all")
-            log_info "Building all WASM modules..."
-            podman exec pf-build-service ./entrypoint.sh build-all
-            ;;
-        "rust")
-            log_info "Building Rust WASM..."
-            podman exec pf-build-service ./entrypoint.sh build-rust
-            ;;
-        "c")
-            log_info "Building C WASM..."
-            podman exec pf-build-service ./entrypoint.sh build-c
-            ;;
-        "wat")
-            log_info "Building WAT WASM..."
-            podman exec pf-build-service ./entrypoint.sh build-wat
-            ;;
-        "fortran")
-            log_info "Building Fortran WASM..."
-            podman exec pf-build-service ./entrypoint.sh build-fortran
-            ;;
-        *)
-            log_error "Unknown language: $language"
-            echo "Available languages: all, rust, c, wat, fortran"
-            return 1
-            ;;
-    esac
-    
-    log_success "Build completed"
-}
-
-cleanup() {
-    log_info "Cleaning up pf Development Environment..."
-    
-    # Stop services
-    stop_services 2>/dev/null || true
-    
-    # Remove containers
-    podman rm -f pf-web-service pf-build-service pf-security-service pf-dev-service 2>/dev/null || true
-    
-    # Remove pod
-    podman pod rm -f pf-main-pod pf-main-pod-gpu 2>/dev/null || true
-    
-    # Remove images (optional)
-    read -p "Remove container images? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        podman rmi -f localhost/pf-web-services:latest \
-                     localhost/pf-build-environment:latest \
-                     localhost/pf-security-tools:latest \
-                     localhost/pf-development:latest \
-                     localhost/pf-base:latest 2>/dev/null || true
-    fi
-    
-    # Remove volumes (optional)
-    read -p "Remove persistent volumes? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        podman volume rm -f pf-workspace pf-builds pf-cache 2>/dev/null || true
-    fi
-    
-    log_success "Cleanup completed"
-}
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/pf-dev-containers-lib.sh"
 
 show_help() {
-    cat << EOF
+  cat <<'EOF'
 pf Development Environment Container Management
 
-Usage: $0 [COMMAND] [OPTIONS]
+Usage: scripts/manage-containers.sh [OPTIONS] [COMMAND] [ARGS...]
+
+Options:
+  --config PATH         Use a specific pf.config.json5
+  --help, -h            Show this help message
 
 Commands:
-    status              Show deployment status
-    start               Start all services
-    stop                Stop all services
-    restart             Restart all services
-    logs [SERVICE]      Show logs (all, web, build, security, dev)
-    exec CONTAINER [CMD] Execute command in container
-    pf [ARGS]           Run pf command in development container
-    build [LANGUAGE]    Build WASM modules (all, rust, c, wat, fortran)
-    cleanup             Stop and remove containers/images/volumes
-    help                Show this help message
-
-Container Access:
-    web                 Web service container
-    build               Build environment container
-    security            Security tools container
-    dev                 Development environment container
-
-Examples:
-    # Show status
-    $0 status
-    
-    # Start services
-    $0 start
-    
-    # View web service logs
-    $0 logs web
-    
-    # Access development container
-    $0 exec dev
-    
-    # Run pf command
-    $0 pf web-build-all
-    
-    # Build Rust WASM
-    $0 build rust
-    
-    # Access security tools
-    $0 exec security
-
-Environment Variables:
-    (deprecated) Use pf.config.json5 instead.
+  status                Show deployment status
+  start                 Start all services
+  stop                  Stop all services
+  restart               Restart all services
+  logs [SERVICE]        Show logs (all, web, build, security, dev)
+  exec CONTAINER [CMD]  Execute command in container (web, build, security, dev)
+  pf [ARGS...]          Run pf command in development container
+  build [LANGUAGE]      Build WASM modules (all, rust, c, wat, fortran)
+  cleanup               Stop and remove containers/images/volumes
 EOF
 }
 
 main() {
-    local command="${1:-status}"
-    
-    case "$command" in
-        "status")
-            show_status
-            ;;
-        "start")
-            start_services
-            ;;
-        "stop")
-            stop_services
-            ;;
-        "restart")
-            restart_services
-            ;;
-        "logs")
-            shift
-            show_logs "$@"
-            ;;
-        "exec")
-            shift
-            exec_container "$@"
-            ;;
-        "pf")
-            shift
-            run_pf_command "$@"
-            ;;
-        "build")
-            shift
-            build_wasm "$@"
-            ;;
-        "cleanup")
-            cleanup
-            ;;
-        "help"|"--help"|"-h")
-            show_help
-            ;;
-        *)
-            log_error "Unknown command: $command"
-            show_help
-            exit 1
-            ;;
+  local config_path="$CONFIG_PATH_DEFAULT"
+
+  while [[ $# -gt 0 ]]; do
+    case "${1:-}" in
+      --config)
+        shift || true
+        [[ $# -gt 0 ]] || die "--config requires a path"
+        config_path="$1"
+        shift || true
+        ;;
+      --config=*)
+        config_path="${1#*=}"
+        shift || true
+        ;;
+      --help|-h)
+        show_help
+        return 0
+        ;;
+      --)
+        shift || true
+        break
+        ;;
+      -*)
+        die "Unknown option: $1"
+        ;;
+      *)
+        break
+        ;;
     esac
+  done
+
+  local command="${1:-status}"
+  shift || true
+
+  pf_dev_load_config "$config_path"
+  if [[ ! -f "$config_path" ]]; then
+    pf_dev_detect_deployment_type 2>/dev/null || true
+  fi
+
+  case "$command" in
+    status)
+      pf_dev_show_status "$PROJECT_ROOT"
+      ;;
+    start)
+      pf_dev_start_services "$PROJECT_ROOT"
+      ;;
+    stop)
+      pf_dev_detect_deployment_type 2>/dev/null || true
+      pf_dev_stop_services "$PROJECT_ROOT"
+      ;;
+    restart)
+      pf_dev_detect_deployment_type 2>/dev/null || true
+      pf_dev_restart_services "$PROJECT_ROOT"
+      ;;
+    logs)
+      pf_dev_detect_deployment_type 2>/dev/null || true
+      pf_dev_show_logs "$PROJECT_ROOT" "${1:-all}"
+      ;;
+    exec)
+      [[ $# -ge 1 ]] || die "exec requires a container name (web/build/security/dev)"
+      local container="$1"
+      shift || true
+      pf_dev_exec_container "$container" "$@"
+      ;;
+    pf)
+      pf_dev_run_pf_command "$@"
+      ;;
+    build)
+      pf_dev_build_wasm "${1:-all}"
+      ;;
+    cleanup)
+      pf_dev_cleanup "$PROJECT_ROOT"
+      ;;
+    help|--help|-h)
+      show_help
+      ;;
+    *)
+      die "Unknown command: $command"
+      ;;
+  esac
 }
 
-# Auto-detect deployment type only when no repo config exists.
-if [[ ! -f "$PF_CONFIG_PATH" ]]; then
-    detect_deployment_type 2>/dev/null || true
-fi
+main "$@"
 
-# Handle command line arguments
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    main "$@"
-fi

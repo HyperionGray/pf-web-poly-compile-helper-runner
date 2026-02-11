@@ -19,7 +19,7 @@ task rest-on [alias=ron]
   shell_lang bash
   shell if command -v systemctl >/dev/null 2>&1; then \
           sudo systemctl enable --now pf-rest-api@$USER.service && \
-          python3 -c 'import sys; sys.path.insert(0,"pf-runner"); import pf_config; cfg,_=pf_config.load_config(); host=cfg["api"]["host"]; port=cfg["api"]["port"]; print(f"pf REST API started. API docs at http://{host}:{port}/docs")'; \
+          PF_RUNNER_DIR="${PFY_ROOT:-.}/pf-runner" python3 -c 'import os,sys; sys.path.insert(0, os.environ["PF_RUNNER_DIR"]); import pf_config; cfg,_=pf_config.load_config(); host=cfg["api"]["host"]; port=cfg["api"]["port"]; print(f"pf REST API started. API docs at http://{host}:{port}/docs")'; \
         else \
           echo "systemd not available. Use 'pf rest-dev' to start in foreground mode."; \
           exit 1; \
@@ -52,13 +52,13 @@ end
 task rest-dev [alias=rdev]
   describe Start REST API in development mode (foreground with auto-reload)
   shell_lang bash
-  shell cd pf-runner && echo "Starting pf REST API in development mode..." && python3 pf_api.py --reload
+  shell cd "${PFY_ROOT:-.}/pf-runner" && echo "Starting pf REST API in development mode..." && python3 pf_api.py --reload
 end
 
 task rest-install [alias=rinst]
   describe Install the REST API systemd service unit
   shell_lang bash
-  shell PF_RUNNER_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || PF_RUNNER_DIR="$(pwd)/pf-runner"; \
+  shell PF_RUNNER_DIR="${PFY_ROOT:-.}/pf-runner"; \
         sudo cp "$PF_RUNNER_DIR/pf-rest-api@.service" /etc/systemd/system/ && \
         sudo systemctl daemon-reload && \
         echo "pf REST API service installed. Use 'pf rest-on' to start."
@@ -86,5 +86,5 @@ end
 task rest-config [alias=rcfg]
   describe Show REST API configuration
   shell_lang bash
-  shell python3 -c 'import sys; sys.path.insert(0,"pf-runner"); import pf_config; cfg,path=pf_config.load_config(); api=cfg["api"]; print("pf REST API Configuration:"); print(f"  Host: {api[\"host\"]}"); print(f"  Port: {api[\"port\"]}"); print(f"  Workers: {api[\"workers\"]}"); print(f"  Config: {path or \"defaults\"}")'
+  shell PF_RUNNER_DIR="${PFY_ROOT:-.}/pf-runner" python3 -c 'import os,sys; sys.path.insert(0, os.environ["PF_RUNNER_DIR"]); import pf_config; cfg,path=pf_config.load_config(); api=cfg["api"]; print("pf REST API Configuration:"); print(f"  Host: {api[\"host\"]}"); print(f"  Port: {api[\"port\"]}"); print(f"  Workers: {api[\"workers\"]}"); print(f"  Config: {path or \"defaults\"}")'
 end

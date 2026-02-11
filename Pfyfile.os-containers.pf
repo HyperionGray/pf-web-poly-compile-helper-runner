@@ -9,7 +9,7 @@
 task os-build-all
   describe Build all OS distribution containers
   shell_lang bash
-  shell ./containers/scripts/build-containers.sh os
+  shell "${PFY_ROOT:-.}/containers/scripts/build-containers.sh" os
 end
 
 task os-build-centos

@@ -131,9 +131,15 @@ class BuiltinCommandHandler:
     
     def handle_help_command(self, args) -> int:
         """Handle the help command."""
-        if hasattr(args, 'task') and args.task:
+        topic = None
+        if hasattr(args, "topic") and args.topic:
+            topic = args.topic
+        elif hasattr(args, "task") and args.task:
+            topic = args.task
+
+        if topic:
             # Show help for specific task
-            return self._show_task_help(args.task, args.file)
+            return self._show_task_help(topic, args.file)
         else:
             # Show general help
             return self._show_general_help()

@@ -19,7 +19,19 @@ from typing import List, Dict, Optional, Tuple, Any
 import re
 
 # Help command variations - common typos and alternatives
-HELP_VARIATIONS = {'help', '--help', '-h', 'hlep', 'hepl', 'heelp', 'hlp'}
+HELP_VARIATIONS = {
+    "help",
+    "--help",
+    "-h",
+    "hlep",
+    "hepl",
+    "heelp",
+    "hlp",
+    "--hlep",
+    "--hepl",
+    "--heelp",
+    "--hlp",
+}
 
 
 def _detect_version() -> str:
@@ -49,6 +61,9 @@ class PfArgumentParser:
     def __init__(self):
         self.version = _detect_version()
         self._subcommand_names = set()
+        self._subcommand_files = {}
+        # Map subcommand -> Pfyfile include for help routing.
+        self._subcommand_files = {}
 
         self.parser = argparse.ArgumentParser(
             prog="pf",
@@ -68,6 +83,10 @@ Environment Variables:
   
 For more help on a specific subcommand:
   pf <subcommand> --help
+
+For help on a specific task:
+  pf <task_name> --help
+  pf <subcommand> <task_name> --help
 
 Config:
   pf reads configuration from a central JSON5 file (default: pf.config.json5).
@@ -227,6 +246,8 @@ Config:
             # Store task list for this subcommand
             subparser.set_defaults(subcommand_tasks=tasks, subcommand_file=filename)
             self._subcommand_names.add(subcommand_name)
+            self._subcommand_files[subcommand_name] = filename
+            self._subcommand_files[subcommand_name] = filename
 
     def parse_legacy_args(
         self, args: List[str]
@@ -302,6 +323,21 @@ Config:
                 remaining_args = remaining
         else:
             remaining_args = remaining
+
+        # Handle "pf task --help" style usage (map to "pf help task")
+        help_flags = {"--help", "-h"}
+        builtin_commands = {"list", "run", "help", "prune", "debug-on", "debug-off", "version"}
+        if remaining_args:
+            potential_task = remaining_args[0]
+            has_help_flag = any(arg in help_flags for arg in remaining_args[1:])
+            is_subcommand = hasattr(self, "_subcommand_names") and potential_task in self._subcommand_names
+            if has_help_flag and potential_task not in builtin_commands and not is_subcommand:
+                modern_args = []
+                modern_args.extend(modern_global_opts)
+                if file_arg and '--file' not in modern_global_opts and '-f' not in modern_global_opts:
+                    modern_args.extend(["--file", file_arg])
+                modern_args.extend(["help", potential_task])
+                return modern_args
 
         # Separate legacy key=value pairs from task arguments
         legacy_params = []
@@ -392,6 +428,165 @@ Config:
             else:
                 return self.parser.parse_args(["--help"])
 
+        # Support "pf <task> --help" style (without explicit "help" command)
+        help_flags = set(HELP_VARIATIONS)
+        if args[0] in getattr(self, "_subcommand_names", set()) and any(
+            arg in help_flags for arg in args[1:]
+        ):
+            task = None
+            for arg in args[1:]:
+                if arg in help_flags:
+                    break
+                if arg.startswith("-") or "=" in arg:
+                    continue
+                task = arg
+                break
+            if task:
+                return self.parser.parse_args(["help", task])
+            return self.parser.parse_args(args)
+        if any(arg in help_flags for arg in args[1:]):
+            value_opts = {
+                "--config",
+                "-f",
+                "--file",
+                "--env",
+                "--hosts",
+                "--host",
+                "--user",
+                "--port",
+                "--sudo-user",
+            }
+            builtin_commands = {"list", "run", "help", "prune", "debug-on", "debug-off", "version"}
+            subcommand_names = getattr(self, "_subcommand_names", set())
+            subcommand_files = getattr(self, "_subcommand_files", {})
+
+            def _help_args_with_subcommand_file(
+                subcommand: str,
+                topic: str,
+                base_opts: List[str],
+            ) -> List[str]:
+                opts = list(base_opts)
+                has_file = any(
+                    opt in ("--file", "-f") for opt in opts
+                ) or any(opt.startswith("--file=") for opt in opts)
+                if not has_file:
+                    sub_file = subcommand_files.get(subcommand)
+                    if sub_file:
+                        opts.extend(["--file", sub_file])
+                return opts + ["help", topic]
+
+            def _collect_global_opts(raw_args: List[str]) -> List[str]:
+                opts: List[str] = []
+                i = 0
+                while i < len(raw_args):
+                    arg = raw_args[i]
+                    if arg in help_flags:
+                        i += 1
+                        continue
+                    if arg in value_opts:
+                        if i + 1 < len(raw_args):
+                            opts.extend([arg, raw_args[i + 1]])
+                            i += 2
+                            continue
+                        i += 1
+                        continue
+                    if arg == "--sudo":
+                        opts.append(arg)
+                        i += 1
+                        continue
+                    if arg.startswith("--") and "=" in arg:
+                        if any(arg.startswith(prefix) for prefix in ("--config=", "--file=", "--env=", "--hosts=", "--host=", "--user=", "--port=", "--sudo-user=")):
+                            opts.append(arg)
+                        i += 1
+                        continue
+                    i += 1
+                return opts
+
+            global_opts = _collect_global_opts(args)
+
+            positionals = []
+            skip_next = False
+            for arg in args:
+                if skip_next:
+                    skip_next = False
+                    continue
+                if arg in help_flags:
+                    break
+                if arg in value_opts:
+                    skip_next = True
+                    continue
+                if arg.startswith("--") and "=" in arg:
+                    continue
+                if arg.startswith("-"):
+                    continue
+                if "=" in arg:
+                    continue
+                positionals.append(arg)
+                if len(positionals) >= 2:
+                    break
+
+            candidate = positionals[0] if positionals else None
+            candidate_next = positionals[1] if len(positionals) > 1 else None
+
+            if candidate:
+                if candidate == "run" and candidate_next:
+                    return self.parser.parse_args(global_opts + ["help", candidate_next])
+                if candidate in subcommand_names and not candidate_next:
+                    return self.parser.parse_args(args)
+                if candidate not in builtin_commands:
+                    if candidate in subcommand_names and candidate_next:
+                        return self.parser.parse_args(
+                            _help_args_with_subcommand_file(
+                                candidate,
+                                candidate_next,
+                                global_opts,
+                            )
+                        )
+                    if candidate_next and "=" not in candidate_next:
+                        return self.parser.parse_args(global_opts + ["help", candidate_next])
+                    return self.parser.parse_args(global_opts + ["help", candidate])
+
+        # Support `pf task-name --help` (task-specific help without `pf help`)
+        if (
+            len(args) > 1
+            and args[1] in HELP_VARIATIONS
+            and not args[0].startswith("-")
+        ):
+            builtin_commands = {
+                "list",
+                "run",
+                "help",
+                "prune",
+                "debug-on",
+                "debug-off",
+                "version",
+            }
+            if args[0] not in builtin_commands:
+                if not (hasattr(self, "_subcommand_names") and args[0] in self._subcommand_names):
+                    global_opts = []
+                    i = 0
+                    while i < len(args):
+                        arg = args[i]
+                        if arg in help_flags:
+                            i += 1
+                            continue
+                        if arg in ("--config", "-f", "--file", "--env", "--hosts", "--host", "--user", "--port", "--sudo-user"):
+                            if i + 1 < len(args):
+                                global_opts.extend([arg, args[i + 1]])
+                                i += 2
+                                continue
+                            i += 1
+                            continue
+                        if arg == "--sudo":
+                            global_opts.append(arg)
+                            i += 1
+                            continue
+                        if arg.startswith("--") and "=" in arg:
+                            if any(arg.startswith(prefix) for prefix in ("--config=", "--file=", "--env=", "--hosts=", "--host=", "--user=", "--port=", "--sudo-user=")):
+                                global_opts.append(arg)
+                        i += 1
+                    return self.parser.parse_args(global_opts + ["help", args[0]])
+
         # Directly handle explicit commands and flags without legacy translation
         builtin_commands = {"list", "run", "help", "prune", "debug-on", "debug-off", "version"}
         if args[0] in builtin_commands or args[0] in ("--version", "-V"):
@@ -402,6 +597,15 @@ Config:
 
         # Convert legacy syntax to modern
         modern_args = self.parse_legacy_args(args)
+
+        # If the user typed `pf task --help`, keep --help as a positional
+        # argument for the task instead of letting argparse intercept it.
+        if modern_args and modern_args[0] == "run" and len(modern_args) >= 3:
+            help_flags = {"--help", "-h"}
+            for idx in range(2, len(modern_args)):
+                if modern_args[idx] in help_flags:
+                    modern_args = modern_args[:idx] + ["--"] + modern_args[idx:]
+                    break
 
         try:
             return self.parser.parse_args(modern_args)

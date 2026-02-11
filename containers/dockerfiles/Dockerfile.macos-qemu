@@ -1,7 +1,7 @@
 # macOS Container using QEMU with OSK Passthrough
 # Based on Docker-OSX pattern (https://github.com/sickcodes/Docker-OSX)
 # Allows running macOS applications in a containerized QEMU VM
-FROM ubuntu:22.04
+FROM docker.io/library/ubuntu:22.04
 
 LABEL maintainer="pf-runner"
 LABEL description="macOS-like environment using QEMU virtualization"

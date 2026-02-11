@@ -1,7 +1,7 @@
 # VMKit-based Lightweight VM Container for PE Execution
 # Uses QEMU/KVM with passthrough for running Windows PEs in a minimal VM
 # Reference: HyperionGray/HGWS/VMKit pattern with --all-the-passthru
-FROM ubuntu:22.04
+FROM docker.io/library/ubuntu:22.04
 
 LABEL maintainer="pf-runner"
 LABEL description="VMKit lightweight VM container for PE execution with full passthrough"

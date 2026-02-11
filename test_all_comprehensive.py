@@ -18,6 +18,30 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional
 
+
+def _resolve_workspace_dir(workspace_override: Optional[str]) -> str:
+    """Resolve the workspace directory without assuming a fixed path."""
+    candidates: List[Path] = []
+
+    if workspace_override:
+        candidates.append(Path(workspace_override).expanduser())
+
+    for env_var in ("PF_WORKSPACE", "WORKSPACE"):
+        env_path = os.environ.get(env_var)
+        if env_path:
+            candidates.append(Path(env_path).expanduser())
+
+    # Fall back to the directory containing this script
+    candidates.append(Path(__file__).resolve().parent)
+    # Fallback for container default if it actually exists
+    candidates.append(Path("/workspace"))
+
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+
+    return str(Path(__file__).resolve().parent)
+
 class TestResult:
     """Container for individual test results"""
     def __init__(self, name: str, success: bool, duration: float, 
@@ -54,23 +78,25 @@ class TestRun:
 class ComprehensiveTestRunner:
     """Main test runner class"""
     
-    def __init__(self, workspace_dir: str = "/workspace"):
-        self.workspace_dir = workspace_dir
+    def __init__(self, workspace_dir: Optional[str] = None):
+        self.workspace_dir = _resolve_workspace_dir(workspace_dir)
         self.test_runs: List[TestRun] = []
         self.discovered_tests: List[str] = []
         self.temp_dirs: List[str] = []
+        if not Path(self.workspace_dir).exists():
+            raise FileNotFoundError(f"Workspace directory not found: {self.workspace_dir}")
         
     def discover_tests(self) -> List[str]:
         """Discover all test files in the repository"""
         print("🔍 Discovering test files...")
         
         # Find all test_*.py files
-        test_files = []
+        test_files: List[Path] = []
         
         # Look for test_*.py files
         for pattern in ["test_*.py", "*test*.py"]:
             matches = glob.glob(os.path.join(self.workspace_dir, pattern))
-            test_files.extend(matches)
+            test_files.extend(Path(m).resolve() for m in matches)
         
         # Also include specific known test files
         known_tests = [
@@ -81,24 +107,33 @@ class ComprehensiveTestRunner:
         ]
         
         for test_file in known_tests:
-            full_path = os.path.join(self.workspace_dir, test_file)
-            if os.path.exists(full_path) and full_path not in test_files:
+            full_path = Path(self.workspace_dir, test_file).resolve()
+            if full_path.exists():
                 test_files.append(full_path)
         
         # Filter out this script itself
-        current_script = os.path.abspath(__file__)
-        test_files = [f for f in test_files if os.path.abspath(f) != current_script]
+        current_script = Path(__file__).resolve()
+        test_files = [f for f in test_files if f != current_script]
+
+        # Deduplicate while preserving order
+        seen: set[Path] = set()
+        unique_test_files: List[Path] = []
+        for f in test_files:
+            if f in seen:
+                continue
+            seen.add(f)
+            unique_test_files.append(f)
         
         # Sort for consistent ordering
-        test_files.sort()
+        test_files = sorted(unique_test_files)
         
-        self.discovered_tests = test_files
-        print(f"📊 Discovered {len(test_files)} test files:")
-        for test_file in test_files:
+        self.discovered_tests = [str(p) for p in test_files]
+        print(f"📊 Discovered {len(self.discovered_tests)} test files:")
+        for test_file in self.discovered_tests:
             rel_path = os.path.relpath(test_file, self.workspace_dir)
             print(f"  • {rel_path}")
         
-        return test_files
+        return self.discovered_tests
     
     def setup_fresh_environment(self, run_number: int):
         """Set up a fresh environment for testing"""
@@ -234,6 +269,7 @@ class ComprehensiveTestRunner:
         print("🎯 COMPREHENSIVE TEST RUNNER")
         print("Testing it all again and again and again. That's thrice!")
         print("=" * 70)
+        print(f"Workspace: {self.workspace_dir}")
         
         # Discover tests
         if not self.discover_tests():

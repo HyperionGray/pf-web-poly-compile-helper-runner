@@ -1,10 +1,16 @@
 #!/bin/bash
 # Script to create fuzzing examples
 
-mkdir -p demos/fuzzing/examples
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+EXAMPLES_DIR="${REPO_ROOT}/demos/fuzzing/examples"
+
+mkdir -p "${EXAMPLES_DIR}"
 
 # Create vulnerable.c
-cat > demos/fuzzing/examples/vulnerable.c << 'CEOF'
+cat > "${EXAMPLES_DIR}/vulnerable.c" << 'CEOF'
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -57,7 +63,7 @@ int main(int argc, char **argv) {
 CEOF
 
 # Create README.md
-cat > demos/fuzzing/examples/README.md << 'MDEOF'
+cat > "${EXAMPLES_DIR}/README.md" << 'MDEOF'
 # Fuzzing Examples
 
 This directory contains example programs for demonstrating fuzzing capabilities.
@@ -71,25 +77,25 @@ A deliberately vulnerable program with multiple bug classes:
 
 ### Build for libfuzzer:
 ```bash
-pf build-libfuzzer-target source=demos/fuzzing/examples/vulnerable.c output=demos/fuzzing/examples/fuzzer
+pf build-libfuzzer-target source=${PFY_ROOT:-.}/demos/fuzzing/examples/vulnerable.c output=${PFY_ROOT:-.}/demos/fuzzing/examples/fuzzer
 ```
 
 ### Build for AFL++:
 ```bash
-pf build-afl-target source=demos/fuzzing/examples/vulnerable.c output=demos/fuzzing/examples/vulnerable_afl
+pf build-afl-target source=${PFY_ROOT:-.}/demos/fuzzing/examples/vulnerable.c output=${PFY_ROOT:-.}/demos/fuzzing/examples/vulnerable_afl
 ```
 
 ### Run libfuzzer:
 ```bash
-pf run-libfuzzer target=demos/fuzzing/examples/fuzzer corpus=demos/fuzzing/corpus time=60
+pf run-libfuzzer target=${PFY_ROOT:-.}/demos/fuzzing/examples/fuzzer corpus=${PFY_ROOT:-.}/demos/fuzzing/corpus time=60
 ```
 
 ### Run AFL++:
 ```bash
-pf afl-fuzz target=demos/fuzzing/examples/vulnerable_afl input=demos/fuzzing/in output=demos/fuzzing/out
+pf afl-fuzz target=${PFY_ROOT:-.}/demos/fuzzing/examples/vulnerable_afl input=${PFY_ROOT:-.}/demos/fuzzing/in output=${PFY_ROOT:-.}/demos/fuzzing/out
 ```
 MDEOF
 
 echo "✅ Created fuzzing examples"
-echo "  - demos/fuzzing/examples/vulnerable.c"
-echo "  - demos/fuzzing/examples/README.md"
+echo "  - ${EXAMPLES_DIR}/vulnerable.c"
+echo "  - ${EXAMPLES_DIR}/README.md"

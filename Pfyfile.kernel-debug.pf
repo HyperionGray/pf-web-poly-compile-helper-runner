@@ -4,113 +4,113 @@
 # IOCTL Detection and Analysis
 task kernel-ioctl-detect
   describe Detect and analyze IOCTL handlers in kernel modules
-  shell python3 tools/kernel-debug/ioctl/ioctl_detector.py ${target:-/dev/null} --format ${format:-json}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/ioctl/ioctl_detector.py" ${target:-/dev/null} --format ${format:-json}
 end
 
 task kernel-ioctl-analyze-source
   describe Analyze source code for IOCTL vulnerabilities
-  shell python3 tools/kernel-debug/ioctl/ioctl_detector.py ${source_dir:-.} --format ${format:-text} --output ${output:-ioctl_analysis.txt}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/ioctl/ioctl_detector.py" ${source_dir:-.} --format ${format:-text} --output ${output:-ioctl_analysis.txt}
 end
 
 task kernel-ioctl-analyze-binary
   describe Analyze binary for IOCTL usage patterns
-  shell python3 tools/kernel-debug/ioctl/ioctl_detector.py ${binary} --binary --format ${format:-json} --output ${output:-ioctl_binary.json}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/ioctl/ioctl_detector.py" ${binary} --binary --format ${format:-json} --output ${output:-ioctl_binary.json}
 end
 
 # Firmware Extraction and Analysis
 task kernel-firmware-list-devices
   describe List supported firmware extraction devices
-  shell python3 tools/kernel-debug/firmware/firmware_extractor.py --list-devices --format ${format:-text}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/firmware/firmware_extractor.py" --list-devices --format ${format:-text}
 end
 
 task kernel-firmware-extract
   describe Extract firmware from device using flashrom
-  shell python3 tools/kernel-debug/firmware/firmware_extractor.py --extract ${device} --programmer ${programmer:-internal} --output ${output:-firmware.bin}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/firmware/firmware_extractor.py" --extract ${device} --programmer ${programmer:-internal} --output ${output:-firmware.bin}
 end
 
 task kernel-firmware-analyze
   describe Analyze extracted firmware file
-  shell python3 tools/kernel-debug/firmware/firmware_extractor.py --analyze ${firmware} --format ${format:-json} --output ${output:-firmware_analysis.json}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/firmware/firmware_extractor.py" --analyze ${firmware} --format ${format:-json} --output ${output:-firmware_analysis.json}
 end
 
 # LLDB Integration and Advanced Debugging
 task kernel-debug-lldb-session
   describe Start LLDB debugging session with kernel-specific breakpoints
-  shell python3 tools/kernel-debug/breakpoints/lldb_integration.py ${target} --interactive --vuln-breakpoints ${vuln_types:-buffer_overflow use_after_free}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/breakpoints/lldb_integration.py" ${target} --interactive --vuln-breakpoints ${vuln_types:-buffer_overflow use_after_free}
 end
 
 task kernel-debug-ioctl-trace
   describe Set up LLDB tracing for IOCTL analysis
-  shell python3 tools/kernel-debug/breakpoints/lldb_integration.py ${target} --ioctl-analysis --output ${output:-ioctl_trace.json}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/breakpoints/lldb_integration.py" ${target} --ioctl-analysis --output ${output:-ioctl_trace.json}
 end
 
 task kernel-debug-crash-analyze
   describe Analyze kernel crash dump with LLDB
-  shell python3 tools/kernel-debug/breakpoints/lldb_integration.py --core ${core_dump} ${executable} --output ${output:-crash_analysis.json}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/breakpoints/lldb_integration.py" --core ${core_dump} ${executable} --output ${output:-crash_analysis.json}
 end
 
 task kernel-debug-vuln-breakpoints
   describe Add vulnerability detection breakpoints
-  shell python3 tools/kernel-debug/breakpoints/lldb_integration.py ${target} --vuln-breakpoints ${types:-buffer_overflow use_after_free privilege_escalation} --output ${output:-vuln_debug.json}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/breakpoints/lldb_integration.py" ${target} --vuln-breakpoints ${types:-buffer_overflow use_after_free privilege_escalation} --output ${output:-vuln_debug.json}
 end
 
 # Kernel Fuzzing
 task kernel-fuzz-basic
   describe Run basic kernel interface fuzzing
-  shell python3 tools/kernel-debug/fuzzing/kernel_fuzzer.py ${target:-/dev/null} --duration ${duration:-60} --output ${output:-fuzz_results.json}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/fuzzing/kernel_fuzzer.py" ${target:-/dev/null} --duration ${duration:-60} --output ${output:-fuzz_results.json}
 end
 
 task kernel-fuzz-parallel
   describe Run parallel kernel fuzzing across multiple processes
-  shell python3 tools/kernel-debug/fuzzing/kernel_fuzzer.py ${target:-/dev/null} --duration ${duration:-300} --parallel ${processes:-4} --output ${output:-parallel_fuzz.json}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/fuzzing/kernel_fuzzer.py" ${target:-/dev/null} --duration ${duration:-300} --parallel ${processes:-4} --output ${output:-parallel_fuzz.json}
 end
 
 task kernel-fuzz-ioctl
   describe Fuzz IOCTL interfaces specifically
-  shell python3 tools/kernel-debug/fuzzing/kernel_fuzzer.py ${device} --duration ${duration:-120} --seed-file ${seed_file} --output ${output:-ioctl_fuzz.json}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/fuzzing/kernel_fuzzer.py" ${device} --duration ${duration:-120} --seed-file ${seed_file} --output ${output:-ioctl_fuzz.json}
 end
 
 # Radare2 Integration
 task kernel-analyze-r2-ioctls
   describe Analyze kernel binary for IOCTLs using radare2
-  shell python3 tools/kernel-debug/plugins/r2_kernel_analysis.py ${binary} --ioctls --output ${output:-r2_ioctl_analysis.json}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/plugins/r2_kernel_analysis.py" ${binary} --ioctls --output ${output:-r2_ioctl_analysis.json}
 end
 
 task kernel-analyze-r2-dangerous
   describe Find dangerous function calls using radare2
-  shell python3 tools/kernel-debug/plugins/r2_kernel_analysis.py ${binary} --dangerous --output ${output:-r2_dangerous.json}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/plugins/r2_kernel_analysis.py" ${binary} --dangerous --output ${output:-r2_dangerous.json}
 end
 
 task kernel-analyze-r2-cfg
   describe Generate control flow graph using radare2
-  shell python3 tools/kernel-debug/plugins/r2_kernel_analysis.py ${binary} --cfg ${function} --output ${output:-r2_cfg.json}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/plugins/r2_kernel_analysis.py" ${binary} --cfg ${function} --output ${output:-r2_cfg.json}
 end
 
 # MicroVM Swarm for Mass Fuzzing
 task kernel-swarm-create
   describe Create microVM swarm for parallel fuzzing
-  shell python3 tools/kernel-debug/vmkit/microvm_swarm.py --scale ${vms:-4} --memory ${memory:-512} --kernel ${kernel} --rootfs ${rootfs}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/vmkit/microvm_swarm.py" --scale ${vms:-4} --memory ${memory:-512} --kernel ${kernel} --rootfs ${rootfs}
 end
 
 task kernel-swarm-fuzz
   describe Run mass fuzzing across VM swarm
-  shell python3 tools/kernel-debug/vmkit/microvm_swarm.py --scale ${vms:-8} --target ${target} --duration ${duration:-600} --jobs ${jobs:-16} --output ${output:-swarm_results.json}
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/vmkit/microvm_swarm.py" --scale ${vms:-8} --target ${target} --duration ${duration:-600} --jobs ${jobs:-16} --output ${output:-swarm_results.json}
 end
 
 # Automagic Parse Function Detection
 task kernel-parse-detect
   describe Automagically detect parse functions for vulnerability research
-  shell python3 tools/debugging/vulnerability/parse_function_detector.py ${binary} ${output:+--output $output}
+  shell python3 "${PFY_ROOT:-.}/tools/debugging/vulnerability/parse_function_detector.py" ${binary} ${output:+--output $output}
 end
 
 task kernel-complexity-analyze
   describe Analyze function complexity to find hotspots (long functions, many if/else)
-  shell python3 tools/debugging/vulnerability/complexity_analyzer.py ${binary} ${output:+--output $output}
+  shell python3 "${PFY_ROOT:-.}/tools/debugging/vulnerability/complexity_analyzer.py" ${binary} ${output:+--output $output}
 end
 
 task kernel-fuzz-in-memory
   describe Fast in-memory fuzzing with loop-back capability
-  shell python3 tools/debugging/fuzzing/in_memory_fuzzer.py ${binary} ${function:+--function $function} ${iterations:+--iterations $iterations} ${jump_back:+--jump-back $jump_back}
+  shell python3 "${PFY_ROOT:-.}/tools/debugging/fuzzing/in_memory_fuzzer.py" ${binary} ${function:+--function $function} ${iterations:+--iterations $iterations} ${jump_back:+--jump-back $jump_back}
 end
 
 # Combined Analysis Workflows
@@ -140,7 +140,7 @@ task kernel-automagic-analysis
   shell pf kernel-complexity-analyze binary=${binary} output=${output:-complexity_analysis.json}
   shell echo ""
   shell echo "[3/3] Scanning for vulnerabilities..."
-  shell python3 tools/debugging/vulnerability/scan_vulnerabilities.py ${binary}
+  shell python3 "${PFY_ROOT:-.}/tools/debugging/vulnerability/scan_vulnerabilities.py" ${binary}
   shell echo ""
   shell echo "╔════════════════════════════════════════════════════════════╗"
   shell echo "║         ANALYSIS COMPLETE                                  ║"
@@ -206,12 +206,12 @@ end
 task kernel-debug-setup
   describe Set up kernel debugging environment
   shell pf kernel-debug-install-deps
-  shell chmod +x tools/kernel-debug/ioctl/ioctl_detector.py
-  shell chmod +x tools/kernel-debug/firmware/firmware_extractor.py
-  shell chmod +x tools/kernel-debug/breakpoints/lldb_integration.py
-  shell chmod +x tools/kernel-debug/fuzzing/kernel_fuzzer.py
-  shell chmod +x tools/kernel-debug/plugins/r2_kernel_analysis.py
-  shell chmod +x tools/kernel-debug/vmkit/microvm_swarm.py
+  shell chmod +x ${PFY_ROOT:-.}/tools/kernel-debug/ioctl/ioctl_detector.py
+  shell chmod +x ${PFY_ROOT:-.}/tools/kernel-debug/firmware/firmware_extractor.py
+  shell chmod +x ${PFY_ROOT:-.}/tools/kernel-debug/breakpoints/lldb_integration.py
+  shell chmod +x ${PFY_ROOT:-.}/tools/kernel-debug/fuzzing/kernel_fuzzer.py
+  shell chmod +x ${PFY_ROOT:-.}/tools/kernel-debug/plugins/r2_kernel_analysis.py
+  shell chmod +x ${PFY_ROOT:-.}/tools/kernel-debug/vmkit/microvm_swarm.py
   shell echo "Kernel debugging environment ready!"
 end
 
@@ -219,17 +219,17 @@ end
 task kernel-debug-test
   describe Test kernel debugging tools
   shell echo "Testing IOCTL detector..."
-  shell python3 tools/kernel-debug/ioctl/ioctl_detector.py --help
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/ioctl/ioctl_detector.py" --help
   shell echo "Testing firmware extractor..."
-  shell python3 tools/kernel-debug/firmware/firmware_extractor.py --help
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/firmware/firmware_extractor.py" --help
   shell echo "Testing LLDB integration..."
-  shell python3 tools/kernel-debug/breakpoints/lldb_integration.py --help
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/breakpoints/lldb_integration.py" --help
   shell echo "Testing kernel fuzzer..."
-  shell python3 tools/kernel-debug/fuzzing/kernel_fuzzer.py --help
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/fuzzing/kernel_fuzzer.py" --help
   shell echo "Testing radare2 plugin..."
-  shell python3 tools/kernel-debug/plugins/r2_kernel_analysis.py --help
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/plugins/r2_kernel_analysis.py" --help
   shell echo "Testing VM orchestrator..."
-  shell python3 tools/kernel-debug/vmkit/microvm_swarm.py --help
+  shell python3 "${PFY_ROOT:-.}/tools/kernel-debug/vmkit/microvm_swarm.py" --help
   shell echo "All tools tested successfully!"
 end
 

@@ -4,74 +4,19 @@ A comprehensive guide to using the **pf** task runner with examples of all major
 
 ## Table of Contents
 
-1. [Installation](#installation)
-2. [Basic Concepts](#basic-concepts)
-3. [Parameter Passing - All Formats](#parameter-passing---all-formats)
-4. [Task Definition Basics](#task-definition-basics)
-5. [Task Aliases (Shortcuts)](#task-aliases-shortcuts)
-6. [Working with Parameters](#working-with-parameters)
-7. [Environment Variables](#environment-variables)
-8. [Shell Commands](#shell-commands)
-9. [Polyglot Shell Support](#polyglot-shell-support)
-10. [Build System Helpers](#build-system-helpers)
-11. [System Management](#system-management)
-12. [Remote Execution](#remote-execution)
-13. [Multiple Tasks](#multiple-tasks)
-14. [Advanced Examples](#advanced-examples)
-
----
-
-## Installation
-
-### 1. Core pf CLI (container-based, recommended)
-
-From the repository root:
-
-```bash
-# Build base + pf-runner images and install ~/.local/bin/pf using podman
-./install.sh --runtime podman
-```
-
-This will:
-- Build `localhost/pf-base:latest`
-- Build `localhost/pf-runner:latest` (used by the `pf` wrapper)
-- Install the wrapper at `~/.local/bin/pf` (unless you pass `--no-wrapper`)
-
-Verify installation:
-```bash
-pf list
-```
-
-### 2. Optional: full containerized web stack
-
-Once `pf` works, you can build the full container suite (API server, debuggers, WASM builders):
-
-```bash
-# Build all container images with podman
-pf container-build-all
-
-# Or use the higher-level installer (containers + quadlets)
-pf install-full runtime=podman
-```
-
-For interactive development with containers:
-```bash
-# Start API server + pf-runner containers
-./containers/scripts/run-dev.sh
-
-# Build all WASM modules (Rust/C/Fortran/WAT)
-./containers/scripts/run-dev.sh build
-```
-
-### 3. Native host-only installation (legacy)
-
-If you prefer a pure host install without containers:
-
-```bash
-./install.sh --mode native --prefix ~/.local
-```
-
-In that mode, `pf` runs directly on the host Python instead of inside a container.
+1. [Basic Concepts](#basic-concepts)
+2. [Parameter Passing - All Formats](#parameter-passing---all-formats)
+3. [Task Definition Basics](#task-definition-basics)
+4. [Task Aliases (Shortcuts)](#task-aliases-shortcuts)
+5. [Working with Parameters](#working-with-parameters)
+6. [Environment Variables](#environment-variables)
+7. [Shell Commands](#shell-commands)
+8. [Polyglot Shell Support](#polyglot-shell-support)
+9. [Build System Helpers](#build-system-helpers)
+10. [System Management](#system-management)
+11. [Remote Execution](#remote-execution)
+12. [Multiple Tasks](#multiple-tasks)
+13. [Advanced Examples](#advanced-examples)
 
 ---
 
@@ -81,7 +26,7 @@ In that mode, `pf` runs directly on the host Python instead of inside a containe
 - Run shell commands
 - Accept parameters
 - Set environment variables
-- Install packages
+- Manage packages
 - Manage services
 - Build projects with various build systems
 - Execute remotely via SSH
@@ -316,6 +261,19 @@ pf web-server --port 9000  # Uses port 9000
 ---
 
 ## Working with Parameters
+
+### Parameter Help (task docs)
+
+You can document parameters inside a task with `param-help`. These descriptions show up in `pf task-name --help`.
+
+```text
+task deploy
+  describe Deploy an app
+  param-help env Target environment (dev, staging, prod)
+  param-help version Version tag to deploy
+  shell echo "Deploying $version to $env"
+end
+```
 
 ### Parameter Interpolation
 

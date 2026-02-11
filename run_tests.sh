@@ -1,9 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Comprehensive Test Runner - "Test it all again and again and again. That's thrice."
 # This script runs all tests three times with fresh environment setup
 
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+REPO_ROOT="${SCRIPT_DIR}"
+cd "${REPO_ROOT}"
 
 echo "🚀 Starting Comprehensive Test Suite"
 echo "Testing it all again and again and again. That's thrice!"

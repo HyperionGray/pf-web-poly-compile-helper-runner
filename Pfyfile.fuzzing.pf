@@ -37,8 +37,8 @@ task install-aflplusplus
   shell echo ""
   shell mkdir -p /tmp/fuzzing-tools
   shell cd /tmp/fuzzing-tools && git clone https://github.com/AFLplusplus/AFLplusplus
-  shell cd /tmp/fuzzing-tools/AFLplusplus && make distrib
-  shell cd /tmp/fuzzing-tools/AFLplusplus && sudo make install
+  shell cd /tmp/fuzzing-${PFY_ROOT:-.}/tools/AFLplusplus && make distrib
+  shell cd /tmp/fuzzing-${PFY_ROOT:-.}/tools/AFLplusplus && sudo make install
   shell echo ""
   shell echo "✅ AFL++ installed successfully!"
   shell afl-fuzz -h | head -20
@@ -146,7 +146,7 @@ end
 
 task generate-libfuzzer-template
   describe Generate libfuzzer harness template (output=fuzz_target.c, function=target_function)
-  shell bash tools/fuzzing/generate-template.sh
+  shell bash "${PFY_ROOT:-.}/tools/fuzzing/generate-template.sh"
 end
 
 # ============================================================================
@@ -252,7 +252,7 @@ end
 
 task create-fuzzing-example
   describe Create example fuzzing target for demonstration
-  shell bash tools/fuzzing/create-examples.sh
+  shell bash "${PFY_ROOT:-.}/tools/fuzzing/create-examples.sh"
 end
 
 task demo-fuzzing
@@ -265,22 +265,22 @@ task demo-fuzzing
   shell pf create-fuzzing-example
   shell echo ""
   shell echo "Building with sanitizers..."
-  shell pf build-with-asan source=demos/fuzzing/examples/vulnerable.c output=demos/fuzzing/examples/vulnerable_asan
+  shell pf build-with-asan source=${PFY_ROOT:-.}/demos/fuzzing/examples/vulnerable.c output=${PFY_ROOT:-.}/demos/fuzzing/examples/vulnerable_asan
   shell echo ""
   shell echo "Building libfuzzer target..."
-  shell clang -DLIBFUZZER -fsanitize=fuzzer,address -g demos/fuzzing/examples/vulnerable.c -o demos/fuzzing/examples/fuzzer 2>&1 || echo "libfuzzer not available"
+  shell clang -DLIBFUZZER -fsanitize=fuzzer,address -g ${PFY_ROOT:-.}/demos/fuzzing/examples/vulnerable.c -o ${PFY_ROOT:-.}/demos/fuzzing/examples/fuzzer 2>&1 || echo "libfuzzer not available"
   shell echo ""
   shell echo "Building AFL++ target..."
-  shell afl-clang-fast -fsanitize=address -g demos/fuzzing/examples/vulnerable.c -o demos/fuzzing/examples/vulnerable_afl 2>&1 || gcc -g demos/fuzzing/examples/vulnerable.c -o demos/fuzzing/examples/vulnerable_afl
+  shell afl-clang-fast -fsanitize=address -g ${PFY_ROOT:-.}/demos/fuzzing/examples/vulnerable.c -o ${PFY_ROOT:-.}/demos/fuzzing/examples/vulnerable_afl 2>&1 || gcc -g ${PFY_ROOT:-.}/demos/fuzzing/examples/vulnerable.c -o ${PFY_ROOT:-.}/demos/fuzzing/examples/vulnerable_afl
   shell echo ""
   shell echo "✅ Demo setup complete!"
   shell echo ""
   shell echo "Files created:"
-  shell ls -lh demos/fuzzing/examples/
+  shell ls -lh ${PFY_ROOT:-.}/demos/fuzzing/examples/
   shell echo ""
   shell echo "Next steps:"
-  shell echo "  1. Run libfuzzer: pf run-libfuzzer target=demos/fuzzing/examples/fuzzer time=30"
-  shell echo "  2. Run AFL++: pf afl-fuzz target=demos/fuzzing/examples/vulnerable_afl time=5m"
+  shell echo "  1. Run libfuzzer: pf run-libfuzzer target=${PFY_ROOT:-.}/demos/fuzzing/examples/fuzzer time=30"
+  shell echo "  2. Run AFL++: pf afl-fuzz target=${PFY_ROOT:-.}/demos/fuzzing/examples/vulnerable_afl time=5m"
 end
 
 # ============================================================================

@@ -4,54 +4,54 @@
 # Build tasks
 task build-heap-spray-lib
   describe Build the heap spray helper library
-  shell cd demos/heap-spray && make $(OBJ_DIR)/heap_spray.o
+  shell cd "${PFY_ROOT:-.}/demos/heap-spray" && make $(OBJ_DIR)/heap_spray.o
 end
 
 task build-heap-spray-basic
   describe Build the basic heap spray demo
-  shell cd demos/heap-spray && make basic_demo
+  shell cd "${PFY_ROOT:-.}/demos/heap-spray" && make basic_demo
 end
 
 task build-heap-spray-vulns
   describe Build the vulnerability demonstration
-  shell cd demos/heap-spray && make vulnerability_demo
+  shell cd "${PFY_ROOT:-.}/demos/heap-spray" && make vulnerability_demo
 end
 
 task build-heap-spray-tools
   describe Build the heap analysis tools
-  shell cd demos/heap-spray && make heap_analyzer
+  shell cd "${PFY_ROOT:-.}/demos/heap-spray" && make heap_analyzer
 end
 
 task build-heap-spray-demos
   describe Build all heap spray demos and tools
-  shell cd demos/heap-spray && make all
+  shell cd "${PFY_ROOT:-.}/demos/heap-spray" && make all
 end
 
 # Run tasks
 task demo-heap-spray-basic
   describe Run the basic heap spray demonstration
-  shell cd demos/heap-spray && make run-basic
+  shell cd "${PFY_ROOT:-.}/demos/heap-spray" && make run-basic
 end
 
 task demo-heap-spray-vulns
   describe Run the vulnerability exploitation demonstration
-  shell cd demos/heap-spray && make run-vulns
+  shell cd "${PFY_ROOT:-.}/demos/heap-spray" && make run-vulns
 end
 
 task demo-heap-spray-analyze
   describe Run the heap spray analysis tool
-  shell cd demos/heap-spray && make run-analyzer
+  shell cd "${PFY_ROOT:-.}/demos/heap-spray" && make run-analyzer
 end
 
 task demo-heap-spray-all
   describe Run all heap spray demonstrations
-  shell cd demos/heap-spray && make run-all
+  shell cd "${PFY_ROOT:-.}/demos/heap-spray" && make run-all
 end
 
 # Clean task
 task clean-heap-spray
   describe Clean heap spray build artifacts
-  shell cd demos/heap-spray && make clean
+  shell cd "${PFY_ROOT:-.}/demos/heap-spray" && make clean
 end
 
 # Help task
@@ -75,5 +75,5 @@ task heap-spray-help
   shell echo "  clean-heap-spray         - Clean build artifacts"
   shell echo "  heap-spray-help          - Show this help"
   shell echo ""
-  shell echo "Documentation: demos/heap-spray/README.md"
+  shell echo "Documentation: ${PFY_ROOT:-.}/demos/heap-spray/README.md"
 end

@@ -224,6 +224,155 @@ end
 # DANGEROUS OS Switching Tasks
 # ==========================================
 
+task os-kexec-prepare kernel="" initrd="" cmdline="" dry_run="true"
+  describe Prepare a kexec switch to a new kernel/initrd (does NOT execute)
+  shell_lang bash
+  shell |
+    set -euo pipefail
+
+    if [ -z "${kernel}" ] || [ -z "${initrd}" ]; then
+        echo "Usage: pf os-kexec-prepare kernel=/path/to/vmlinuz initrd=/path/to/initrd [cmdline='...'] [dry_run=true|false]"
+        exit 1
+    fi
+
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "❌ Root required. Re-run with sudo."
+        exit 1
+    fi
+
+    if ! command -v kexec &>/dev/null; then
+        echo "❌ kexec not available. Install with: pf install-kexec"
+        exit 1
+    fi
+
+    if [ ! -r "${kernel}" ]; then
+        echo "❌ Kernel not readable: ${kernel}"
+        exit 1
+    fi
+    if [ ! -r "${initrd}" ]; then
+        echo "❌ Initrd not readable: ${initrd}"
+        exit 1
+    fi
+
+    if [ -z "${cmdline}" ]; then
+        cmdline="$(cat /proc/cmdline)"
+        echo "ℹ️  No cmdline provided. Using current /proc/cmdline."
+    fi
+
+    if [ "${dry_run}" = "true" ]; then
+        echo "✅ Dry run only. Would execute:"
+        echo "kexec -l '${kernel}' --initrd='${initrd}' --command-line='${cmdline}'"
+        echo ""
+        echo "Then execute the switch with:"
+        echo "  sudo kexec -e"
+        exit 0
+    fi
+
+    echo "Loading kernel via kexec..."
+    kexec -l "${kernel}" --initrd="${initrd}" --command-line="${cmdline}"
+    echo "✅ Kernel loaded."
+    echo ""
+    echo "⚠️  To execute the switch, run:"
+    echo "  sudo kexec -e"
+end
+
+task os-kexec-exec confirm=""
+  describe Execute the kexec switch (requires explicit confirm phrase)
+  shell_lang bash
+  shell |
+    set -euo pipefail
+
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "❌ Root required. Re-run with sudo."
+        exit 1
+    fi
+
+    if [ "${confirm}" != "EXECUTE KEXEC NOW" ]; then
+        echo "Refusing to proceed without explicit confirmation."
+        echo "Re-run with: pf os-kexec-exec confirm='EXECUTE KEXEC NOW'"
+        exit 1
+    fi
+
+    echo "⚠️  Executing kexec -e (this will immediately switch kernels)!"
+    kexec -e
+end
+
+task os-kexec-arch-iso iso="" cmdline="" mount_dir="/mnt/pf-arch-iso" dry_run="true"
+  describe Prepare kexec to Arch ISO kernel/initrd (does NOT execute)
+  shell_lang bash
+  shell |
+    set -euo pipefail
+
+    if [ -z "${iso}" ]; then
+        echo "Usage: pf os-kexec-arch-iso iso=/path/to/archlinux.iso [cmdline='...'] [mount_dir=/mnt/pf-arch-iso] [dry_run=true|false]"
+        exit 1
+    fi
+
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "❌ Root required. Re-run with sudo."
+        exit 1
+    fi
+
+    if ! command -v kexec &>/dev/null; then
+        echo "❌ kexec not available. Install with: pf install-kexec"
+        exit 1
+    fi
+
+    if [ ! -r "${iso}" ]; then
+        echo "❌ ISO not readable: ${iso}"
+        exit 1
+    fi
+
+    mkdir -p "${mount_dir}"
+    if ! mountpoint -q "${mount_dir}"; then
+        mount -o loop,ro "${iso}" "${mount_dir}"
+    fi
+
+    kernel="${mount_dir}/arch/boot/x86_64/vmlinuz-linux"
+    initrd="${mount_dir}/arch/boot/x86_64/initramfs-linux.img"
+
+    if [ ! -r "${kernel}" ] || [ ! -r "${initrd}" ]; then
+        echo "❌ Arch ISO kernel/initrd not found in expected location."
+        echo "Expected:"
+        echo "  ${kernel}"
+        echo "  ${initrd}"
+        umount "${mount_dir}" || true
+        exit 1
+    fi
+
+    if [ -z "${cmdline}" ]; then
+        label="$(blkid -o value -s LABEL "${iso}" 2>/dev/null || true)"
+        if [ -n "${label}" ]; then
+            echo "ℹ️  ISO label detected: ${label}"
+            echo "Suggested cmdline (adjust as needed):"
+            echo "  archisobasedir=arch archisolabel=${label}"
+        else
+            echo "ℹ️  No ISO label detected."
+            echo "Provide a cmdline explicitly for Arch ISO boot."
+        fi
+        umount "${mount_dir}" || true
+        exit 1
+    fi
+
+    if [ "${dry_run}" = "true" ]; then
+        echo "✅ Dry run only. Would execute:"
+        echo "kexec -l '${kernel}' --initrd='${initrd}' --command-line='${cmdline}'"
+        echo ""
+        echo "Then execute the switch with:"
+        echo "  sudo kexec -e"
+        umount "${mount_dir}" || true
+        exit 0
+    fi
+
+    echo "Loading Arch ISO kernel via kexec..."
+    kexec -l "${kernel}" --initrd="${initrd}" --command-line="${cmdline}"
+    umount "${mount_dir}" || true
+    echo "✅ Kernel loaded."
+    echo ""
+    echo "⚠️  To execute the switch, run:"
+    echo "  sudo kexec -e"
+end
+
 # NOTE: This task is commented out because it conflicts with switch-os in Pfyfile.distro-switch.pf
 # The distro-switch.pf version is more focused on container-based switching
 # This version is more dangerous and should be used with extreme caution

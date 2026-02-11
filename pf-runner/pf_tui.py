@@ -37,6 +37,8 @@ import traceback
 import tty
 import termios
 import shutil
+import re
+from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
 from dataclasses import dataclass, field
 
@@ -126,6 +128,30 @@ class PfTUI:
         self.selected_file: Optional[PfyFile] = None
         self.scroll_offset = 0
         self.max_display_items = 15
+        self._input_fd: Optional[int] = None
+        self._input_fd_owned = False
+
+    def _category_key(self, name: str) -> str:
+        key = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+        return key or "core"
+
+    def _category_label(self, name: str) -> str:
+        raw = name.strip()
+        if not raw:
+            return "Misc"
+        parts = re.split(r"[\s_-]+", raw)
+        return " ".join(part.capitalize() for part in parts if part)
+
+    def _get_or_create_category(
+        self, categories: Dict[str, TaskCategory], raw_name: str
+    ) -> TaskCategory:
+        key = self._category_key(raw_name)
+        if key in categories:
+            return categories[key]
+        label = self._category_label(raw_name)
+        color = self.CATEGORY_COLORS.get(key, "white")
+        categories[key] = TaskCategory(label, [], color)
+        return categories[key]
 
     def discover_pfy_files(self) -> None:
         """Discover all Pfyfile.*.pf files in the project"""
@@ -223,16 +249,22 @@ class PfTUI:
             "practice": TaskCategory("Practice Binaries", [], "yellow"),
             "core": TaskCategory("Core Tasks", [], "white"),
         }
-        print(tasks_with_desc)
         for task_name, description, aliases in tasks_with_desc:
             categorized = False
 
+            task_obj = self.tasks.get(task_name)
+            if task_obj and task_obj.category:
+                category = self._get_or_create_category(categories, task_obj.category)
+                category.tasks.append((task_name, description or ""))
+                categorized = True
+
             # Categorize based on task name prefix
-            for prefix, category in categories.items():
-                if task_name.startswith(f"{prefix}-"):
-                    category.tasks.append((task_name, description or ""))
-                    categorized = True
-                    break
+            if not categorized:
+                for prefix, category in categories.items():
+                    if task_name.startswith(f"{prefix}-"):
+                        category.tasks.append((task_name, description or ""))
+                        categorized = True
+                        break
 
             # Special handling for tasks without prefix but with known patterns
             if not categorized:
@@ -257,6 +289,7 @@ class PfTUI:
 
         # Only add categories that have tasks
         self.categories = [cat for cat in categories.values() if cat.tasks]
+        self.categories.sort(key=lambda c: c.name)
 
     def show_header(self, subtitle_text: Optional[str] = None) -> None:
         """Display TUI header"""
@@ -277,16 +310,26 @@ class PfTUI:
 
     def _get_key(self) -> str:
         """Get a single keypress from the user"""
-        fd = sys.stdin.fileno()
+        fd = self._resolve_input_fd()
+        if not os.isatty(fd):
+            try:
+                return sys.stdin.read(1)
+            except Exception:
+                return ""
+
         old_settings = termios.tcgetattr(fd)
         try:
-            tty.setraw(sys.stdin.fileno())
-            ch = sys.stdin.read(1)
+            tty.setraw(fd)
+            ch = os.read(fd, 1)
+            if not ch:
+                return ""
+            if isinstance(ch, bytes):
+                ch = ch.decode(errors="ignore")
             # Handle escape sequences for arrow keys
             if ch == "\x1b":
-                ch2 = sys.stdin.read(1)
+                ch2 = os.read(fd, 1).decode(errors="ignore")
                 if ch2 == "[":
-                    ch3 = sys.stdin.read(1)
+                    ch3 = os.read(fd, 1).decode(errors="ignore")
                     if ch3 == "A":
                         return "up"
                     elif ch3 == "B":
@@ -299,6 +342,34 @@ class PfTUI:
             return ch
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+    def _resolve_input_fd(self) -> int:
+        """Prefer a real TTY for key navigation, even when stdin is redirected."""
+        if self._input_fd is not None:
+            return self._input_fd
+
+        if sys.stdin.isatty():
+            self._input_fd = sys.stdin.fileno()
+            self._input_fd_owned = False
+            return self._input_fd
+
+        try:
+            self._input_fd = os.open("/dev/tty", os.O_RDONLY)
+            self._input_fd_owned = True
+        except OSError:
+            self._input_fd = sys.stdin.fileno()
+            self._input_fd_owned = False
+
+        return self._input_fd
+
+    def _close_input_fd(self) -> None:
+        if self._input_fd is not None and self._input_fd_owned:
+            try:
+                os.close(self._input_fd)
+            except OSError:
+                pass
+        self._input_fd = None
+        self._input_fd_owned = False
 
     def _open_in_editor(self, filepath: str) -> None:
         """Open a file in the user's default editor"""
@@ -350,6 +421,25 @@ class PfTUI:
             "[red]No editor found. Set EDITOR environment variable.[/red]"
         )
         Prompt.ask("Press Enter to continue")
+
+    def _resolve_pf_command(self) -> List[str]:
+        """Resolve the pf command in a path-agnostic way."""
+        if shutil.which("pf"):
+            return ["pf"]
+
+        pf_main = Path(__file__).resolve().parent / "pf_main.py"
+        if pf_main.is_file():
+            return [sys.executable, str(pf_main)]
+
+        return ["pf"]
+
+    def _build_pf_command(self, *args: str) -> List[str]:
+        """Build a pf command with optional Pfyfile override."""
+        cmd = self._resolve_pf_command()
+        if self.pfyfile:
+            cmd.extend(["--file", self.pfyfile])
+        cmd.extend(args)
+        return cmd
 
     def show_files_view(self) -> Optional[str]:
         """Display Pfyfiles in a navigable list. Returns action to take."""
@@ -481,7 +571,7 @@ class PfTUI:
                 )
 
             self.console.print(
-                "\n[dim]Navigation: ↑/↓ move, Enter=run task, s=syntax check, q=back[/dim]"
+                "\n[dim]Navigation: ↑/↓ move, Enter=run, i=interactive run, d=details, s=syntax check, q=back[/dim]"
             )
 
             key = self._get_key()
@@ -499,37 +589,163 @@ class PfTUI:
             elif key == "\r" or key == "\n":
                 task_name = tasks[task_index][0]
                 self._run_task(task_name)
+            elif key == "i":
+                task_name = tasks[task_index][0]
+                self._run_task(task_name, force_interactive=True)
             elif key == "s":
                 task_name = tasks[task_index][0]
                 self._check_task_syntax(task_name)
                 Prompt.ask("\nPress Enter to continue")
+            elif key == "d":
+                task_name = tasks[task_index][0]
+                self._show_task_details(task_name)
             elif key == "q" or key == "\x1b":
                 return "back"
 
-    def _run_task(self, task_name: str) -> None:
+    def _run_task(self, task_name: str, force_interactive: bool = False) -> None:
         """Run a specific task"""
         self.console.clear()
         self.console.print(f"\n[bold cyan]Running task: {task_name}[/bold cyan]\n")
 
-        # Get parameters if needed
-        params_input = Prompt.ask(
-            "Enter parameters (e.g., port=8080 dir=web) or press Enter", default=""
-        )
+        params_input = ""
+        params_parts: List[str] = []
+        task = self.tasks.get(task_name)
+
+        if task and task.params:
+            if force_interactive or Confirm.ask(
+                "Use interactive parameter prompts?", default=True
+            ):
+                params_parts = self._prompt_task_params(task)
+            else:
+                params_input = Prompt.ask(
+                    "Enter parameters (e.g., port=8080 dir=web) or press Enter",
+                    default="",
+                )
+        else:
+            params_input = Prompt.ask(
+                "Enter parameters (e.g., port=8080 dir=web) or press Enter", default=""
+            )
 
         # Build command
-        cmd_parts = ["pf", task_name]
-        if params_input:
+        cmd_parts = self._build_pf_command(task_name)
+        if params_parts:
+            cmd_parts.extend(params_parts)
+        elif params_input:
             cmd_parts.extend(params_input.split())
 
-        cmd = " ".join(cmd_parts)
-
-        self.console.print(f"\n[green]Executing:[/green] {cmd}\n")
-        result = subprocess.run(cmd, shell=True, capture_output=False)
+        self.console.print(f"\n[green]Executing:[/green] {' '.join(cmd_parts)}\n")
+        result = subprocess.run(cmd_parts, capture_output=False)
         if result.returncode != 0:
             self.console.print(
                 f"\n[red]Command failed with exit code {result.returncode}[/red]"
             )
 
+        Prompt.ask("\nPress Enter to continue")
+
+    def _prompt_task_params(self, task: Task) -> List[str]:
+        """Prompt for task parameters interactively."""
+        params: List[str] = []
+        param_help = getattr(task, "param_help", {}) or {}
+
+        self.console.print("\n[bold cyan]Interactive parameters[/bold cyan]")
+        self.console.print(
+            "[dim]Press Enter to accept the default or leave blank to skip.[/dim]\n"
+        )
+
+        for key, default in task.params.items():
+            help_text = param_help.get(key, "").strip()
+            label = f"{key}"
+            if help_text:
+                label = f"{label} ({help_text})"
+
+            default_text = "" if default in (None, "") else str(default)
+            if default_text:
+                value = Prompt.ask(label, default=default_text)
+            else:
+                value = Prompt.ask(label, default="", show_default=False)
+
+            if value != "":
+                params.append(f"{key}={value}")
+
+        return params
+    def _show_task_details(self, task_name: str) -> None:
+        """Show task details and usage information."""
+        self.console.clear()
+
+        if task_name in BUILTINS:
+            details = [
+                f"[bold]{task_name}[/bold]",
+                "Built-in task",
+                "",
+                "[bold]Commands:[/bold]",
+            ]
+            command_lines = BUILTINS[task_name]
+        else:
+            task = self.tasks.get(task_name)
+            if not task:
+                self.console.print(f"[red]Task '{task_name}' not found[/red]")
+                Prompt.ask("\nPress Enter to continue")
+                return
+
+            details = [f"[bold]{task_name}[/bold]"]
+
+            if task.synopsis:
+                details.append(f"[bold]Synopsis:[/bold] {task.synopsis}")
+            if task.description:
+                details.append(f"[bold]Description:[/bold] {task.description}")
+            if task.category:
+                details.append(f"[bold]Category:[/bold] {task.category}")
+            if task.aliases:
+                details.append(f"[bold]Aliases:[/bold] {', '.join(task.aliases)}")
+            if task.source_file:
+                details.append(f"[bold]Source:[/bold] {task.source_file}")
+
+            if task.params:
+                details.append("")
+                details.append("[bold]Parameters (defaults):[/bold]")
+                for key, value in task.params.items():
+                    display = value if value is not None else ""
+                    details.append(f"  {key}={display}")
+
+            if task.examples:
+                details.append("")
+                details.append("[bold]Examples:[/bold]")
+                for entry in task.examples:
+                    details.append(f"  {entry}")
+
+            if task.prerequisites:
+                details.append("")
+                details.append("[bold]Prerequisites:[/bold]")
+                for entry in task.prerequisites:
+                    details.append(f"  - {entry}")
+
+            if task.notes:
+                details.append("")
+                details.append("[bold]Notes:[/bold]")
+                for entry in task.notes:
+                    details.append(f"  - {entry}")
+
+            if task.tags:
+                details.append("")
+                details.append(f"[bold]Tags:[/bold] {', '.join(task.tags)}")
+
+            details.append("")
+            details.append("[bold]Commands:[/bold]")
+            command_lines = task.lines
+
+        max_cmd_lines = 20
+        for line in command_lines[:max_cmd_lines]:
+            details.append(f"  {line}")
+        if len(command_lines) > max_cmd_lines:
+            details.append(f"  … ({len(command_lines) - max_cmd_lines} more)")
+
+        panel = Panel(
+            Text.from_markup("\n".join(details)),
+            title="Task Details",
+            border_style="bright_cyan",
+            box=box.DOUBLE,
+        )
+        self.console.print(panel)
         Prompt.ask("\nPress Enter to continue")
 
     def show_main_menu(self) -> str:
@@ -660,7 +876,7 @@ class PfTUI:
                 )
 
             self.console.print(
-                "\n[dim]Navigation: ↑/↓ move, Enter=run, s=syntax check, q=back[/dim]"
+                "\n[dim]Navigation: ↑/↓ move, Enter=run, i=interactive run, d=details, s=syntax check, q=back[/dim]"
             )
 
             key = self._get_key()
@@ -678,10 +894,16 @@ class PfTUI:
             elif key == "\r" or key == "\n":
                 task_name = all_items[current_index][1]
                 self._run_task(task_name)
+            elif key == "i":
+                task_name = all_items[current_index][1]
+                self._run_task(task_name, force_interactive=True)
             elif key == "s":
                 task_name = all_items[current_index][1]
                 self._check_task_syntax(task_name)
                 Prompt.ask("\nPress Enter to continue")
+            elif key == "d":
+                task_name = all_items[current_index][1]
+                self._show_task_details(task_name)
             elif key == "q" or key == "\x1b":
                 return
 
@@ -730,7 +952,9 @@ class PfTUI:
                     f"\n    [dim]↓ {total_items - end_idx} more below[/dim]"
                 )
 
-            self.console.print("\n[dim]Navigation: ↑/↓ move, Enter=run, q=back[/dim]")
+            self.console.print(
+                "\n[dim]Navigation: ↑/↓ move, Enter=run, i=interactive run, d=details, q=back[/dim]"
+            )
 
             key = self._get_key()
 
@@ -747,6 +971,12 @@ class PfTUI:
             elif key == "\r" or key == "\n":
                 task_name = all_tasks[current_index][0]
                 self._run_task(task_name)
+            elif key == "i":
+                task_name = all_tasks[current_index][0]
+                self._run_task(task_name, force_interactive=True)
+            elif key == "d":
+                task_name = all_tasks[current_index][0]
+                self._show_task_details(task_name)
             elif key == "q" or key == "\x1b":
                 return
 
@@ -1077,7 +1307,7 @@ class PfTUI:
                 )
 
             self.console.print(
-                "\n[dim]Navigation: ↑/↓ move, Enter=run, s=syntax check, /=new search, q=back[/dim]"
+                "\n[dim]Navigation: ↑/↓ move, Enter=run, i=interactive run, d=details, s=syntax check, /=new search, q=back[/dim]"
             )
 
             key = self._get_key()
@@ -1095,11 +1325,17 @@ class PfTUI:
             elif key == "\r" or key == "\n":
                 task_name = results[current_index][0]
                 self._run_task(task_name)
+            elif key == "i":
+                task_name = results[current_index][0]
+                self._run_task(task_name, force_interactive=True)
             elif key == "s":
                 task_name = results[current_index][0]
                 self.console.clear()
                 self._check_task_syntax(task_name)
                 Prompt.ask("\nPress Enter to continue")
+            elif key == "d":
+                task_name = results[current_index][0]
+                self._show_task_details(task_name)
             elif key == "/":
                 # New search
                 return self.search_tasks()
@@ -1212,8 +1448,9 @@ class PfTUI:
     def _run_exploit_action(self, command: str) -> None:
         """Run an exploit development command"""
         self.console.clear()
-        self.console.print(f"\n[green]Executing:[/green] pf {command}")
-        result = subprocess.run(f"pf {command}", shell=True, capture_output=False)
+        cmd_parts = self._build_pf_command(command)
+        self.console.print(f"\n[green]Executing:[/green] {' '.join(cmd_parts)}")
+        result = subprocess.run(cmd_parts, capture_output=False)
         if result.returncode != 0:
             self.console.print(
                 f"[red]Command failed with exit code {result.returncode}[/red]"
@@ -1263,6 +1500,8 @@ class PfTUI:
             self.console.print(f"\n[red]Error: {e}[/red]")
             traceback.print_exc()
             return 1
+        finally:
+            self._close_input_fd()
 
 
 def main():

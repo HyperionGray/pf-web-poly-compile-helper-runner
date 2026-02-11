@@ -70,7 +70,7 @@ WORKFLOW EXAMPLES
   Example 1: Basic Lifting
     gcc -O2 myapp.c -o myapp
     pf lift-binary-retdec binary=./myapp
-    cat demos/binary-lifting/examples/output/myapp.ll
+    cat ${PFY_ROOT:-.}/demos/binary-lifting/examples/output/myapp.ll
 
   Example 2: Lift, Optimize, Recompile
     pf lift-binary-retdec binary=./myapp
@@ -98,8 +98,8 @@ COMMON ISSUES
 
 DOCUMENTATION
 ────────────────────────────────────────────────────────────────
-  docs/LLVM-LIFTING.md              Complete guide
-  demos/binary-lifting/README.md    Examples & tutorials
+  ${PFY_ROOT:-.}/docs/LLVM-LIFTING.md              Complete guide
+  ${PFY_ROOT:-.}/demos/binary-lifting/README.md    Examples & tutorials
   pf lifting-help                   This help text
 
 TOOL COMPARISON
@@ -114,5 +114,5 @@ SUPPORTED ARCHITECTURES
   McSema:  x86, x86_64, AArch64, SPARC
   LLVM:    All LLVM targets
 
-For detailed documentation, see: docs/LLVM-LIFTING.md
+For detailed documentation, see: ${PFY_ROOT:-.}/docs/LLVM-LIFTING.md
 EOF

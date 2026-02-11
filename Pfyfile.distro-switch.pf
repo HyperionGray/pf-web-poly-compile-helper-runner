@@ -8,85 +8,85 @@
 task distro-install distro="" packages=""
   describe Install packages from a specific distro container (fedora, centos, arch, opensuse)
   shell_lang bash
-  shell node tools/distro-container-manager.mjs install "${distro}" ${packages}
+  shell node "${PFY_ROOT:-.}/tools/distro-container-manager.mjs" install "${distro}" ${packages}
 end
 
 task distro-install-fedora packages=""
   describe Install packages from Fedora container
   shell_lang bash
-  shell node tools/distro-container-manager.mjs install fedora ${packages}
+  shell node "${PFY_ROOT:-.}/tools/distro-container-manager.mjs" install fedora ${packages}
 end
 
 task distro-install-centos packages=""
   describe Install packages from CentOS/AlmaLinux container
   shell_lang bash
-  shell node tools/distro-container-manager.mjs install centos ${packages}
+  shell node "${PFY_ROOT:-.}/tools/distro-container-manager.mjs" install centos ${packages}
 end
 
 task distro-install-arch packages=""
   describe Install packages from Arch Linux container
   shell_lang bash
-  shell node tools/distro-container-manager.mjs install arch ${packages}
+  shell node "${PFY_ROOT:-.}/tools/distro-container-manager.mjs" install arch ${packages}
 end
 
 task distro-install-opensuse packages=""
   describe Install packages from openSUSE container
   shell_lang bash
-  shell node tools/distro-container-manager.mjs install opensuse ${packages}
+  shell node "${PFY_ROOT:-.}/tools/distro-container-manager.mjs" install opensuse ${packages}
 end
 
 task distro-switch distro=""
   describe Switch active distro for PATH (use in isolated view mode)
   shell_lang bash
-  shell node tools/distro-container-manager.mjs switch ${distro:-}
+  shell node "${PFY_ROOT:-.}/tools/distro-container-manager.mjs" switch ${distro:-}
 end
 
 task distro-view-unified
   describe Enable unified view (all distro binaries in one directory)
   shell_lang bash
-  shell node tools/distro-container-manager.mjs view unified
+  shell node "${PFY_ROOT:-.}/tools/distro-container-manager.mjs" view unified
 end
 
 task distro-view-isolated
   describe Enable isolated view (separate directories per distro)
   shell_lang bash
-  shell node tools/distro-container-manager.mjs view isolated
+  shell node "${PFY_ROOT:-.}/tools/distro-container-manager.mjs" view isolated
 end
 
 task distro-status
   describe Show status of all distro containers and installed packages
   shell_lang bash
-  shell node tools/distro-container-manager.mjs status
+  shell node "${PFY_ROOT:-.}/tools/distro-container-manager.mjs" status
 end
 
 task distro-build distro=""
   describe Build distro container image(s)
   shell_lang bash
-  shell if [ -n "${distro:-}" ]; then node tools/distro-container-manager.mjs build "${distro}"; else node tools/distro-container-manager.mjs build; fi
+  shell if [ -n "${distro:-}" ]; then node ${PFY_ROOT:-.}/tools/distro-container-manager.mjs build "${distro}"; else node ${PFY_ROOT:-.}/tools/distro-container-manager.mjs build; fi
 end
 
 task distro-build-all
   describe Build all distro container images
   shell_lang bash
-  shell node tools/distro-container-manager.mjs build
+  shell node "${PFY_ROOT:-.}/tools/distro-container-manager.mjs" build
 end
 
 task distro-init
   describe Initialize distro artifact directories
   shell_lang bash
-  shell node tools/distro-container-manager.mjs init
+  shell node "${PFY_ROOT:-.}/tools/distro-container-manager.mjs" init
 end
 
 task distro-cleanup
   describe Remove distro container images (keep artifacts)
   shell_lang bash
-  shell node tools/distro-container-manager.mjs cleanup
+  shell node "${PFY_ROOT:-.}/tools/distro-container-manager.mjs" cleanup
 end
 
 task distro-cleanup-all
   describe Remove distro container images and all artifacts
   shell_lang bash
-  shell node tools/distro-container-manager.mjs cleanup --artifacts
+  shell node "${PFY_ROOT:-.}/tools/distro-container-manager.mjs" cleanup --artifacts
 end
 
 # ==========================================
@@ -146,25 +146,25 @@ end
 task os-snapshot name=""
   describe Create a snapshot of current OS for recovery
   shell_lang bash
-  shell sudo node tools/os-switcher.mjs snapshot ${name:-}
+  shell sudo node ${PFY_ROOT:-.}/tools/os-switcher.mjs snapshot ${name:-}
 end
 
 task os-snapshots
   describe List available OS snapshots
   shell_lang bash
-  shell node tools/os-switcher.mjs snapshots
+  shell node "${PFY_ROOT:-.}/tools/os-switcher.mjs" snapshots
 end
 
 task os-status
   describe Show OS switching status (current OS, snapshot method, kexec support)
   shell_lang bash
-  shell node tools/os-switcher.mjs status
+  shell node "${PFY_ROOT:-.}/tools/os-switcher.mjs" status
 end
 
 task os-prepare target=""
   describe Prepare target OS container without switching
   shell_lang bash
-  shell sudo node tools/os-switcher.mjs prepare ${target}
+  shell sudo node ${PFY_ROOT:-.}/tools/os-switcher.mjs prepare ${target}
 end
 
 task install-kexec
@@ -286,6 +286,11 @@ PROCESS:
   3. Syncs filesystem to target partition (if specified)
   4. Loads new kernel with kexec
   5. Execute "sudo kexec -e" to complete switch
+
+ADVANCED KEXEC TASKS:
+  pf os-kexec-prepare kernel=/path/to/vmlinuz initrd=/path/to/initrd cmdline="..." dry_run=true
+  pf os-kexec-exec confirm="EXECUTE KEXEC NOW"
+  pf os-kexec-arch-iso iso=/path/to/arch.iso cmdline="archisobasedir=arch archisolabel=ARCH_YYYYMM" dry_run=true
 
 EOF
 end

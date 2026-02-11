@@ -28,7 +28,7 @@ end
 task create-sanitizer-wrappers
   describe Create compiler wrapper scripts for easy sanitizer usage
   shell mkdir -p ~/.local/bin
-  shell python3 tools/sanitizers/create_wrappers.py
+  shell python3 "${PFY_ROOT:-.}/tools/sanitizers/create_wrappers.py"
   shell chmod +x ~/.local/bin/clang-asan ~/.local/bin/clang++-asan
   shell chmod +x ~/.local/bin/clang-msan ~/.local/bin/clang++-msan
   shell chmod +x ~/.local/bin/clang-ubsan ~/.local/bin/clang++-ubsan
@@ -40,19 +40,19 @@ end
 
 task sanitizer-analyze
   describe Analyze sanitizer output and generate report
-  shell python3 tools/sanitizers/analyze_output.py ${log_file} ${output:-sanitizer_report.html}
+  shell python3 "${PFY_ROOT:-.}/tools/sanitizers/analyze_output.py" ${log_file} ${output:-sanitizer_report.html}
   shell echo "📊 Sanitizer analysis complete: ${output:-sanitizer_report.html}"
 end
 
 task sanitizer-symbolize
   describe Symbolize sanitizer stack traces for better debugging
-  shell python3 tools/sanitizers/symbolize_traces.py ${binary} ${log_file} ${output:-symbolized.log}
+  shell python3 "${PFY_ROOT:-.}/tools/sanitizers/symbolize_traces.py" ${binary} ${log_file} ${output:-symbolized.log}
   shell echo "🔍 Symbolized traces saved to: ${output:-symbolized.log}"
 end
 
 task sanitizer-compare
   describe Compare sanitizer runs to identify new issues
-  shell python3 tools/sanitizers/compare_runs.py ${baseline_log} ${current_log} ${output:-comparison.html}
+  shell python3 "${PFY_ROOT:-.}/tools/sanitizers/compare_runs.py" ${baseline_log} ${current_log} ${output:-comparison.html}
   shell echo "📈 Comparison report: ${output:-comparison.html}"
 end
 
@@ -62,14 +62,14 @@ task fuzz-with-asan
   describe Run fuzzing with AddressSanitizer for enhanced bug detection
   shell echo "🚀 Starting fuzzing with AddressSanitizer..."
   shell pf build-with-asan dir=${dir:-.}
-  shell python3 tools/fuzzing/fuzz_with_sanitizer.py --sanitizer asan --binary ${binary} --corpus ${corpus:-./corpus} --timeout ${timeout:-3600}
+  shell python3 "${PFY_ROOT:-.}/tools/fuzzing/fuzz_with_sanitizer.py" --sanitizer asan --binary ${binary} --corpus ${corpus:-./corpus} --timeout ${timeout:-3600}
 end
 
 task fuzz-with-msan
   describe Run fuzzing with MemorySanitizer for uninitialized memory detection
   shell echo "🚀 Starting fuzzing with MemorySanitizer..."
   shell pf build-with-msan dir=${dir:-.}
-  shell python3 tools/fuzzing/fuzz_with_sanitizer.py --sanitizer msan --binary ${binary} --corpus ${corpus:-./corpus} --timeout ${timeout:-3600}
+  shell python3 "${PFY_ROOT:-.}/tools/fuzzing/fuzz_with_sanitizer.py" --sanitizer msan --binary ${binary} --corpus ${corpus:-./corpus} --timeout ${timeout:-3600}
 end
 
 # Educational and Testing Tasks
@@ -77,9 +77,9 @@ end
 task sanitizer-demo
   describe Demonstrate sanitizer capabilities with vulnerable code
   shell echo "🎓 Running sanitizer demonstration..."
-  shell gcc -o /tmp/vuln_asan -fsanitize=address -g tools/sanitizers/demo/buffer_overflow.c
-  shell gcc -o /tmp/vuln_msan -fsanitize=memory -g tools/sanitizers/demo/uninitialized_memory.c
-  shell gcc -o /tmp/vuln_ubsan -fsanitize=undefined -g tools/sanitizers/demo/undefined_behavior.c
+  shell gcc -o /tmp/vuln_asan -fsanitize=address -g ${PFY_ROOT:-.}/tools/sanitizers/demo/buffer_overflow.c
+  shell gcc -o /tmp/vuln_msan -fsanitize=memory -g ${PFY_ROOT:-.}/tools/sanitizers/demo/uninitialized_memory.c
+  shell gcc -o /tmp/vuln_ubsan -fsanitize=undefined -g ${PFY_ROOT:-.}/tools/sanitizers/demo/undefined_behavior.c
   shell echo ""
   shell echo "Running AddressSanitizer demo (buffer overflow):"
   shell /tmp/vuln_asan || true
@@ -126,7 +126,7 @@ end
 
 task sanitizer-profile
   describe Profile sanitizer overhead and performance impact
-  shell python3 tools/sanitizers/profile_overhead.py ${binary} ${test_input} ${iterations:-100}
+  shell python3 "${PFY_ROOT:-.}/tools/sanitizers/profile_overhead.py" ${binary} ${test_input} ${iterations:-100}
 end
 
 # Help and Documentation

@@ -16,7 +16,8 @@ from typing import List, Dict, Optional
 
 # Import existing pf functionality
 from pf_parser import (
-    _load_pfy_source_with_includes, parse_pfyfile_text
+    _find_pfyfile,
+    _load_pfy_source_with_includes,
 )
 
 
@@ -28,33 +29,35 @@ class SubcommandManager:
         
     def discover_subcommands(self, pfyfile: Optional[str] = None) -> Dict[str, List[str]]:
         """Discover subcommands from included files."""
-        subcommands = {}
+        subcommands: Dict[str, List[str]] = {}
         
         try:
             # Load the main pfy source with includes
-            dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=pfyfile)
-            
-            # Parse to find include statements and their tasks
-            include_files = self._extract_include_files(dsl_src)
-            
-            for include_file in include_files:
-                try:
-                    # Load the included file
-                    include_src = self._load_include_file(include_file, pfyfile)
-                    include_tasks = parse_pfyfile_text(include_src, {})
-                    
-                    # Extract task names
-                    task_names = list(include_tasks.keys())
-                    
-                    # Store for reference
-                    subcommands[include_file] = task_names
-                    
-                except FileNotFoundError as e:
-                    # Warn about missing include files
-                    print(f"Warning: Include file not found: {include_file}", file=sys.stderr)
-                except Exception as e:
-                    # Warn about other errors but don't fail
-                    print(f"Warning: Could not process include file {include_file}: {e}", file=sys.stderr)
+            _, task_sources = _load_pfy_source_with_includes(file_arg=pfyfile)
+
+            # Group tasks by source file
+            main_file = None
+            try:
+                main_candidate = _find_pfyfile(file_arg=pfyfile)
+                if os.path.exists(main_candidate):
+                    main_file = os.path.abspath(main_candidate)
+            except Exception:
+                main_file = None
+
+            tasks_by_source: Dict[str, List[str]] = {}
+            for task_name, src in task_sources.items():
+                if not src:
+                    continue
+                src_path = os.path.abspath(src)
+                if main_file and src_path == main_file:
+                    continue
+                tasks_by_source.setdefault(src_path, []).append(task_name)
+
+            for src_path, task_names in tasks_by_source.items():
+                basename = os.path.basename(src_path)
+                if not (basename.startswith("Pfyfile.") and basename.endswith(".pf")):
+                    continue
+                subcommands[basename] = task_names
                     
         except FileNotFoundError:
             # If the main Pfyfile is not found, that's expected in some cases

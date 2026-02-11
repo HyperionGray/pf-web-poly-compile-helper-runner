@@ -5,7 +5,7 @@
 # One-Command Complete Workflows
 # ============================================================================
 
-task autopwn
+task autopwn [alias apwn]
   describe Complete binary exploitation: analysis + vulnerability discovery + exploit generation (binary=path/to/binary)
   shell test -n "${binary}" || (echo "❌ Error: binary parameter required" && exit 1)
   shell echo "🎯 AutoPwn: Complete binary exploitation workflow"
@@ -33,7 +33,7 @@ task autopwn
   shell echo "✅ AutoPwn complete! Check generated exploit template and ROP gadgets."
 end
 
-task autoweb
+task autoweb [alias aweb]
   describe Complete web security assessment: discovery + scanning + exploitation (url=http://target)
   shell test -n "${url}" || (echo "❌ Error: url parameter required" && exit 1)
   shell echo "🌐 AutoWeb: Complete web security assessment"
@@ -58,7 +58,7 @@ task autoweb
   shell echo "✅ AutoWeb complete! Review security scan and fuzzing results."
 end
 
-task autokernel
+task autokernel [alias akernel]
   describe Complete kernel analysis: IOCTL discovery + firmware extraction + vulnerability analysis (target=module_or_device)
   shell test -n "${target}" || (echo "❌ Error: target parameter required" && exit 1)
   shell echo "🔧 AutoKernel: Complete kernel security analysis"
@@ -87,7 +87,7 @@ end
 # Smart Analysis Combinations
 # ============================================================================
 
-task smart-binary-complete
+task smart-binary-complete [alias sbc]
   describe Complete binary analysis combining multiple tools intelligently (binary=path/to/binary)
   shell test -n "${binary}" || (echo "❌ Error: binary parameter required" && exit 1)
   shell echo "🧠 Smart Binary Analysis: ${binary}"
@@ -122,7 +122,7 @@ task smart-binary-complete
   shell echo "✅ Smart binary analysis complete!"
 end
 
-task smart-web-complete
+task smart-web-complete [alias swc]
   describe Complete web security assessment with intelligent tool selection (url=http://target)
   shell test -n "${url}" || (echo "❌ Error: url parameter required" && exit 1)
   shell echo "🧠 Smart Web Security Assessment: ${url}"
@@ -157,7 +157,7 @@ end
 # Cross-Domain Intelligence
 # ============================================================================
 
-task smart-full-stack
+task smart-full-stack [alias sfs]
   describe Full-stack security analysis: binary + web + network (target=binary_or_url, mode=auto)
   shell test -n "${target}" || (echo "❌ Error: target parameter required" && exit 1)
   shell echo "🎯 Full-Stack Security Analysis: ${target}"
@@ -180,7 +180,7 @@ task smart-full-stack
   shell echo "✅ Full-stack analysis complete!"
 end
 
-task smart-exploit-chain
+task smart-exploit-chain [alias sec]
   describe Build complete exploit chain from vulnerability to payload (target=binary_or_url, vuln_type=auto)
   shell test -n "${target}" || (echo "❌ Error: target parameter required" && exit 1)
   shell echo "⛓️  Smart Exploit Chain Builder: ${target}"
@@ -215,28 +215,3 @@ task smart-exploit-chain
   
   shell echo "✅ Exploit chain building complete!"
 end
-
-# ============================================================================
-# Quick Aliases for Power Users
-# ============================================================================
-
-[alias apwn]
-task autopwn
-
-[alias aweb]
-task autoweb
-
-[alias akernel]
-task autokernel
-
-[alias sbc]
-task smart-binary-complete
-
-[alias swc]
-task smart-web-complete
-
-[alias sfs]
-task smart-full-stack
-
-[alias sec]
-task smart-exploit-chain

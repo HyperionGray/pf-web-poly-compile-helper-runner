@@ -6,6 +6,18 @@ Execute the comprehensive test suite - "Test it all again and again and again. T
 import subprocess
 import sys
 import os
+from pathlib import Path
+
+
+def repo_root() -> Path:
+    """Resolve the repository root without assuming /workspace."""
+    for env_var in ("PF_WORKSPACE", "WORKSPACE"):
+        env_path = os.environ.get(env_var)
+        if env_path:
+            candidate = Path(env_path).expanduser()
+            if candidate.exists():
+                return candidate
+    return Path(__file__).resolve().parent
 
 def main():
     """Execute the comprehensive test suite"""
@@ -13,8 +25,8 @@ def main():
     print("Testing it all again and again and again. That's thrice!")
     print("=" * 70)
     
-    # Change to workspace directory
-    os.chdir('/workspace')
+    repo_root_path = repo_root()
+    os.chdir(repo_root_path)
     
     # Make sure scripts are executable
     scripts_to_make_executable = [
@@ -25,8 +37,9 @@ def main():
     ]
     
     for script in scripts_to_make_executable:
-        if os.path.exists(script):
-            os.chmod(script, 0o755)
+        script_path = repo_root_path / script
+        if script_path.exists():
+            os.chmod(script_path, 0o755)
     
     print("🚀 Starting comprehensive test execution...")
     print("")
@@ -34,8 +47,8 @@ def main():
     # Run the comprehensive test suite
     try:
         result = subprocess.run([
-            sys.executable, 'test_all_comprehensive.py'
-        ], cwd='/workspace')
+            sys.executable, str(repo_root_path / 'test_all_comprehensive.py')
+        ], cwd=repo_root_path)
         
         return result.returncode
         

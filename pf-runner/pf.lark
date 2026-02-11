@@ -45,6 +45,7 @@ alias_def: "[" "alias" (IDENTIFIER | "=" IDENTIFIER) "]"
 // Things that can appear inside a task body
 // These are the core DSL verbs for task definitions
 task_body: describe 
+         | param_help
          | shell 
          | shell_lang 
          | shell_lang_block
@@ -68,6 +69,9 @@ task_body: describe
 
 // Task description - displayed in 'pf list'
 describe: "describe" TEXT_LINE
+
+// Task parameter help: param-help name description...
+param_help: "param-help" IDENTIFIER TEXT_LINE
 
 // Shell command with optional language specification
 // Examples:

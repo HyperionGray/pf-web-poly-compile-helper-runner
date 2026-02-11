@@ -5,67 +5,67 @@
 task pkg-convert
   describe Convert a package between formats (source → deb → target)
   shell_lang bash
-  shell node tools/package-manager.mjs convert "${source}" "${target}" ${output:-}
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" convert "${source}" "${target}" ${output:-}
 end
 
 task pkg-convert-to-deb
   describe Convert any package to .deb format
   shell_lang bash
-  shell node tools/package-manager.mjs convert "${source}" deb ${output:-}
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" convert "${source}" deb ${output:-}
 end
 
 task pkg-convert-to-rpm
   describe Convert any package to .rpm format
   shell_lang bash
-  shell node tools/package-manager.mjs convert "${source}" rpm ${output:-}
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" convert "${source}" rpm ${output:-}
 end
 
 task pkg-convert-to-flatpak
   describe Convert any package to .flatpak format
   shell_lang bash
-  shell node tools/package-manager.mjs convert "${source}" flatpak ${output:-}
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" convert "${source}" flatpak ${output:-}
 end
 
 task pkg-convert-to-snap
   describe Convert any package to .snap format
   shell_lang bash
-  shell node tools/package-manager.mjs convert "${source}" snap ${output:-}
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" convert "${source}" snap ${output:-}
 end
 
 task pkg-convert-to-pacman
   describe Convert any package to Arch Linux .pkg.tar.zst format
   shell_lang bash
-  shell node tools/package-manager.mjs convert "${source}" pacman ${output:-}
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" convert "${source}" pacman ${output:-}
 end
 
 task pkg-info
   describe Display information about a package file
   shell_lang bash
-  shell node tools/package-manager.mjs info "${package}"
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" info "${package}"
 end
 
 task pkg-deps
   describe Resolve dependencies for a package in target format
   shell_lang bash
-  shell node tools/package-manager.mjs deps "${package}" "${target}"
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" deps "${package}" "${target}"
 end
 
 task pkg-formats
   describe Show available package formats on this system
   shell_lang bash
-  shell node tools/package-manager.mjs formats
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" formats
 end
 
 task pkg-matrix
   describe Show conversion compatibility matrix
   shell_lang bash
-  shell node tools/package-manager.mjs matrix
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" matrix
 end
 
 task pkg-help
   describe Show package manager tool help
   shell_lang bash
-  shell node tools/package-manager.mjs --help
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" --help
 end
 
 task install-pkg-tools
@@ -111,7 +111,7 @@ end
 task pkg-check-deps
   describe Check if all dependencies are satisfied for target format
   shell_lang bash
-  shell node tools/package-manager.mjs deps "${package}" "${target}"
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" deps "${package}" "${target}"
 end
 
 task pkg-install-deps

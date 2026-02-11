@@ -8,14 +8,14 @@
 task install-retdec
   describe Install RetDec for binary lifting to LLVM IR
   shell_lang bash
-  shell bash tools/lifting/install-retdec.sh
+  shell bash "${PFY_ROOT:-.}/tools/lifting/install-retdec.sh"
 end
 
 task install-lifting-tools
   describe Install all LLVM lifting tools
   shell_lang bash
   shell echo "Installing LLVM lifting tools..."
-  shell bash tools/lifting/install-retdec.sh
+  shell bash "${PFY_ROOT:-.}/tools/lifting/install-retdec.sh"
 end
 
 # ============================================================================
@@ -25,25 +25,25 @@ end
 task build-lifting-examples
   describe Build all example binaries for lifting demonstrations
   shell_lang bash
-  shell cd demos/binary-lifting/examples && mkdir -p bin output
-  shell cd demos/binary-lifting/examples && gcc -O0 -g simple_math.c -o bin/simple_math_O0
-  shell cd demos/binary-lifting/examples && gcc -O2 simple_math.c -o bin/simple_math_O2
-  shell cd demos/binary-lifting/examples && gcc -O3 simple_math.c -o bin/simple_math
-  shell cd demos/binary-lifting/examples && gcc -O0 -g string_ops.c -o bin/string_ops_O0
-  shell cd demos/binary-lifting/examples && gcc -O2 string_ops.c -o bin/string_ops_O2
-  shell cd demos/binary-lifting/examples && gcc -O3 string_ops.c -o bin/string_ops
-  shell cd demos/binary-lifting/examples && gcc -O0 -g loop_example.c -o bin/loop_example_O0
-  shell cd demos/binary-lifting/examples && gcc -O2 loop_example.c -o bin/loop_example_O2
-  shell cd demos/binary-lifting/examples && gcc -O3 loop_example.c -o bin/loop_example
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting/examples" && mkdir -p bin output
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting/examples" && gcc -O0 -g simple_math.c -o bin/simple_math_O0
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting/examples" && gcc -O2 simple_math.c -o bin/simple_math_O2
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting/examples" && gcc -O3 simple_math.c -o bin/simple_math
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting/examples" && gcc -O0 -g string_ops.c -o bin/string_ops_O0
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting/examples" && gcc -O2 string_ops.c -o bin/string_ops_O2
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting/examples" && gcc -O3 string_ops.c -o bin/string_ops
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting/examples" && gcc -O0 -g loop_example.c -o bin/loop_example_O0
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting/examples" && gcc -O2 loop_example.c -o bin/loop_example_O2
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting/examples" && gcc -O3 loop_example.c -o bin/loop_example
   shell echo "All examples built successfully!"
-  shell ls -lh demos/binary-lifting/examples/bin/
+  shell ls -lh ${PFY_ROOT:-.}/demos/binary-lifting/examples/bin/
 end
 
 task clean-lifting-examples
   describe Clean built binaries and lifted output
   shell_lang bash
-  shell cd demos/binary-lifting && rm -rf examples/bin examples/output
-  shell cd demos/binary-lifting && mkdir -p examples/bin examples/output
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting" && rm -rf examples/bin examples/output
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting" && mkdir -p examples/bin examples/output
   shell echo "Cleaned lifting examples"
 end
 
@@ -55,19 +55,19 @@ task lift-binary-retdec
   describe Lift a binary to LLVM IR using RetDec (binary=/path/to/binary)
   shell_lang bash
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell mkdir -p ${output_dir:-demos/binary-lifting/examples/output}
-  shell retdec-decompiler.py --backend llvmir --no-memory-limit ${binary} -o ${output_dir:-demos/binary-lifting/examples/output}/$(basename ${binary}).ll
-  shell echo "Generated LLVM IR: ${output_dir:-demos/binary-lifting/examples/output}/$(basename ${binary}).ll"
+  shell mkdir -p ${output_dir:-${PFY_ROOT:-.}/demos/binary-lifting/examples/output}
+  shell retdec-decompiler.py --backend llvmir --no-memory-limit ${binary} -o ${output_dir:-${PFY_ROOT:-.}/demos/binary-lifting/examples/output}/$(basename ${binary}).ll
+  shell echo "Generated LLVM IR: ${output_dir:-${PFY_ROOT:-.}/demos/binary-lifting/examples/output}/$(basename ${binary}).ll"
 end
 
 task lift-examples-retdec
   describe Lift all example binaries using RetDec
   shell_lang bash
-  shell retdec-decompiler.py --backend llvmir demos/binary-lifting/examples/bin/simple_math -o demos/binary-lifting/examples/output/simple_math.ll || echo "RetDec not installed - run: pf install-retdec"
-  shell retdec-decompiler.py --backend llvmir demos/binary-lifting/examples/bin/string_ops -o demos/binary-lifting/examples/output/string_ops.ll || echo "RetDec not installed"
-  shell retdec-decompiler.py --backend llvmir demos/binary-lifting/examples/bin/loop_example -o demos/binary-lifting/examples/output/loop_example.ll || echo "RetDec not installed"
+  shell retdec-decompiler.py --backend llvmir ${PFY_ROOT:-.}/demos/binary-lifting/examples/bin/simple_math -o ${PFY_ROOT:-.}/demos/binary-lifting/examples/output/simple_math.ll || echo "RetDec not installed - run: pf install-retdec"
+  shell retdec-decompiler.py --backend llvmir ${PFY_ROOT:-.}/demos/binary-lifting/examples/bin/string_ops -o ${PFY_ROOT:-.}/demos/binary-lifting/examples/output/string_ops.ll || echo "RetDec not installed"
+  shell retdec-decompiler.py --backend llvmir ${PFY_ROOT:-.}/demos/binary-lifting/examples/bin/loop_example -o ${PFY_ROOT:-.}/demos/binary-lifting/examples/output/loop_example.ll || echo "RetDec not installed"
   shell echo "All examples lifted!"
-  shell ls -lh demos/binary-lifting/examples/output/ || true
+  shell ls -lh ${PFY_ROOT:-.}/demos/binary-lifting/examples/output/ || true
 end
 
 # ============================================================================
@@ -92,26 +92,26 @@ task lift-disassemble
   describe Disassemble a binary to assembly (binary=/path/to/binary)
   shell_lang bash
   shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
-  shell mkdir -p ${output_dir:-demos/binary-lifting/examples/output}
-  shell llvm-objdump-18 -d ${binary} > ${output_dir:-demos/binary-lifting/examples/output}/$(basename ${binary}).asm 2>&1
-  shell echo "Generated: ${output_dir:-demos/binary-lifting/examples/output}/$(basename ${binary}).asm"
-  shell head -30 ${output_dir:-demos/binary-lifting/examples/output}/$(basename ${binary}).asm
+  shell mkdir -p ${output_dir:-${PFY_ROOT:-.}/demos/binary-lifting/examples/output}
+  shell llvm-objdump-18 -d ${binary} > ${output_dir:-${PFY_ROOT:-.}/demos/binary-lifting/examples/output}/$(basename ${binary}).asm 2>&1
+  shell echo "Generated: ${output_dir:-${PFY_ROOT:-.}/demos/binary-lifting/examples/output}/$(basename ${binary}).asm"
+  shell head -30 ${output_dir:-${PFY_ROOT:-.}/demos/binary-lifting/examples/output}/$(basename ${binary}).asm
 end
 
 task lift-examples-simple
   describe Inspect and analyze all examples with simple LLVM tools
   shell_lang bash
   shell echo "Analyzing simple_math:"
-  shell file demos/binary-lifting/examples/bin/simple_math
-  shell size demos/binary-lifting/examples/bin/simple_math
+  shell file ${PFY_ROOT:-.}/demos/binary-lifting/examples/bin/simple_math
+  shell size ${PFY_ROOT:-.}/demos/binary-lifting/examples/bin/simple_math
   shell echo ""
   shell echo "Analyzing string_ops:"
-  shell file demos/binary-lifting/examples/bin/string_ops
-  shell size demos/binary-lifting/examples/bin/string_ops
+  shell file ${PFY_ROOT:-.}/demos/binary-lifting/examples/bin/string_ops
+  shell size ${PFY_ROOT:-.}/demos/binary-lifting/examples/bin/string_ops
   shell echo ""
   shell echo "Analyzing loop_example:"
-  shell file demos/binary-lifting/examples/bin/loop_example
-  shell size demos/binary-lifting/examples/bin/loop_example
+  shell file ${PFY_ROOT:-.}/demos/binary-lifting/examples/bin/loop_example
+  shell size ${PFY_ROOT:-.}/demos/binary-lifting/examples/bin/loop_example
 end
 
 # ============================================================================
@@ -155,14 +155,14 @@ task test-lifting-workflow
   shell_lang bash
   shell echo "=== Testing Complete Lifting Workflow ==="
   shell echo "1. Building examples..."
-  shell cd demos/binary-lifting/examples && mkdir -p bin output
-  shell cd demos/binary-lifting/examples && gcc -O3 simple_math.c -o bin/simple_math
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting/examples" && mkdir -p bin output
+  shell cd "${PFY_ROOT:-.}/demos/binary-lifting/examples" && gcc -O3 simple_math.c -o bin/simple_math
   shell echo "2. Inspecting binary..."
-  shell file demos/binary-lifting/examples/bin/simple_math
-  shell size demos/binary-lifting/examples/bin/simple_math
+  shell file ${PFY_ROOT:-.}/demos/binary-lifting/examples/bin/simple_math
+  shell size ${PFY_ROOT:-.}/demos/binary-lifting/examples/bin/simple_math
   shell echo "3. Disassembling..."
-  shell llvm-objdump-18 -d demos/binary-lifting/examples/bin/simple_math > demos/binary-lifting/examples/output/simple_math.asm 2>&1 || echo "llvm-objdump-18 not available"
-  shell test -f demos/binary-lifting/examples/output/simple_math.asm && echo "Created: simple_math.asm" || true
+  shell llvm-objdump-18 -d ${PFY_ROOT:-.}/demos/binary-lifting/examples/bin/simple_math > ${PFY_ROOT:-.}/demos/binary-lifting/examples/output/simple_math.asm 2>&1 || echo "llvm-objdump-18 not available"
+  shell test -f ${PFY_ROOT:-.}/demos/binary-lifting/examples/output/simple_math.asm && echo "Created: simple_math.asm" || true
   shell echo "=== Workflow test complete ==="
   shell echo "To lift binaries, install RetDec: pf install-retdec"
   shell echo "Then run: pf lift-examples-retdec"
@@ -175,5 +175,5 @@ end
 task lifting-help
   describe Show help for LLVM lifting tasks
   shell_lang bash
-  shell bash tools/lifting/quick-reference.sh
+  shell bash "${PFY_ROOT:-.}/tools/lifting/quick-reference.sh"
 end

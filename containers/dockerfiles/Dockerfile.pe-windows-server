@@ -1,6 +1,6 @@
 # PE Execution Container - Windows Server Core via VMKit
 # Provides reliable Windows PE execution using lightweight VMs
-FROM ubuntu:22.04
+FROM docker.io/library/ubuntu:22.04
 
 LABEL maintainer="pf-runner"
 LABEL description="PE execution environment using VMKit and Windows Server Core"

@@ -3,7 +3,7 @@
 
 task smart-verify-tools
   describe Verify all tools are working correctly
-  shell node tools/orchestration/tool-detector.mjs --verify --format table
+  shell node "${PFY_ROOT:-.}/tools/orchestration/tool-detector.mjs" --verify --format table
 end
 # Smart Workflows for Integrated Security Testing
 # Intelligent workflows that combine multiple tools automatically
@@ -16,13 +16,13 @@ end
 task smart-analyze
   describe Comprehensive smart analysis of any target
   shell echo "Running smart analysis on ${target}"
-  shell python3 tools/smart-workflows/target_detector.py ${target} --format json > .smart_target_info.json
+  shell python3 "${PFY_ROOT:-.}/tools/smart-workflows/target_detector.py" ${target} --format json > .smart_target_info.json
   shell echo "Analysis complete"
 end
 
 task checksec-unified
   describe Unified binary security analysis
-  shell python3 tools/smart-workflows/unified_checksec.py ${binary} ${json:+--json}
+  shell python3 "${PFY_ROOT:-.}/tools/smart-workflows/unified_checksec.py" ${binary} ${json:+--json}
 end
 
 task smart-help

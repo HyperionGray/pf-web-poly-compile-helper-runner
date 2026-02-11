@@ -8,43 +8,43 @@
 task container-build-all
   describe Build all container images using podman/docker
   shell_lang bash
-  shell ./containers/scripts/build-containers.sh all
+  shell "${PFY_ROOT:-.}/containers/scripts/build-containers.sh" all
 end
 
 task container-build-base
   describe Build base Ubuntu 24.04 container image
   shell_lang bash
-  shell ./containers/scripts/build-containers.sh base
+  shell "${PFY_ROOT:-.}/containers/scripts/build-containers.sh" base
 end
 
 task container-build-api
   describe Build API server container images
   shell_lang bash
-  shell ./containers/scripts/build-containers.sh api
+  shell "${PFY_ROOT:-.}/containers/scripts/build-containers.sh" api
 end
 
 task container-build-compilers
   describe Build WASM compiler container images (Rust, C, Fortran)
   shell_lang bash
-  shell ./containers/scripts/build-containers.sh build
+  shell "${PFY_ROOT:-.}/containers/scripts/build-containers.sh" build
 end
 
 task container-build-debugger
   describe Build debugger container images (standard and GPU)
   shell_lang bash
-  shell ./containers/scripts/build-containers.sh debug
+  shell "${PFY_ROOT:-.}/containers/scripts/build-containers.sh" debug
 end
 
 task container-build-no-cache
   describe Build all container images without cache
   shell_lang bash
-  shell ./containers/scripts/build-containers.sh --no-cache all
+  shell "${PFY_ROOT:-.}/containers/scripts/build-containers.sh" --no-cache all
 end
 
 task container-build-os
   describe Build OS distribution containers
   shell_lang bash
-  shell ./containers/scripts/build-containers.sh os
+  shell "${PFY_ROOT:-.}/containers/scripts/build-containers.sh" os
 end
 
 # ==========================================
@@ -54,55 +54,55 @@ end
 task compose-up
   describe Start API server using podman-compose
   shell_lang bash
-  shell cd "${PWD}" && podman-compose -f podman-compose.yml up -d api-server pf-runner
+  shell cd "${PFY_ROOT:-.}" && podman-compose -f podman-compose.yml up -d api-server pf-runner
 end
 
 task compose-down
   describe Stop all containers using podman-compose
   shell_lang bash
-  shell cd "${PWD}" && podman-compose -f podman-compose.yml down
+  shell cd "${PFY_ROOT:-.}" && podman-compose -f podman-compose.yml down
 end
 
 task compose-build-wasm
   describe Build all WASM modules using containers
   shell_lang bash
-  shell cd "${PWD}" && podman-compose -f podman-compose.yml up build-rust build-c build-fortran build-wat
+  shell cd "${PFY_ROOT:-.}" && podman-compose -f podman-compose.yml up build-rust build-c build-fortran build-wat
 end
 
 task compose-logs
   describe View container logs
   shell_lang bash
-  shell cd "${PWD}" && podman-compose -f podman-compose.yml logs -f ${service:-api-server}
+  shell cd "${PFY_ROOT:-.}" && podman-compose -f podman-compose.yml logs -f ${service:-api-server}
 end
 
 task compose-status
   describe Show container status
   shell_lang bash
-  shell cd "${PWD}" && podman-compose -f podman-compose.yml ps -a
+  shell cd "${PFY_ROOT:-.}" && podman-compose -f podman-compose.yml ps -a
 end
 
 task compose-shell
   describe Open shell in container (default: debugger)
   shell_lang bash
-  shell cd "${PWD}" && podman-compose -f podman-compose.yml run --rm -it ${container:-debugger} /bin/bash
+  shell cd "${PFY_ROOT:-.}" && podman-compose -f podman-compose.yml run --rm -it ${container:-debugger} /bin/bash
 end
 
 task compose-debugger
   describe Start debugging container interactively
   shell_lang bash
-  shell cd "${PWD}" && podman-compose -f podman-compose.yml run --rm -it debugger /bin/bash
+  shell cd "${PFY_ROOT:-.}" && podman-compose -f podman-compose.yml run --rm -it debugger /bin/bash
 end
 
 task compose-debugger-gpu
   describe Start GPU-enabled debugger (requires nvidia-container-toolkit)
   shell_lang bash
-  shell cd "${PWD}" && podman-compose -f podman-compose.yml --profile gpu run --rm -it debugger-gpu /bin/bash
+  shell cd "${PFY_ROOT:-.}" && podman-compose -f podman-compose.yml --profile gpu run --rm -it debugger-gpu /bin/bash
 end
 
 task compose-clean
   describe Remove all containers, volumes, and networks
   shell_lang bash
-  shell cd "${PWD}" && podman-compose -f podman-compose.yml down -v --remove-orphans
+  shell cd "${PFY_ROOT:-.}" && podman-compose -f podman-compose.yml down -v --remove-orphans
 end
 
 # ==========================================
@@ -112,25 +112,25 @@ end
 task quadlet-install
   describe Install Podman quadlet files for systemd integration
   shell_lang bash
-  shell ./containers/scripts/install-quadlets.sh --install
+  shell "${PFY_ROOT:-.}/containers/scripts/install-quadlets.sh" --install
 end
 
 task quadlet-remove
   describe Remove installed Podman quadlet files
   shell_lang bash
-  shell ./containers/scripts/install-quadlets.sh --remove
+  shell "${PFY_ROOT:-.}/containers/scripts/install-quadlets.sh" --remove
 end
 
 task quadlet-status
   describe Show status of quadlet services
   shell_lang bash
-  shell ./containers/scripts/install-quadlets.sh --status
+  shell "${PFY_ROOT:-.}/containers/scripts/install-quadlets.sh" --status
 end
 
 task quadlet-list
   describe List installed quadlet files
   shell_lang bash
-  shell ./containers/scripts/install-quadlets.sh --list
+  shell "${PFY_ROOT:-.}/containers/scripts/install-quadlets.sh" --list
 end
 
 task quadlet-reload
@@ -173,31 +173,31 @@ end
 task quadlet-doctor
   describe Diagnose quadlet + podman + systemd-user environment
   shell_lang bash
-  shell ./containers/scripts/quadlet-doctor.sh
+  shell "${PFY_ROOT:-.}/containers/scripts/quadlet-doctor.sh"
 end
 
 task quadlet-restart-all
   describe Restart all pf services (from quadlets)
   shell_lang bash
-  shell ./containers/scripts/quadlet-manage.sh restart-all
+  shell "${PFY_ROOT:-.}/containers/scripts/quadlet-manage.sh" restart-all
 end
 
 task quadlet-disable-all
   describe Disable pf-suite.target and all pf services
   shell_lang bash
-  shell ./containers/scripts/quadlet-manage.sh disable-all
+  shell "${PFY_ROOT:-.}/containers/scripts/quadlet-manage.sh" disable-all
 end
 
 task quadlet-stop-all
   describe Stop all pf services
   shell_lang bash
-  shell ./containers/scripts/quadlet-manage.sh stop-all
+  shell "${PFY_ROOT:-.}/containers/scripts/quadlet-manage.sh" stop-all
 end
 
 task quadlet-status-all
   describe Show status for all pf units (service/target)
   shell_lang bash
-  shell ./containers/scripts/quadlet-manage.sh status-all
+  shell "${PFY_ROOT:-.}/containers/scripts/quadlet-manage.sh" status-all
 end
 
 # ==========================================
@@ -207,19 +207,19 @@ end
 task dev-container
   describe Start development environment using containers
   shell_lang bash
-  shell ./containers/scripts/run-dev.sh
+  shell "${PFY_ROOT:-.}/containers/scripts/run-dev.sh"
 end
 
 task dev-container-build
   describe Build WASM modules using containers
   shell_lang bash
-  shell ./containers/scripts/run-dev.sh build
+  shell "${PFY_ROOT:-.}/containers/scripts/run-dev.sh" build
 end
 
 task dev-container-debug
   describe Start debugging container
   shell_lang bash
-  shell ./containers/scripts/run-dev.sh debug
+  shell "${PFY_ROOT:-.}/containers/scripts/run-dev.sh" debug
 end
 
 # ==========================================
@@ -229,19 +229,19 @@ end
 task container-test
   describe Run container infrastructure tests
   shell_lang bash
-  shell ./containers/scripts/test-containers.sh
+  shell "${PFY_ROOT:-.}/containers/scripts/test-containers.sh"
 end
 
 task dev-container-gpu
   describe Start GPU debugging container
   shell_lang bash
-  shell ./containers/scripts/run-dev.sh gpu
+  shell "${PFY_ROOT:-.}/containers/scripts/run-dev.sh" gpu
 end
 
 task dev-container-status
   describe Show container development status
   shell_lang bash
-  shell ./containers/scripts/run-dev.sh status
+  shell "${PFY_ROOT:-.}/containers/scripts/run-dev.sh" status
 end
 
 # ==========================================

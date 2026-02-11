@@ -155,6 +155,16 @@ async function runTests() {
         }
     });
 
+    await tester.test('--hlep typo variation', async () => {
+        const result = await tester.runPfParser(['--hlep']);
+        if (result.code !== 0) {
+            throw new Error(`--hlep command failed: ${result.stderr}`);
+        }
+        if (!result.stdout.includes('Available tasks:') && !result.stdout.includes('Built-ins:')) {
+            throw new Error('Help output missing expected content');
+        }
+    });
+
     // ==========================================
     // SECTION 2: Task-Specific Help
     // ==========================================
@@ -204,6 +214,16 @@ async function runTests() {
         const result = await tester.runPfParser(['update', 'hlep']);
         if (result.code !== 0) {
             throw new Error(`update hlep command failed: ${result.stderr}`);
+        }
+        if (!result.stdout.includes('Built-in task: update') && !result.stdout.includes('Task: update')) {
+            throw new Error('Task help output missing expected content');
+        }
+    });
+
+    await tester.test('task followed by --hlep', async () => {
+        const result = await tester.runPfParser(['update', '--hlep']);
+        if (result.code !== 0) {
+            throw new Error(`update --hlep command failed: ${result.stderr}`);
         }
         if (!result.stdout.includes('Built-in task: update') && !result.stdout.includes('Task: update')) {
             throw new Error('Task help output missing expected content');

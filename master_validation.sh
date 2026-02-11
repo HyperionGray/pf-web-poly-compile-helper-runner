@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="${SCRIPT_DIR}"
 # Master installer validation script
 # Runs all tests and provides comprehensive installer validation
 set -euo pipefail
@@ -42,12 +46,12 @@ apply_fixes() {
     local fixes_applied=0
     
     # Fix 1: Hardcoded shebang in pf_parser.py
-    if [[ -f "pf-runner/pf_parser.py" ]]; then
-        local current_shebang=$(head -1 pf-runner/pf_parser.py)
+    if [[ -f "${REPO_ROOT}/pf-runner/pf_parser.py" ]]; then
+        local current_shebang=$(head -1 ${REPO_ROOT}/pf-runner/pf_parser.py)
         if [[ "$current_shebang" != "#!/usr/bin/env python3" ]]; then
             log_info "Fixing hardcoded shebang in pf_parser.py..."
-            cp pf-runner/pf_parser.py pf-runner/pf_parser.py.backup
-            sed -i '1s|^#!/.*|#!/usr/bin/env python3|' pf-runner/pf_parser.py
+            cp ${REPO_ROOT}/pf-runner/pf_parser.py ${REPO_ROOT}/pf-runner/pf_parser.py.backup
+            sed -i '1s|^#!/.*|#!/usr/bin/env python3|' ${REPO_ROOT}/pf-runner/pf_parser.py
             log_success "Fixed shebang: $current_shebang -> #!/usr/bin/env python3"
             fixes_applied=$((fixes_applied + 1))
         else
@@ -64,8 +68,8 @@ apply_fixes() {
         log_success "Made install.sh executable"
     fi
     
-    if [[ -f "pf-runner/pf_universal" ]]; then
-        chmod +x pf-runner/pf_universal
+    if [[ -f "${REPO_ROOT}/pf-runner/pf_universal" ]]; then
+        chmod +x ${REPO_ROOT}/pf-runner/pf_universal
         log_success "Made pf_universal executable"
     fi
     
@@ -162,12 +166,12 @@ generate_report() {
     log_info "Repository Status:"
     echo "  Location: $(pwd)"
     echo "  install.sh: $(if [[ -x install.sh ]]; then echo 'Present and executable'; else echo 'Missing or not executable'; fi)"
-    echo "  pf-runner/: $(if [[ -d pf-runner ]]; then echo 'Present'; else echo 'Missing'; fi)"
-    echo "  containers/: $(if [[ -d containers ]]; then echo 'Present'; else echo 'Missing'; fi)"
+    echo "  ${REPO_ROOT}/pf-runner/: $(if [[ -d pf-runner ]]; then echo 'Present'; else echo 'Missing'; fi)"
+    echo "  ${REPO_ROOT}/containers/: $(if [[ -d containers ]]; then echo 'Present'; else echo 'Missing'; fi)"
     
     # Check shebang status
-    if [[ -f "pf-runner/pf_parser.py" ]]; then
-        local shebang=$(head -1 pf-runner/pf_parser.py)
+    if [[ -f "${REPO_ROOT}/pf-runner/pf_parser.py" ]]; then
+        local shebang=$(head -1 ${REPO_ROOT}/pf-runner/pf_parser.py)
         echo "  pf_parser.py shebang: $shebang"
     fi
     echo ""
@@ -190,7 +194,7 @@ generate_report() {
     # Container variants summary
     log_info "Container Variants:"
     local variant_count=0
-    for dockerfile in ./containers/dockerfiles/Dockerfile.*; do
+    for dockerfile in ./${REPO_ROOT}/containers/dockerfiles/Dockerfile.*; do
         if [[ -f "$dockerfile" ]]; then
             local variant=$(basename "$dockerfile" | sed 's/Dockerfile\.//')
             echo "  - $variant"

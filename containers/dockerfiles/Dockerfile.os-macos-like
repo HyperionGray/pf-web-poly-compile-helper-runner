@@ -1,6 +1,6 @@
 # macOS-like container with Homebrew for package management
 # Note: This is a Linux container with Homebrew, not actual macOS
-FROM ubuntu:22.04
+FROM docker.io/library/ubuntu:22.04
 
 LABEL maintainer="pf-runner"
 LABEL description="macOS-like environment with Homebrew on Linux"

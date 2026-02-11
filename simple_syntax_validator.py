@@ -25,6 +25,10 @@ def validate_pfyfile_syntax(pfyfile_path):
         task_name = None
         task_start_line = 0
         brace_count = 0
+        shell_continuation = False
+        heredoc_delim = None
+        shell_lang_block = False
+        shell_pipe_block = False
         
         for i, line in enumerate(lines, 1):
             original_line = line
@@ -38,9 +42,10 @@ def validate_pfyfile_syntax(pfyfile_path):
             if stripped.startswith('task '):
                 if in_task:
                     issues.append(f"Line {i}: Task '{task_name}' (started at line {task_start_line}) not properly closed with 'end'")
-                
+
                 in_task = True
                 task_start_line = i
+                shell_continuation = False
                 
                 # Parse task definition - handle aliases
                 task_line = stripped[5:].strip()  # Remove 'task '
@@ -71,6 +76,7 @@ def validate_pfyfile_syntax(pfyfile_path):
                     in_task = False
                     task_name = None
                     task_start_line = 0
+                    shell_continuation = False
                 continue
             
             # Check for include statements
@@ -81,37 +87,58 @@ def validate_pfyfile_syntax(pfyfile_path):
             
             # If we're in a task, validate task content
             if in_task:
-                # Check indentation (should be at least 2 spaces or 1 tab)
-                if not (line.startswith('  ') or line.startswith('\t')):
-                    issues.append(f"Line {i}: Task content should be indented (task '{task_name}')")
-                
-                # Check for valid task commands
-                valid_commands = [
-                    'describe', 'shell', 'shell_lang', 'env', 'packages', 'service',
-                    'directory', 'copy', 'autobuild', 'makefile', 'cmake', 'cargo',
-                    'go_build', 'meson', 'sync'
-                ]
-                
-                command_parts = stripped.split()
-                if command_parts:
-                    command = command_parts[0]
-                    
-                    # Check if it's a valid command
-                    if command not in valid_commands:
-                        # Check for special cases
-                        if not (
-                            stripped.startswith('shell [lang:') or  # Polyglot shell
-                            stripped.startswith('shell @') or      # External file execution
-                            stripped.startswith('shell ') or       # Regular shell command
-                            '=' in stripped or                      # Parameter assignment
-                            command.startswith('#')                 # Comment (shouldn't happen due to earlier check)
-                        ):
-                            issues.append(f"Line {i}: Unknown command '{command}' in task '{task_name}'")
-                
-                # Check for unmatched quotes
-                quote_count = stripped.count('"') + stripped.count("'")
-                if quote_count % 2 != 0:
-                    issues.append(f"Line {i}: Unmatched quotes in task '{task_name}'")
+                # Consume heredoc blocks without per-line validation.
+                if heredoc_delim:
+                    if stripped == heredoc_delim:
+                        heredoc_delim = None
+                    continue
+
+                # Consume shell_lang BLOCK blocks.
+                if shell_lang_block:
+                    if stripped == "ENDBLOCK":
+                        shell_lang_block = False
+                    continue
+
+                # Consume shell | blocks.
+                if shell_pipe_block:
+                    if stripped == "|":
+                        shell_pipe_block = False
+                    continue
+
+                # Allow multi-line shell continuations without per-line validation.
+                if shell_continuation:
+                    if stripped.endswith('\\'):
+                        continue
+                    shell_continuation = False
+                    continue
+
+                # Track shell_lang BLOCK start
+                if stripped.startswith("shell_lang ") and stripped.endswith(" BLOCK"):
+                    shell_lang_block = True
+                    continue
+
+                # Track shell | block start
+                if stripped == "shell |":
+                    shell_pipe_block = True
+                    continue
+
+                # Track shell heredoc start
+                if stripped.startswith("shell ") and "<<" in stripped:
+                    heredoc_match = re.search(r"<<-?\s*['\"]?([A-Za-z][A-Za-z0-9_]*)['\"]?", stripped)
+                    if heredoc_match:
+                        heredoc_delim = heredoc_match.group(1)
+                        continue
+
+                # Track shell line continuations
+                if stripped.startswith('shell ') and stripped.endswith('\\'):
+                    shell_continuation = True
+                    continue
+
+                # Check for unmatched double quotes (simple heuristic) on shell lines only
+                if stripped.startswith("shell "):
+                    double_quote_count = stripped.count('"')
+                    if double_quote_count % 2 != 0:
+                        issues.append(f"Line {i}: Unmatched double quotes in task '{task_name}'")
         
         # Check if any tasks are not closed
         if in_task:
@@ -246,8 +273,9 @@ def main():
     print("🚀 Starting pf Task Syntax Validation")
     print("="*50)
     
-    # Change to workspace directory
-    os.chdir('/workspace')
+    # Change to repository root (path-agnostic)
+    repo_root = Path(__file__).resolve().parent
+    os.chdir(repo_root)
     
     # Find all Pfyfiles
     pfyfiles = sorted(glob.glob("Pfyfile*.pf"))

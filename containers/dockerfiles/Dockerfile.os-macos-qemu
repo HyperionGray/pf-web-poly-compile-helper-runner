@@ -1,6 +1,6 @@
 # macOS Container using QEMU virtualization
 # Provides actual macOS environment using QEMU (similar to Docker-OSX)
-FROM ubuntu:22.04
+FROM docker.io/library/ubuntu:22.04
 
 LABEL maintainer="pf-runner"
 LABEL description="macOS virtualization environment using QEMU"

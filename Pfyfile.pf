@@ -85,49 +85,49 @@ include Pfyfile.smart-workflows.pf
 task repo-validate
   describe Run repository build validation (scripts/validate-build.sh)
   shell_lang bash
-  shell bash scripts/validate-build.sh
+  bash "${PFY_ROOT:-.}/scripts/validate-build.sh"
 end
 
 task repo-build
   describe Run repository build helper (scripts/build.sh)
   shell_lang bash
-  shell bash scripts/build.sh
+  bash "${PFY_ROOT:-.}/scripts/build.sh"
 end
 
 task pf-validate
   describe Static validation of all pf tasks (includes + referenced paths)
   shell_lang bash
-  shell bash scripts/validate-pf-tasks.sh
+  bash "${PFY_ROOT:-.}/scripts/validate-pf-tasks.sh"
 end
 
 task dev-env-install
   describe Install/start the dev container environment (scripts/install-containers.sh)
   shell_lang bash
-  shell bash scripts/install-containers.sh ${mode:-interactive} ${opt1:-} ${opt2:-}
+  bash "${PFY_ROOT:-.}/scripts/install-containers.sh" ${mode:-interactive} ${opt1:-} ${opt2:-}
 end
 
 task dev-env
   describe Manage the dev container environment (scripts/manage-containers.sh)
   shell_lang bash
-  shell bash scripts/manage-containers.sh ${command:-status} ${arg1:-} ${arg2:-}
+  bash "${PFY_ROOT:-.}/scripts/manage-containers.sh" ${command:-status} ${arg1:-} ${arg2:-}
 end
 
 task web-dev
   describe Start development server with REST API support
   shell_lang bash
-  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+  node "${PFY_ROOT:-.}/tools/api-server.mjs" ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
 end
 
 task web-dev-static
   describe Start basic static file server (legacy)
   shell_lang bash
-  shell node tools/static-server.mjs ${dir:-web} ${port:-8080}
+  shell node "${PFY_ROOT:-.}/tools/static-server.mjs" ${dir:-web} ${port:-8080}
 end
 
 task api-server
   describe Start REST API server
   shell_lang bash
-  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+  shell node "${PFY_ROOT:-.}/tools/api-server.mjs" ${dir:-${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
 end
 
 task web-test
@@ -137,70 +137,70 @@ end
 
 task web-build-rust
   describe Build Rust to WebAssembly (legacy alias for web-build-rust-wasm)
-  shell cd demos/pf-web-polyglot-demo-plus-c/rust && wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
+  shell cd "${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/rust" && wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
 end
 
 task web-build-rust-wasm
   describe Build Rust to WebAssembly
   
-  shell cd demos/pf-web-polyglot-demo-plus-c/rust && wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
+  shell cd "${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/rust" && wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
 end
 
 task web-build-rust-llvm
   describe Build Rust to LLVM IR with optimization (opt_level=3 by default, parallel=false)
   
-  shell cd demos/pf-web-polyglot-demo-plus-c/rust && mkdir -p ../web/llvm/rust && rustc --emit=llvm-ir --crate-type=lib -C opt-level=${opt_level:-3} src/lib_simple.rs -o ../web/llvm/rust/lib.ll
+  shell cd "${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/rust" && mkdir -p ../web/llvm/rust && rustc --emit=llvm-ir --crate-type=lib -C opt-level=${opt_level:-3} src/lib_simple.rs -o ../web/llvm/rust/lib.ll
 end
 
 task web-build-c
   describe Build C to WebAssembly (legacy alias for web-build-c-wasm)
-  shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
+  shell cd "${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/c" && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
 end
 
 task web-build-c-wasm
   describe Build C to WebAssembly
   
-  shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
+  shell cd "${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/c" && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
 end
 
 task web-build-c-asm
   describe Build C to asm.js
   
-  shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O2 -sWASM=0 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/asm/c/c_trap_asm.js
+  shell cd "${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/c" && emcc c_trap.c -O2 -sWASM=0 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/asm/c/c_trap_asm.js
 end
 
 task web-build-c-llvm
   describe Build C to LLVM IR with optimization (opt_level=3 by default, parallel=false for OpenMP)
   
-  shell cd demos/pf-web-polyglot-demo-plus-c/c && mkdir -p .tmp && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
+  shell cd "${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/c" && mkdir -p .tmp && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
 end
 
 task web-build-fortran
   describe Build Fortran to WebAssembly (legacy alias for web-build-fortran-wasm)
-  shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown
+  shell cd "${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/fortran" && lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown
 end
 
 task web-build-fortran-wasm
   describe Build Fortran to WebAssembly
   
-  shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown
+  shell cd "${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/fortran" && lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown
 end
 
 task web-build-fortran-llvm
   describe Build Fortran to LLVM IR with optimization (opt_level=3 by default, parallel=false for OpenMP)
   
-  shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 --show-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -o ../web/llvm/fortran/hello.ll
+  shell cd "${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/fortran" && lfortran src/hello.f90 --show-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -o ../web/llvm/fortran/hello.ll
 end
 
 task web-build-wat
   describe Build WAT to WebAssembly (legacy alias for web-build-wat-wasm)
-  shell cd demos/pf-web-polyglot-demo-plus-c/asm && wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
+  shell cd "${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/asm" && wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
 end
 
 task web-build-wat-wasm
   describe Build WAT to WebAssembly
   
-  shell cd demos/pf-web-polyglot-demo-plus-c/asm && wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
+  shell cd "${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/asm" && wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
 end
 
 task web-build-all
@@ -260,7 +260,7 @@ end
 task web-build-c-llvm-opt
   describe Build C to LLVM IR with custom optimization passes (passes="pass1,pass2,..." uses new pass manager)
   
-  shell cd demos/pf-web-polyglot-demo-plus-c/c && mkdir -p .tmp ../web/llvm/c && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o .tmp/c_trap_unopt.ll && opt-18 -S -passes="${passes:-mem2reg,instcombine,simplifycfg,loop-vectorize}" .tmp/c_trap_unopt.ll -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
+  shell cd "${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/c" && mkdir -p .tmp ../web/llvm/c && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o .tmp/c_trap_unopt.ll && opt-18 -S -passes="${passes:-mem2reg,instcombine,simplifycfg,loop-vectorize}" .tmp/c_trap_unopt.ll -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
 end
 
 task install

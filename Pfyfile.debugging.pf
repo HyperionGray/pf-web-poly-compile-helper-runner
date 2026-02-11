@@ -8,7 +8,7 @@
 task install-debuggers
   describe Install GDB, LLDB, and pwndbg for advanced debugging
   shell_lang bash
-  shell bash tools/debugging/install-debuggers.sh
+  shell bash "${PFY_ROOT:-.}/tools/debugging/install-debuggers.sh"
 end
 
 task check-debuggers
@@ -28,27 +28,27 @@ end
 task build-debug-examples
   describe Build all debugging example binaries (C, C++, Rust)
   shell_lang bash
-  shell cd demos/debugging/examples && mkdir -p bin
+  shell cd "${PFY_ROOT:-.}/demos/debugging/examples" && mkdir -p bin
   shell echo "Building C example with debug symbols..."
-  shell cd demos/debugging/examples && gcc -g -O0 -fno-stack-protector -z execstack -no-pie vulnerable.c -o bin/vulnerable
+  shell cd "${PFY_ROOT:-.}/demos/debugging/examples" && gcc -g -O0 -fno-stack-protector -z execstack -no-pie vulnerable.c -o bin/vulnerable
   shell echo "Building C example optimized for reverse engineering..."
-  shell cd demos/debugging/examples && gcc -O2 vulnerable.c -o bin/vulnerable_opt
+  shell cd "${PFY_ROOT:-.}/demos/debugging/examples" && gcc -O2 vulnerable.c -o bin/vulnerable_opt
   shell echo "Building C++ example..."
-  shell cd demos/debugging/examples && g++ -g -O0 -std=c++17 debug_cpp.cpp -o bin/debug_cpp
-  shell cd demos/debugging/examples && g++ -O2 -std=c++17 debug_cpp.cpp -o bin/debug_cpp_opt
+  shell cd "${PFY_ROOT:-.}/demos/debugging/examples" && g++ -g -O0 -std=c++17 debug_cpp.cpp -o bin/debug_cpp
+  shell cd "${PFY_ROOT:-.}/demos/debugging/examples" && g++ -O2 -std=c++17 debug_cpp.cpp -o bin/debug_cpp_opt
   shell echo "Building Rust example debug..."
-  shell cd demos/debugging/examples && rustc -g debug_rust.rs -o bin/debug_rust || echo "Rust not available, skipping"
-  shell cd demos/debugging/examples && rustc -C opt-level=2 debug_rust.rs -o bin/debug_rust_opt 2>/dev/null || echo "Rust optimized build skipped"
+  shell cd "${PFY_ROOT:-.}/demos/debugging/examples" && rustc -g debug_rust.rs -o bin/debug_rust || echo "Rust not available, skipping"
+  shell cd "${PFY_ROOT:-.}/demos/debugging/examples" && rustc -C opt-level=2 debug_rust.rs -o bin/debug_rust_opt 2>/dev/null || echo "Rust optimized build skipped"
   shell echo ""
-  shell echo "Build complete! Binaries available in demos/debugging/examples/bin/"
-  shell ls -lh demos/debugging/examples/bin/
+  shell echo "Build complete! Binaries available in ${PFY_ROOT:-.}/demos/debugging/examples/bin/"
+  shell ls -lh ${PFY_ROOT:-.}/demos/debugging/examples/bin/
 end
 
 task clean-debug-examples
   describe Clean debugging example binaries
   shell_lang bash
-  shell cd demos/debugging && rm -rf examples/bin
-  shell cd demos/debugging && mkdir -p examples/bin
+  shell cd "${PFY_ROOT:-.}/demos/debugging" && rm -rf examples/bin
+  shell cd "${PFY_ROOT:-.}/demos/debugging" && mkdir -p examples/bin
   shell echo "Cleaned debug examples"
 end
 
@@ -60,28 +60,28 @@ task debug
   describe Start interactive debugger for a binary (binary=/path/to/binary, debugger=gdb|lldb)
   shell_lang bash
   shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf debug binary=path/to/binary" && exit 1)
-  shell python3 tools/debugging/pwndebug.py ${debugger:+--debugger ${debugger}} ${binary}
+  shell python3 "${PFY_ROOT:-.}/tools/debugging/pwndebug.py" ${debugger:+--debugger ${debugger}} ${binary}
 end
 
 task debug-gdb
   describe Debug a binary directly with GDB (binary=/path/to/binary)
   shell_lang bash
   shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf debug-gdb binary=path/to/binary" && exit 1)
-  shell python3 tools/debugging/pwndebug.py --debugger gdb --direct ${binary}
+  shell python3 "${PFY_ROOT:-.}/tools/debugging/pwndebug.py" --debugger gdb --direct ${binary}
 end
 
 task debug-lldb
   describe Debug a binary directly with LLDB (binary=/path/to/binary)
   shell_lang bash
   shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf debug-lldb binary=path/to/binary" && exit 1)
-  shell python3 tools/debugging/pwndebug.py --debugger lldb --direct ${binary}
+  shell python3 "${PFY_ROOT:-.}/tools/debugging/pwndebug.py" --debugger lldb --direct ${binary}
 end
 
 task debug-info
   describe Show information about a binary (binary=/path/to/binary)
   shell_lang bash
   shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf debug-info binary=path/to/binary" && exit 1)
-  shell python3 tools/debugging/pwndebug.py --info ${binary}
+  shell python3 "${PFY_ROOT:-.}/tools/debugging/pwndebug.py" --info ${binary}
 end
 
 # ============================================================================
@@ -91,19 +91,19 @@ end
 task debug-example-c
   describe Debug the C vulnerable example (interactive)
   shell_lang bash
-  shell python3 tools/debugging/pwndebug.py demos/debugging/examples/bin/vulnerable test_input
+  shell python3 "${PFY_ROOT:-.}/tools/debugging/pwndebug.py" ${PFY_ROOT:-.}/demos/debugging/examples/bin/vulnerable test_input
 end
 
 task debug-example-cpp
   describe Debug the C++ example (interactive)
   shell_lang bash
-  shell python3 tools/debugging/pwndebug.py demos/debugging/examples/bin/debug_cpp
+  shell python3 "${PFY_ROOT:-.}/tools/debugging/pwndebug.py" ${PFY_ROOT:-.}/demos/debugging/examples/bin/debug_cpp
 end
 
 task debug-example-rust
   describe Debug the Rust example (interactive)
   shell_lang bash
-  shell python3 tools/debugging/pwndebug.py demos/debugging/examples/bin/debug_rust arg1 arg2
+  shell python3 "${PFY_ROOT:-.}/tools/debugging/pwndebug.py" ${PFY_ROOT:-.}/demos/debugging/examples/bin/debug_rust arg1 arg2
 end
 
 # ============================================================================
@@ -153,23 +153,23 @@ task test-debugger-workflow
   shell_lang bash
   shell echo "=== Testing Debugging Workflow ==="
   shell echo "1. Building example binaries..."
-  shell cd demos/debugging/examples && mkdir -p bin
-  shell cd demos/debugging/examples && gcc -g -O0 vulnerable.c -o bin/vulnerable 2>&1 | tail -5
+  shell cd "${PFY_ROOT:-.}/demos/debugging/examples" && mkdir -p bin
+  shell cd "${PFY_ROOT:-.}/demos/debugging/examples" && gcc -g -O0 vulnerable.c -o bin/vulnerable 2>&1 | tail -5
   shell echo ""
   shell echo "2. Showing binary info..."
-  shell python3 tools/debugging/pwndebug.py --info demos/debugging/examples/bin/vulnerable
+  shell python3 "${PFY_ROOT:-.}/tools/debugging/pwndebug.py" --info ${PFY_ROOT:-.}/demos/debugging/examples/bin/vulnerable
   shell echo ""
   shell echo "3. Testing string extraction..."
-  shell strings demos/debugging/examples/bin/vulnerable | grep -E "(vulnerable|secret)" || true
+  shell strings ${PFY_ROOT:-.}/demos/debugging/examples/bin/vulnerable | grep -E "(vulnerable|secret)" || true
   shell echo ""
   shell echo "=== Workflow test complete ==="
   shell echo ""
   shell echo "To start debugging, run:"
-  shell echo "  pf debug binary=demos/debugging/examples/bin/vulnerable"
+  shell echo "  pf debug binary=${PFY_ROOT:-.}/demos/debugging/examples/bin/vulnerable"
 end
 
 task debug-help
   describe Show debugging commands help
   shell_lang bash
-  shell bash tools/debugging/quick-reference.sh
+  shell bash "${PFY_ROOT:-.}/tools/debugging/quick-reference.sh"
 end

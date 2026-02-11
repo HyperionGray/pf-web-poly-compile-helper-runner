@@ -40,7 +40,7 @@ end
 
 task tui
   describe Launch interactive TUI for task management and debugging
-  shell cd pf-runner && python3 pf_tui.py
+  shell cd "${PFY_ROOT:-.}/pf-runner" && python3 pf_tui.py
 end
 
 task tui-help
@@ -106,12 +106,12 @@ end
 # TUI Tasks
 task tui
   describe Launch interactive TUI for task management and debugging
-  shell cd pf-runner && python3 pf_tui.py
+  shell cd "${PFY_ROOT:-.}/pf-runner" && python3 pf_tui.py
 end
 
 task tui-with-file
   describe Launch TUI with a specific Pfyfile
-  shell cd pf-runner && python3 pf_tui.py ${file}
+  shell cd "${PFY_ROOT:-.}/pf-runner" && python3 pf_tui.py "${file}"
 end
 
 task tui-help
@@ -205,13 +205,13 @@ end
 task pkg-formats
   describe Show available package formats on this system
   shell_lang bash
-  shell node tools/package-manager.mjs formats
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" formats
 end
 
 task pkg-matrix
   describe Show conversion compatibility matrix
   shell_lang bash
-  shell node tools/package-manager.mjs matrix
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" matrix
 end
 
 # ============================================================================
@@ -292,7 +292,7 @@ end
 task exploit-demo
   describe Run exploit development demo with vulnerable binary
   shell echo "Building vulnerable demo binary..."
-  shell gcc -o /tmp/vuln_demo -fno-stack-protector -z execstack -no-pie tools/exploit/demo/vulnerable.c
+  shell gcc -o /tmp/vuln_demo -fno-stack-protector -z execstack -no-pie ${PFY_ROOT:-.}/tools/exploit/demo/vulnerable.c
   shell echo "Running exploit workflow on demo binary..."
   shell pf exploit-workflow binary=/tmp/vuln_demo output=demo_exploit.py
   shell echo "Demo complete! Check demo_exploit.py for generated exploit."
@@ -363,13 +363,13 @@ end
 task smart-analyze
   describe Comprehensive smart analysis of any target
   shell echo "Running smart analysis on ${target}"
-  shell python3 tools/smart-workflows/target_detector.py ${target} --format json > .smart_target_info.json
+  shell python3 "${PFY_ROOT:-.}/tools/smart-workflows/target_detector.py" ${target} --format json > .smart_target_info.json
   shell echo "Analysis complete"
 end
 
 task smart-verify-tools
   describe Verify all tools are working correctly
-  shell node tools/orchestration/tool-detector.mjs --verify --format table
+  shell node "${PFY_ROOT:-.}/tools/orchestration/tool-detector.mjs" --verify --format table
 end
 
 task smart-help
@@ -568,7 +568,7 @@ end
 task pkg-help
   describe Show package manager tool help
   shell_lang bash
-  shell node tools/package-manager.mjs --help
+  shell node "${PFY_ROOT:-.}/tools/package-manager.mjs" --help
 end
 
 # System Information
@@ -612,19 +612,19 @@ end
 task web-dev
   describe Start development server with REST API support
   shell_lang bash
-  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+  shell node "${PFY_ROOT:-.}/tools/api-server.mjs" ${dir:-${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
 end
 
 task web-dev-static
   describe Start basic static file server (legacy)
   shell_lang bash
-  shell node tools/static-server.mjs ${dir:-web} ${port:-8080}
+  shell node "${PFY_ROOT:-.}/tools/static-server.mjs" ${dir:-web} ${port:-8080}
 end
 
 task api-server
   describe Start REST API server
   shell_lang bash
-  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+  shell node "${PFY_ROOT:-.}/tools/api-server.mjs" ${dir:-${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
 end
 
 # Build Tools

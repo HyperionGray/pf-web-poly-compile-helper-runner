@@ -15,9 +15,9 @@ end
 
 
 task pe-build-macos
-  describe Build macOS QEMU container
+  describe Build macOS QEMU container (dev/runtime image)
   shell_lang bash
-  shell podman build -t localhost/pf-macos-qemu:latest -f containers/dockerfiles/Dockerfile.macos-qemu .
+  shell podman build -t localhost/pf-macos-qemu-dev:latest -f containers/dockerfiles/Dockerfile.macos-qemu .
 end
 
 # ==========================================
@@ -163,7 +163,7 @@ task macos-setup
     mkdir -p macos-images
     podman run --rm -it \
       -v ${PWD}/macos-images:/macos/images \
-      localhost/pf-macos-qemu:latest \
+      localhost/pf-macos-qemu-dev:latest \
       create-macos-image.sh 64G
     echo ""
     echo "Disk image created. See container help for next steps."
@@ -179,7 +179,7 @@ task macos-run
       -v ${PWD}/macos-images:/macos/images \
       -p 5901:5901 \
       -p 10022:10022 \
-      localhost/pf-macos-qemu:latest \
+      localhost/pf-macos-qemu-dev:latest \
       run-macos.sh
 end
 
@@ -194,7 +194,7 @@ task macos-run-headless
       -v ${PWD}/macos-images:/macos/images \
       -p 5901:5901 \
       -p 10022:10022 \
-      localhost/pf-macos-qemu:latest \
+      localhost/pf-macos-qemu-dev:latest \
       run-macos.sh
     echo ""
     echo "macOS VM started in background"
@@ -226,7 +226,7 @@ task macos-run-app app=""
     podman run --rm -it \
       -v ${APP_DIR}:/macos/input \
       --network host \
-      localhost/pf-macos-qemu:latest \
+      localhost/pf-macos-qemu-dev:latest \
       run-macos-app.sh "/macos/input/${APP_FILE}"
 end
 
@@ -236,7 +236,7 @@ task macos-shell
   shell |
     podman run --rm -it \
       -v ${PWD}/macos-images:/macos/images \
-      localhost/pf-macos-qemu:latest \
+      localhost/pf-macos-qemu-dev:latest \
       /bin/bash
 end
 
@@ -255,7 +255,10 @@ task pe-setup-all
     SETUP_ERRORS=0
     
     echo "[1/4] Building containers..."
-    pf pe-build-all
+    pf pe-build-windows-server || SETUP_ERRORS=$((SETUP_ERRORS + 1))
+    pf pe-build-reactos || SETUP_ERRORS=$((SETUP_ERRORS + 1))
+    pf pe-build-vmkit || SETUP_ERRORS=$((SETUP_ERRORS + 1))
+    pf pe-build-macos || SETUP_ERRORS=$((SETUP_ERRORS + 1))
     echo ""
     
     echo "[2/4] Setting up VMKit..."
@@ -314,5 +317,3 @@ end
 # ==========================================
 # Status and Help Tasks
 # ==========================================
-
-

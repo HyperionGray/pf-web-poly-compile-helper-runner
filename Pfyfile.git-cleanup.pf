@@ -8,12 +8,12 @@ end
 
 task git-cleanup-interactive
   describe Interactive TUI for removing large files from git history
-  shell node tools/git-cleanup.mjs
+  shell node "${PFY_ROOT:-.}/tools/git-cleanup.mjs"
 end
 
 task git-cleanup
   describe Alias for git-cleanup-interactive
-  shell node tools/git-cleanup.mjs
+  shell node "${PFY_ROOT:-.}/tools/git-cleanup.mjs"
 end
 
 task git-analyze-large-files

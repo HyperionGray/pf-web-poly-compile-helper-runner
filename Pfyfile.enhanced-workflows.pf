@@ -3,7 +3,7 @@
 
 task enhanced-verify-tools
   describe Verify all tools are working correctly
-  shell node tools/orchestration/tool-detector.mjs --verify --format table
+  shell node "${PFY_ROOT:-.}/tools/orchestration/tool-detector.mjs" --verify --format table
 end
 
 # Enhanced Workflows for Integrated Security Testing
@@ -17,13 +17,13 @@ end
 task enhanced-analyze
   describe Comprehensive enhanced analysis of any target
   shell echo "Running enhanced analysis on ${target}"
-  shell python3 tools/enhanced-workflows/target_detector.py ${target} --format json > .enhanced_target_info.json
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/target_detector.py" ${target} --format json > .enhanced_target_info.json
   shell echo "Analysis complete"
 end
 
 task checksec-unified
   describe Unified binary security analysis
-  shell python3 tools/enhanced-workflows/unified_checksec.py ${binary} ${json:+--json}
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/unified_checksec.py" ${binary} ${json:+--json}
 end
 
 task enhanced-help
@@ -44,25 +44,25 @@ end
 task hack [alias h]
   describe Ultimate enhanced workflow - automatically detects and exploits any target
   shell echo "🎯 Starting enhanced hack workflow for: ${target}"
-  shell python3 tools/enhanced-workflows/workflow_orchestrator.py hack --target "${target}" --auto
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" hack --target "${target}" --auto
 end
 
 task pwn [alias p]
   describe Enhanced binary exploitation workflow
   shell echo "💀 Starting enhanced pwn workflow for: ${target}"
-  shell python3 tools/enhanced-workflows/workflow_orchestrator.py pwn --target "${target}" --auto
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" pwn --target "${target}" --auto
 end
 
 task scan [alias s]
   describe Enhanced security scanning workflow
   shell echo "🔍 Starting enhanced scan workflow for: ${target}"
-  shell python3 tools/enhanced-workflows/workflow_orchestrator.py scan --target "${target}" --auto
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" scan --target "${target}" --auto
 end
 
 task fuzz [alias f]
   describe Enhanced fuzzing workflow
   shell echo "🐛 Starting enhanced fuzz workflow for: ${target}"
-  shell python3 tools/enhanced-workflows/workflow_orchestrator.py fuzz --target "${target}" --auto
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" fuzz --target "${target}" --auto
 end
 
 # ============================================================================
@@ -71,13 +71,13 @@ end
 
 task enhanced-detect
   describe Detect target type and suggest appropriate workflows
-  shell python3 tools/enhanced-workflows/target_detector.py "${target}" --suggest-workflows
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/target_detector.py" "${target}" --suggest-workflows
 end
 
 task enhanced-recon
   describe Enhanced reconnaissance workflow
   shell echo "🕵️ Starting enhanced reconnaissance for: ${target}"
-  shell python3 tools/enhanced-workflows/workflow_orchestrator.py recon --target "${target}"
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" recon --target "${target}"
 end
 
 # ============================================================================
@@ -87,13 +87,13 @@ end
 task enhanced-binary-analysis
   describe Comprehensive enhanced binary analysis
   shell echo "🔬 Enhanced binary analysis for: ${binary}"
-  shell python3 tools/enhanced-workflows/binary_analyzer.py "${binary}" --comprehensive
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/binary_analyzer.py" "${binary}" --comprehensive
 end
 
 task enhanced-reverse
   describe Enhanced reverse engineering workflow
   shell echo "🔄 Enhanced reverse engineering for: ${binary}"
-  shell python3 tools/enhanced-workflows/workflow_orchestrator.py reverse --target "${binary}"
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" reverse --target "${binary}"
 end
 
 # ============================================================================
@@ -103,7 +103,7 @@ end
 task enhanced-web-test
   describe Enhanced web application testing workflow
   shell echo "🌐 Enhanced web testing for: ${target}"
-  shell python3 tools/enhanced-workflows/workflow_orchestrator.py web --target "${target}"
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" web --target "${target}"
 end
 
 # ============================================================================
@@ -113,7 +113,7 @@ end
 task enhanced-network-test
   describe Enhanced network testing workflow
   shell echo "🌐 Enhanced network testing for: ${target}"
-  shell python3 tools/enhanced-workflows/workflow_orchestrator.py network --target "${target}"
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" network --target "${target}"
 end
 
 # ============================================================================
@@ -122,10 +122,10 @@ end
 
 task enhanced-report
   describe Generate enhanced workflow report
-  shell python3 tools/enhanced-workflows/report_generator.py --target "${target}" --output enhanced_report.html
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/report_generator.py" --target "${target}" --output enhanced_report.html
 end
 
 task enhanced-status
   describe Show status of all enhanced workflows
-  shell python3 tools/enhanced-workflows/workflow_orchestrator.py status
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" status
 end

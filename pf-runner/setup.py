@@ -37,7 +37,12 @@ setup(
     packages=find_packages(where="."),
     py_modules=[
         "pf_main",
+        "pf_runner_core",
         "pf_parser", 
+        "pf_parser_config",
+        "pf_parser_utils",
+        "pf_parser_polyglot_helpers",
+        "pf_dsl_parser",
         "pf_shell",
         "pf_args",
         "pf_grammar",
