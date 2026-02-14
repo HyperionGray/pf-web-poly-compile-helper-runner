@@ -47,8 +47,11 @@ pf-runner/build/
 pf-runner/dist/
 pf-runner/*.spec
 
+# Root-level build directory for all build artifacts
+build/
+
 # Debian package build artifacts
-debian/build/
+deb/build/
 
 # Container artifacts (don't commit built images or runtime data)
 # Note: Dockerfiles and quadlet configs ARE committed
