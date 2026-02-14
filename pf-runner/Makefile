@@ -119,8 +119,8 @@ build: clean
 	@echo "Building static executable..."
 	@$(PF_PY) -m PyInstaller --onefile pf_main.py
 	@echo "Copying static executable to pf-runner directory..."
-	@cp dist/pf_main pf-static
-	@echo "Build complete. Static executable at pf-static"
+	@cp "$(abspath dist/pf_main)" "$(abspath pf-static)"
+	@echo "Build complete. Static executable at $(abspath pf-static)"
 
 install: build install-completions
 	@echo "Installing executable to /usr/local/bin/pf..."
