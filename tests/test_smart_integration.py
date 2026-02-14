@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-import os
-os.chmod(__file__, 0o755)
 
 """
 Test script to verify smart workflow integration
