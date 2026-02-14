@@ -51,7 +51,7 @@ detect_os() {
 
 # Check if we're in the repo
 in_repo() {
-    [[ -f "install.sh" ]] && [[ -d "pf-runner" ]]
+    [[ -f "scripts/install.sh" ]] && [[ -d "pf-runner" ]]
 }
 
 # Main installation logic
@@ -86,16 +86,16 @@ main() {
             log_info "Using standard installer"
             if command -v podman >/dev/null 2>&1; then
                 log_info "Podman detected - installing container version"
-                ./install.sh --runtime podman
+                ./scripts/install.sh --runtime podman
             elif command -v docker >/dev/null 2>&1; then
                 log_info "Docker detected - installing container version"
-                ./install.sh --runtime docker
+                ./scripts/install.sh --runtime docker
             else
                 log_info "No container runtime detected - installing native version"
                 if [[ $EUID -eq 0 ]]; then
-                    ./install.sh --mode native
+                    ./scripts/install.sh --mode native
                 else
-                    ./install.sh --mode native --prefix ~/.local
+                    ./scripts/install.sh --mode native --prefix ~/.local
                 fi
             fi
         fi
@@ -121,16 +121,16 @@ main() {
         # Run the installer based on available tools
         if command -v podman >/dev/null 2>&1; then
             log_info "Podman detected - installing container version"
-            ./install.sh --runtime podman
+            ./scripts/install.sh --runtime podman
         elif command -v docker >/dev/null 2>&1; then
             log_info "Docker detected - installing container version"
-            ./install.sh --runtime docker
+            ./scripts/install.sh --runtime docker
         else
             log_info "No container runtime detected - installing native version"
             if [[ $EUID -eq 0 ]]; then
-                ./install.sh --mode native
+                ./scripts/install.sh --mode native
             else
-                ./install.sh --mode native --prefix ~/.local
+                ./scripts/install.sh --mode native --prefix ~/.local
             fi
         fi
         
