@@ -7,13 +7,17 @@ import sys
 import os
 
 # Add pf-runner to path
-sys.path.insert(0, '/workspace/pf-runner')
+script_dir = os.path.dirname(os.path.abspath(__file__))
+repo_root = os.path.dirname(script_dir)
+pf_runner_path = os.path.join(repo_root, 'pf-runner')
+sys.path.insert(0, pf_runner_path)
 
 def test_syntax():
     """Test that pf_polyglot.py has valid syntax"""
     try:
         import py_compile
-        py_compile.compile('/workspace/pf-runner/pf_polyglot.py', doraise=True)
+        polyglot_file = os.path.join(pf_runner_path, 'pf_polyglot.py')
+        py_compile.compile(polyglot_file, doraise=True)
         print("✅ Syntax check passed")
         return True
     except py_compile.PyCompileError as e:
