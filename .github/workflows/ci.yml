@@ -197,8 +197,8 @@ jobs:
     
     - name: Test installation process
       run: |
-        chmod +x install.sh
-        ./install.sh --dry-run || echo "Installation test completed"
+        chmod +x scripts/install.sh
+        ./scripts/install.sh --dry-run || echo "Installation test completed"
     
     - name: Verify pf-runner functionality
       run: |
