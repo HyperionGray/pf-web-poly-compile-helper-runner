@@ -7,7 +7,9 @@ import sys
 import os
 
 # Add pf-runner to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'pf-runner'))
+script_dir = os.path.dirname(os.path.abspath(__file__))
+repo_root = os.path.dirname(script_dir)
+sys.path.insert(0, os.path.join(repo_root, 'pf-runner'))
 
 from pf_parser import parse_pfyfile_text
 
