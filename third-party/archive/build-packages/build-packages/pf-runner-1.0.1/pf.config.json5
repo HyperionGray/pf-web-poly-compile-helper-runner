@@ -1,0 +1,105 @@
+// Central configuration for pf-web-poly-compile-helper-runner.
+//
+// This file is JSON5 (comments + trailing commas supported).
+// It is the single source of truth for configuration; avoid using PF_* env vars.
+{
+  // pf task files
+  pfy: {
+    // Default task file when `pf -f/--file` is not provided.
+    file: "Pfyfile.pf",
+
+    // How to search for the Pfyfile when running `pf` in subdirectories:
+    // - "git": search parents but stop at the git repo root (recommended)
+    // - "all": search all the way to filesystem root
+    // - "none": only check the current directory
+    searchParents: "git",
+  },
+
+  // pf CLI behavior
+  runner: {
+    autocorrect: {
+      // "auto" (warn+autocorrect), "ask" (prompt), "off" (error)
+      mode: "auto",
+      threshold: 0.75,
+    },
+
+    // Auto-resolve obvious path-like parameters (relative to invocation cwd or task file).
+    pathAutofix: true,
+
+    // Playwright (used by browser-js polyglot helper)
+    playwright: {
+      headful: false,
+    },
+  },
+
+  // REST API defaults (pf-runner/pf_api.py)
+  api: {
+    host: "127.0.0.1",
+    port: 8000,
+    workers: 4,
+  },
+
+  // Container wrapper defaults (pf-runner/pf_universal). Base installer is native-only.
+  container: {
+    runtime: "podman",
+    image: "localhost/pf-runner:latest",
+  },
+
+  // PR management (tools/pr-*.mjs)
+  pr: {
+    // Where PR tools persist state (e.g. discovered PRs, reviews, reports).
+    storageDir: "~/.config/pf",
+
+    // Legacy/interop paths (still supported; central config is preferred).
+    discoveryConfigFile: "~/.config/pf/pr-config.json",
+    discoveredPrsFile: "~/.config/pf/discovered-prs.json",
+    aiProvidersFile: "~/.config/pf/ai-providers.json",
+
+    // Optional per-repo settings (preferred over legacy files).
+    repositories: [],
+    platforms: {
+      github: { enabled: true },
+      gitlab: { enabled: true },
+    },
+    filters: {
+      states: ["open"],
+      labels: [],
+      authors: [],
+    },
+
+    // AI provider configuration for PR review (no env-var config).
+    ai: {
+      providers: {
+        openai: { apiKey: null, model: "gpt-4", enabled: false },
+        anthropic: { apiKey: null, model: "claude-3-sonnet-20240229", enabled: false },
+      },
+      reviewCriteria: {
+        security: true,
+        performance: true,
+        maintainability: true,
+        testCoverage: true,
+        documentation: true,
+      },
+    },
+  },
+
+  // GitHub integration (scripts/assign-issues-to-copilot.sh)
+  // Put secrets like `token` in a user-scoped config (e.g. ~/.config/pf/pf.config.json5).
+  github: {
+    repoOwner: "P4X-ng",
+    repoName: "pf-web-poly-compile-helper-runner",
+    token: null,
+  },
+
+  // Repo dev environment container scripts (scripts/*containers*.sh)
+  devEnvironment: {
+    useQuadlet: true,
+    gpuSupport: false,
+  },
+
+  // Node tools (tools/*.mjs)
+  os: {
+    distroArtifactsDir: "~/.pf/distros",
+    switchBaseDir: "~/.pf/os-switch",
+  },
+}

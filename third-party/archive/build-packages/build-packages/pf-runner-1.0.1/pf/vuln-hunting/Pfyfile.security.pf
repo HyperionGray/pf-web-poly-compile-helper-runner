@@ -1,0 +1,4 @@
+# Security task aggregator
+include Pfyfile.security.core.pf
+include Pfyfile.security.scanners.pf
+include Pfyfile.security.extras.pf

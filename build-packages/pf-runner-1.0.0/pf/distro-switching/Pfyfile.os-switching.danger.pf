@@ -1,0 +1,128 @@
+task os-recovery-boot
+  describe Boot from backup in case of OS switch failure
+  shell_lang bash
+  shell |
+    echo " OS Recovery Mode"
+    echo "Available recovery options:"
+    
+    echo "1. Restore from btrfs snapshot:"
+    btrfs subvolume list / 2>/dev/null | grep backup || echo "   No btrfs snapshots found"
+    
+    echo "2. Restore from ZFS snapshot:"
+    zfs list -t snapshot 2>/dev/null | grep backup || echo "   No ZFS snapshots found"
+    
+    echo "3. Restore from rsync backup:"
+    ls -la /backup/ 2>/dev/null || echo "   No rsync backups found"
+    
+    echo "4. Restore from remote backup:"
+    echo "   Check tailnet machines for backup files"
+    
+    echo ""
+    echo "Manual recovery steps:"
+    echo "1. Boot from live USB/CD"
+    echo "2. Mount your disk"
+    echo "3. Restore from one of the above backups"
+    echo "4. Reinstall bootloader"
+    echo "5. Reboot"
+end
+
+task os-emergency-restore backup_path=""
+  describe Emergency restore from backup (use from live boot)
+  shell_lang bash
+  shell |
+    if [ -z "${backup_path}" ]; then
+        echo "Usage: pf os-emergency-restore backup_path=<path-to-backup>"
+        echo "Available backups:"
+        ls -la /backup/ 2>/dev/null || echo "No backups found"
+        exit 1
+    fi
+    
+    echo " EMERGENCY RESTORE FROM: ${backup_path}"
+    echo "This will overwrite the current system!"
+    read -p "Continue? (type 'RESTORE'): " confirm
+    if [ "$confirm" != "RESTORE" ]; then
+        echo "Aborted"
+        exit 1
+    fi
+    
+    if [[ "${backup_path}" == *"btrfs"* ]]; then
+        echo "Restoring from btrfs snapshot..."
+        btrfs subvolume delete / || true
+        btrfs subvolume snapshot "${backup_path}" /
+    elif [[ "${backup_path}" == *"zfs"* ]]; then
+        echo "Restoring from ZFS snapshot..."
+        zfs rollback "${backup_path}"
+    else
+        echo "Restoring from rsync backup..."
+        rsync -aAXv --delete "${backup_path}/" /
+    fi
+    
+    echo "[OK] System restored from backup"
+    echo "Reinstall bootloader and reboot"
+end
+
+# ==========================================
+# Help and Status Tasks
+# ==========================================
+
+task os-switching-help
+  describe Show help for dangerous OS switching commands
+  shell_lang bash
+  shell cat << 'EOF'
+
+[WARN]  DANGEROUS OS SWITCHING COMMANDS [WARN]
+=====================================
+
+These commands can DESTROY your system! Use at your own risk!
+
+SAFETY COMMANDS:
+  pf os-switching-warning           Show safety warning
+  pf os-backup-system              Create full system backup
+  pf os-create-mirror-container    Create continuous snapshot container
+  pf os-start-mirror               Start continuous snapshots
+  pf os-validate-switch-requirements  Validate switch requirements
+
+DANGEROUS SWITCHING:
+  pf switch-os target_os=X         REPLACE entire OS with container OS
+                                   (EXTREMELY DANGEROUS!)
+
+RECOVERY COMMANDS:
+  pf os-recovery-boot              Show recovery options
+  pf os-emergency-restore backup=X Emergency restore from backup
+
+SUPPORTED TARGET OS:
+  centos        CentOS Stream 9
+  fedora        Fedora 39
+  arch          Arch Linux
+  opensuse      openSUSE Tumbleweed
+
+SAFETY REQUIREMENTS:
+[OK] Complete system backup
+[OK] Test in VM first
+[OK] Physical access to machine
+[OK] Alternative recovery method
+[OK] Understanding of risks
+
+RECOMMENDED ALTERNATIVE:
+Use safer container-based environments instead:
+  pf os-help
+
+EXAMPLE WORKFLOW (DANGEROUS):
+  # 1. Create backups
+  pf os-backup-system
+  pf os-create-mirror-container
+  pf os-start-mirror
+  
+  # 2. Validate requirements
+  pf os-validate-switch-requirements target_os=fedora
+  
+  # 3. DANGEROUS: Switch OS
+  pf switch-os target_os=fedora
+  
+  # 4. If it fails, recover
+  pf os-emergency-restore backup=/backup/system-20231201-120000
+
+[WARN]  YOU HAVE BEEN WARNED! [WARN]
+
+EOF
+end

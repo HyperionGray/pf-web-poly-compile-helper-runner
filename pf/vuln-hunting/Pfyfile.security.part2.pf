@@ -1,0 +1,62 @@
+
+# ============================================================================
+# ROP Exploitation Tasks (ROPgadget integration)
+# ============================================================================
+
+task rop-find-gadgets
+  describe Find ROP gadgets in binary (binary=path, output=file, type=rop|jop|sys, depth=10)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf rop-find-gadgets binary=/path/to/binary" && exit 1)
+  shell python3 "${PFY_ROOT:-.}/tools/exploit/ropgadget_wrapper.py" --find-gadgets ${binary} ${output:+--output ${output}} ${type:+--type ${type}} --depth ${depth:-10}
+end
+
+task rop-search
+  describe Search for specific gadgets (binary=path, gadget="pop rdi", output=file)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf rop-search binary=/path/to/binary gadget=\"pop rdi\"" && exit 1)
+  shell test -n "${gadget}" || (echo "Error: gadget parameter required. Usage: pf rop-search binary=/path/to/binary gadget=\"pop rdi\"" && exit 1)
+  shell python3 "${PFY_ROOT:-.}/tools/exploit/ropgadget_wrapper.py" --search ${binary} --search-term "${gadget}" ${output:+--output ${output}}
+end
+
+task rop-chain-build
+  describe Build ROP chain automatically (binary=path, output=file)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf rop-chain-build binary=/path/to/binary" && exit 1)
+  shell python3 "${PFY_ROOT:-.}/tools/exploit/ropgadget_wrapper.py" --build-chain ${binary} ${output:+--output ${output}}
+end
+
+task rop-analyze
+  describe Analyze binary for ROP exploitation potential (binary=path, json=true)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf rop-analyze binary=/path/to/binary" && exit 1)
+  shell python3 "${PFY_ROOT:-.}/tools/exploit/ropgadget_wrapper.py" --analyze ${binary} ${json:+--json}
+end
+
+task rop-specific
+  describe Find specific gadget patterns (binary=path, patterns="pop rdi,pop rsi", output=file)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf rop-specific binary=/path/to/binary patterns=\"pop rdi,pop rsi\"" && exit 1)
+  shell test -n "${patterns}" || (echo "Error: patterns parameter required. Usage: pf rop-specific binary=/path/to/binary patterns=\"pop rdi,pop rsi\"" && exit 1)
+  shell python3 "${PFY_ROOT:-.}/tools/exploit/ropgadget_wrapper.py" --specific ${binary} --patterns "${patterns}" ${output:+--output ${output}}
+end
+
+task rop-demo
+  describe Demonstrate ROP exploitation workflow
+  shell echo "=== ROP Exploitation Demo ==="
+  shell echo ""
+  shell echo "1. Checking if example binary exists..."
+  shell test -f ${PFY_ROOT:-.}/demos/debugging/examples/bin/vulnerable && echo "Found vulnerable binary" || (echo "Building example binary..." && cd ${PFY_ROOT:-.}/demos/debugging/examples && mkdir -p bin && gcc -g -O0 -fno-stack-protector -z execstack -no-pie vulnerable.c -o bin/vulnerable 2>/dev/null || echo "Failed to build - install gcc and try: pf build-debug-examples")
+  shell echo ""
+  shell echo "2. Analyzing ROP potential..."
+  shell test -f ${PFY_ROOT:-.}/demos/debugging/examples/bin/vulnerable && python3 "${PFY_ROOT:-.}/tools/exploit/ropgadget_wrapper.py" --analyze ${PFY_ROOT:-.}/demos/debugging/examples/bin/vulnerable || echo "Binary not available"
+  shell echo ""
+  shell echo "3. Finding common gadgets..."
+  shell test -f ${PFY_ROOT:-.}/demos/debugging/examples/bin/vulnerable && python3 "${PFY_ROOT:-.}/tools/exploit/ropgadget_wrapper.py" --specific ${PFY_ROOT:-.}/demos/debugging/examples/bin/vulnerable --patterns "pop rdi,pop rsi,pop rdx" || echo "Binary not available"
+  shell echo ""
+  shell echo "4. Searching for specific gadgets..."
+  shell test -f ${PFY_ROOT:-.}/demos/debugging/examples/bin/vulnerable && python3 "${PFY_ROOT:-.}/tools/exploit/ropgadget_wrapper.py" --search ${PFY_ROOT:-.}/demos/debugging/examples/bin/vulnerable --search-term "pop rdi" || echo "Binary not available"
+  shell echo ""
+  shell echo "=== Demo Complete ==="
+  shell echo ""
+  shell echo "Usage examples:"
+  shell echo "  pf rop-find-gadgets binary=./target"
+  shell echo "  pf rop-search binary=./target gadget=\"pop rdi\""
+  shell echo "  pf rop-chain-build binary=./target output=rop_chain.py"
+  shell echo "  pf rop-analyze binary=./target"
+  shell echo "  pf rop-specific binary=./target patterns=\"pop rdi,pop rsi,pop rdx\""
+end

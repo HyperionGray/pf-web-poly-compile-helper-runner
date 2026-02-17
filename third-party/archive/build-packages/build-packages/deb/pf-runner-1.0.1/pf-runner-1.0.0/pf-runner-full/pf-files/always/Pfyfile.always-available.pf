@@ -1,0 +1,37 @@
+#!lang:bash
+#
+# Always-available pf tasks
+# These tasks are intended to work from any directory.
+#
+
+include ../always-on/Pfyfile.always-on-smart.pf
+include ../always-on/Pfyfile.always-on-security.pf
+include ../always-on/Pfyfile.always-on-exploit.pf
+include ../always-on/Pfyfile.always-on-debug.pf
+include ../always-on/Pfyfile.always-on-git.pf
+include ../always-on/Pfyfile.always-on-backup.pf
+include ../always-on/Pfyfile.always-on-packages.pf
+include ../always-on/Pfyfile.always-on-os.pf
+
+task tui
+  describe Launch pf TUI (requires rich; install with: pip install 'pf-runner[tui]')
+  shell python3 -m pf_tui
+end
+
+task tui-with-file file=
+  describe Launch pf TUI using a specific Pfyfile path (first arg to pf_tui)
+  shell python3 -m pf_tui "$file"
+end
+
+task tui-help
+  describe Show pf TUI usage and features
+  shell echo "pf Interactive TUI"
+  shell echo ""
+  shell echo "Usage:"
+  shell echo "  pf tui"
+  shell echo "  pf tui-with-file file=/path/to/Pfyfile.pf"
+  shell echo ""
+  shell echo "Requirements:"
+  shell echo "  - Python 3.10+"
+  shell echo "  - rich (install with: pip install 'pf-runner[tui]')"
+end

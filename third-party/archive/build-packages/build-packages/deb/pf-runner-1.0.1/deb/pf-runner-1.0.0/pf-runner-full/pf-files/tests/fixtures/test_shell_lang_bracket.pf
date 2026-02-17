@@ -1,0 +1,35 @@
+# test_shell_lang_bracket.pf - Test the shell [lang:xxx] syntax
+# This file tests the fix for the broken grammar issue
+
+task test-lang-python
+  describe Test shell [lang:python] syntax
+  shell [lang:python] print("Python works!")
+end
+
+task test-lang-bash
+  describe Test shell [lang:bash] syntax
+  shell [lang:bash] echo "Bash works!"
+end
+
+task test-lang-node
+  describe Test shell [lang:node] syntax (requires node)
+  shell [lang:node] console.log("Node.js works!")
+end
+
+task test-plain-shell
+  describe Test plain shell without [lang:xxx]
+  shell echo "Plain shell works!"
+end
+
+task test-mixed
+  describe Test mixing plain shell with polyglot
+  shell echo "Step 1: Plain shell"
+  shell [lang:python] print("Step 2: Python")
+  shell echo "Step 3: Plain shell again"
+  shell [lang:bash] echo "Step 4: Explicit bash"
+end
+
+task test-lang-alias
+  describe Test language aliases like py instead of python
+  shell [lang:py] print("py alias works!")
+end

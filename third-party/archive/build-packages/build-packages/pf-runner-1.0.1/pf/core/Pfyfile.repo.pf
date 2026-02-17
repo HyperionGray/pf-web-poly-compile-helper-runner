@@ -1,0 +1,122 @@
+# Repository-level helper tasks
+
+# Validation / build orchestration
+
+task repo-validate
+  describe Run repository build validation (scripts/validate-build.sh)
+  shell_lang bash
+  bash "${PFY_ROOT:-.}/scripts/validate-build.sh"
+end
+
+task repo-build
+  describe Run repository build helper (scripts/build.sh)
+  shell_lang bash
+  bash "${PFY_ROOT:-.}/scripts/build.sh"
+end
+
+task pf-validate
+  describe Static validation of all pf tasks (includes + referenced paths)
+  shell_lang bash
+  bash "${PFY_ROOT:-.}/scripts/validate-pf-tasks.sh"
+end
+
+# Dev environment (container-based workflows stay optional)
+
+task dev-env-install
+  describe Start the dev container environment (wrapper around manage-containers.sh start)
+  shell_lang bash
+  bash "${PFY_ROOT:-.}/scripts/manage-containers.sh" start ${arg1:-} ${arg2:-}
+end
+
+task dev-env
+  describe Manage the dev container environment (scripts/manage-containers.sh)
+  shell_lang bash
+  bash "${PFY_ROOT:-.}/scripts/manage-containers.sh" ${command:-status} ${arg1:-} ${arg2:-}
+end
+
+# Web helpers (thin aliases to pf web tasks)
+
+task web-dev
+  describe Start development server with REST API support
+  shell pf web dev
+end
+
+task web-dev-static
+  describe Start basic static file server (legacy alias)
+  shell pf web dev dir=${dir:-web} port=${port:-8080}
+end
+
+task api-server
+  describe Start REST API server
+  shell pf web dev dir=${dir:-${PFY_ROOT:-.}/demos/pf-web-polyglot-demo-plus-c/web} port=${port:-8080}
+end
+
+task web-test
+  describe Run Playwright end-to-end tests
+  shell pf web test
+end
+
+task web-build-rust
+  describe Build Rust to WebAssembly (legacy alias)
+  shell pf web build-rust
+end
+
+task web-build-rust-wasm
+  describe Build Rust to WebAssembly
+  shell pf web build-rust
+end
+
+task web-build-rust-llvm
+  describe Build Rust to LLVM IR
+  shell pf web build-rust-llvm opt_level=${opt_level:-3}
+end
+
+task web-build-c
+  describe Build C to WebAssembly (legacy alias)
+  shell pf web build-c
+end
+
+task web-build-c-wasm
+  describe Build C to WebAssembly
+  shell pf web build-c
+end
+
+task web-build-c-asm
+  describe Build C to asm.js
+  shell pf web build-c-asm
+end
+
+task web-build-c-llvm
+  describe Build C to LLVM IR
+  shell pf web build-c-llvm opt_level=${opt_level:-3} parallel=${parallel:-false}
+end
+
+task web-build-fortran
+  describe Build Fortran to WebAssembly (legacy alias)
+  shell pf web build-fortran
+end
+
+task web-build-fortran-wasm
+  describe Build Fortran to WebAssembly
+  shell pf web build-fortran
+end
+
+task web-build-fortran-llvm
+  describe Build Fortran to LLVM IR
+  shell pf web build-fortran-llvm opt_level=${opt_level:-3} parallel=${parallel:-false}
+end
+
+task web-build-wat
+  describe Build WAT to WebAssembly (legacy alias)
+  shell pf web build-wat
+end
+
+task web-build-wat-wasm
+  describe Build WAT to WebAssembly
+  shell pf web build-wat
+end
+
+task web-build-all
+  describe Build all available WASM targets
+  shell pf web build-all-wasm
+end

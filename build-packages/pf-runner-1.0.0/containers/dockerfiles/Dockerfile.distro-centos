@@ -1,0 +1,32 @@
+# Lightweight CentOS Stream container for package management
+# Used for installing and extracting CentOS/YUM packages
+FROM docker.io/library/almalinux:9
+
+LABEL maintainer="pf-web-poly-compile-helper-runner"
+LABEL description="Lightweight CentOS-compatible container for YUM/DNF package management"
+LABEL pf.distro="centos"
+LABEL pf.package-manager="dnf"
+
+# Install minimal package management tools
+RUN dnf install -y --setopt=install_weak_deps=False \
+    dnf-plugins-core \
+    rpm-build \
+    findutils \
+    which \
+    && dnf clean all
+
+# Create output directories for extracted binaries
+RUN mkdir -p /output/bin /output/lib /output/share /output/etc
+
+# Create non-root user
+RUN useradd -m -s /bin/bash pfuser && \
+    chown -R pfuser:pfuser /output
+
+# Script to extract installed package files
+COPY containers/scripts/distro-extract.sh /usr/local/bin/distro-extract
+RUN chmod +x /usr/local/bin/distro-extract
+
+USER pfuser
+WORKDIR /home/pfuser
+
+CMD ["/bin/bash"]

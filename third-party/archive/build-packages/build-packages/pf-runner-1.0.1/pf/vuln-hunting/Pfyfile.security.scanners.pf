@@ -1,0 +1,63 @@
+task install-security-tools
+  describe Install additional security testing dependencies
+  describe Currently no additional dependencies needed (uses built-in Node.js fetch)
+  shell echo "OK Security tools ready (no additional installation needed)"
+  shell echo "Security scanner: tools/security/scanner.mjs"
+  shell echo "Web fuzzer: tools/security/fuzzer.mjs"
+  shell echo "Binary security checker: tools/security/checksec.py"
+  shell echo "Documentation: docs/SECURITY-TESTING.md"
+end
+
+# ============================================================================
+# Binary Security Analysis Tasks (checksec implementation)
+# ============================================================================
+
+task checksec
+  describe Analyze binary security features (RELRO, Stack Canary, NX, PIE, etc.)
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf checksec binary=/path/to/binary" && exit 1)
+  shell python3 tools/security/checksec.py ${binary}
+end
+
+task checksec-json
+  describe Analyze binary security features and output JSON
+  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf checksec-json binary=/path/to/binary" && exit 1)
+  shell python3 tools/security/checksec.py --json ${binary}
+end
+
+task checksec-batch
+  describe Analyze all binaries in a directory
+  shell test -n "${dir}" || (echo "Error: dir parameter required. Usage: pf checksec-batch dir=/path/to/directory" && exit 1)
+  shell python3 tools/security/checksec.py --batch ${dir} ${verbose:+--verbose}
+end
+
+task checksec-report
+  describe Generate comprehensive security report for directory
+  shell test -n "${dir}" || (echo "Error: dir parameter required. Usage: pf checksec-report dir=/path/to/directory" && exit 1)
+  shell python3 tools/security/checksec.py --report ${dir} ${output:+--output ${output}} ${verbose:+--verbose}
+end
+
+task checksec-demo
+  describe Demonstrate checksec on example binaries
+  shell echo "=== Binary Security Analysis Demo ==="
+  shell echo ""
+  shell echo "Analyzing system binaries..."
+  shell echo ""
+  shell echo "1. /bin/ls (system binary):"
+  shell python3 tools/security/checksec.py /bin/ls 2>/dev/null || echo "Binary not found, skipping"
+  shell echo ""
+  shell echo "2. /usr/bin/gcc (compiler):"
+  shell python3 tools/security/checksec.py /usr/bin/gcc 2>/dev/null || echo "Binary not found, skipping"
+  shell echo ""
+  shell echo "3. Built debugging examples (if available):"
+  shell test -f demos/debugging/examples/bin/vulnerable && python3 tools/security/checksec.py demos/debugging/examples/bin/vulnerable || echo "Build examples first with: pf build-debug-examples"
+  shell echo ""
+  shell echo "=== Demo Complete ==="
+  shell echo "Usage: pf checksec binary=/path/to/binary"
+  shell echo "       pf checksec-batch dir=/usr/bin/"
+  shell echo "       pf checksec-report dir=/usr/bin/ output=report.json"
+end
+
+# ============================================================================
+# Exploit Development Tasks (pwntools integration)
+# ============================================================================
+

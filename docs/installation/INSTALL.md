@@ -2,33 +2,18 @@
 
 ## Quick Install (One Command)
 
-### Container-First Installation (Recommended)
-```bash
-# Build images and install the pf wrapper (user prefix by default)
-./install.sh --runtime podman
-
-# System-wide wrapper install (requires sudo)
-sudo ./install.sh --runtime podman --prefix /usr/local
-```
-
-### Native Host Installation (Alternative)
+### Native Installation (default)
 ```bash
 # System-wide install (requires sudo)
-sudo ./install.sh --mode native
+sudo ./install.sh
 
 # User install (no sudo needed)
-./install.sh --mode native --prefix ~/.local
+./install.sh --prefix ~/.local
 ```
 
 ## What the installer does
 
-**Container mode (default):**
-1. ✅ Builds `localhost/pf-base:latest`
-2. ✅ Builds `localhost/pf-runner:latest`
-3. ✅ Installs the `pf` wrapper script
-4. ✅ Sets up shell completions (bash/zsh)
-
-**Native mode (`--mode native`):**
+**Native mode:**
 1. ✅ Checks prerequisites (Python 3.8+, Git, pip)
 2. ✅ Installs system dependencies (build tools, python3-dev)
 3. ✅ Sets up Python virtual environment (for user installs)
@@ -40,32 +25,20 @@ sudo ./install.sh --mode native
 ## Installation Options
 
 ```bash
-# Container-first install (default)
-./install.sh --runtime podman
+# User install
+./install.sh --prefix ~/.local
 
-# Native install
-./install.sh --mode native --prefix ~/.local
+# Custom installation directory
+./install.sh --prefix /opt/pf-runner
 
-# Custom installation directory (native)
-./install.sh --mode native --prefix /opt/pf-runner
-
-# Skip system dependency installation (native)
-./install.sh --mode native --skip-deps
-
-# Skip container image build (container mode)
-./install.sh --mode container --skip-build
-
-# Build container images only (container mode)
-./install.sh --mode container --build-only
+# Skip system dependency installation
+./install.sh --skip-deps
 
 # Show help
 ./install.sh --help
 ```
 
 ## Prerequisites
-
-**Container mode:**
-- **Linux** with **Podman** or **Docker**
 
 **Native mode:**
 - **Linux** (Ubuntu/Debian, RHEL/Fedora, Arch) or **macOS**
@@ -113,7 +86,7 @@ If you get Python import errors:
 
 1. **Reinstall with dependencies**:
    ```bash
-   ./install.sh --mode native --skip-deps  # Skip system deps if they're already installed
+  ./install.sh --skip-deps  # Skip system deps if they're already installed
    ```
 
 2. **Manual dependency install**:
@@ -126,22 +99,15 @@ If you get permission errors:
 
 1. **Use user installation**:
    ```bash
-   ./install.sh --mode native --prefix ~/.local
+  ./install.sh --prefix ~/.local
    ```
 
 2. **Or fix permissions for system install**:
    ```bash
-   sudo ./install.sh --mode native
+  sudo ./install.sh
    ```
 
 ## Uninstallation
-
-### Container install (default)
-```bash
-rm -f ~/.local/bin/pf
-rm -rf ~/.local/lib/pf-runner
-podman image rm -f localhost/pf-runner:latest localhost/pf-base:latest  # or docker image rm ...
-```
 
 ### Native system installation
 ```bash
@@ -162,7 +128,7 @@ rm -f ~/.zsh/completions/_pf
 
 ## Advanced Installation
 
-For container-based workflows or development setups, see the full documentation in `docs/`.
+Container builds are no longer part of the base installer. If you need container workflows, use the pf tasks under `pf/containers` which manage images on demand.
 
 ## Getting Help
 

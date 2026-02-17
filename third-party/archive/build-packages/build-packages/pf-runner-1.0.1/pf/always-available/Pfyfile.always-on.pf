@@ -1,0 +1,4 @@
+# Always-on services aggregator (split for readability)
+include Pfyfile.always-on.core.pf
+include Pfyfile.always-on.services.pf
+include Pfyfile.always-on.extras.pf

@@ -1,0 +1,56 @@
+{
+  "registers": [
+    "v0",
+    "v1",
+    "v2"
+  ],
+  "instructions": [
+    {
+      "opcode": "PASM_VGATHER",
+      "dst": "v0",
+      "srcs": [],
+      "metadata": {
+        "buffer": "%src0",
+        "offset": 0,
+        "vector_type": "vector<64xi64>"
+      }
+    },
+    {
+      "opcode": "PASM_VGATHER",
+      "dst": "v1",
+      "srcs": [],
+      "metadata": {
+        "buffer": "%src1",
+        "offset": 0,
+        "vector_type": "vector<64xi64>"
+      }
+    },
+    {
+      "opcode": "PASM_VADD",
+      "dst": "v2",
+      "srcs": [
+        "v0",
+        "v1"
+      ],
+      "metadata": {}
+    },
+    {
+      "opcode": "PASM_VSCATTER",
+      "dst": null,
+      "srcs": [
+        "v2"
+      ],
+      "metadata": {
+        "buffer": "%dst",
+        "offset": 0,
+        "vector_type": "vector<64xi64>"
+      }
+    },
+    {
+      "opcode": "PASM_HALT",
+      "dst": null,
+      "srcs": [],
+      "metadata": {}
+    }
+  ]
+}

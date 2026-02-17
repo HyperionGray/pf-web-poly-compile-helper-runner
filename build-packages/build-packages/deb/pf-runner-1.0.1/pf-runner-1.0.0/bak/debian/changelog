@@ -1,0 +1,11 @@
+pf-runner (1.0.0-1) unstable; urgency=medium
+
+  * Initial release of pf-runner
+  * Polyglot task runner with symbol-free DSL
+  * Support for 40+ programming languages
+  * Container and native installation modes
+  * Package management and build system integration
+  * Web development and security testing tools
+  * Binary analysis and debugging capabilities
+
+ -- PF Runner Team <maintainer@example.com>  $(date -R)
