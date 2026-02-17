@@ -1,0 +1,36 @@
+# Rust WASM build container
+FROM localhost/pf-base:latest
+
+LABEL maintainer="pf-web-poly-compile-helper-runner"
+LABEL description="Rust toolchain with wasm-pack for WebAssembly compilation"
+
+# Install Rust toolchain
+# NOTE: Using official rustup installer. For enhanced security in production,
+# consider using distro packages or verifying checksums against https://rust-lang.org
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y --default-toolchain stable && \
+    . /root/.cargo/env && \
+    rustup target add wasm32-unknown-unknown && \
+    cargo install wasm-pack wasm-bindgen-cli
+
+# Make cargo available to pfuser
+RUN cp -r /root/.cargo /home/pfuser/.cargo && \
+    cp -r /root/.rustup /home/pfuser/.rustup && \
+    chown -R pfuser:pfuser /home/pfuser/.cargo /home/pfuser/.rustup
+
+ENV CARGO_HOME=/home/pfuser/.cargo
+ENV RUSTUP_HOME=/home/pfuser/.rustup
+ENV PATH="/home/pfuser/.cargo/bin:${PATH}"
+
+# Copy Rust project source
+COPY --chown=pfuser:pfuser demos/pf-web-polyglot-demo-plus-c/rust /app/rust
+
+# Create output directories
+RUN mkdir -p /app/output/wasm/rust/pkg /app/output/llvm/rust && \
+    chown -R pfuser:pfuser /app/output
+
+USER pfuser
+WORKDIR /app/rust
+
+# Build WASM on container start by default
+CMD ["wasm-pack", "build", "--target", "web", "--out-dir", "/app/output/wasm/rust/pkg", "--out-name", "rust_demo"]

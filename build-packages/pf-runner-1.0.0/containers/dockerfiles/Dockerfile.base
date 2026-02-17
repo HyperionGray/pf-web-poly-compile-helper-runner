@@ -1,0 +1,45 @@
+# Base image for pf-web-poly-compile-helper-runner containers
+# Ubuntu 24.04 with common debugging and development tools
+FROM docker.io/library/ubuntu:24.04
+
+LABEL maintainer="pf-web-poly-compile-helper-runner"
+LABEL description="Base Ubuntu 24.04 image with common debugging tools"
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Update package lists and install common utilities needed by pf-runner
+RUN apt-get update && apt-get install -y \
+    # Basic utilities
+    curl \
+    wget \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    software-properties-common \
+    # Build essentials
+    build-essential \
+    git \
+    make \
+    cmake \
+    pkg-config \
+    # Python runtime for Fabric / pf-runner
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security (use a valid shell path)
+RUN useradd -m -s /bin/bash pfuser && \
+    mkdir -p /app /usr/local/bin && \
+    chown -R pfuser:pfuser /app /home/pfuser
+
+# Set up PATH for user binaries (include standard system paths)
+ENV PATH="/usr/local/bin:/usr/bin:/bin"
+
+WORKDIR /app
+
+# Default command
+CMD ["/bin/bash"]

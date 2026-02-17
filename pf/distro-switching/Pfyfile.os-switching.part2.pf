@@ -1,0 +1,268 @@
+
+# NOTE: This task is commented out because it conflicts with switch-os in Pfyfile.distro-switch.pf
+# The distro-switch.pf version is more focused on container-based switching
+# This version is more dangerous and should be used with extreme caution
+#
+# task switch-os target_os=""
+#   describe DANGEROUS: Switch entire OS to different distribution
+#   shell_lang bash
+#   shell |
+#     # Show warning first
+#     pf os-switching-warning
+#     
+#     if [ -z "${target_os}" ]; then
+#         echo "Usage: pf switch-os target_os=<centos|fedora|arch|opensuse>"
+#         exit 1
+#     fi
+#     
+#     echo "⚠️  INITIATING DANGEROUS OS SWITCH TO ${target_os} ⚠️"
+#     echo "This will REPLACE your current operating system!"
+#     echo ""
+#     read -p "Type 'I UNDERSTAND THE RISKS' to continue: " confirm
+#     if [ "$confirm" != "I UNDERSTAND THE RISKS" ]; then
+#         echo "Aborted - wise choice!"
+#         exit 1
+#     fi
+#     
+#     # Validate requirements
+#     pf os-validate-switch-requirements target_os=${target_os}
+#     
+#     echo "🔄 Starting OS switch procedure..."
+#     
+#     # Step 1: Create final backup
+#     echo "Step 1: Creating final backup..."
+#     pf os-backup-system
+#     
+#     # Step 2: Prepare new partition (if needed)
+#     echo "Step 2: Checking partition setup..."
+#     if [ ! -b "/dev/sdb1" ]; then
+#         echo "⚠️  No separate partition found for OS switch"
+#         echo "This will overwrite your current system!"
+#         read -p "Continue with in-place replacement? (type 'YES'): " confirm2
+#         if [ "$confirm2" != "YES" ]; then
+#             echo "Aborted"
+#             exit 1
+#         fi
+#     fi
+#     
+#     # Step 3: Expand target container
+#     echo "Step 3: Expanding target OS container..."
+#     podman run -d --name pf-os-switch-${target_os} \
+#         --privileged \
+#         --volume /dev:/dev \
+#         --volume /:/mnt/host:rshared \
+#         --volume /opt/pf-snapshots:/backup \
+#         localhost/pf-os-${target_os}:latest \
+#         sleep infinity
+#     
+#     # Step 4: Prepare container for OS replacement
+#     echo "Step 4: Preparing container for system takeover..."
+#     podman exec pf-os-switch-${target_os} bash -c "
+#         echo 'Mounting host filesystem...'
+#         mount --bind /mnt/host /mnt/host
+#         
+#         echo 'Installing kernel and bootloader...'
+#         case '${target_os}' in
+#             centos|fedora)
+#                 dnf install -y kernel grub2-efi-x64 grub2-pc
+#                 ;;
+#             arch)
+#                 pacman -S --noconfirm linux grub efibootmgr
+#                 ;;
+#             opensuse)
+#                 zypper install -y kernel-default grub2
+#                 ;;
+#         esac
+#         
+#         echo 'Container prepared for OS switch'
+#     "
+#     
+#     # Step 5: Push container to registry for safety
+#     echo "Step 5: Pushing container to registry for recovery..."
+#     podman commit pf-os-switch-${target_os} localhost/pf-os-switch-${target_os}:$(date +%Y%m%d-%H%M%S)
+#     
+#     # Step 6: Export filesystem
+#     echo "Step 6: Exporting new OS filesystem..."
+#     podman export pf-os-switch-${target_os} > /tmp/new-os-${target_os}.tar
+#     
+#     # Step 7: Remote backup (if tailnet available)
+#     echo "Step 7: Attempting remote backup..."
+#     if command -v tailscale &>/dev/null && tailscale status &>/dev/null; then
+#         REMOTE_HOST=$(tailscale status | grep -v "$(hostname)" | head -1 | awk '{print $2}')
+#         if [ -n "$REMOTE_HOST" ]; then
+#             echo "Backing up to remote host: $REMOTE_HOST"
+#             rsync -avz /tmp/new-os-${target_os}.tar $REMOTE_HOST:/tmp/ || echo "Remote backup failed"
+#         fi
+#     fi
+#     
+#     # Step 8: THE DANGEROUS PART - OS Replacement
+#     echo "Step 8: ⚠️  PERFORMING OS REPLACEMENT ⚠️"
+#     echo "Last chance to abort!"
+#     read -p "Type 'REPLACE MY OS' to continue: " final_confirm
+#     if [ "$final_confirm" != "REPLACE MY OS" ]; then
+#         echo "Aborted"
+#         podman stop pf-os-switch-${target_os}
+#         podman rm pf-os-switch-${target_os}
+#         exit 1
+#     fi
+#     
+#     # Extract new OS to root
+#     echo "Extracting new OS to root filesystem..."
+#     cd /
+#     sudo tar --exclude='./dev/*' --exclude='./proc/*' --exclude='./sys/*' --exclude='./tmp/*' --exclude='./run/*' --exclude='./mnt/*' --exclude='./media/*' -xf /tmp/new-os-${target_os}.tar
+#     
+#     # Step 9: Kernel switching with kexec
+#     echo "Step 9: Switching kernel with kexec..."
+#     
+#     # Find new kernel
+#     NEW_KERNEL=$(ls /boot/vmlinuz-* | head -1)
+#     NEW_INITRD=$(ls /boot/initrd.img-* /boot/initramfs-* 2>/dev/null | head -1)
+#     
+#     if [ -n "$NEW_KERNEL" ]; then
+#         echo "Loading new kernel: $NEW_KERNEL"
+#         if [ -n "$NEW_INITRD" ]; then
+#             sudo kexec -l "$NEW_KERNEL" --initrd="$NEW_INITRD" --append="root=/ rw"
+#         else
+#             sudo kexec -l "$NEW_KERNEL" --append="root=/ rw"
+#         fi
+        
+#         echo "🔄 Executing kernel switch..."
+#         sudo kexec -e
+#     else
+#         echo "❌ No kernel found, attempting reboot..."
+#         sudo reboot
+#     fi
+# end
+
+# ==========================================
+# Recovery Tasks
+# ==========================================
+
+task os-recovery-boot
+  describe Boot from backup in case of OS switch failure
+  shell_lang bash
+  shell |
+    echo "🚨 OS Recovery Mode"
+    echo "Available recovery options:"
+    
+    echo "1. Restore from btrfs snapshot:"
+    btrfs subvolume list / 2>/dev/null | grep backup || echo "   No btrfs snapshots found"
+    
+    echo "2. Restore from ZFS snapshot:"
+    zfs list -t snapshot 2>/dev/null | grep backup || echo "   No ZFS snapshots found"
+    
+    echo "3. Restore from rsync backup:"
+    ls -la /backup/ 2>/dev/null || echo "   No rsync backups found"
+    
+    echo "4. Restore from remote backup:"
+    echo "   Check tailnet machines for backup files"
+    
+    echo ""
+    echo "Manual recovery steps:"
+    echo "1. Boot from live USB/CD"
+    echo "2. Mount your disk"
+    echo "3. Restore from one of the above backups"
+    echo "4. Reinstall bootloader"
+    echo "5. Reboot"
+end
+
+task os-emergency-restore backup_path=""
+  describe Emergency restore from backup (use from live boot)
+  shell_lang bash
+  shell |
+    if [ -z "${backup_path}" ]; then
+        echo "Usage: pf os-emergency-restore backup_path=<path-to-backup>"
+        echo "Available backups:"
+        ls -la /backup/ 2>/dev/null || echo "No backups found"
+        exit 1
+    fi
+    
+    echo "🚨 EMERGENCY RESTORE FROM: ${backup_path}"
+    echo "This will overwrite the current system!"
+    read -p "Continue? (type 'RESTORE'): " confirm
+    if [ "$confirm" != "RESTORE" ]; then
+        echo "Aborted"
+        exit 1
+    fi
+    
+    if [[ "${backup_path}" == *"btrfs"* ]]; then
+        echo "Restoring from btrfs snapshot..."
+        btrfs subvolume delete / || true
+        btrfs subvolume snapshot "${backup_path}" /
+    elif [[ "${backup_path}" == *"zfs"* ]]; then
+        echo "Restoring from ZFS snapshot..."
+        zfs rollback "${backup_path}"
+    else
+        echo "Restoring from rsync backup..."
+        rsync -aAXv --delete "${backup_path}/" /
+    fi
+    
+    echo "✅ System restored from backup"
+    echo "Reinstall bootloader and reboot"
+end
+
+# ==========================================
+# Help and Status Tasks
+# ==========================================
+
+task os-switching-help
+  describe Show help for dangerous OS switching commands
+  shell_lang bash
+  shell cat << 'EOF'
+
+⚠️  DANGEROUS OS SWITCHING COMMANDS ⚠️
+=====================================
+
+These commands can DESTROY your system! Use at your own risk!
+
+SAFETY COMMANDS:
+  pf os-switching-warning           Show safety warning
+  pf os-backup-system              Create full system backup
+  pf os-create-mirror-container    Create continuous snapshot container
+  pf os-start-mirror               Start continuous snapshots
+  pf os-validate-switch-requirements  Validate switch requirements
+
+DANGEROUS SWITCHING:
+  pf switch-os target_os=X         REPLACE entire OS with container OS
+                                   (EXTREMELY DANGEROUS!)
+
+RECOVERY COMMANDS:
+  pf os-recovery-boot              Show recovery options
+  pf os-emergency-restore backup=X Emergency restore from backup
+
+SUPPORTED TARGET OS:
+  centos        CentOS Stream 9
+  fedora        Fedora 39
+  arch          Arch Linux
+  opensuse      openSUSE Tumbleweed
+
+SAFETY REQUIREMENTS:
+✅ Complete system backup
+✅ Test in VM first
+✅ Physical access to machine
+✅ Alternative recovery method
+✅ Understanding of risks
+
+RECOMMENDED ALTERNATIVE:
+Use safer container-based environments instead:
+  pf os-help
+
+EXAMPLE WORKFLOW (DANGEROUS):
+  # 1. Create backups
+  pf os-backup-system
+  pf os-create-mirror-container
+  pf os-start-mirror
+  
+  # 2. Validate requirements
+  pf os-validate-switch-requirements target_os=fedora
+  
+  # 3. DANGEROUS: Switch OS
+  pf switch-os target_os=fedora
+  
+  # 4. If it fails, recover
+  pf os-emergency-restore backup=/backup/system-20231201-120000
+
+⚠️  YOU HAVE BEEN WARNED! ⚠️
+
+EOF
+end

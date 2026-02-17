@@ -1,0 +1,263 @@
+# Binary Injection Tasks for pf-runner
+# This file contains tasks for injecting compiled code into binaries and shared libraries
+
+# ============================================================================
+# Installation Tasks
+# ============================================================================
+# Note: install-injection-tools task is defined at the end of this file for better organization
+
+# ============================================================================
+# Payload Generation Tasks
+# ============================================================================
+
+task create-injection-payload-rust
+  describe Create injectable shared library from Rust code (source=path/to/rust/project, target=x86_64-unknown-linux-gnu)
+  shell_lang bash
+  shell test -n "${source}" || (echo "Error: source parameter required" && exit 1)
+  shell cd ${source}
+  shell mkdir -p ../injection/payloads/rust
+  shell cargo build --target ${target:-x86_64-unknown-linux-gnu} --release --lib
+  shell cp target/${target:-x86_64-unknown-linux-gnu}/release/*.so ../injection/payloads/rust/ 2>/dev/null || echo "No .so files generated - check Cargo.toml crate-type"
+  shell echo "Rust payload created in ../injection/payloads/rust/"
+end
+
+task create-injection-payload-c
+  describe Create injectable shared library from C code (source=file.c, output=libname.so)
+  shell_lang bash
+  shell test -n "${source}" || (echo "Error: source parameter required" && exit 1)
+  shell mkdir -p injection/payloads/c
+  shell gcc -shared -fPIC -O2 ${source} -o injection/payloads/c/${output:-payload.so}
+  shell echo "C payload created: injection/payloads/c/${output:-payload.so}"
+  shell file injection/payloads/c/${output:-payload.so}
+end
+
+task create-injection-payload-fortran
+  describe Create injectable shared library from Fortran code (source=file.f90, output=libname.so)
+  shell_lang bash
+  shell test -n "${source}" || (echo "Error: source parameter required" && exit 1)
+  shell mkdir -p injection/payloads/fortran
+  shell gfortran -shared -fPIC -O2 ${source} -o injection/payloads/fortran/${output:-payload.so}
+  shell echo "Fortran payload created: injection/payloads/fortran/${output:-payload.so}"
+  shell file injection/payloads/fortran/${output:-payload.so}
+end
+
+task create-injection-payload-llvm
+  describe Create injectable shared library from LLVM IR (source=file.ll, output=libname.so)
+  shell_lang bash
+  shell test -n "${source}" || (echo "Error: source parameter required" && exit 1)
+  shell mkdir -p injection/payloads/llvm
+  shell clang -shared -fPIC -O2 ${source} -o injection/payloads/llvm/${output:-payload.so}
+  shell echo "LLVM IR payload created: injection/payloads/llvm/${output:-payload.so}"
+  shell file injection/payloads/llvm/${output:-payload.so}
+end
+
+task create-injection-payload-wasm-native
+  describe Convert WASM to native shared library using wasm2c (source=file.wasm, output=libname.so)
+  shell_lang bash
+  shell test -n "${source}" || (echo "Error: source parameter required" && exit 1)
+  shell mkdir -p injection/payloads/wasm-native
+  shell wasm2c ${source} -o injection/payloads/wasm-native/$(basename ${source%.wasm}).c
+  shell gcc -shared -fPIC -O2 injection/payloads/wasm-native/$(basename ${source%.wasm}).c -o injection/payloads/wasm-native/${output:-$(basename ${source%.wasm}).so}
+  shell echo "WASM-to-native payload created: injection/payloads/wasm-native/${output:-$(basename ${source%.wasm}).so}"
+  shell file injection/payloads/wasm-native/${output:-$(basename ${source%.wasm}).so}
+end
+
+# ============================================================================
+# Binary Analysis for Injection
+# ============================================================================
+
+task analyze-injection-target
+  describe Analyze binary for injection opportunities (binary=/path/to/binary)
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell echo "-- Binary Injection Analysis --"
+  shell echo "Target: ${binary}"
+  shell file ${binary}
+  shell echo ""
+  shell echo "Dependencies:"
+  shell ldd ${binary} 2>/dev/null || otool -L ${binary} 2>/dev/null || echo "Dependency analysis not available"
+  shell echo ""
+  shell echo "Symbols (first 20):"
+  shell nm -D ${binary} 2>/dev/null | head -20 || echo "Symbol analysis not available"
+  shell echo ""
+  shell echo "Sections:"
+  shell objdump -h ${binary} 2>/dev/null | grep -E "(\.text|\.data|\.bss|\.plt|\.got)" || echo "Section analysis not available"
+  shell echo ""
+  shell echo "Security features:"
+  shell checksec --file=${binary} 2>/dev/null || echo "checksec not available - install pax-utils or checksec.sh"
+end
+
+task find-injection-points
+  describe Find potential injection points in binary (binary=/path/to/binary)
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell echo "-- Injection Point Analysis --"
+  shell echo "1. Constructor/Destructor sections:"
+  shell objdump -h ${binary} 2>/dev/null | grep -E "(\.init|\.fini|\.ctors|\.dtors)" || echo "No constructor/destructor sections found"
+  shell echo ""
+  shell echo "2. PLT entries (function calls):"
+  shell objdump -d ${binary} 2>/dev/null | grep -E "plt>" | head -10 || echo "No PLT entries found"
+  shell echo ""
+  shell echo "3. GOT entries (global offset table):"
+  shell objdump -R ${binary} 2>/dev/null | head -10 || echo "No GOT entries found"
+  shell echo ""
+  shell echo "4. Dynamic symbols:"
+  shell nm -D ${binary} 2>/dev/null | grep -E "(main|init|fini)" || echo "No relevant dynamic symbols found"
+end
+
+# ============================================================================
+# Static Binary Injection (Binary Patching)
+# ============================================================================
+
+task inject-static-library
+  describe Inject shared library into binary using binary patching (binary=/path/to/binary, payload=/path/to/payload.so)
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell test -n "${payload}" || (echo "Error: payload parameter required" && exit 1)
+  shell test -f "${payload}" || (echo "Error: payload file not found: ${payload}" && exit 1)
+  shell mkdir -p injection/patched
+  shell cp ${binary} injection/patched/$(basename ${binary})_patched
+  shell echo "Patching binary to load ${payload}..."
+  shell python3 tools/injection/patch-binary.py injection/patched/$(basename ${binary})_patched ${payload}
+  shell echo "Patched binary created: injection/patched/$(basename ${binary})_patched"
+  shell file injection/patched/$(basename ${binary})_patched
+end
+
+task inject-constructor
+  describe Inject code via constructor function (binary=/path/to/binary, payload=/path/to/payload.so)
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell test -n "${payload}" || (echo "Error: payload parameter required" && exit 1)
+  shell mkdir -p injection/patched
+  shell cp ${binary} injection/patched/$(basename ${binary})_with_constructor
+  shell echo "Adding constructor injection to binary..."
+  shell python3 tools/injection/add-constructor.py injection/patched/$(basename ${binary})_with_constructor ${payload}
+  shell echo "Constructor-injected binary: injection/patched/$(basename ${binary})_with_constructor"
+end
+
+# ============================================================================
+# Dynamic Injection (Runtime)
+# ============================================================================
+
+task inject-runtime-library
+  describe Inject shared library into running process (pid=process_id, payload=/path/to/payload.so)
+  shell_lang bash
+  shell test -n "${pid}" || (echo "Error: pid parameter required" && exit 1)
+  shell test -n "${payload}" || (echo "Error: payload parameter required" && exit 1)
+  shell test -f "${payload}" || (echo "Error: payload file not found: ${payload}" && exit 1)
+  shell echo "Injecting ${payload} into process ${pid}..."
+  shell python3 tools/injection/runtime-inject.py ${pid} ${payload}
+  shell echo "Runtime injection completed"
+end
+
+task inject-preload
+  describe Use LD_PRELOAD to inject library (binary=/path/to/binary, payload=/path/to/payload.so)
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell test -n "${payload}" || (echo "Error: payload parameter required" && exit 1)
+  shell test -f "${payload}" || (echo "Error: payload file not found: ${payload}" && exit 1)
+  shell echo "Running ${binary} with LD_PRELOAD injection..."
+  shell env LD_PRELOAD=${payload} ${binary} ${args}
+end
+
+# ============================================================================
+# Cross-Platform Injection
+# ============================================================================
+
+task inject-macos-dylib
+  describe Inject dylib into macOS binary (binary=/path/to/binary, payload=/path/to/payload.dylib)
+  shell_lang bash
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell test -n "${payload}" || (echo "Error: payload parameter required" && exit 1)
+  shell mkdir -p injection/patched
+  shell cp ${binary} injection/patched/$(basename ${binary})_injected
+  shell echo "Injecting dylib into macOS binary..."
+  shell install_name_tool -add_rpath @executable_path injection/patched/$(basename ${binary})_injected
+  shell install_name_tool -change /usr/lib/libSystem.B.dylib ${payload} injection/patched/$(basename ${binary})_injected 2>/dev/null || echo "Direct dylib injection may require additional steps"
+  shell echo "macOS injection completed: injection/patched/$(basename ${binary})_injected"
+end
+
+# ============================================================================
+# End-to-End Injection Workflows
+# ============================================================================
+
+task inject-rust-into-binary
+  describe Complete workflow: Rust source → shared library → binary injection (rust_source=path, target_binary=path)
+  shell_lang bash
+  shell test -n "${rust_source}" || (echo "Error: rust_source parameter required" && exit 1)
+  shell test -n "${target_binary}" || (echo "Error: target_binary parameter required" && exit 1)
+  shell echo "-- Complete Rust Injection Workflow --"
+  shell echo "1. Creating Rust payload..."
+  shell pf create-injection-payload-rust source=${rust_source}
+  shell echo "2. Analyzing target binary..."
+  shell pf analyze-injection-target binary=${target_binary}
+  shell echo "3. Performing injection..."
+  shell pf inject-static-library binary=${target_binary} payload=injection/payloads/rust/*.so
+  shell echo "-- Injection workflow complete --"
+end
+
+task inject-c-into-binary
+  describe Complete workflow: C source → shared library → binary injection (c_source=file.c, target_binary=path)
+  shell_lang bash
+  shell test -n "${c_source}" || (echo "Error: c_source parameter required" && exit 1)
+  shell test -n "${target_binary}" || (echo "Error: target_binary parameter required" && exit 1)
+  shell echo "-- Complete C Injection Workflow --"
+  shell echo "1. Creating C payload..."
+  shell pf create-injection-payload-c source=${c_source} output=injected_payload.so
+  shell echo "2. Analyzing target binary..."
+  shell pf analyze-injection-target binary=${target_binary}
+  shell echo "3. Performing injection..."
+  shell pf inject-static-library binary=${target_binary} payload=injection/payloads/c/injected_payload.so
+  shell echo "-- Injection workflow complete --"
+end
+
+task inject-wasm-into-binary
+  describe Complete workflow: WASM → native shared library → binary injection (wasm_source=file.wasm, target_binary=path)
+  shell_lang bash
+  shell test -n "${wasm_source}" || (echo "Error: wasm_source parameter required" && exit 1)
+  shell test -n "${target_binary}" || (echo "Error: target_binary parameter required" && exit 1)
+  shell echo "-- Complete WASM Injection Workflow --"
+  shell echo "1. Converting WASM to native payload..."
+  shell pf create-injection-payload-wasm-native source=${wasm_source} output=wasm_payload.so
+  shell echo "2. Analyzing target binary..."
+  shell pf analyze-injection-target binary=${target_binary}
+  shell echo "3. Performing injection..."
+  shell pf inject-static-library binary=${target_binary} payload=injection/payloads/wasm-native/wasm_payload.so
+  shell echo "-- WASM injection workflow complete --"
+end
+
+# ============================================================================
+# Example Building Tasks
+# ============================================================================
+
+task build-injection-examples
+  describe Build all example injection payloads and target applications
+  shell_lang bash
+  shell cd demos/binary-injection/examples
+  shell echo "Building target application..."
+  shell gcc -o target-app target-app.c
+  shell echo "Building C injection payload..."
+  shell gcc -shared -fPIC simple-payload.c -ldl -o simple-payload.so
+  shell echo "Building Fortran injection payload..."
+  shell gfortran -shared -fPIC fortran-payload.f90 fortran-wrapper.c -o fortran-payload.so
+  shell echo "Building Rust injection payload..."
+  shell cd rust-payload && cargo build --release --target x86_64-unknown-linux-gnu
+  shell cd ..
+  shell cp rust-payload/target/x86_64-unknown-linux-gnu/release/librust_payload.so rust-payload.so 2>/dev/null || echo "Rust payload build may have failed"
+  shell echo "All injection examples built successfully!"
+  shell ls -lh *.so target-app 2>/dev/null || true
+end
+
+task clean-injection-examples
+  describe Clean built injection examples
+  shell_lang bash
+  shell cd demos/binary-injection/examples
+  shell rm -f target-app *.so
+  shell cd rust-payload && cargo clean 2>/dev/null || true
+  shell echo "Cleaned injection examples"
+end
+
+# ============================================================================
+# Testing and Validation
+# ============================================================================
+

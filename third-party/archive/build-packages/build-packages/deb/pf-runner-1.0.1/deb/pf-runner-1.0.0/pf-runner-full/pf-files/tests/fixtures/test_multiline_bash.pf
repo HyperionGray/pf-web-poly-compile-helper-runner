@@ -1,0 +1,40 @@
+# test_multiline_bash.pf - Tests for multiline bash with backslash continuation
+
+task test-simple-continuation
+  describe Test simple backslash continuation
+  shell echo "this is" \
+    "a continued" \
+    "line"
+end
+
+task test-command-continuation
+  describe Test command with backslash continuation
+  shell docker run \
+    --rm \
+    -v /tmp:/data \
+    -e VAR=value \
+    alpine:latest \
+    echo "hello"
+end
+
+task test-env-continuation
+  describe Test environment vars with continuation
+  env CC=gcc CFLAGS="-O2 \
+    -Wall \
+    -Wextra"
+  shell echo $CC $CFLAGS
+end
+
+task test-mixed-lines
+  describe Test mixed regular and continued lines
+  shell echo "first command"
+  shell echo "second" \
+    "continued command"
+  shell echo "third command"
+end
+
+task test-single-backslash
+  describe Test line with single backslash at end
+  shell find /tmp \
+    -name "*.txt"
+end

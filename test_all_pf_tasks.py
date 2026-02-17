@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -149,6 +150,19 @@ def main() -> int:
     parser.add_argument("--timeout", type=int, default=30, help="Per-command timeout seconds (default: 30)")
     parser.add_argument("--skip-help-check", action="store_true", help="Skip `pf help <task>` for all tasks")
     parser.add_argument(
+        "--no-shuffle",
+        dest="shuffle",
+        action="store_false",
+        default=True,
+        help="Disable randomized task order for `pf help` checks",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Seed for task order randomization (default: pseudo-random)",
+    )
+    parser.add_argument(
         "--use-system-pf",
         action="store_true",
         help="Use `pf` from PATH instead of the repo runner (default: prefer repo runner).",
@@ -211,6 +225,11 @@ def main() -> int:
 
     # 4) Help parseability
     if not args.skip_help_check:
+        if args.shuffle:
+            seed = args.seed if args.seed is not None else random.randrange(2**32)
+            rng = random.Random(seed)
+            rng.shuffle(tasks)
+            print(f"\n🔀 Shuffled task order for help checks (seed={seed})")
         print("\n🔍 Running `pf help <task>` for every task...")
         failures = _help_failures(
             pf_cmd=pf_cmd,

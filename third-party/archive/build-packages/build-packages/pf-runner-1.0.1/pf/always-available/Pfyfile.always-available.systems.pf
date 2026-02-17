@@ -1,0 +1,158 @@
+# --
+#  SYSTEM UTILITIES & MONITORING
+# System monitoring, network tools, and package management
+# --
+
+task category-system-help
+  describe Show help for System Utilities & Monitoring category
+  shell echo " SYSTEM UTILITIES & MONITORING CATEGORY"
+  shell echo ""
+  shell echo "System Monitoring:"
+  shell echo "  pf run-rustnet               # Run rustnet network monitor"
+  shell echo "  pf run-sysz                  # Run sysz systemd unit viewer"
+  shell echo ""
+  shell echo "Package Management:"
+  shell echo "  pf pkg-formats               # Show available package formats"
+  shell echo "  pf pkg-matrix                # Show conversion compatibility matrix"
+  shell echo "  pf pkg-help                  # Show package manager tool help"
+  shell echo ""
+  shell echo "Package Conversion (require source files):"
+  shell echo "  pf pkg-convert source=<file> target=<format> # Convert packages"
+  shell echo "  pf pkg-convert-to-deb source=<file>          # Convert to .deb"
+  shell echo "  pf pkg-convert-to-rpm source=<file>          # Convert to .rpm"
+  shell echo ""
+  shell echo "System Information:"
+  shell echo "  pf debug-check-podman        # Show podman visibility from container"
+  shell echo ""
+  shell echo "Note: Some package conversion tasks require source package files"
+end
+
+# System Monitoring Tools
+task run-rustnet
+  describe Run rustnet network monitor
+  shell echo " Running rustnet..."
+  shell rustnet
+end
+
+task run-sysz
+  describe Run sysz systemd unit viewer
+  shell echo "  Running sysz..."
+  shell sysz
+end
+
+# Package Management Help
+task pkg-help
+  describe Show package manager tool help
+  shell_lang bash
+  shell node tools/package-manager.mjs --help
+end
+
+# System Information
+task debug-check-podman
+  describe Show podman visibility from inside pf container
+  shell command -v podman || echo "podman not in PATH"
+  shell ls -l /usr/bin/podman || true
+  shell env | grep -E 'XDG_RUNTIME_DIR|CONTAINER_HOST' || true
+end
+
+# --
+#  DEVELOPMENT TOOLS & BUILD SYSTEMS
+# Development servers, build tools, and compilation utilities
+# --
+
+task category-development-help
+  describe Show help for Development Tools & Build Systems category
+  shell echo " DEVELOPMENT TOOLS & BUILD SYSTEMS CATEGORY"
+  shell echo ""
+  shell echo "Development Servers:"
+  shell echo "  pf web-dev dir=<path> port=8080      # Start development server with REST API"
+  shell echo "  pf web-dev-static dir=<path> port=8080 # Start basic static file server"
+  shell echo "  pf api-server dir=<path> port=8080   # Start REST API server"
+  shell echo ""
+  shell echo "Build Tools (WebAssembly):"
+  shell echo "  pf web-build-all-wasm                # Build all languages to WebAssembly"
+  shell echo "  pf web-build-all-asm                 # Build all languages to asm.js"
+  shell echo "  pf web-build-all-llvm                # Build all languages to LLVM IR"
+  shell echo ""
+  shell echo "Testing:"
+  shell echo "  pf web-test                          # Run Playwright tests"
+  shell echo ""
+  shell echo "Sync & Deployment:"
+  shell echo "  pf sync-demo                         # Demo of sync command with rsync"
+  shell echo ""
+  shell echo "Note: Most build tasks require specific project directories"
+  shell echo "      Listed here are the general development utilities"
+end
+
+# Development Servers
+task web-dev
+  describe Start development server with REST API support
+  shell_lang bash
+  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+end
+
+task web-dev-static
+  describe Start basic static file server (legacy)
+  shell_lang bash
+  shell node tools/static-server.mjs ${dir:-web} ${port:-8080}
+end
+
+task api-server
+  describe Start REST API server
+  shell_lang bash
+  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+end
+
+# Build Tools
+task web-build-all-wasm
+  describe Build all languages to WebAssembly
+  shell pf web-build-rust-wasm
+  shell pf web-build-c-wasm
+  shell pf web-build-fortran-wasm
+  shell pf web-build-wat-wasm
+end
+
+task web-build-all-asm
+  describe Build all languages to asm.js where supported
+  shell pf web-build-c-asm
+end
+
+task web-build-all-llvm
+  describe Build all languages to LLVM IR where supported (with O3 by default, use opt_level= and parallel=true as needed)
+  shell pf web-build-rust-llvm opt_level=${opt_level:-3}
+  shell pf web-build-c-llvm opt_level=${opt_level:-3} parallel=${parallel:-false}
+  shell pf web-build-fortran-llvm opt_level=${opt_level:-3} parallel=${parallel:-false}
+end
+
+# Testing
+task web-test
+  describe Run Playwright tests
+  shell npx playwright test --reporter=list
+end
+
+# Sync and Deployment
+task sync-demo
+  describe Demo of sync command - sync files with rsync
+  shell echo "Sync command examples:"
+  shell echo "  Local:  sync src=/path/src/ dest=/path/dest/ verbose"
+  shell echo "  Remote: sync src=/local/ dest=/remote/ host=server.com user=deploy port=22"
+  shell echo "  Excludes: sync src=./ dest=/backup/ excludes=[\"*.log\",\"*.tmp\"] delete dry"
+  shell echo "  From file: sync src=./ dest=/backup/ exclude_file=.rsync-exclude"
+  shell echo "See pf-runner/SYNC.md for full documentation"
+end
+task smart-verify-tools
+  describe Verify all tools are working correctly
+  shell echo " Verifying installed tools..."
+  shell echo ""
+  shell echo "Checking Python..."
+  shell python3 --version || echo "[ERR] Python 3 not found"
+  shell echo ""
+  shell echo "Checking Node.js..."
+  shell node --version || echo "[ERR] Node.js not found"
+  shell echo ""
+  shell echo "Checking pf installation..."
+  shell command -v pf >/dev/null 2>&1 && echo "OK pf installed" || echo "[ERR] pf not found in PATH"
+  shell echo ""
+  shell echo "Run 'pf check-debug-tools' for detailed tool status"
+end
+

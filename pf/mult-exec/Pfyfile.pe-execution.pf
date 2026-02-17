@@ -1,0 +1,3 @@
+# PE execution tasks aggregator
+include Pfyfile.pe-execution.core.pf
+include Pfyfile.pe-execution.advanced.pf

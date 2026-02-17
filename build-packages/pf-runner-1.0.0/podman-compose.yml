@@ -1,0 +1,282 @@
+# Podman Compose file for pf-web-poly-compile-helper-runner
+# Use: podman-compose up -d
+# With GPU: podman-compose --profile gpu up -d
+
+version: "3.9"
+
+networks:
+  pf-web:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.89.0.0/24
+          gateway: 10.89.0.1
+
+volumes:
+  pf-wasm-output:
+    driver: local
+  pf-project-src:
+    driver: local
+
+# Base service template (YAML anchor)
+x-base-service: &base-service
+  restart: unless-stopped
+  networks:
+    - pf-web
+  security_opt:
+    - no-new-privileges:true
+
+# Build service template (YAML anchor)
+x-build-service: &build-service
+  <<: *base-service
+  restart: "no"
+  volumes:
+    - pf-wasm-output:/app/output:rw
+    - ./:/app/src:ro
+
+services:
+  # ==========================================
+  # API Services Pod
+  # ==========================================
+
+  pf-runner:
+    <<: *base-service
+    build:
+      context: .
+      dockerfile: containers/dockerfiles/Dockerfile.pf-runner
+    image: localhost/pf-runner:latest
+    container_name: pf-runner
+    hostname: pf-runner
+    environment:
+      - PFY_FILE=/app/Pfyfile.pf
+      - TERM=xterm-256color
+    volumes:
+      - pf-project-src:/app/src:ro
+      - pf-wasm-output:/app/output:rw
+      - ./Pfyfile.pf:/app/Pfyfile.pf:ro
+      - ./pf-runner:/app/pf-runner:ro
+    command: sleep infinity
+    healthcheck:
+      test: ["CMD", "pf", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    mem_limit: 1g
+
+  api-server:
+    <<: *base-service
+    build:
+      context: .
+      dockerfile: containers/dockerfiles/Dockerfile.api-server
+    image: localhost/pf-api-server:latest
+    container_name: pf-api-server
+    hostname: api-server
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+    volumes:
+      - pf-wasm-output:/app/demos/pf-web-polyglot-demo-plus-c/web/wasm:ro
+      - ./demos:/app/demos:ro
+      - ./tools:/app/tools:ro
+      - ./pf-runner:/app/pf-runner:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    mem_limit: 2g
+    depends_on:
+      pf-runner:
+        condition: service_healthy
+
+  # ==========================================
+  # Build Services Pod
+  # ==========================================
+
+  build-rust:
+    <<: *build-service
+    build:
+      context: .
+      dockerfile: containers/dockerfiles/Dockerfile.build-rust
+    image: localhost/pf-build-rust:latest
+    container_name: pf-build-rust
+    hostname: build-rust
+    user: root
+    environment:
+      - CARGO_HOME=/home/pfuser/.cargo
+      - RUSTUP_HOME=/home/pfuser/.rustup
+      - CARGO_TARGET_DIR=/app/output/rust-target
+    volumes:
+      - pf-wasm-output:/app/output:rw
+      - ./demos/pf-web-polyglot-demo-plus-c/rust:/app/rust-src:ro
+    command: >
+      /bin/bash -c "
+        cp -r /app/rust-src /app/rust &&
+        chown -R pfuser:pfuser /app/rust /app/output &&
+        su pfuser -c 'wasm-pack build --target web --out-dir /app/output/wasm/rust/pkg --out-name rust_demo /app/rust' &&
+        echo 'Rust build complete!'
+      "
+    mem_limit: 4g
+
+  build-c:
+    <<: *build-service
+    build:
+      context: .
+      dockerfile: containers/dockerfiles/Dockerfile.build-c
+    image: localhost/pf-build-c:latest
+    container_name: pf-build-c
+    hostname: build-c
+    user: root
+    environment:
+      - EMSDK=/opt/emsdk
+    volumes:
+      - pf-wasm-output:/app/output:rw
+      - ./demos/pf-web-polyglot-demo-plus-c/c:/app/c-src:ro
+    command: >
+      /bin/bash -c "
+        cp -r /app/c-src /app/c &&
+        chown -R pfuser:pfuser /app/c /app/output &&
+        source /opt/emsdk/emsdk_env.sh &&
+        mkdir -p /app/output/wasm/c &&
+        su pfuser -c 'source /opt/emsdk/emsdk_env.sh && emcc /app/c/c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o /app/output/wasm/c/c_trap.js' &&
+        echo 'C build complete!'
+      "
+    mem_limit: 4g
+
+  build-fortran:
+    <<: *build-service
+    build:
+      context: .
+      dockerfile: containers/dockerfiles/Dockerfile.build-fortran
+    image: localhost/pf-build-fortran:latest
+    container_name: pf-build-fortran
+    hostname: build-fortran
+    user: root
+    volumes:
+      - pf-wasm-output:/app/output:rw
+      - ./demos/pf-web-polyglot-demo-plus-c/fortran:/app/fortran-src:ro
+    command: >
+      /bin/bash -c "
+        cp -r /app/fortran-src /app/fortran &&
+        chown -R pfuser:pfuser /app/fortran /app/output &&
+        mkdir -p /app/output/wasm/fortran &&
+        su pfuser -c 'lfortran /app/fortran/src/hello.f90 -o /app/output/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown' 2>/dev/null ||
+        echo 'Fortran build skipped (lfortran WASM target may not be available)'
+      "
+    mem_limit: 2g
+
+  build-wat:
+    <<: *build-service
+    build:
+      context: .
+      dockerfile: containers/dockerfiles/Dockerfile.base
+    image: localhost/pf-base:latest
+    container_name: pf-build-wat
+    hostname: build-wat
+    user: root
+    volumes:
+      - pf-wasm-output:/app/output:rw
+      - ./demos/pf-web-polyglot-demo-plus-c/asm:/app/asm:ro
+    command: >
+      /bin/bash -c "
+        apt-get update && apt-get install -y -qq wabt &&
+        mkdir -p /app/output/wasm/asm &&
+        chown -R pfuser:pfuser /app/output &&
+        wat2wasm /app/asm/mini.wat -o /app/output/wasm/asm/mini.wasm &&
+        echo 'WAT build complete!'
+      "
+    mem_limit: 512m
+
+  # ==========================================
+  # Debugging Services Pod
+  # ==========================================
+
+  debugger:
+    <<: *base-service
+    build:
+      context: .
+      dockerfile: containers/dockerfiles/Dockerfile.debugger
+    image: localhost/pf-debugger:latest
+    container_name: pf-debugger
+    hostname: debugger
+    environment:
+      - TERM=xterm-256color
+    volumes:
+      - pf-project-src:/app/src:rw
+      - pf-wasm-output:/app/output:rw
+      - ./demos:/app/demos:rw
+      - ./tools/debugging:/app/tools/debugging:ro
+    # Debugging needs elevated privileges for ptrace
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    command: sleep infinity
+    mem_limit: 8g
+    stdin_open: true
+    tty: true
+
+  # GPU-enabled debugger (only started with --profile gpu)
+  debugger-gpu:
+    <<: *base-service
+    profiles:
+      - gpu
+    build:
+      context: .
+      dockerfile: containers/dockerfiles/Dockerfile.debugger-gpu
+    image: localhost/pf-debugger-gpu:latest
+    container_name: pf-debugger-gpu
+    hostname: debugger-gpu
+    environment:
+      - TERM=xterm-256color
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      - pf-project-src:/app/src:rw
+      - pf-wasm-output:/app/output:rw
+      - ./demos:/app/demos:rw
+      - ./tools/debugging:/app/tools/debugging:ro
+    # GPU passthrough requires nvidia-container-toolkit
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    command: sleep infinity
+    mem_limit: 16g
+    stdin_open: true
+    tty: true
+
+  # ==========================================
+  # Utility Services
+  # ==========================================
+
+  # Build all WASM targets in sequence
+  build-all:
+    <<: *build-service
+    build:
+      context: .
+      dockerfile: containers/dockerfiles/Dockerfile.base
+    image: localhost/pf-base:latest
+    container_name: pf-build-all
+    hostname: build-all
+    command: >
+      /bin/bash -c "
+        echo 'Build all WASM targets - run individual build containers instead'
+        echo 'Use: podman-compose up build-rust build-c build-fortran build-wat'
+      "
+    depends_on:
+      - build-rust
+      - build-c
+      - build-fortran
+      - build-wat

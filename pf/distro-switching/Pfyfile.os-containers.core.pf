@@ -1,0 +1,202 @@
+# OS Container Management Tasks
+# Container-based package management with lightweight OS distributions
+# Provides CentOS, Fedora, Arch, openSUSE, and macOS-like environments
+
+# ==========================================
+# OS Container Build Tasks
+# ==========================================
+
+task os-build-all
+  describe Build all OS distribution containers
+  shell_lang bash
+  shell ../../containers/scripts/build-containers.sh os
+end
+
+task os-build-centos
+  describe Build CentOS Stream 9 container
+  shell_lang bash
+  shell podman build -t localhost/pf-os-centos:latest -f containers/dockerfiles/Dockerfile.os-centos .
+end
+
+task os-build-fedora
+  describe Build Fedora 39 container
+  shell_lang bash
+  shell podman build -t localhost/pf-os-fedora:latest -f containers/dockerfiles/Dockerfile.os-fedora .
+end
+
+task os-build-arch
+  describe Build Arch Linux container
+  shell_lang bash
+  shell podman build -t localhost/pf-os-arch:latest -f containers/dockerfiles/Dockerfile.os-arch .
+end
+
+task os-build-opensuse
+  describe Build openSUSE Tumbleweed container
+  shell_lang bash
+  shell podman build -t localhost/pf-os-opensuse:latest -f containers/dockerfiles/Dockerfile.os-opensuse .
+end
+
+task os-build-macos-like
+  describe Build macOS-like container with Homebrew
+  shell_lang bash
+  shell podman build -t localhost/pf-os-macos-like:latest -f containers/dockerfiles/Dockerfile.os-macos-like .
+end
+
+# ==========================================
+# OS Environment Setup Tasks
+# ==========================================
+
+task os-setup-volumes
+  describe Create shared volumes for OS container artifacts
+  shell_lang bash
+  shell |
+    echo "Creating OS artifact directories..."
+    sudo mkdir -p /opt/pf-os/{centos,fedora,arch,opensuse,macos-like}/{bin,lib,share,etc}
+    sudo chown -R $USER:$USER /opt/pf-os
+    echo "Created artifact directories in /opt/pf-os/"
+    ls -la /opt/pf-os/
+end
+
+task os-setup-environment
+  describe Set up OS container environment and PATH management
+  shell_lang bash
+  shell bash ../../scripts/os/os-setup-environment.sh
+end
+
+# ==========================================
+# Package Installation Tasks
+# ==========================================
+
+task os-install-package os="" package=""
+  describe Install package in specified OS container and extract artifacts
+  shell_lang bash
+  shell |
+    if [ -z "${os}" ] || [ -z "${package}" ]; then
+        echo "Usage: pf os-install-package os=<centos|fedora|arch|opensuse|macos-like> package=<package-name>"
+        exit 1
+    fi
+    
+    echo "Installing ${package} in ${os} container..."
+    
+    # Run container with volume mounts
+    podman run --rm -it \
+        --volume /opt/pf-os/${os}:/artifacts:rshared \
+        --volume $(pwd):/workspace:ro \
+        localhost/pf-os-${os}:latest \
+        pf-install-package "${package}"
+    
+    echo "Package ${package} installed and artifacts available in /opt/pf-os/${os}/"
+end
+
+task os-search-package os="" query=""
+  describe Search for packages in specified OS container
+  shell_lang bash
+  shell |
+    if [ -z "${os}" ] || [ -z "${query}" ]; then
+        echo "Usage: pf os-search-package os=<centos|fedora|arch|opensuse|macos-like> query=<search-term>"
+        exit 1
+    fi
+    
+    echo "Searching for '${query}' in ${os} container..."
+    
+    podman run --rm -it \
+        localhost/pf-os-${os}:latest \
+        pf-search-package "${query}"
+end
+
+task os-package-info os="" package=""
+  describe Get package information from specified OS container
+  shell_lang bash
+  shell |
+    if [ -z "${os}" ] || [ -z "${package}" ]; then
+        echo "Usage: pf os-package-info os=<centos|fedora|arch|opensuse|macos-like> package=<package-name>"
+        exit 1
+    fi
+    
+    echo "Getting info for ${package} in ${os} container..."
+    
+    podman run --rm -it \
+        localhost/pf-os-${os}:latest \
+        pf-package-info "${package}"
+end
+
+# ==========================================
+# OS Environment Switching Tasks
+# ==========================================
+
+task os-switch os=""
+  describe Switch to specified OS environment (updates PATH)
+  shell_lang bash
+  shell |
+    if [ -z "${os}" ]; then
+        echo "Usage: pf os-switch os=<centos|fedora|arch|opensuse|macos-like>"
+        echo "Available OS environments:"
+        ls -1 /opt/pf-os/ 2>/dev/null || echo "No OS environments set up. Run: pf os-setup-volumes"
+        exit 1
+    fi
+    
+    if [ ! -d "/opt/pf-os/${os}" ]; then
+        echo "OS environment '${os}' not found. Available:"
+        ls -1 /opt/pf-os/ 2>/dev/null || echo "None (run: pf os-setup-volumes)"
+        exit 1
+    fi
+    
+    echo "Switching to ${os} environment..."
+    echo "Run: pf-os-env ${os}"
+    echo "Or add to your shell: export PATH=\"/opt/pf-os/${os}/bin:\$PATH\""
+end
+
+task os-current
+  describe Show current OS environment
+  shell_lang bash
+  shell |
+    if [ -n "${PF_CURRENT_OS:-}" ]; then
+        echo "Current OS environment: ${PF_CURRENT_OS}"
+    else
+        echo "No OS environment active"
+        echo "Available environments:"
+        ls -1 /opt/pf-os/ 2>/dev/null || echo "None (run: pf os-setup-volumes)"
+    fi
+end
+
+task os-list-artifacts os=""
+  describe List artifacts available in OS environment
+  shell_lang bash
+  shell |
+    if [ -z "${os}" ]; then
+        echo "Usage: pf os-list-artifacts os=<centos|fedora|arch|opensuse|macos-like>"
+        exit 1
+    fi
+    
+    if [ ! -d "/opt/pf-os/${os}" ]; then
+        echo "OS environment '${os}' not found"
+        exit 1
+    fi
+    
+    echo "=== Binaries in ${os} ===" 
+    ls -la /opt/pf-os/${os}/bin/ 2>/dev/null || echo "No binaries"
+    
+    echo -e "\n=== Libraries in ${os} ==="
+    ls -la /opt/pf-os/${os}/lib/ 2>/dev/null || echo "No libraries"
+end
+
+# ==========================================
+# Container Management Tasks
+# ==========================================
+
+task os-shell os=""
+  describe Open interactive shell in OS container
+  shell_lang bash
+  shell |
+    if [ -z "${os}" ]; then
+        echo "Usage: pf os-shell os=<centos|fedora|arch|opensuse|macos-like>"
+        exit 1
+    fi
+    
+    echo "Opening shell in ${os} container..."
+    podman run --rm -it \
+        --volume /opt/pf-os/${os}:/artifacts:rshared \
+        --volume $(pwd):/workspace \
+        localhost/pf-os-${os}:latest \
+        /bin/bash
+end

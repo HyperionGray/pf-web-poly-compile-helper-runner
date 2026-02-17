@@ -1,0 +1,3 @@
+# OS switching tasks aggregator
+include Pfyfile.os-switching.core.pf
+include Pfyfile.os-switching.danger.pf

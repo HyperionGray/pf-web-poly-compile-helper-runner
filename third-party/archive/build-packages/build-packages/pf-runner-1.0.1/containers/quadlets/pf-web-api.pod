@@ -1,0 +1,17 @@
+# Podman Pod definition for pf-web API services
+# This pod groups the API server and related services
+[Unit]
+Description=pf-web API Services Pod
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+
+[Pod]
+PodName=pf-web-api
+PublishPort=8080:8080
+Network=pf-web.network
+
+# Resource limits for the entire pod
+CPUWeight=100
+MemoryMax=4G
+
+[Install]
+WantedBy=default.target

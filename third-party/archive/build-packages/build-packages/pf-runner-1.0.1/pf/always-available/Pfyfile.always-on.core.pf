@@ -1,0 +1,220 @@
+# Pfyfile.always-on.pf - Always-On Task Management
+# 
+# This file provides tasks for managing always-on services that should be
+# continuously available during development and production workflows.
+#
+# Always-on services include:
+#   - Security monitoring and scanning
+#   - Build watching and auto-compilation
+#   - Container health monitoring
+#   - Development proxy services
+#   - Log aggregation
+#   - File system watching
+#
+# Usage:
+#   pf always-on-status     - Show status of all always-on services
+#   pf always-on-start-all  - Start all always-on services
+#   pf always-on-stop-all   - Stop all always-on services
+#   pf security-monitor-on  - Start security monitoring service
+#   pf build-watch-on       - Start build watching service
+#   pf container-health-on  - Start container health monitoring
+#   pf dev-proxy-on         - Start development proxy service
+#   pf log-aggregator-on    - Start log aggregation service
+#   pf file-watch-on        - Start file watching service
+
+# ---------------------------------------------------------------------------==
+# Always-On Service Registry and Management
+# ---------------------------------------------------------------------------==
+
+task always-on-status [alias=aos]
+  describe Show status of all always-on services
+  shell_lang bash
+  shell echo "--- Always-On Services Status ---"; \
+        echo ""; \
+        services=("pf-rest-api@$USER" "pf-security-monitor@$USER" "pf-build-watch@$USER" "pf-container-health@$USER" "pf-dev-proxy@$USER" "pf-log-aggregator@$USER" "pf-file-watch@$USER"); \
+        for service in "${services[@]}"; do \
+          if command -v systemctl >/dev/null 2>&1; then \
+            status=$(systemctl is-active "$service" 2>/dev/null || echo "inactive"); \
+            enabled=$(systemctl is-enabled "$service" 2>/dev/null || echo "disabled"); \
+            printf "%-25s: %s (%s)\n" "$service" "$status" "$enabled"; \
+          else \
+            echo "$service: systemd not available"; \
+          fi; \
+        done; \
+        echo ""; \
+        echo "Use 'pf always-on-start-all' to start all services"; \
+        echo "Use 'pf always-on-stop-all' to stop all services"
+end
+
+task always-on-start-all [alias=aosa]
+  describe Start all always-on services
+  shell_lang bash
+  shell <<'EOF'
+echo "Starting all always-on services..."
+if ! command -v systemctl >/dev/null 2>&1; then
+  echo "systemd not available. Cannot start services."
+  exit 1
+fi
+services=("pf-rest-api@$USER" "pf-security-monitor@$USER" "pf-build-watch@$USER" "pf-container-health@$USER" "pf-dev-proxy@$USER" "pf-log-aggregator@$USER" "pf-file-watch@$USER")
+for service in "${services[@]}"; do
+  echo "Starting $service..."
+  if systemctl --user enable --now "$service" 2>/dev/null; then
+    echo "  OK $service started"
+  else
+    echo "  NO Failed to start $service (may not be installed)"
+  fi
+done
+echo ""
+echo "Use 'pf always-on-status' to check service status"
+EOF
+end
+
+task always-on-stop-all [alias=aosa]
+  describe Stop all always-on services
+  shell_lang bash
+  shell <<'EOF'
+echo "Stopping all always-on services..."
+if ! command -v systemctl >/dev/null 2>&1; then
+  echo "systemd not available. Cannot stop services."
+  exit 1
+fi
+services=("pf-rest-api@$USER" "pf-security-monitor@$USER" "pf-build-watch@$USER" "pf-container-health@$USER" "pf-dev-proxy@$USER" "pf-log-aggregator@$USER" "pf-file-watch@$USER")
+for service in "${services[@]}"; do
+  echo "Stopping $service..."
+  if systemctl --user disable --now "$service" 2>/dev/null; then
+    echo "  OK $service stopped"
+  else
+    echo "  NO Failed to stop $service (may not be running)"
+  fi
+done
+echo ""
+echo "All always-on services stopped"
+EOF
+end
+
+task always-on-restart-all [alias=aora]
+  describe Restart all always-on services
+  shell_lang bash
+  shell echo "Restarting all always-on services..."; \
+        pf always-on-stop-all; \
+        sleep 2; \
+        pf always-on-start-all
+end
+
+task always-on-install-all [alias=aoia]
+  describe Install all always-on service units
+  shell_lang bash
+  shell <<'EOF'
+echo "Installing always-on service units..."
+PF_RUNNER_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || PF_RUNNER_DIR="$(pwd)/pf-runner"
+services=("pf-security-monitor@.service" "pf-build-watch@.service" "pf-container-health@.service" "pf-dev-proxy@.service" "pf-log-aggregator@.service" "pf-file-watch@.service")
+for service in "${services[@]}"; do
+  if [ -f "$PF_RUNNER_DIR/$service" ]; then
+    echo "Installing $service..."
+    sudo cp "$PF_RUNNER_DIR/$service" /etc/systemd/system/ && echo "  OK $service installed"
+  else
+    echo "  NO $service not found in $PF_RUNNER_DIR"
+  fi
+done
+sudo systemctl daemon-reload
+echo ""
+echo "Service units installed. Use 'pf always-on-start-all' to start services."
+EOF
+end
+
+# ---------------------------------------------------------------------------==
+# Security Monitor Service
+# ---------------------------------------------------------------------------==
+
+task security-monitor-on [alias=smon]
+  describe Start security monitoring service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl enable --now pf-security-monitor@$USER.service && \
+          echo "Security monitor started. Monitoring for vulnerabilities..."; \
+        else \
+          echo "systemd not available. Use 'pf security-monitor-dev' for foreground mode."; \
+          exit 1; \
+        fi
+end
+
+task security-monitor-off [alias=smoff]
+  describe Stop security monitoring service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl disable --now pf-security-monitor@$USER.service && \
+          echo "Security monitor stopped."; \
+        else \
+          echo "systemd not available."; \
+          exit 1; \
+        fi
+end
+
+task security-monitor-dev [alias=smdev]
+  describe Start security monitor in development mode (foreground)
+  shell_lang bash
+  shell echo "Starting security monitor in development mode..."; \
+        echo "Monitoring for security issues every 30 seconds..."; \
+        while true; do \
+          echo "[$(date)] Running security scan..."; \
+          pf security-scan url=http://localhost:8080 >/dev/null 2>&1 || echo "  No web service to scan"; \
+          echo "[$(date)] Security scan complete"; \
+          sleep 30; \
+        done
+end
+
+# ---------------------------------------------------------------------------==
+# Build Watch Service
+# ---------------------------------------------------------------------------==
+
+task build-watch-on [alias=bwon]
+  describe Start build watching service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl enable --now pf-build-watch@$USER.service && \
+          echo "Build watcher started. Monitoring for file changes..."; \
+        else \
+          echo "systemd not available. Use 'pf build-watch-dev' for foreground mode."; \
+          exit 1; \
+        fi
+end
+
+task build-watch-off [alias=bwoff]
+  describe Stop build watching service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl disable --now pf-build-watch@$USER.service && \
+          echo "Build watcher stopped."; \
+        else \
+          echo "systemd not available."; \
+          exit 1; \
+        fi
+end
+
+task build-watch-dev [alias=bwdev]
+  describe Start build watcher in development mode (foreground)
+  shell_lang bash
+  shell <<'EOF'
+echo "Starting build watcher in development mode..."
+if command -v inotifywait >/dev/null 2>&1; then
+  echo "Watching for changes in current directory..."
+  while inotifywait -r -e modify,create,delete --exclude '\.git|node_modules|target|build' . 2>/dev/null; do
+    echo "[$(date)] File change detected, triggering build..."
+    pf autobuild >/dev/null 2>&1 && echo "  OK Build successful" || echo "  NO Build failed"
+  done
+else
+  echo "inotifywait not available. Install inotify-tools package."
+  echo "Falling back to polling mode..."
+  while true; do
+    echo "[$(date)] Checking for changes..."
+    pf autobuild >/dev/null 2>&1 && echo "  OK Build check complete" || echo "  NO Build issues detected"
+    sleep 10
+  done
+fi
+EOF
+end
+
+# ---------------------------------------------------------------------------==
+# Container Health Monitor Service
+# ---------------------------------------------------------------------------==
+

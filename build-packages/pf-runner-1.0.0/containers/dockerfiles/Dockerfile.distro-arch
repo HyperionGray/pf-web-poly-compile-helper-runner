@@ -1,0 +1,34 @@
+# Lightweight Arch Linux container for package management
+# Used for installing and extracting Pacman packages
+FROM docker.io/library/archlinux:latest
+
+LABEL maintainer="pf-web-poly-compile-helper-runner"
+LABEL description="Lightweight Arch Linux container for Pacman package management"
+LABEL pf.distro="arch"
+LABEL pf.package-manager="pacman"
+
+# Initialize pacman keyring and install minimal tools
+RUN pacman-key --init && \
+    pacman-key --populate archlinux && \
+    pacman -Sy --noconfirm && \
+    pacman -S --noconfirm --needed \
+    base-devel \
+    findutils \
+    which \
+    && pacman -Scc --noconfirm
+
+# Create output directories for extracted binaries
+RUN mkdir -p /output/bin /output/lib /output/share /output/etc
+
+# Create non-root user
+RUN useradd -m -s /bin/bash pfuser && \
+    chown -R pfuser:pfuser /output
+
+# Script to extract installed package files
+COPY containers/scripts/distro-extract.sh /usr/local/bin/distro-extract
+RUN chmod +x /usr/local/bin/distro-extract
+
+USER pfuser
+WORKDIR /home/pfuser
+
+CMD ["/bin/bash"]
