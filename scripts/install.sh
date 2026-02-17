@@ -1,756 +1,256 @@
 #!/usr/bin/env bash
-# install.sh - Cohesive installer for pf-runner (package-first with container and native fallback)
-# Usage: ./install.sh [--mode package|container|native] [--runtime podman|docker] [--image NAME] [--prefix PATH] [--skip-deps] [--skip-build] [--no-wrapper] [--help]
+# Native-only installer for pf-runner and bundled tasks (container paths deprecated).
 
 set -euo pipefail
 
-# Configuration
-DEFAULT_PREFIX_NATIVE="/usr/local"
-DEFAULT_PREFIX_USER="${HOME:-/usr/local}/.local"
-DEFAULT_PREFIX_CONTAINER="${HOME:-/usr/local}/.local"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PF_RUNNER_DIR="${SCRIPT_DIR}/pf-runner"
-BASE_IMAGE_DEFAULT="localhost/pf-base:latest"
-RUNNER_IMAGE_DEFAULT="localhost/pf-runner:latest"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_PREFIX_ROOT="/usr/local"
+DEFAULT_PREFIX_USER="${HOME}/.local"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# ------------- logging -------------
+if [[ -t 1 ]]; then
+  RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[1;33m'; BLUE=$'\033[0;34m'; NC=$'\033[0m'
+else
+  RED=''; GREEN=''; YELLOW=''; BLUE=''; NC=''
+fi
+log()   { printf '%b\n' "${BLUE}[INFO]${NC} $*"; }
+warn()  { printf '%b\n' "${YELLOW}[WARN]${NC} $*" >&2; }
+error() { printf '%b\n' "${RED}[ERROR]${NC} $*" >&2; }
+die()   { error "$*"; exit 1; }
 
-# Parse command line arguments
-MODE="package"  # Default to package mode
+command_exists() { command -v "$1" >/dev/null 2>&1; }
+
+run_as_root() {
+  if [[ "$(id -u 2>/dev/null || echo 1)" -eq 0 ]]; then
+    "$@"
+  elif command_exists sudo; then
+    sudo "$@"
+  else
+    die "This step requires root privileges: $*"
+  fi
+}
+
+usage() {
+  cat <<'USAGE'
+pf-runner native installer (containers deprecated)
+
+Usage: ./install.sh [--prefix PATH] [--skip-deps] [--help]
+
+Options:
+  --prefix PATH   Install prefix (/usr/local for root, ~/.local otherwise)
+  --skip-deps     Skip OS package installation (python3/pip/rsync/build tools)
+  --help, -h      Show this help message
+USAGE
+}
+
 PREFIX=""
-PREFIX_SET=false
 SKIP_DEPS=false
-SHOW_HELP=false
-CONTAINER_RT="podman"
-CONTAINER_RT_SET=false
-CONTAINER_IMAGE="${RUNNER_IMAGE_DEFAULT}"
-SKIP_BUILD=false
-NO_WRAPPER=false
-BUILD_ONLY=false
-PACKAGE_FORMATS=()
-FORCE_BUILD_PACKAGES=false
+PF_FILES_DIR=""
 
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --mode)
-            MODE="$2"
-            shift 2
-            ;;
-        --mode=*)
-            MODE="${1#*=}"
-            shift
-            ;;
-        --package)
-            MODE="package"
-            shift
-            ;;
-        --container)
-            MODE="container"
-            shift
-            ;;
-        --native|--host)
-            MODE="native"
-            shift
-            ;;
-        --package-formats)
-            IFS=',' read -ra PACKAGE_FORMATS <<< "$2"
-            shift 2
-            ;;
-        --package-formats=*)
-            IFS=',' read -ra PACKAGE_FORMATS <<< "${1#*=}"
-            shift
-            ;;
-        --force-build-packages)
-            FORCE_BUILD_PACKAGES=true
-            shift
-            ;;
-        --prefix)
-            PREFIX="$2"
-            PREFIX_SET=true
-            shift 2
-            ;;
-        --prefix=*)
-            PREFIX="${1#*=}"
-            PREFIX_SET=true
-            shift
-            ;;
-        --runtime)
-            CONTAINER_RT="$2"
-            CONTAINER_RT_SET=true
-            MODE="container"
-            shift 2
-            ;;
-        --runtime=*)
-            CONTAINER_RT="${1#*=}"
-            CONTAINER_RT_SET=true
-            MODE="container"
-            shift
-            ;;
-        --image)
-            CONTAINER_IMAGE="$2"
-            MODE="container"
-            shift 2
-            ;;
-        --image=*)
-            CONTAINER_IMAGE="${1#*=}"
-            MODE="container"
-            shift
-            ;;
-        --skip-deps)
-            SKIP_DEPS=true
-            shift
-            ;;
-        --skip-build)
-            SKIP_BUILD=true
-            MODE="container"
-            shift
-            ;;
-        --build-only)
-            BUILD_ONLY=true
-            NO_WRAPPER=true
-            MODE="container"
-            shift
-            ;;
-        --no-wrapper)
-            NO_WRAPPER=true
-            MODE="container"
-            shift
-            ;;
-        --help|-h)
-            SHOW_HELP=true
-            shift
-            ;;
-        *)
-            echo -e "${RED}Error: Unknown option $1${NC}" >&2
-            SHOW_HELP=true
-            shift
-            ;;
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --prefix) PREFIX="$2"; shift 2 ;;
+      --prefix=*) PREFIX="${1#*=}"; shift ;;
+      --skip-deps) SKIP_DEPS=true; shift ;;
+      --help|-h) usage; exit 0 ;;
+      --mode|--mode=*) warn "Container/package modes deprecated; proceeding with native install"; [[ "$1" == --mode ]] && shift 2 || shift ;;
+      --container|--runtime|--image) warn "Container install flags are deprecated; ignoring $1"; shift 2 ;;
+      --container=*|--runtime=*|--image=*) warn "Container install flags are deprecated; ignoring $1"; shift ;;
+      *) warn "Ignoring unknown option: $1"; shift ;;
     esac
-done
-
-# Help function
-show_help() {
-    cat << EOF
-pf-runner Installation Script (Package-first)
-
-USAGE:
-    ./install.sh [OPTIONS]
-
-OPTIONS:
-    --mode MODE       Install mode: package (default), container, or native
-    --package         Alias for --mode package
-    --container       Alias for --mode container
-    --native          Alias for --mode native
-
-    --package-formats FORMATS  Comma-separated list of package formats to try (deb,rpm,arch)
-    --force-build-packages     Force building packages even if system packages exist
-
-    --runtime RUNTIME Container runtime (podman|docker). Implies container mode
-    --image IMAGE     pf-runner image name:tag (default: ${RUNNER_IMAGE_DEFAULT})
-    --skip-build      Skip container image build (assumes images exist)
-    --build-only      Build container images only (skip wrapper install)
-    --no-wrapper      Skip installing the pf wrapper (container mode)
-
-    --prefix PATH     Install prefix
-                     Default: ${DEFAULT_PREFIX_NATIVE} for native,
-                              ${DEFAULT_PREFIX_CONTAINER} for container (non-root)
-    --skip-deps       Skip system dependency installation (native mode)
-    --help, -h        Show this help message
-
-EXAMPLES:
-    # Package-first install (tries native packages, falls back to container)
-    ./install.sh
-
-    # Force package building and installation
-    ./install.sh --mode package --force-build-packages
-
-    # Try only specific package formats
-    ./install.sh --mode package --package-formats deb,rpm
-
-    # Container-first install (legacy behavior)
-    ./install.sh --mode container --runtime podman
-
-    # Native system-wide install (requires sudo)
-    sudo ./install.sh --mode native
-
-    # Native user install
-    ./install.sh --mode native --prefix ~/.local
-
-WHAT THIS SCRIPT DOES (package mode):
-    1. Detects available package managers (apt, dnf, pacman)
-    2. Tries to install pre-built packages if available
-    3. Falls back to building packages locally if needed
-    4. Falls back to container mode if package building fails
-    5. Falls back to native mode as last resort
-
-WHAT THIS SCRIPT DOES (container mode):
-    1. Builds pf base + pf-runner images (optional)
-    2. Installs the pf wrapper script
-    3. Sets up shell completions (optional)
-
-WHAT THIS SCRIPT DOES (native mode):
-    1. Checks prerequisites (Python 3, Git)
-    2. Installs system dependencies (optional)
-    3. Sets up Python virtual environment
-    4. Installs Python dependencies (lark, decorator, invoke, paramiko, deprecated)
-    5. Installs pf-runner to specified prefix
-    6. Sets up shell completions (optional)
-    7. Validates installation
-
-EOF
+  done
 }
 
-if [[ "$SHOW_HELP" == true ]]; then
-    show_help
-    exit 0
-fi
-
-# Utility functions
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+abs_path() {
+  local p="$1"
+  if [[ "$p" == "~"* ]]; then p="${p/#\~/${HOME}}"; fi
+  if command_exists python3; then
+    python3 - "$p" <<'PY'
+import os, sys
+print(os.path.abspath(sys.argv[1]))
+PY
+  else
+    [[ "$p" = /* ]] && printf '%s\n' "$p" || printf '%s\n' "$(pwd -P)/$p"
+  fi
 }
 
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1" >&2
-}
-
-normalize_settings() {
-    if [[ "$MODE" != "package" && "$MODE" != "container" && "$MODE" != "native" ]]; then
-        log_error "Invalid --mode: $MODE (expected 'package', 'container', or 'native')"
-        exit 1
+set_defaults() {
+  if [[ -z "$PREFIX" ]]; then
+    if [[ "$(id -u 2>/dev/null || echo 1)" -eq 0 ]]; then
+      PREFIX="$DEFAULT_PREFIX_ROOT"
+    else
+      PREFIX="$DEFAULT_PREFIX_USER"
     fi
-
-    if [[ "$BUILD_ONLY" == true && "$SKIP_BUILD" == true ]]; then
-        log_error "--build-only and --skip-build cannot be used together"
-        exit 1
-    fi
-
-    if [[ "$MODE" == "native" ]]; then
-        if [[ "$SKIP_BUILD" == true || "$NO_WRAPPER" == true || "$BUILD_ONLY" == true ]]; then
-            log_warning "Container-specific options ignored in native mode"
-        fi
-        if [[ ${#PACKAGE_FORMATS[@]} -gt 0 || "$FORCE_BUILD_PACKAGES" == true ]]; then
-            log_warning "Package-specific options ignored in native mode"
-        fi
-    elif [[ "$MODE" == "container" ]]; then
-        if [[ "$SKIP_DEPS" == true ]]; then
-            log_warning "--skip-deps has no effect in container mode"
-        fi
-        if [[ ${#PACKAGE_FORMATS[@]} -gt 0 || "$FORCE_BUILD_PACKAGES" == true ]]; then
-            log_warning "Package-specific options ignored in container mode"
-        fi
-    fi
-
-    # Set default package formats if none specified
-    if [[ "$MODE" == "package" && ${#PACKAGE_FORMATS[@]} -eq 0 ]]; then
-        PACKAGE_FORMATS=("deb" "rpm" "arch")
-    fi
-
-    if [[ "$PREFIX_SET" == false ]]; then
-        if [[ "$MODE" == "container" ]]; then
-            if [[ $EUID -eq 0 ]]; then
-                PREFIX="$DEFAULT_PREFIX_NATIVE"
-            else
-                PREFIX="$DEFAULT_PREFIX_CONTAINER"
-            fi
-        else
-            if [[ $EUID -eq 0 ]]; then
-                PREFIX="$DEFAULT_PREFIX_NATIVE"
-            else
-                PREFIX="$DEFAULT_PREFIX_USER"
-            fi
-        fi
-    fi
+  fi
+  PREFIX="$(abs_path "$PREFIX")"
 }
 
-# Check if running as root when needed
-check_permissions() {
-    if [[ "$PREFIX" == "/usr/local" ]] || [[ "$PREFIX" == "/usr"* ]]; then
-        if [[ $EUID -ne 0 ]]; then
-            log_error "Installation to ${PREFIX} requires root privileges."
-            log_info "Try: sudo ./install.sh --mode ${MODE}"
-            log_info "Or use user installation: ./install.sh --mode ${MODE} --prefix ~/.local"
-            exit 1
-        fi
-    fi
-}
-
-# Detect operating system
 detect_os() {
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        if command -v apt-get >/dev/null 2>&1; then
-            echo "debian"
-        elif command -v yum >/dev/null 2>&1 || command -v dnf >/dev/null 2>&1; then
-            echo "rhel"
-        elif command -v pacman >/dev/null 2>&1; then
-            echo "arch"
-        else
-            echo "linux"
-        fi
-    elif [[ "$OSTYPE" == "darwin"* ]]; then
-        echo "macos"
-    else
-        echo "unknown"
-    fi
+  local sys="$(uname -s 2>/dev/null || echo unknown)"
+  case "$sys" in
+    Linux)
+      command_exists apt-get && { echo debian; return; }
+      command_exists dnf && { echo rhel; return; }
+      command_exists yum && { echo rhel; return; }
+      command_exists pacman && { echo arch; return; }
+      echo linux ;;
+    Darwin) echo macos ;;
+    *) echo unknown ;;
+  esac
 }
 
-# Check prerequisites
-check_prerequisites() {
-    log_info "Checking prerequisites..."
-    
-    # Check Python 3
-    if ! command -v python3 >/dev/null 2>&1; then
-        log_error "Python 3 is required but not installed."
-        log_info "Please install Python 3 and try again."
-        exit 1
-    fi
-    
-    # Check Python version
-    python_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-    if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)" 2>/dev/null; then
-        log_error "Python 3.8 or higher is required. Found: $python_version"
-        exit 1
-    fi
-    
-    # Check Git
-    if ! command -v git >/dev/null 2>&1; then
-        log_error "Git is required but not installed."
-        log_info "Please install Git and try again."
-        exit 1
-    fi
-    
-    # Check pip
-    if ! python3 -m pip --version >/dev/null 2>&1; then
-        log_error "pip is required but not available."
-        log_info "Please install python3-pip and try again."
-        exit 1
-    fi
-    
-    log_success "Prerequisites check passed (Python $python_version, Git, pip)"
+ensure_permissions() {
+  if [[ "$PREFIX" == /usr* ]] && [[ "$(id -u 2>/dev/null || echo 1)" -ne 0 ]]; then
+    die "Installing to $PREFIX requires root. Try: sudo ./install.sh --prefix ~/.local"
+  fi
 }
 
-# Install system dependencies
 install_system_deps() {
-    if [[ "$SKIP_DEPS" == true ]]; then
-        log_info "Skipping system dependency installation (--skip-deps)"
-        return 0
-    fi
-    
-    local os_type
-    os_type=$(detect_os)
-    
-    log_info "Installing system dependencies for $os_type..."
-    
-    case "$os_type" in
-        debian)
-            apt-get update
-            apt-get install -y python3-dev python3-pip python3-venv build-essential curl git
-            ;;
-        rhel)
-            if command -v dnf >/dev/null 2>&1; then
-                dnf install -y python3-devel python3-pip gcc gcc-c++ make curl git
-            else
-                yum install -y python3-devel python3-pip gcc gcc-c++ make curl git
-            fi
-            ;;
-        arch)
-            pacman -Sy --noconfirm python python-pip base-devel curl git
-            ;;
-        macos)
-            if command -v brew >/dev/null 2>&1; then
-                brew install python3 git
-            else
-                log_warning "Homebrew not found. Please install dependencies manually."
-            fi
-            ;;
-        *)
-            log_warning "Unknown OS. Please install Python 3, pip, and build tools manually."
-            ;;
-    esac
-    
-    log_success "System dependencies installed"
+  [[ "$SKIP_DEPS" == true ]] && { log "Skipping OS dependency install"; return; }
+  case "$(detect_os)" in
+    debian)
+      run_as_root apt-get update
+      run_as_root apt-get install -y python3 python3-venv python3-pip git build-essential rsync curl ;;
+    rhel)
+      if command_exists dnf; then
+        run_as_root dnf install -y python3 python3-venv python3-pip git gcc gcc-c++ make rsync curl
+      else
+        run_as_root yum install -y python3 python3-venv python3-pip git gcc gcc-c++ make rsync curl
+      fi ;;
+    arch)
+      run_as_root pacman -Sy --noconfirm python python-pip base-devel git rsync curl ;;
+    macos)
+      warn "macOS detected. Ensure Python 3.8+, pip, rsync, and build tools are installed." ;;
+    *)
+      warn "Unknown OS; dependency installation skipped." ;;
+  esac
 }
 
-# Setup Python environment and dependencies
+ensure_prereqs() {
+  log "Checking prerequisites"
+  command_exists python3 || die "python3 is required"
+  command_exists git || die "git is required"
+  command_exists rsync || die "rsync is required"
+  python3 -m pip --version >/dev/null 2>&1 || die "pip is required"
+  python3 - <<'PY' || die "Python 3.8+ is required"
+import sys
+sys.exit(0 if sys.version_info >= (3,8) else 1)
+PY
+}
+
 setup_python_env() {
-    log_info "Setting up Python environment..."
-    
-    # Create virtual environment if needed for user installation
-    if [[ "$PREFIX" != "/usr/local" ]] && [[ "$PREFIX" != "/usr"* ]]; then
-        local venv_dir="${PREFIX}/lib/pf-runner-venv"
-        if [[ ! -d "$venv_dir" ]]; then
-            log_info "Creating virtual environment at $venv_dir"
-            mkdir -p "$(dirname "$venv_dir")"
-            python3 -m venv "$venv_dir"
-        fi
-        
-        # Use virtual environment python
-        export PATH="${venv_dir}/bin:$PATH"
-        PYTHON_CMD="${venv_dir}/bin/python"
-        PIP_CMD="${venv_dir}/bin/pip"
-    else
-        # System installation - use system python
-        PYTHON_CMD="python3"
-        PIP_CMD="python3 -m pip"
-    fi
-    
-    # Upgrade pip
-    log_info "Upgrading pip..."
-    $PIP_CMD install --upgrade pip
-    
-    # Install Python dependencies
-    log_info "Installing Python dependencies..."
-    $PIP_CMD install "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12"
-    
-    log_success "Python environment setup complete"
+  log "Setting up Python environment"
+  local venv=""
+  if [[ "$PREFIX" == /usr* ]]; then
+    venv=""
+  else
+    venv="$PREFIX/lib/pf-runner-venv"
+    mkdir -p "$PREFIX/lib"
+    python3 -m venv "$venv"
+    # shellcheck disable=SC1091
+    source "$venv/bin/activate"
+    python3 -m pip install --upgrade pip
+  fi
+  python3 -m pip install --upgrade "fabric>=3.2,<4" "lark" "typer" "json5" "rich"
 }
 
-# Install pf-runner
-install_pf_runner() {
-    log_info "Installing pf-runner..."
-    
-    # Create directories
-    local lib_dir="${PREFIX}/lib/pf-runner"
-    local bin_dir="${PREFIX}/bin"
-    
-    mkdir -p "$lib_dir" "$bin_dir"
-    
-    # Copy pf-runner files
-    log_info "Copying pf-runner files to $lib_dir"
-    cp -r "${PF_RUNNER_DIR}"/* "$lib_dir/"
-    
-    # Update shebang in main script
-    if [[ "$PREFIX" != "/usr/local" ]] && [[ "$PREFIX" != "/usr"* ]]; then
-        # User installation - use virtual environment python
-        local venv_python="${PREFIX}/lib/pf-runner-venv/bin/python"
-        sed -i "1s|^.*$|#!${venv_python}|" "${lib_dir}/pf_main.py"
-    else
-        # System installation - use system python
-        sed -i "1s|^.*$|#!/usr/bin/env python3|" "${lib_dir}/pf_main.py"
+copy_dir_follow() {
+  local src="$1" dest="$2" exclude="$3"
+  [[ -d "$src" ]] || return 0
+  mkdir -p "$dest"
+  local args=(-aL --ignore-missing-args)
+  [[ -n "$exclude" ]] && args+=(--exclude "$exclude")
+  rsync "${args[@]}" "${src}/" "${dest}/"
+}
+
+copy_item_follow() {
+  local src="$1" dest="$2"
+  [[ -e "$src" ]] || return 0
+  mkdir -p "$dest"
+  rsync -aL "$src" "$dest/"
+}
+
+copy_project() {
+  log "Copying project files..."
+  local assets_root="${PF_FILES_DIR:-${PREFIX}/lib/pf-files}"
+
+  mkdir -p "$PREFIX/lib/pf-runner" "$assets_root" "$assets_root/pf" "$PREFIX/bin"
+
+  copy_dir_follow "$REPO_ROOT/pf-runner" "$PREFIX/lib/pf-runner" ""
+  copy_dir_follow "$REPO_ROOT/pf" "$assets_root/pf" ""
+
+  copy_item_follow "$REPO_ROOT/pf.config.json5" "$assets_root"
+  copy_item_follow "$REPO_ROOT/Pfyfile.pf" "$assets_root"
+
+  for dir in tools scripts demos containers web docs examples third-party; do
+    if [[ "$dir" == "third-party" ]]; then
+      copy_dir_follow "$REPO_ROOT/$dir" "$assets_root/$dir" "archive/**"
+      continue
     fi
-    
-    # Make executable
-    chmod +x "${lib_dir}/pf_main.py"
-    
-    # Create pf executable
-    cat > "${bin_dir}/pf" << EOF
+    if [[ "$dir" == "containers" ]]; then
+      copy_dir_follow "$REPO_ROOT/$dir" "$assets_root/$dir" "deprecated/"
+      continue
+    fi
+    copy_dir_follow "$REPO_ROOT/$dir" "$assets_root/$dir" ""
+  done
+
+  for file in docker-compose.yml docker-compose.gpu.yml podman-compose.yml podman-compose.gpu.yml tools-capabilities.json; do
+    copy_item_follow "$REPO_ROOT/$file" "$assets_root"
+  done
+}
+
+write_wrapper() {
+  local pf_files="${PF_FILES_DIR:-${PREFIX}/lib/pf-files}"
+  log "Installing wrapper to ${PREFIX}/bin/pf"
+  cat > "${PREFIX}/bin/pf" <<EOF
 #!/usr/bin/env bash
-# pf - Wrapper script for pf-runner
-exec "${lib_dir}/pf_main.py" "\$@"
-EOF
-    chmod +x "${bin_dir}/pf"
-    
-    # Create symlink for local development
-    if [[ -d "$lib_dir" ]]; then
-        ln -sfn pf_main.py "${lib_dir}/pf"
-    fi
-    
-    log_success "pf-runner installed to $lib_dir"
-    log_success "pf executable created at ${bin_dir}/pf"
-}
+set -euo pipefail
 
-check_container_runtime() {
-    if command -v "${CONTAINER_RT}" >/dev/null 2>&1; then
-        return 0
-    fi
+SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd -P)"
+LIB_DIR="\$(cd "\${SCRIPT_DIR}/../lib/pf-runner" && pwd -P)"
+VENV_PY="\${SCRIPT_DIR}/../lib/pf-runner-venv/bin/python3"
+PF_FILES_DIR="${pf_files}"
+DEFAULT_PFY="\${PF_FILES_DIR}/Pfyfile.pf"
 
-    if [[ "$CONTAINER_RT_SET" == false ]]; then
-        if command -v podman >/dev/null 2>&1; then
-            CONTAINER_RT="podman"
-            return 0
-        fi
-        if command -v docker >/dev/null 2>&1; then
-            CONTAINER_RT="docker"
-            log_warning "podman not found; using docker instead"
-            return 0
-        fi
-    fi
-
-    log_error "Container runtime '${CONTAINER_RT}' not found."
-    log_info "Install podman or docker, or run: ./install.sh --mode native"
-    exit 1
-}
-
-image_exists() {
-    local image="$1"
-    if [[ "$CONTAINER_RT" == "podman" ]]; then
-        podman image exists "$image" >/dev/null 2>&1
-    else
-        docker image inspect "$image" >/dev/null 2>&1
-    fi
-}
-
-build_container_images() {
-    if [[ "$SKIP_BUILD" == true ]]; then
-        log_info "Skipping container image build (--skip-build)"
-        return 0
-    fi
-
-    log_info "Building base image (${BASE_IMAGE_DEFAULT})..."
-    "${CONTAINER_RT}" build -t "${BASE_IMAGE_DEFAULT}" -f "containers/dockerfiles/Dockerfile.base" "${SCRIPT_DIR}"
-
-    log_info "Building pf-runner image (${CONTAINER_IMAGE})..."
-    "${CONTAINER_RT}" build -t "${CONTAINER_IMAGE}" -f "containers/dockerfiles/Dockerfile.pf-runner" "${SCRIPT_DIR}"
-
-    log_success "Container images built successfully"
-}
-
-install_container_wrapper() {
-    if [[ "$NO_WRAPPER" == true ]]; then
-        log_info "Skipping wrapper install (--no-wrapper)"
-        return 0
-    fi
-
-    local lib_dir="${PREFIX}/lib/pf-runner"
-    local bin_dir="${PREFIX}/bin"
-
-    mkdir -p "$lib_dir" "$bin_dir"
-
-    log_info "Installing pf wrapper..."
-    cp "${PF_RUNNER_DIR}/pf_universal" "${lib_dir}/pf_universal"
-    chmod +x "${lib_dir}/pf_universal"
-
-    cat > "${bin_dir}/pf" << EOF
-#!/usr/bin/env bash
-if [[ -z "\${PF_IMAGE:-}" ]]; then
-  export PF_IMAGE="${CONTAINER_IMAGE}"
+if [[ -z "\${PFY_FILE:-}" && -f "\${DEFAULT_PFY}" ]]; then
+  export PFY_FILE="\${DEFAULT_PFY}"
+  export PFY_ROOT="\${PF_FILES_DIR}"
 fi
-if [[ -z "\${PF_RUNTIME:-}" ]]; then
-  export PF_RUNTIME="${CONTAINER_RT}"
+
+if [[ -x "\${VENV_PY}" ]]; then
+  exec "\${VENV_PY}" "\${LIB_DIR}/pf_main.py" "\$@"
 fi
-exec "${lib_dir}/pf_universal" "\$@"
+
+if command -v python3 >/dev/null 2>&1; then
+  exec python3 "\${LIB_DIR}/pf_main.py" "\$@"
+fi
+
+echo "python3 is required to run pf (missing in PATH)." >&2
+exit 1
 EOF
-    chmod +x "${bin_dir}/pf"
-
-    log_success "pf wrapper installed to ${bin_dir}/pf"
+  chmod +x "${PREFIX}/bin/pf"
 }
 
-validate_container_installation() {
-    log_info "Validating container installation..."
-
-    if [[ "$NO_WRAPPER" != true ]]; then
-        local pf_cmd="${PREFIX}/bin/pf"
-        if [[ ! -x "$pf_cmd" ]]; then
-            log_error "pf wrapper not found or not executable at $pf_cmd"
-            return 1
-        fi
-    fi
-
-    if [[ "$SKIP_BUILD" != true ]]; then
-        if ! image_exists "${CONTAINER_IMAGE}"; then
-            log_error "Container image not found: ${CONTAINER_IMAGE}"
-            return 1
-        fi
-    fi
-
-    log_success "Container installation validation passed"
-    return 0
+validate_install() {
+  log "Validating installation"
+  [[ -x "${PREFIX}/bin/pf" ]] || die "pf launcher missing"
+  "${PREFIX}/bin/pf" --help >/dev/null 2>&1 || die "pf --help failed"
+  log "pf installed successfully to ${PREFIX}"
+  if [[ "$PREFIX" != /usr* ]]; then
+    warn "Add ${PREFIX}/bin to your PATH (e.g. export PATH=\"${PREFIX}/bin:$PATH\")"
+  fi
 }
 
-# Install shell completions
-install_completions() {
-    log_info "Installing shell completions..."
-    
-    local completions_dir="${PF_RUNNER_DIR}/completions"
-    if [[ ! -d "$completions_dir" ]]; then
-        log_warning "Completions directory not found, skipping"
-        return 0
-    fi
-    
-    # Install bash completion
-    local bash_completion_installed=false
-    if [[ -d "/etc/bash_completion.d" ]] && [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
-        cp "${completions_dir}/pf-completion.bash" "/etc/bash_completion.d/pf"
-        log_success "Installed bash completion to /etc/bash_completion.d/pf"
-        bash_completion_installed=true
-    elif [[ -d "${HOME}/.local/share/bash-completion/completions" ]]; then
-        mkdir -p "${HOME}/.local/share/bash-completion/completions"
-        cp "${completions_dir}/pf-completion.bash" "${HOME}/.local/share/bash-completion/completions/pf"
-        log_success "Installed bash completion to ~/.local/share/bash-completion/completions/pf"
-        bash_completion_installed=true
-    fi
-    
-    # Install zsh completion
-    local zsh_completion_installed=false
-    if [[ -d "/usr/local/share/zsh/site-functions" ]] && [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
-        cp "${completions_dir}/_pf" "/usr/local/share/zsh/site-functions/_pf"
-        log_success "Installed zsh completion to /usr/local/share/zsh/site-functions/_pf"
-        zsh_completion_installed=true
-    elif [[ -d "${HOME}/.zsh/completions" ]] || mkdir -p "${HOME}/.zsh/completions" 2>/dev/null; then
-        cp "${completions_dir}/_pf" "${HOME}/.zsh/completions/_pf"
-        log_success "Installed zsh completion to ~/.zsh/completions/_pf"
-        log_info "Add 'fpath=(~/.zsh/completions \$fpath)' to your ~/.zshrc if not already present"
-        zsh_completion_installed=true
-    fi
-    
-    if [[ "$bash_completion_installed" == false ]] && [[ "$zsh_completion_installed" == false ]]; then
-        log_warning "Could not install shell completions (no suitable directories found)"
-    fi
-}
+parse_args "$@"
+set_defaults
+PF_FILES_DIR="${PREFIX}/lib/pf-files"
+ensure_permissions
+install_system_deps
+ensure_prereqs
+setup_python_env
+copy_project
+write_wrapper
+validate_install
 
-# Validate native installation
-validate_native_installation() {
-    log_info "Validating native installation..."
-    
-    local pf_cmd="${PREFIX}/bin/pf"
-    
-    # Check if pf command exists and is executable
-    if [[ ! -x "$pf_cmd" ]]; then
-        log_error "pf command not found or not executable at $pf_cmd"
-        return 1
-    fi
-    
-    # Test basic pf functionality (run from /tmp to avoid parsing issues with local Pfyfiles)
-    log_info "Testing pf list..."
-    local list_output
-    list_output=$("$pf_cmd" list 2>&1)
-    if [[ ! "$list_output" =~ "Available tasks" ]]; then
-        log_error "pf list failed: $list_output"
-        return 1
-    fi
-    
-    log_success "Basic pf functionality validated"
-    log_success "Native installation validation passed"
-    return 0
-}
-
-# Update PATH information
-update_path_info() {
-    local bin_dir="${PREFIX}/bin"
-    
-    # Check if bin directory is in PATH
-    if [[ ":$PATH:" != *":${bin_dir}:"* ]]; then
-        log_warning "The installation directory ${bin_dir} is not in your PATH"
-        log_info "Add the following to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
-        echo ""
-        echo "    export PATH=\"${bin_dir}:\$PATH\""
-        echo ""
-        log_info "Or run: echo 'export PATH=\"${bin_dir}:\$PATH\"' >> ~/.bashrc"
-        log_info "Then restart your shell or run: source ~/.bashrc"
-    else
-        log_success "Installation directory is already in PATH"
-    fi
-}
-
-# Main installation function
-main() {
-    echo -e "${BLUE}pf-runner Installation Script${NC}"
-    echo "=============================="
-    echo ""
-    
-    # Check if we're in the right directory
-    if [[ ! -d "$PF_RUNNER_DIR" ]]; then
-        log_error "pf-runner directory not found at $PF_RUNNER_DIR"
-        log_info "Please run this script from the repository root directory"
-        exit 1
-    fi
-    
-    normalize_settings
-
-    # Check permissions
-    check_permissions
-
-    if [[ "$MODE" == "container" ]]; then
-        check_container_runtime
-        log_info "Container runtime: ${CONTAINER_RT}"
-        log_info "pf-runner image: ${CONTAINER_IMAGE}"
-
-        build_container_images
-
-        if [[ "$NO_WRAPPER" != true ]]; then
-            install_container_wrapper
-            install_completions
-        else
-            log_info "Wrapper installation skipped"
-        fi
-
-        if validate_container_installation; then
-            echo ""
-            log_success "🎉 pf-runner container installation completed successfully!"
-            echo ""
-            log_info "Installation summary:"
-            echo "  • container runtime: ${CONTAINER_RT}"
-            echo "  • base image: ${BASE_IMAGE_DEFAULT}"
-            echo "  • pf-runner image: ${CONTAINER_IMAGE}"
-            if [[ "$NO_WRAPPER" != true ]]; then
-                echo "  • pf wrapper: ${PREFIX}/bin/pf"
-                echo "  • wrapper script: ${PREFIX}/lib/pf-runner/pf_universal"
-                echo ""
-                update_path_info
-                echo ""
-                log_info "Next steps:"
-                echo "  1. Restart your shell or run: source ~/.bashrc"
-                echo "  2. Try: pf --version"
-                echo "  3. Try: pf list"
-                echo "  4. Build full container suite: pf install-full runtime=${CONTAINER_RT}"
-            else
-                echo "  • pf wrapper: skipped (--no-wrapper)"
-                echo ""
-                log_info "Next steps:"
-                echo "  1. Install the wrapper later with:"
-                echo "     ./install.sh --mode container --runtime ${CONTAINER_RT}"
-                echo "  2. Or run directly with:"
-                echo "     PF_IMAGE=${CONTAINER_IMAGE} PF_RUNTIME=${CONTAINER_RT} ${PF_RUNNER_DIR}/pf_universal"
-            fi
-            echo ""
-            log_success "Happy task running! 🚀"
-        else
-            log_error "Container installation validation failed"
-            exit 1
-        fi
-        return 0
-    fi
-
-    # Native installation steps
-    check_prerequisites
-
-    if [[ "$SKIP_DEPS" == false ]]; then
-        install_system_deps
-    fi
-
-    setup_python_env
-    install_pf_runner
-    install_completions
-
-    # Validate installation
-    if validate_native_installation; then
-        echo ""
-        log_success "🎉 pf-runner native installation completed successfully!"
-        echo ""
-        log_info "Installation summary:"
-        echo "  • pf-runner library: ${PREFIX}/lib/pf-runner"
-        echo "  • pf executable: ${PREFIX}/bin/pf"
-        echo "  • Python dependencies: lark, decorator, invoke, paramiko, deprecated"
-        echo ""
-
-        update_path_info
-
-        echo ""
-        log_info "Next steps:"
-        echo "  1. Restart your shell or run: source ~/.bashrc"
-        echo "  2. Try: pf --version"
-        echo "  3. Try: pf list"
-        echo "  4. Read the documentation: cat README.md"
-        echo ""
-        log_success "Happy task running! 🚀"
-    else
-        log_error "Native installation validation failed"
-        exit 1
-    fi
-}
-
-# Run main function
-main "$@"
+log "Native installation complete (container modes deprecated)."

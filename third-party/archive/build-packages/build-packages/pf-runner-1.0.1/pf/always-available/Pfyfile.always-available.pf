@@ -1,0 +1,7 @@
+# Always-available task aggregator (split for readability <400 lines)
+# Modules keep original task content; ordering preserved.
+
+include Pfyfile.always-available.core.pf
+include Pfyfile.always-available.smart.pf
+include Pfyfile.always-available.systems.pf
+include Pfyfile.always-available.analysis.pf

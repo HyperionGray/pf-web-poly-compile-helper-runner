@@ -1,0 +1,18 @@
+{
+  "type": "binary",
+  "subtype": "elf",
+  "confidence": 0.95,
+  "properties": {
+    "arch": "x86_64"
+  },
+  "recommended_workflows": [
+    "autopwn",
+    "smart-binary-analysis",
+    "checksec"
+  ],
+  "tools": [
+    "checksec",
+    "pwntools",
+    "ropgadget"
+  ]
+}

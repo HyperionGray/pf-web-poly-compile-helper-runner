@@ -1,0 +1,16 @@
+# Top-level pf entrypoint.
+# All task definitions live under pf/ (see pf/Pfyfile.pf).
+
+include pf/Pfyfile.pf
+
+task repo-validate
+  describe Run repository build validation (scripts/validate-build.sh)
+  shell_lang bash
+  bash "${PFY_ROOT:-.}/scripts/validate-build.sh"
+end
+
+task pf-validate
+  describe Static validation of all pf tasks (tools/validate-pf-tasks.py)
+  shell_lang bash
+  bash "${PFY_ROOT:-.}/scripts/validate-pf-tasks.sh"
+end

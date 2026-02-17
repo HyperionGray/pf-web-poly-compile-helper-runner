@@ -1,0 +1,22 @@
+# test_shell_lang_block.pf - Test shell_lang BLOCK syntax
+
+task test-block-python
+  describe Test shell_lang python BLOCK syntax
+  shell_lang python BLOCK
+  print("Python block works!")
+  ENDBLOCK
+end
+
+task test-block-bash
+  describe Test shell_lang bash BLOCK syntax
+  shell_lang bash BLOCK
+  echo "Bash block works!"
+  ENDBLOCK
+end
+
+task test-block-alias
+  describe Test shell_lang alias like py BLOCK syntax
+  shell_lang py BLOCK
+  print("Alias works in block!")
+  ENDBLOCK
+end

@@ -1,0 +1,42 @@
+# Fortran WASM build container
+FROM localhost/pf-base:latest
+
+LABEL maintainer="pf-web-poly-compile-helper-runner"
+LABEL description="LFortran compiler for Fortran to WebAssembly compilation"
+
+# Install Fortran compilers and dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gfortran \
+    libblas-dev \
+    liblapack-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install LFortran from conda-forge (most reliable method)
+# First install miniforge
+# NOTE: Using official Miniforge installer. For enhanced security in production,
+# consider using specific version with checksum validation against
+# https://github.com/conda-forge/miniforge/releases
+RUN curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" && \
+    bash Miniforge3-$(uname)-$(uname -m).sh -b -p /opt/miniforge && \
+    rm Miniforge3-$(uname)-$(uname -m).sh
+
+ENV PATH="/opt/miniforge/bin:${PATH}"
+
+# Install LFortran
+RUN conda install -y -c conda-forge lfortran && \
+    conda clean -afy && \
+    chown -R pfuser:pfuser /opt/miniforge
+
+# Copy Fortran source files
+COPY --chown=pfuser:pfuser demos/pf-web-polyglot-demo-plus-c/fortran /app/fortran
+
+# Create output directories
+RUN mkdir -p /app/output/wasm/fortran /app/output/llvm/fortran && \
+    chown -R pfuser:pfuser /app/output
+
+USER pfuser
+WORKDIR /app/fortran
+
+# Build Fortran to WASM by default
+CMD ["lfortran", "src/hello.f90", "-o", "/app/output/wasm/fortran/fortran.wasm", "--target=wasm32-unknown-unknown"]

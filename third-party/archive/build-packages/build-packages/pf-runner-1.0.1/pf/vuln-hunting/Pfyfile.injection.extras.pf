@@ -1,0 +1,93 @@
+task disassemble-for-injection
+  describe Disassemble binary section for injection analysis - binary=/path/to/binary section=.text
+  shell test -n "${binary}" || (echo "Error: binary parameter required" && exit 1)
+  shell echo "Disassembling ${binary} section ${section:-.text}..."
+  shell objdump -d -j ${section:-.text} ${binary} | head -100
+  shell echo ""
+  shell echo "Use this output to find injection points"
+end
+
+# ============================================================================
+# Complete Injection Workflow Tasks
+# ============================================================================
+
+task demo-injection-workflow
+  describe Demonstrate complete injection workflow with C code
+  shell echo "-- Binary Injection Workflow Demo --"
+  shell mkdir -p demos/injection-demo
+  shell echo "1. Creating hook library source..."
+  shell pf create-hook-lib output=demos/injection-demo/hook.c
+  shell echo "2. Compiling hook library..."
+  shell pf compile-c-shared-lib source=demos/injection-demo/hook.c output=demos/injection-demo/hook.so
+  shell echo "3. Creating test program..."
+  shell echo '#include <stdio.h>' > demos/injection-demo/test.c
+  shell echo '#include <stdlib.h>' >> demos/injection-demo/test.c
+  shell echo 'int main() {' >> demos/injection-demo/test.c
+  shell echo '    void* p = malloc(100);' >> demos/injection-demo/test.c
+  shell echo '    printf("Allocated: %p\\n", p);' >> demos/injection-demo/test.c
+  shell echo '    free(p);' >> demos/injection-demo/test.c
+  shell echo '    return 0;' >> demos/injection-demo/test.c
+  shell echo '}' >> demos/injection-demo/test.c
+  shell gcc demos/injection-demo/test.c -o demos/injection-demo/test
+  shell echo "4. Running with hook library..."
+  shell pf inject-shared-lib binary=demos/injection-demo/test lib=demos/injection-demo/hook.so
+  shell echo ""
+  shell echo "-- Demo Complete --"
+end
+
+task demo-wasm-injection
+  describe Demonstrate WASM component injection workflow
+  shell_lang bash
+  shell bash scripts/injection/demo-wasm-injection.sh
+end
+
+# ============================================================================
+# Installation Tasks
+# ============================================================================
+
+task install-injection-tools
+  describe Install tools needed for binary injection (patchelf, nasm, binaryen)
+  shell_lang bash
+  shell bash scripts/injection/install-injection-tools.sh
+end
+
+# ============================================================================
+# Help and Documentation Tasks
+# ============================================================================
+
+task injection-help
+  describe Show help for binary injection tasks
+  shell echo "-- Binary Injection and Shared Library Compilation --"
+  shell echo ""
+  shell echo "SHARED LIBRARY COMPILATION:"
+  shell echo "  pf compile-c-shared-lib source=code.c output=lib.so"
+  shell echo "  pf compile-rust-shared-lib crate=./my-crate"
+  shell echo "  pf compile-fortran-shared-lib source=code.f90 output=lib.so"
+  shell echo "  pf compile-cpp-shared-lib source=code.cpp output=lib.so"
+  shell echo ""
+  shell echo "WASM/ASM CONVERSION:"
+  shell echo "  pf wasm-to-native input=module.wasm output=lib.so"
+  shell echo ""
+  shell echo "BINARY INJECTION:"
+  shell echo "  pf inject-shared-lib binary=./program lib=hook.so"
+  shell echo "  pf patch-binary-deps binary=./program old_lib=libold.so new_lib=./libnew.so"
+  shell echo "  pf inspect-binary-deps binary=./program"
+  shell echo ""
+  shell echo "HOOK CREATION:"
+  shell echo "  pf create-hook-lib output=hook.c"
+  shell echo "  pf create-wasm-hook output=hook.wat"
+  shell echo ""
+  shell echo "WASM INJECTION:"
+  shell echo "  pf inject-wasm-component host=base.wasm component=plugin.wasm output=combined.wasm"
+  shell echo ""
+  shell echo "ASSEMBLY PATCHING:"
+  shell echo "  pf disassemble-for-injection binary=./program"
+  shell echo "  pf inject-asm-patch binary=./program patch=code.asm offset=0x1000"
+  shell echo ""
+  shell echo "DEMONSTRATIONS:"
+  shell echo "  pf demo-injection-workflow"
+  shell echo "  pf demo-wasm-injection"
+  shell echo ""
+  shell echo "INSTALLATION:"
+  shell echo "  pf install-injection-tools"
+end

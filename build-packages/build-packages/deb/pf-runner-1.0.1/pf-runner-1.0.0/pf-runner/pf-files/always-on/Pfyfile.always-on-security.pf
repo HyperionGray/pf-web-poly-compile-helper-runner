@@ -1,0 +1,39 @@
+# Security Testing Tools - Always Available
+# Security scanning and vulnerability testing
+# Category: Security
+
+task security-help
+  describe Show security testing help
+  shell echo "Security Testing Tasks (Always Available):"
+  shell echo "  Note: Most security tasks require tools/scripts from project directory"
+  shell echo "  These always-available tasks provide installation and basic help"
+  shell echo ""
+  shell echo "Installation:"
+  shell echo "  pf install-exploit-tools    # Install exploit dev tools"
+  shell echo "  pf install-checksec         # Install checksec"
+  shell echo ""
+  shell echo "For full security testing, navigate to a project directory with"
+  shell echo "complete security tooling (Pfyfile.security.pf)"
+end
+
+task checksec
+  describe Analyze binary security features
+  shell checksec --file=${binary}
+end
+
+task checksec-json
+  describe Analyze binary security features and output JSON
+  shell checksec --file=${binary} --output json
+end
+
+task security-scan-help
+  describe Show web security scanning help
+  shell echo "Web Security Scanning:"
+  shell echo "  Navigate to project directory for full security scanning"
+  shell echo "  capabilities including:"
+  shell echo "    • SQL injection detection"
+  shell echo "    • XSS vulnerability scanning"
+  shell echo "    • CSRF token validation"
+  shell echo "    • Path traversal testing"
+  shell echo "    • Command injection checks"
+end

@@ -1,0 +1,131 @@
+# Enhanced Workflows for Intelligent Tool Integration
+# Basic enhanced workflow tasks
+
+task enhanced-verify-tools
+  describe Verify all tools are working correctly
+  shell node "${PFY_ROOT:-.}/tools/orchestration/tool-detector.mjs" --verify --format table
+end
+
+# Enhanced Workflows for Integrated Security Testing
+# Intelligent workflows that combine multiple tools automatically
+# Reduces cognitive load from 100+ individual tasks to enhanced, context-aware workflows
+
+# ============================================================================
+# Core Enhanced Workflows - The "Just Works" Tasks
+# ============================================================================
+
+task enhanced-analyze
+  describe Comprehensive enhanced analysis of any target
+  shell echo "Running enhanced analysis on ${target}"
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/target_detector.py" ${target} --format json > .enhanced_target_info.json
+  shell echo "Analysis complete"
+end
+
+task checksec-unified
+  describe Unified binary security analysis
+  shell python3 "${PFY_ROOT:-.}/tools/smart-workflows/unified_checksec.py" ${binary} ${json:+--json}
+end
+
+task enhanced-help
+  describe Show help for enhanced workflows
+  shell echo "Enhanced Workflows Help:"
+  shell echo "  pf enhanced-detect target=<target>    # Detect target type"
+  shell echo "  pf enhanced-analyze target=<target>   # Comprehensive analysis"
+  shell echo "  pf hack target=<target>               # Ultimate enhanced workflow"
+  shell echo "  pf pwn target=<binary>                # Enhanced binary exploitation"
+  shell echo "  pf scan target=<target>               # Enhanced security scanning"
+  shell echo "  pf fuzz target=<target>               # Enhanced fuzzing"
+end
+
+# ============================================================================
+# Ultimate Enhanced Workflows
+# ============================================================================
+
+task hack [alias h]
+  describe Ultimate enhanced workflow - automatically detects and exploits any target
+  shell echo "🎯 Starting enhanced hack workflow for: ${target}"
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" hack --target "${target}" --auto
+end
+
+task pwn [alias p]
+  describe Enhanced binary exploitation workflow
+  shell echo "💀 Starting enhanced pwn workflow for: ${target}"
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" pwn --target "${target}" --auto
+end
+
+task scan [alias s]
+  describe Enhanced security scanning workflow
+  shell echo "🔍 Starting enhanced scan workflow for: ${target}"
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" scan --target "${target}" --auto
+end
+
+task fuzz [alias f]
+  describe Enhanced fuzzing workflow
+  shell echo "🐛 Starting enhanced fuzz workflow for: ${target}"
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" fuzz --target "${target}" --auto
+end
+
+# ============================================================================
+# Enhanced Detection and Analysis
+# ============================================================================
+
+task enhanced-detect
+  describe Detect target type and suggest appropriate workflows
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/target_detector.py" "${target}" --suggest-workflows
+end
+
+task enhanced-recon
+  describe Enhanced reconnaissance workflow
+  shell echo "🕵️ Starting enhanced reconnaissance for: ${target}"
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" recon --target "${target}"
+end
+
+# ============================================================================
+# Enhanced Binary Analysis
+# ============================================================================
+
+task enhanced-binary-analysis
+  describe Comprehensive enhanced binary analysis
+  shell echo "🔬 Enhanced binary analysis for: ${binary}"
+  shell python3 "${PFY_ROOT:-.}/tools/unified/unified_checksec.py" "${binary}" --comprehensive
+end
+
+task enhanced-reverse
+  describe Enhanced reverse engineering workflow
+  shell echo "🔄 Enhanced reverse engineering for: ${binary}"
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" reverse --target "${binary}"
+end
+
+# ============================================================================
+# Enhanced Web Application Testing
+# ============================================================================
+
+task enhanced-web-test
+  describe Enhanced web application testing workflow
+  shell echo "🌐 Enhanced web testing for: ${target}"
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" web --target "${target}"
+end
+
+# ============================================================================
+# Enhanced Network Testing
+# ============================================================================
+
+task enhanced-network-test
+  describe Enhanced network testing workflow
+  shell echo "🌐 Enhanced network testing for: ${target}"
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" network --target "${target}"
+end
+
+# ============================================================================
+# Enhanced Reporting and Documentation
+# ============================================================================
+
+task enhanced-report
+  describe Generate enhanced workflow report
+  shell python3 "${PFY_ROOT:-.}/tools/unified-security/report_generator.py" --target "${target}" --output enhanced_report.html
+end
+
+task enhanced-status
+  describe Show status of all enhanced workflows
+  shell python3 "${PFY_ROOT:-.}/tools/enhanced-workflows/workflow_orchestrator.py" status
+end

@@ -1,0 +1,166 @@
+version: '3.8'
+
+# Podman Compose file for pf Development Environment
+# Usage: 
+#   podman-compose up                    # Standard deployment
+#   GPU=true podman-compose up           # GPU-enabled deployment
+#   podman-compose -f docker-compose.yml -f docker-compose.gpu.yml up  # Explicit GPU
+
+services:
+  web-service:
+    build:
+      context: .
+      dockerfile: containers/web-services/Dockerfile
+    image: localhost/pf-web-services:latest
+    container_name: pf-web-service
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      - pf-workspace:/workspace:rw
+      - pf-builds:/builds:rw
+      - pf-cache:/cache:rw
+      - ./demos/pf-web-polyglot-demo-plus-c/web:/app/web:ro
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - ROOT=/workspace/demos/pf-web-polyglot-demo-plus-c/web
+    networks:
+      - pf-network
+    depends_on:
+      - build-service
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  build-service:
+    build:
+      context: .
+      dockerfile: containers/build-environment/Dockerfile
+    image: localhost/pf-build-environment:latest
+    container_name: pf-build-service
+    volumes:
+      - pf-workspace:/workspace:rw
+      - pf-builds:/builds:rw
+      - pf-cache:/cache:rw
+      - .:/workspace:rw
+    environment:
+      - WORKSPACE=/workspace
+      - BUILD_OUTPUT=/builds
+    networks:
+      - pf-network
+    restart: unless-stopped
+    command: sleep infinity
+    healthcheck:
+      test: ["CMD-SHELL", "rustc --version && node --version && emcc --version && wat2wasm --version"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+
+  security-service:
+    build:
+      context: .
+      dockerfile: containers/security-tools/Dockerfile
+    image: localhost/pf-security-tools:latest
+    container_name: pf-security-service
+    volumes:
+      - pf-workspace:/workspace:rw
+      - pf-builds:/builds:rw
+      - pf-cache:/cache:rw
+      - .:/workspace:rw
+    environment:
+      - WORKSPACE=/workspace
+    networks:
+      - pf-network
+    restart: unless-stopped
+    command: sleep infinity
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
+    healthcheck:
+      test: ["CMD-SHELL", "gdb --version && python3 -c 'import pwn' && radare2 -v"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  dev-service:
+    build:
+      context: .
+      dockerfile: containers/development/Dockerfile
+    image: localhost/pf-development:latest
+    container_name: pf-dev-service
+    volumes:
+      - pf-workspace:/workspace:rw
+      - pf-builds:/builds:rw
+      - pf-cache:/cache:rw
+      - .:/workspace:rw
+    environment:
+      - PYTHONPATH=/workspace/pf-runner
+      - PATH=/home/pf/.local/bin:${PATH}
+    networks:
+      - pf-network
+    restart: unless-stopped
+    command: sleep infinity
+    healthcheck:
+      test: ["CMD", "pf", "--version"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+volumes:
+  pf-workspace:
+    driver: local
+    labels:
+      - "app=pf-development"
+      - "component=workspace"
+  
+  pf-builds:
+    driver: local
+    labels:
+      - "app=pf-development"
+      - "component=builds"
+  
+  pf-cache:
+    driver: local
+    labels:
+      - "app=pf-development"
+      - "component=cache"
+
+networks:
+  pf-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.89.0.0/24
+          gateway: 10.89.0.1
+    labels:
+      - "app=pf-development"

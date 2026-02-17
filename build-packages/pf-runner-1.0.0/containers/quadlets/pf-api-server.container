@@ -1,0 +1,42 @@
+# API Server Container Quadlet
+# Node.js REST API and WebSocket server
+[Unit]
+Description=pf-web API Server
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+After=pf-web.network
+
+[Container]
+ContainerName=pf-api-server
+Image=localhost/pf-api-server:latest
+Pod=pf-web-api.pod
+
+# Mount volumes
+Volume=pf-wasm-output.volume:/app/demos/pf-web-polyglot-demo-plus-c/web/wasm:ro
+Volume=pf-project-src.volume:/app/src:ro
+
+# Environment configuration
+Environment=NODE_ENV=production
+Environment=PORT=8080
+
+# Port mapping (inherited from pod, but specify for clarity)
+PublishPort=8080:8080
+
+# Health check
+HealthCmd=curl -f http://localhost:8080/api/health || exit 1
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=30s
+
+# Security settings
+NoNewPrivileges=true
+
+# Resource limits
+MemoryMax=2G
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

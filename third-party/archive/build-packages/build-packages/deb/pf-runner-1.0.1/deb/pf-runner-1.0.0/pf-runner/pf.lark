@@ -1,0 +1,166 @@
+// Lark grammar for the .pf language
+// 
+// This grammar defines the syntax for .pf task definition files.
+// The actual pf_parser.py uses a simpler text-based parser for performance,
+// but this grammar serves as formal documentation of the language syntax.
+//
+// Key Features:
+// - Symbol-free DSL with intuitive verb-based syntax
+// - Flexible parameter passing (name=value pairs)
+// - Polyglot shell support for multiple languages
+// - Control flow (if/else, for loops)
+// - Variable interpolation ($var, ${var})
+// - Include mechanism for modular task files
+
+start: statement+
+
+statement: env_var | task | comment
+
+// Comments start with # and continue to end of line
+comment: COMMENT
+
+// Global environment variable definition: env name="value"
+// Used for setting repository-wide or project-level configuration
+env_var: "env" IDENTIFIER "=" STRING
+
+// Task definition with optional parameters and aliases
+// Parameters can appear in any order before the task name or after it
+// Aliases provide short command names that can be used instead of the full task name
+// Examples: 
+//   task my-task param1="value" param2="value"
+//   task my-task
+//   task long-command [alias cmd]
+//   task long-command [alias=cmd]
+task: "task" IDENTIFIER (param | alias_def)* NEWLINE task_body+ "end"
+
+// Task parameter: name="value"
+// These become available as $name within the task
+param: IDENTIFIER "=" STRING
+
+// Alias definition: [alias short-name] or [alias=short-name]
+// These provide short command names that map to the full task name
+// Both syntax forms are supported: [alias cmd] and [alias=cmd]
+alias_def: "[" "alias" (IDENTIFIER | "=" IDENTIFIER) "]"
+
+// Things that can appear inside a task body
+// These are the core DSL verbs for task definitions
+task_body: describe 
+         | shell 
+         | shell_lang 
+         | env_stmt 
+         | for_loop 
+         | if_stmt 
+         | sync_stmt
+         | packages_stmt
+         | service_stmt
+         | directory_stmt
+         | copy_stmt
+         | makefile_stmt
+         | cmake_stmt
+         | meson_stmt
+         | cargo_stmt
+         | go_build_stmt
+         | configure_stmt
+         | justfile_stmt
+         | autobuild_stmt
+         | build_detect_stmt
+
+// Task description - displayed in 'pf list'
+describe: "describe" TEXT_LINE
+
+// Shell command with optional language specification
+// Examples:
+//   shell echo "hello"
+//   shell [lang:python] print("hello")
+//   shell @script.py -- arg1 arg2
+shell: "shell" TEXT_LINE
+
+// Language specification for subsequent shell commands
+// Examples:
+//   shell_lang python
+//   shell_lang default
+//   shell_lang none
+shell_lang: "shell_lang" IDENTIFIER
+
+// Task-local environment variable (applies to remaining commands)
+// Example: env VAR1=value VAR2=value
+env_stmt: "env" TEXT_LINE
+
+// If statement with optional else (use helper rules to keep bodies separate)
+if_stmt: "if" condition NEWLINE if_body else_body? "end"
+if_body: task_body+
+else_body: "else" NEWLINE task_body+
+
+// Simple conditions for now
+condition: var_equals | var_exists | command_succeeds
+
+// Variable comparison: $var == "value" or $var != "value"
+var_equals: variable EQUALS_OP STRING
+
+// Variable existence: $var (true if set and non-empty)
+var_exists: variable
+
+// Command success: `command` (true if exit code is 0)
+command_succeeds: BACKQUOTE COMMAND_TEXT BACKQUOTE
+
+// For loop with iteration
+for_loop: "for" IDENTIFIER "in" iterable NEWLINE task_body+ "end"
+
+// What you can iterate over
+iterable: array | variable
+
+// Array literal: ["item1", "item2", "item3"]
+array: "[" STRING ("," STRING)* "]"
+
+// Variable reference: $variable_name or ${variable_name}
+// Variables are interpolated from: task params → task env → process env
+variable: "$" IDENTIFIER
+
+// Sync files/directories using rsync-over-ssh or local paths
+// Examples:
+//   sync src="/path/to/source" dst="user@host:/dest"
+//   sync src=["/file1", "/file2"] dst="/dest" recursive
+sync_stmt: "sync" sync_kv+
+sync_kv: IDENTIFIER "=" STRING
+       | IDENTIFIER "=" array
+       | IDENTIFIER           // flag, treated as true
+
+// Package management: packages install/remove <names...>
+packages_stmt: "packages" packages_action package_name+
+packages_action: "install" | "remove"
+package_name: IDENTIFIER
+
+// Service management: service start/stop/enable/disable/restart <name>
+service_stmt: "service" service_action IDENTIFIER
+service_action: "start" | "stop" | "enable" | "disable" | "restart"
+
+// Directory creation: directory <path> [mode=0755]
+directory_stmt: "directory" TEXT_LINE
+
+// File copy: copy <local> <remote> [mode=0644] [user=...] [group=...]
+copy_stmt: "copy" TEXT_LINE
+
+// Build system helpers - these all follow a similar pattern: verb [args...] [key=value...]
+makefile_stmt: ("makefile" | "make") TEXT_LINE?
+cmake_stmt: "cmake" TEXT_LINE?
+meson_stmt: ("meson" | "ninja") TEXT_LINE?
+cargo_stmt: "cargo" TEXT_LINE?  // Made optional for consistency
+go_build_stmt: ("go_build" | "gobuild") TEXT_LINE?
+configure_stmt: "configure" TEXT_LINE?
+justfile_stmt: ("justfile" | "just") TEXT_LINE?
+autobuild_stmt: ("autobuild" | "auto_build") TEXT_LINE?
+build_detect_stmt: ("build_detect" | "detect_build")
+
+// Tokens
+IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_-]*/      // Task names, variables, parameters
+STRING: /"[^"]*"/                           // Quoted strings (double quotes)
+TEXT_LINE: /[^\r\n]+/                       // Any text until end of line
+COMMAND_TEXT: /[^`]+/                       // Text between backticks
+COMMENT: /#[^\r\n]*/                        // Comments from # to end of line
+BACKQUOTE: "`"                              // Backticks for command execution
+EQUALS_OP: "==" | "!="                      // Comparison operators
+
+// Ignore whitespace and newlines (except where explicitly used)
+%import common.NEWLINE
+%import common.WS
+%ignore WS

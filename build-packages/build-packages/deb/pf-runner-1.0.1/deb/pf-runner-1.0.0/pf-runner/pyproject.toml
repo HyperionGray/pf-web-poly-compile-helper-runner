@@ -1,0 +1,37 @@
+[project]
+name = "pf-runner"
+version = "1.0.0"
+description = "Minimal pf task runner"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "fabric>=3.2,<4"
+]
+
+[project.optional-dependencies]
+parser = ["lark>=1.1.0"]
+
+[tool.setuptools]
+py-modules = [
+  "pf_main",
+  "pf_parser",
+  "pf_shell",
+  "pf_args",
+  "pf_exceptions",
+  "pf_prune",
+  "pf_subcommand_manager",
+  "pf_builtin_commands",
+  "pf_task_executor",
+  "pfuck",
+]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"*" = ["pf.lark", "*.pf"]
+
+[project.scripts]
+pf = "pf_main:console_main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"

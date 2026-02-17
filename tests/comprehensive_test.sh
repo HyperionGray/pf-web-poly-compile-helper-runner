@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="${SCRIPT_DIR}"
 # Comprehensive installer test and validation script
 set -euo pipefail
 
@@ -42,8 +46,8 @@ test_native_installation() {
     
     # Fix hardcoded paths first
     log_info "Fixing hardcoded paths..."
-    if [[ -f "pf-runner/pf_parser.py" ]]; then
-        sed -i '1s|^#!/.*|#!/usr/bin/env python3|' pf-runner/pf_parser.py
+    if [[ -f "${REPO_ROOT}/pf-runner/pf_parser.py" ]]; then
+        sed -i '1s|^#!/.*|#!/usr/bin/env python3|' ${REPO_ROOT}/pf-runner/pf_parser.py
         log_success "Fixed shebang in pf_parser.py"
     fi
     
@@ -116,8 +120,8 @@ test_container_installation() {
     
     # Fix hardcoded paths first
     log_info "Fixing hardcoded paths..."
-    if [[ -f "pf-runner/pf_parser.py" ]]; then
-        sed -i '1s|^#!/.*|#!/usr/bin/env python3|' pf-runner/pf_parser.py
+    if [[ -f "${REPO_ROOT}/pf-runner/pf_parser.py" ]]; then
+        sed -i '1s|^#!/.*|#!/usr/bin/env python3|' ${REPO_ROOT}/pf-runner/pf_parser.py
         log_success "Fixed shebang in pf_parser.py"
     fi
     
@@ -179,7 +183,7 @@ test_container_variants() {
     log_info "Container Variants Analysis:"
     echo "============================"
     
-    for dockerfile in ./containers/dockerfiles/Dockerfile.*; do
+    for dockerfile in ./${REPO_ROOT}/containers/dockerfiles/Dockerfile.*; do
         if [[ -f "$dockerfile" ]]; then
             local variant=$(basename "$dockerfile" | sed 's/Dockerfile\.//')
             variants_tested=$((variants_tested + 1))
@@ -255,12 +259,12 @@ test_container_builds() {
     log_info "Testing base container build..."
     
     # Try to build base image
-    if "$runtime" build -t "localhost/pf-base:test" -f "containers/dockerfiles/Dockerfile.base" . >/dev/null 2>&1; then
+    if "$runtime" build -t "localhost/pf-base:test" -f "${REPO_ROOT}/containers/dockerfiles/Dockerfile.base" . >/dev/null 2>&1; then
         log_success "Base image builds successfully"
         
         # Try to build pf-runner image
         log_info "Testing pf-runner container build..."
-        if "$runtime" build -t "localhost/pf-runner:test" -f "containers/dockerfiles/Dockerfile.pf-runner" . >/dev/null 2>&1; then
+        if "$runtime" build -t "localhost/pf-runner:test" -f "${REPO_ROOT}/containers/dockerfiles/Dockerfile.pf-runner" . >/dev/null 2>&1; then
             log_success "pf-runner image builds successfully"
             
             # Test running the container

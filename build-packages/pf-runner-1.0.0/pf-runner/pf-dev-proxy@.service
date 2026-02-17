@@ -1,0 +1,33 @@
+[Unit]
+Description=pf Development Proxy Service
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=/opt/pf-runner
+ExecStart=/bin/bash -c 'PROXY_PORT="${PF_PROXY_PORT:-3000}"; API_PORT="${PF_API_PORT:-8000}"; WEB_PORT="${PF_WEB_PORT:-8080}"; echo "Proxy listening on port $PROXY_PORT"; echo "Routing /api/* to localhost:$API_PORT"; echo "Routing /* to localhost:$WEB_PORT"; if command -v socat >/dev/null 2>&1; then socat TCP-LISTEN:$PROXY_PORT,fork,reuseaddr TCP:localhost:$WEB_PORT; elif command -v nc >/dev/null 2>&1; then while true; do nc -l -p $PROXY_PORT -c "nc localhost $WEB_PORT" 2>/dev/null || sleep 1; done; else echo "No proxy tools available"; exit 1; fi'
+Restart=on-failure
+RestartSec=5
+
+# Environment configuration
+Environment=PF_PROXY_PORT=3000
+Environment=PF_API_PORT=8000
+Environment=PF_WEB_PORT=8080
+EnvironmentFile=-/etc/default/pf-dev-proxy
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/log/pf
+
+# Resource limits
+MemoryMax=256M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

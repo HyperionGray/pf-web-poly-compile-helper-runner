@@ -1,0 +1,170 @@
+task container-health-on [alias=chon]
+  describe Start container health monitoring service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl enable --now pf-container-health@$USER.service && \
+          echo "Container health monitor started. Monitoring container status..."; \
+        else \
+          echo "systemd not available. Use 'pf container-health-dev' for foreground mode."; \
+          exit 1; \
+        fi
+end
+
+task container-health-off [alias=choff]
+  describe Stop container health monitoring service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl disable --now pf-container-health@$USER.service && \
+          echo "Container health monitor stopped."; \
+        else \
+          echo "systemd not available."; \
+          exit 1; \
+        fi
+end
+
+task container-health-dev [alias=chdev]
+  describe Start container health monitor in development mode (foreground)
+  shell_lang bash
+  shell <<'EOF'
+echo "Starting container health monitor in development mode..."
+if command -v podman >/dev/null 2>&1; then
+  echo "Monitoring Podman containers every 60 seconds..."
+  while true; do
+    echo "[$(date)] Checking container health..."
+    unhealthy=$(podman ps --filter "health=unhealthy" --format "{{.Names}}" 2>/dev/null || true)
+    if [ -n "$unhealthy" ]; then
+      echo "Unhealthy containers: $unhealthy"
+      echo "$unhealthy" | xargs -r podman restart
+    else
+      echo "All containers healthy"
+    fi
+    sleep 60
+  done
+elif command -v docker >/dev/null 2>&1; then
+  echo "Monitoring Docker containers every 60 seconds..."
+  while true; do
+    echo "[$(date)] Checking container health..."
+    unhealthy=$(docker ps --filter "health=unhealthy" --format "{{.Names}}" 2>/dev/null || true)
+    if [ -n "$unhealthy" ]; then
+      echo "Unhealthy containers: $unhealthy"
+      echo "$unhealthy" | xargs -r docker restart
+    else
+      echo "All containers healthy"
+    fi
+    sleep 60
+  done
+else
+  echo "Neither Podman nor Docker available. Cannot monitor containers."
+  exit 1
+fi
+EOF
+end
+
+# ---------------------------------------------------------------------------==
+# Development Proxy Service
+# ---------------------------------------------------------------------------==
+
+task dev-proxy-on [alias=dpon]
+  describe Start development proxy service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl enable --now pf-dev-proxy@$USER.service && \
+          echo "Development proxy started on port ${PF_PROXY_PORT:-3000}..."; \
+        else \
+          echo "systemd not available. Use 'pf dev-proxy-dev' for foreground mode."; \
+          exit 1; \
+        fi
+end
+
+task dev-proxy-off [alias=dpoff]
+  describe Stop development proxy service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl disable --now pf-dev-proxy@$USER.service && \
+          echo "Development proxy stopped."; \
+        else \
+          echo "systemd not available."; \
+          exit 1; \
+        fi
+end
+
+task dev-proxy-dev [alias=dpdev]
+  describe Start development proxy in development mode (foreground)
+  shell_lang bash
+  shell echo "Starting development proxy in development mode..."; \
+        PROXY_PORT="${PF_PROXY_PORT:-3000}"; \
+        API_PORT="${PF_API_PORT:-8000}"; \
+        WEB_PORT="${PF_WEB_PORT:-8080}"; \
+        echo "Proxy listening on port $PROXY_PORT"; \
+        echo "Routing /api/* to localhost:$API_PORT"; \
+        echo "Routing /* to localhost:$WEB_PORT"; \
+        if command -v socat >/dev/null 2>&1; then \
+          echo "Using socat for simple proxy..."; \
+          socat TCP-LISTEN:$PROXY_PORT,fork,reuseaddr TCP:localhost:$WEB_PORT; \
+        elif command -v nc >/dev/null 2>&1; then \
+          echo "Using netcat for simple proxy..."; \
+          while true; do \
+            nc -l -p $PROXY_PORT -c "nc localhost $WEB_PORT" 2>/dev/null || sleep 1; \
+          done; \
+        else \
+          echo "No proxy tools available (socat, nc). Install socat for proxy functionality."; \
+          echo "Alternatively, use nginx or another reverse proxy."; \
+          exit 1; \
+        fi
+end
+
+# ---------------------------------------------------------------------------==
+# Log Aggregator Service
+# ---------------------------------------------------------------------------==
+
+task log-aggregator-on [alias=lagn]
+  describe Start log aggregation service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl enable --now pf-log-aggregator@$USER.service && \
+          echo "Log aggregator started. Collecting logs to ${PF_LOG_DIR:-/var/log/pf}..."; \
+        else \
+          echo "systemd not available. Use 'pf log-aggregator-dev' for foreground mode."; \
+          exit 1; \
+        fi
+end
+
+task log-aggregator-off [alias=lagoff]
+  describe Stop log aggregation service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl disable --now pf-log-aggregator@$USER.service && \
+          echo "Log aggregator stopped."; \
+        else \
+          echo "systemd not available."; \
+          exit 1; \
+        fi
+end
+
+task log-aggregator-dev [alias=lagdev]
+  describe Start log aggregator in development mode (foreground)
+  shell_lang bash
+  shell echo "Starting log aggregator in development mode..."; \
+        LOG_DIR="${PF_LOG_DIR:-./logs}"; \
+        mkdir -p "$LOG_DIR"; \
+        echo "Aggregating logs to $LOG_DIR"; \
+        if command -v journalctl >/dev/null 2>&1; then \
+          echo "Collecting systemd logs..."; \
+          journalctl --user -f --output=json | while read -r line; do \
+            echo "$line" >> "$LOG_DIR/systemd.log"; \
+            echo "[$(date)] Logged systemd entry"; \
+          done & \
+        fi; \
+        echo "Monitoring application logs..."; \
+        tail -f /var/log/syslog 2>/dev/null | while read -r line; do \
+          if echo "$line" | grep -q "pf-"; then \
+            echo "$line" >> "$LOG_DIR/pf-services.log"; \
+            echo "[$(date)] Logged pf service entry"; \
+          fi; \
+        done 2>/dev/null || echo "syslog not accessible, monitoring local logs only"
+end
+
+# ---------------------------------------------------------------------------==
+# File Watch Service
+# ---------------------------------------------------------------------------==
+

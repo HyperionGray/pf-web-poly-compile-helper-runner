@@ -1,0 +1,4 @@
+# Injection task aggregator (split for readability)
+include Pfyfile.injection.core.pf
+include Pfyfile.injection.advanced.pf
+include Pfyfile.injection.extras.pf

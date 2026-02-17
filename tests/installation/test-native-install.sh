@@ -178,17 +178,21 @@ test_no_hardcoded_paths() {
     log_info "Checking for hardcoded paths..."
     
     local lib_dir="${TEST_PREFIX}/lib/pf-runner"
+    local parser_file="${lib_dir}/pf_parser.py"
     
-    # Check pf_parser.py for hardcoded paths
-    if grep -q "/home/punk" "${lib_dir}/pf_parser.py" 2>/dev/null; then
-        log_error "Found hardcoded /home/punk path in pf_parser.py"
+    # Check pf_parser.py shebang for hardcoded home-directory paths (common venv issue)
+    local first_line
+    first_line="$(head -1 "$parser_file" 2>/dev/null || true)"
+    if echo "$first_line" | grep -Eq '^#!(/home/|/Users/)'; then
+        log_error "Found hardcoded home-directory path in pf_parser.py shebang"
+        echo "$first_line"
         return 1
     fi
-    
-    # Check for absolute paths that aren't dynamic
-    if head -1 "${lib_dir}/pf_parser.py" | grep -q "/home/" | grep -v "/usr/bin/env"; then
-        log_error "Found suspicious absolute path in pf_parser.py shebang"
-        head -1 "${lib_dir}/pf_parser.py"
+
+    # Check the rest of the file for hardcoded home-directory paths
+    local hardcoded_home_regex='/home/[^/]+/|/Users/[^/]+/'
+    if sed '1d' "$parser_file" 2>/dev/null | grep -Eq "$hardcoded_home_regex"; then
+        log_error "Found hardcoded home-directory path in pf_parser.py"
         return 1
     fi
     
