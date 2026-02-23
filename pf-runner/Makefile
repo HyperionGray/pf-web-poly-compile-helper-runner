@@ -116,13 +116,13 @@ uninstall-completions:
 	@echo "Removed completion files"
 
 build: clean
-	@echo "Cleaning virtual environment..."
-	@pf venv-clean
 	@echo "Building static executable..."
-	@$(PF_PY) -m PyInstaller --onefile $(PF_SCRIPT)
-	@echo "Build complete. Executable at dist/$(PF_SCRIPT:.py=)"
+	@$(PF_PY) -m PyInstaller --onefile pf_main.py
+	@echo "Copying static executable to pf-runner directory..."
+	@cp "$(abspath dist/pf_main)" "$(abspath pf-static)"
+	@echo "Build complete. Static executable at $(abspath pf-static)"
 
 install: build install-completions
 	@echo "Installing executable to /usr/local/bin/pf..."
-	@sudo install dist/pf_parser /usr/local/bin/pf
+	@sudo install pf-static /usr/local/bin/pf
 	@echo "Installation complete."

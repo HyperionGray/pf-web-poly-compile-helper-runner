@@ -1,86 +1,83 @@
 # pf web plugin (minimal)
 
 # Include always-available tasks (general OS tasks that don't require specific files/directories)
-include Pfyfile.always-available.pf
+include pf/Pfyfile.always-available.pf
 
 # Include smart workflows for intelligent tool integration
-include Pfyfile.smart-workflows.pf
+include pf/Pfyfile.smart-workflows.pf
 
 # Include binary lifting tasks
-include Pfyfile.lifting.pf
+include pf/Pfyfile.lifting.pf
 
 # Include binary injection tasks
-include Pfyfile.injection.pf
+include pf/Pfyfile.injection.pf
 # Include debugging and reverse engineering tasks
-include Pfyfile.debugging.pf
+include pf/Pfyfile.debugging.pf
 # Include ROP exploit demonstration tasks
-include Pfyfile.rop.pf
+include pf/Pfyfile.rop.pf
 # Include practice binaries tasks
-include Pfyfile.practice.pf
+include pf/Pfyfile.practice.pf
 
 # Include fuzzing tasks
-include Pfyfile.fuzzing.pf
+include pf/Pfyfile.fuzzing.pf
 
 # Include sanitizer deep-dive tasks (analysis, wrappers, demos)
-include Pfyfile.sanitizers.pf
+include pf/Pfyfile.sanitizers.pf
 
 # Include security testing tasks
-include Pfyfile.security.pf
+include pf/Pfyfile.security.pf
 
 # Include unified security assessment framework
-include Pfyfile.unified-security.pf
+include pf/Pfyfile.unified-security.pf
 
 # Include git cleanup tasks
-include Pfyfile.git-cleanup.pf
+include pf/Pfyfile.git-cleanup.pf
 
 # Include PR management tasks
-include Pfyfile.pr-management.pf
+include pf/Pfyfile.pr-management.pf
 
 # Include exploit development tasks
-include Pfyfile.exploit.pf
+include pf/Pfyfile.exploit.pf
 # Include TUI tasks
-include Pfyfile.tui.pf
+include pf/Pfyfile.tui.pf
 
 # Include debugging tools tasks
-include Pfyfile.debug-tools.pf
+include pf/Pfyfile.debug-tools.pf
 
 # Include container and quadlet tasks
-include Pfyfile.containers.pf
+include pf/Pfyfile.containers.pf
 
 # Include package manager translation tasks
-include Pfyfile.package-manager.pf
+include pf/Pfyfile.package-manager.pf
 
 # Include OS container management tasks
-include Pfyfile.os-containers.pf
+include pf/Pfyfile.os-containers.pf
 
 # Include OS switching tasks (DANGEROUS)
-include Pfyfile.os-switching.pf
+include pf/Pfyfile.os-switching.pf
 # Include distro container and OS switching tasks
-include Pfyfile.distro-switch.pf
+include pf/Pfyfile.distro-switch.pf
 
 # Include PE execution and cross-platform binary execution tasks
-include Pfyfile.pe-execution.pf
+include pf/Pfyfile.pe-execution.pf
 
 # Include PE container tasks
-include Pfyfile.pe-containers.pf
+include pf/Pfyfile.pe-containers.pf
 
 # Include heap spray demonstration tasks
-include Pfyfile.heap-spray.pf
+include pf/Pfyfile.heap-spray.pf
 
 # Include kernel debugging tasks
-include Pfyfile.kernel-debug.pf
+include pf/Pfyfile.kernel-debug.pf
 
 # Include web development and WASM build tasks
-include Pfyfile.web.pf
+include pf/Pfyfile.web.pf
 
 # Include REST API management tasks
-include Pfyfile.rest-api.pf
+include pf/Pfyfile.rest-api.pf
 
 # Include always-on task management
-include Pfyfile.always-on.pf
-
-# Include smart workflows (NEW - intelligent tool integration)
-include Pfyfile.smart-workflows.pf
+include pf/Pfyfile.always-on.pf
 
 task web-dev
   describe Start development server with REST API support
@@ -230,47 +227,6 @@ task web-build-c-llvm-opt
   describe Build C to LLVM IR with custom optimization passes (passes="pass1,pass2,..." uses new pass manager)
   
   shell cd demos/pf-web-polyglot-demo-plus-c/c && mkdir -p .tmp ../web/llvm/c && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o .tmp/c_trap_unopt.ll && opt-18 -S -passes="${passes:-mem2reg,instcombine,simplifycfg,loop-vectorize}" .tmp/c_trap_unopt.ll -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
-end
-
-task install
-  describe Install pf wrapper (container-first)
-  shell bash install.sh
-end
-
-task install-native
-  describe Install pf wrapper directly on the host (no container)
-  shell bash install.sh --mode native
-end
-
-task install-container runtime=podman image=localhost/pf-runner:latest
-  describe Build pf-runner container image and install wrapper
-  shell bash install.sh --mode container --runtime ${runtime} --image ${image}
-end
-
-task install-all
-  describe Install pf plus core tool categories
-  shell pf install
-  shell pf install-container runtime=${runtime:-podman} image=${image:-localhost/pf-runner:latest}
-  shell pf install-exploit-tools
-  shell pf install-security-tools
-  shell pf install-all-debug-tools
-  shell pf install-pkg-tools
-  shell pf install-tui-deps
-  shell pf install-fuzzing-tools
-  shell pf install-lifting-tools
-  shell pf install-sanitizer-tools
-end
-
-task install-smoke-test
-  describe Run a minimal end-to-end install and command smoke test (CI helper)
-  shell_lang bash
-  shell set -euo pipefail
-  shell PREFIX=$(mktemp -d /tmp/pf-smoke-XXXX)
-  shell echo "Using PREFIX=$PREFIX"
-  shell ./install.sh --mode native --prefix "$PREFIX" --skip-deps
-  shell PATH="$PREFIX/bin:$PATH" pf --version
-  shell PATH="$PREFIX/bin:$PATH" pf list >/dev/null
-  shell echo "✅ install-smoke-test passed at $PREFIX"
 end
 
 task debug-check-podman

@@ -1,120 +1,11 @@
-<<<<<<< HEAD
-Source: pf-runner
-Section: devel
-Priority: optional
-Maintainer: PF Runner Team <maintainer@example.com>
-Build-Depends: debhelper-compat (= 13),
-               python3-all (>= 3.8),
-               python3-setuptools,
-               dh-python
-Standards-Version: 4.6.0
-Homepage: https://github.com/example/pf-runner
-Vcs-Git: https://github.com/example/pf-runner.git
-Vcs-Browser: https://github.com/example/pf-runner
-
-Package: pf-runner-core
-Architecture: all
-Depends: ${python3:Depends},
-         ${misc:Depends},
-         python3 (>= 3.8),
-         python3-pip,
-         git,
-         curl
-Recommends: build-essential,
-            python3-dev
-Suggests: pf-runner-langs,
-          pf-runner-tools
-Description: Polyglot task runner with symbol-free DSL
- pf-runner is a lightweight, single-file task runner with a symbol-free DSL
- for managing development workflows. It provides polyglot shell support,
- build system helpers, parallel execution, and modular configuration.
- .
- This package contains the core pf-runner functionality including:
- - Main task runner with Python/Fabric backend
- - Symbol-free DSL parser
- - Basic shell and build system integration
- - Configuration file support
-
-Package: pf-runner-langs
-Architecture: all
-Depends: ${misc:Depends},
-         pf-runner-core (= ${binary:Version}),
-         python3,
-         nodejs,
-         npm
-Recommends: golang-go,
-            rustc,
-            cargo,
-            gcc,
-            g++,
-            make,
-            cmake
-Suggests: openjdk-11-jdk,
-          gfortran,
-          lua5.3,
-          ruby
-Description: Language toolchain support for pf-runner
- This package provides language toolchain integration for pf-runner,
- enabling polyglot development workflows with multiple programming languages.
- .
- Supported languages include:
- - Python (built-in)
- - Node.js/JavaScript
- - Go
- - Rust
- - C/C++
- - Java
- - Fortran
- - Lua
- - Ruby
-
-Package: pf-runner-tools
-Architecture: all
-Depends: ${misc:Depends},
-         pf-runner-core (= ${binary:Version})
-Recommends: docker.io | podman,
-            git,
-            curl,
-            wget,
-            jq,
-            tree
-Suggests: gdb,
-          lldb,
-          strace,
-          ltrace,
-          valgrind
-Description: Additional development tools for pf-runner
- This package provides additional development and debugging tools
- that integrate with pf-runner workflows.
- .
- Includes support for:
- - Container runtimes (Docker/Podman)
- - Debugging tools
- - System analysis utilities
- - Network and file utilities
- - JSON processing tools
-
-Package: pf-runner
-Architecture: all
-Depends: ${misc:Depends},
-         pf-runner-core (= ${binary:Version}),
-         pf-runner-langs (= ${binary:Version})
-Recommends: pf-runner-tools (= ${binary:Version})
-Description: Complete pf-runner installation (metapackage)
- This metapackage installs the complete pf-runner suite including
- core functionality, language toolchains, and recommended tools.
- .
- This is the recommended package for most users who want a full
- pf-runner installation with comprehensive language and tool support.
-=======
 Package: pf-runner
 Version: 1.0.0
 Section: devel
 Priority: optional
 Architecture: all
 Depends: python3 (>= 3.8), python3-pip, git
-Recommends: podman | docker.io
-Maintainer: P4X-ng <223870169+P4X-ng@users.noreply.github.com>
+Recommends: build-essential, python3-dev
+Maintainer: PF Runner Team <maintainer@example.com>
 Description: Polyglot task runner with WebAssembly support
  pf-runner is a lightweight, single-file task runner with a symbol-free DSL
  for managing development workflows. It supports:
@@ -125,4 +16,3 @@ Description: Polyglot task runner with WebAssembly support
   - Smart security workflows
   - Container integration
   - Remote execution via SSH
->>>>>>> copilot/improve-installation-stability
