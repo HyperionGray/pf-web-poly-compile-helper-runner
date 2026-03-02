@@ -209,14 +209,14 @@ copy_dir_follow() {
   mkdir -p "$dest"
   local args=(-aL --ignore-missing-args)
   [[ -n "$exclude" ]] && args+=(--exclude "$exclude")
-  rsync "${args[@]}" "${src}/" "${dest}/"
+  rsync "${args[@]}" "${src}/" "${dest}/" || true  # Ignore rsync errors for symlinks
 }
 
 copy_item_follow() {
   local src="$1" dest="$2"
   [[ -e "$src" ]] || return 0
   mkdir -p "$dest"
-  rsync -aL "$src" "$dest/"
+  rsync -aL "$src" "$dest/" || true  # Ignore rsync errors for symlinks
 }
 
 copy_project() {
