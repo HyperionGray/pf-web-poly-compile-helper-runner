@@ -1253,15 +1253,18 @@ def parse_pfyfile_text(
         stripped = line.strip()
         
         # Handle line continuation
+        continuation_processed = False
         if stripped.endswith('\\'):
             combined_line, new_i = _process_line_continuation(lines, i)
             stripped = combined_line.strip()
             line = combined_line  # Use the combined line for task body
             i = new_i
+            continuation_processed = True
         
         # Skip empty lines and comments
         if not stripped or stripped.startswith('#'):
-            i += 1
+            if not continuation_processed:
+                i += 1
             continue
         
         # Parse task definition
@@ -1275,13 +1278,15 @@ def parse_pfyfile_text(
             except (ValueError, PFSyntaxError):
                 # Skip malformed task definitions
                 pass
-            i += 1
+            if not continuation_processed:
+                i += 1
             continue
         
         # End of task
         if stripped == 'end':
             current_task = None
-            i += 1
+            if not continuation_processed:
+                i += 1
             continue
         
         # Task body lines
@@ -1309,7 +1314,10 @@ def parse_pfyfile_text(
             else:
                 current_task.add(line)
         
-        i += 1
+        # Only increment if we didn't process continuation
+        # (continuation processing already set i to the next line to process)
+        if not continuation_processed:
+            i += 1
     
     return tasks_dict
 
