@@ -135,7 +135,7 @@ PY
 # Set default prefix
 ensure_permissions() {
   if [[ "$PREFIX" == /usr* ]] && [[ "$(id -u 2>/dev/null || echo 1)" -ne 0 ]]; then
-    die "Installing to $PREFIX requires root. Try: sudo ./install.sh"
+    die "Installing to $PREFIX requires root. Try: sudo ./install.sh or ./install.sh --prefix ~/.local"
   fi
 }
 
