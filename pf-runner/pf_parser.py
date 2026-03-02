@@ -1110,8 +1110,7 @@ def _accumulate_shell_command(lines: List[str], start_idx: int) -> Tuple[str, in
     
     This handles:
     - Heredocs (<<EOF ... EOF)
-    - Backslash line continuation
-    - All other bash syntax that requires multiple lines
+    - Note: Backslash line continuation is already handled by parse_pfyfile_text
     
     Args:
         lines: List of all task lines
@@ -1144,30 +1143,7 @@ def _accumulate_shell_command(lines: List[str], start_idx: int) -> Tuple[str, in
             idx += 1
         return '\n'.join(cmd_lines), idx
     
-    # Check if this line ends with backslash continuation
-    if cmd.rstrip().endswith('\\'):
-        cmd_lines = [cmd.rstrip()[:-1].rstrip()]  # Remove the trailing backslash and any spaces before it
-        idx = start_idx + 1
-        while idx < len(lines):
-            line = lines[idx]
-            # Check if this is a continuation line (doesn't start with a known verb)
-            stripped = line.strip()
-            if stripped.startswith(('shell ', 'env ', 'describe ', 'packages ', 'service ', 
-                                  'directory ', 'copy ', 'sync ')):
-                # This is a new command, stop accumulating
-                break
-            
-            # Add this line to the command
-            if stripped.endswith('\\'):
-                cmd_lines.append(stripped[:-1].rstrip())  # Remove trailing backslash and spaces
-                idx += 1
-            else:
-                cmd_lines.append(stripped)
-                idx += 1
-                break
-        return ' \\\n'.join(cmd_lines), idx
-    
-    # Single-line command - just return it
+    # Single-line command (or already combined by backslash continuation)
     return cmd, start_idx + 1
 
 
@@ -1280,6 +1256,7 @@ def parse_pfyfile_text(
         if stripped.endswith('\\'):
             combined_line, new_i = _process_line_continuation(lines, i)
             stripped = combined_line.strip()
+            line = combined_line  # Use the combined line for task body
             i = new_i
         
         # Skip empty lines and comments
