@@ -1,0 +1,64 @@
+# Test file to validate bash syntax handling for installer tasks
+# This tests the specific issues mentioned in the GitHub issue
+
+task test-heredoc
+  describe Test bash heredoc syntax
+  shell cat << 'EOF'
+This is a heredoc test
+Line 2 with spaces
+Line 3
+EOF
+end
+
+task test-semicolons
+  describe Test semicolons in bash
+  shell echo "test1"; echo "test2"; echo "test3"
+end
+
+task test-loops
+  describe Test bash loop functions
+  shell for i in 1 2 3; do echo "Number: $i"; done
+end
+
+task test-quotes
+  describe Test that quotes don't disappear
+  shell echo "double quotes" && echo 'single quotes' && echo "nested 'single' in double"
+end
+
+task test-complex-conditional
+  describe Test complex bash conditionals like in setup-optional
+  shell if ! command -v test_cmd >/dev/null 2>&1; then echo "command not found"; else echo "command exists"; fi
+end
+
+task test-operators
+  describe Test bash operators like in install-podman
+  shell echo "test1" && echo "test2" || echo "fallback"
+end
+
+task test-pipes
+  describe Test pipe operators
+  shell echo "hello world" | grep "hello" | wc -l
+end
+
+task test-redirects
+  describe Test redirect operators
+  shell echo "test output" > /tmp/test_redirect.txt 2>&1
+  shell cat /tmp/test_redirect.txt
+end
+
+task test-backslash-continuation
+  describe Test backslash line continuation
+  shell echo "line 1" \
+    && echo "line 2" \
+    && echo "line 3"
+end
+
+task test-all-syntax
+  describe Test all bash syntax at once
+  shell for i in 1 2 3; do \
+    echo "Processing $i"; \
+    if [ "$i" -eq "2" ]; then \
+      echo "Found 2"; \
+    fi; \
+  done > /tmp/test_all.txt && cat /tmp/test_all.txt
+end
