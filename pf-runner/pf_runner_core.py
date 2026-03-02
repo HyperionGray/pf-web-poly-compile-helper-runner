@@ -1735,6 +1735,7 @@ class PfRunner:
             tokens[script_idx] = corrected
             if corr_note:
                 warnings.append(corr_note)
+            # Track that we modified the script token
             modified_indices: Set[int] = {script_idx}
             return self._reconstruct_shell_command(cmd, tokens, modified_indices), None, warnings
 
@@ -1762,6 +1763,7 @@ class PfRunner:
                 f"running script from '{cwd_override}' instead of task cwd '{task_cwd}' (relative paths in script)"
             )
 
+        # Track that we modified the script token by resolving it to an absolute path
         modified_indices: Set[int] = {script_idx}
         return self._reconstruct_shell_command(cmd, tokens, modified_indices), cwd_override, warnings
     
