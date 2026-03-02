@@ -1,5 +1,7 @@
 # Installer Testing Summary - Part 2
 
+> **Note (Updated March 2026)**: This document reflects historical testing. RPM and Arch Linux package support has been **deprecated**. Only Debian packages (.deb) and static executables are now officially supported. See `bak/installers/README.md` for more information.
+
 ## Issue: Check installers part 2
 
 **Objective**: Check that all installers function AND check that the functionality behind them works. Go deep and not wide.
