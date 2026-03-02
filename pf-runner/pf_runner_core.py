@@ -1352,11 +1352,17 @@ class PfRunner:
         This avoids the shlex.split() -> modify -> shlex.join() pattern that incorrectly quotes
         shell metacharacters like [, ], (, ), &&, ||, etc.
         
-        The key insight: we only quote the modified path tokens that need quoting (paths with spaces),
-        and leave all other tokens as-is to preserve shell syntax.
+        The key insight: we only quote the modified path tokens that need quoting (paths with
+        special characters), and leave all other tokens as-is to preserve shell syntax.
+        
+        Note: This approach joins tokens with single spaces, which may differ from the original
+        spacing. This is acceptable because:
+        - Shell commands treat multiple spaces the same as single spaces (except in quoted strings)
+        - We only modify path tokens, not quoted strings
+        - The alternative (shlex.join) would break shell syntax entirely
         
         Args:
-            original_content: The original command line string
+            original_content: The original command line string (unused but kept for potential future use)
             tokens: List of tokens (from shlex.split)
             modified_indices: Set of indices of tokens that were modified
             
@@ -1371,11 +1377,12 @@ class PfRunner:
         for idx, tok in enumerate(tokens):
             if idx in modified_indices:
                 # This token was modified (typically a path that was resolved)
-                # Only quote it if it contains spaces or special characters that would break parsing
-                if ' ' in tok:
+                # Quote it if it contains shell metacharacters that would break parsing
+                # Use shlex.quote for comprehensive protection against shell metacharacters
+                if ' ' in tok or any(c in tok for c in [';', '|', '&', '$', '`', '"', "'"]):
                     result_parts.append(shlex.quote(tok))
                 else:
-                    # For simple absolute paths, no quoting needed
+                    # For simple absolute paths without special characters, no quoting needed
                     result_parts.append(tok)
             else:
                 # Original token - keep as-is without quoting
@@ -1622,13 +1629,21 @@ class PfRunner:
         warnings = []
         if note:
             warnings.append(f"polyglot source {note}")
-        # Only quote the first token if it needs quoting (contains spaces)
+        
+        # Polyglot file references are in the form @file or file:file
+        # We only modify the first token (the file path), so track that
+        modified_indices = {0}
+        
+        # For single-token commands, check if quoting is needed
         if len(tokens) == 1:
-            # Single token - just return it (already has prefix)
-            return tokens[0], warnings
+            tok = tokens[0]
+            # Quote if the token contains shell metacharacters
+            if ' ' in tok or any(c in tok for c in [';', '|', '&', '$', '`', '"', "'"]):
+                return shlex.quote(tok), warnings
+            else:
+                return tok, warnings
         else:
             # Multiple tokens - reconstruct preserving shell syntax
-            modified_indices = {0}  # First token was modified
             return self._reconstruct_shell_command(cmd, tokens, modified_indices), warnings
 
     def _autofix_shell_command_context(
