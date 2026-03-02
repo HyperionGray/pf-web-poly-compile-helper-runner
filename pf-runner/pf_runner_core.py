@@ -130,7 +130,10 @@ def _extract_polyglot_heredoc(cmd: str) -> Optional[Tuple[str, Optional[str]]]:
 class PfRunner:
     """Enhanced pf runner with subcommand support and modular architecture."""
     
-    # Shell metacharacters that require quoting when present in command tokens
+    # Shell metacharacters that require quoting when present in PATH tokens (not shell operators)
+    # Note: This list excludes shell operators like [, ], (, ), {, }, etc. because those
+    # should NOT be quoted when they appear as separate tokens in shell commands.
+    # This is specifically for detecting when modified path tokens need quoting.
     SHELL_METACHARACTERS = {';', '|', '&', '$', '`', '"', "'", ' '}
     
     def __init__(self):
@@ -1482,7 +1485,7 @@ class PfRunner:
                 continue
 
             local_changed = False
-            modified_indices = set()  # Track which token indices were modified
+            modified_indices: Set[int] = set()  # Track which token indices were modified
             op_tokens = {"&&", "||", ";", "|", "&", "(", ")", "{", "}"}
             env_assign_re = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=.*$")
 
@@ -1644,7 +1647,7 @@ class PfRunner:
         
         # Polyglot file references are in the form @file or file:file
         # We only modify the first token (the file path), so track that
-        modified_indices = {0}
+        modified_indices: Set[int] = {0}
         
         # For single-token commands, check if quoting is needed
         if len(tokens) == 1:
@@ -1761,7 +1764,7 @@ class PfRunner:
             tokens[script_idx] = corrected
             if corr_note:
                 warnings.append(corr_note)
-            modified_indices = {script_idx}
+            modified_indices: Set[int] = {script_idx}
             return self._reconstruct_shell_command(cmd, tokens, modified_indices), None, warnings
 
         # Prefer running from the task file directory unless the script strongly
@@ -1788,7 +1791,7 @@ class PfRunner:
                 f"running script from '{cwd_override}' instead of task cwd '{task_cwd}' (relative paths in script)"
             )
 
-        modified_indices = {script_idx}
+        modified_indices: Set[int] = {script_idx}
         return self._reconstruct_shell_command(cmd, tokens, modified_indices), cwd_override, warnings
     
     def _execute_on_hosts(self, selected_tasks: List[Tuple[str, List[str], Dict[str, str], Optional[str]]], 
