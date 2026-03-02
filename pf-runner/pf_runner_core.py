@@ -130,6 +130,9 @@ def _extract_polyglot_heredoc(cmd: str) -> Optional[Tuple[str, Optional[str]]]:
 class PfRunner:
     """Enhanced pf runner with subcommand support and modular architecture."""
     
+    # Shell metacharacters that require quoting when present in command tokens
+    SHELL_METACHARACTERS = {';', '|', '&', '$', '`', '"', "'", ' '}
+    
     def __init__(self):
         self.arg_parser = PfArgumentParser()
         self.subcommand_manager = SubcommandManager()
@@ -138,6 +141,16 @@ class PfRunner:
         self.autocorrect = None
         self.config = None
         self.config_path = None
+
+    @staticmethod
+    def _needs_shell_quoting(token: str) -> bool:
+        """
+        Check if a token needs shell quoting.
+        
+        Returns True if the token contains any shell metacharacters that would
+        require quoting to prevent shell interpretation.
+        """
+        return any(c in token for c in PfRunner.SHELL_METACHARACTERS)
 
     def _maybe_update_bashrc_aliases(self, dsl_tasks: Dict[str, Task]) -> None:
         """Best-effort: export `rc=true` tasks as bash aliases in ~/.bashrc."""
@@ -1362,7 +1375,7 @@ class PfRunner:
         - The alternative (shlex.join) would break shell syntax entirely
         
         Args:
-            original_content: The original command line string (unused but kept for potential future use)
+            original_content: The original command line string; returned unchanged if no modifications
             tokens: List of tokens (from shlex.split)
             modified_indices: Set of indices of tokens that were modified
             
@@ -1378,8 +1391,7 @@ class PfRunner:
             if idx in modified_indices:
                 # This token was modified (typically a path that was resolved)
                 # Quote it if it contains shell metacharacters that would break parsing
-                # Use shlex.quote for comprehensive protection against shell metacharacters
-                if ' ' in tok or any(c in tok for c in [';', '|', '&', '$', '`', '"', "'"]):
+                if self._needs_shell_quoting(tok):
                     result_parts.append(shlex.quote(tok))
                 else:
                     # For simple absolute paths without special characters, no quoting needed
@@ -1638,7 +1650,7 @@ class PfRunner:
         if len(tokens) == 1:
             tok = tokens[0]
             # Quote if the token contains shell metacharacters
-            if ' ' in tok or any(c in tok for c in [';', '|', '&', '$', '`', '"', "'"]):
+            if self._needs_shell_quoting(tok):
                 return shlex.quote(tok), warnings
             else:
                 return tok, warnings
