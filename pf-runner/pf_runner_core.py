@@ -29,7 +29,7 @@ import traceback
 import difflib
 import re
 import hashlib
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -1358,7 +1358,7 @@ class PfRunner:
             return None
         return best
 
-    def _reconstruct_shell_command(self, original_content: str, tokens: List[str], modified_indices: set) -> str:
+    def _reconstruct_shell_command(self, original_content: str, tokens: List[str], modified_indices: Set[int]) -> str:
         """
         Reconstruct a shell command line, preserving shell syntax while updating specific tokens.
         
