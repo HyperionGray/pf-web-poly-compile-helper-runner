@@ -1119,12 +1119,13 @@ def _accumulate_shell_command(lines: List[str], start_idx: int) -> Tuple[str, in
     Returns:
         Tuple of (complete_command, next_line_index)
     """
+    SHELL_PREFIX = 'shell '
     first_line = lines[start_idx].strip()
-    if not first_line.startswith("shell "):
+    if not first_line.startswith(SHELL_PREFIX):
         return "", start_idx + 1
     
     # Extract the command part (everything after "shell ")
-    cmd = first_line[6:]  # Don't strip() here to preserve leading/trailing spaces
+    cmd = first_line[len(SHELL_PREFIX):]  # Don't strip() here to preserve leading/trailing spaces
     
     # Check if this is a heredoc command
     # Look for << followed by a delimiter (with or without quotes)
@@ -1257,7 +1258,8 @@ def parse_pfyfile_text(
         if stripped.endswith('\\'):
             combined_line, new_i = _process_line_continuation(lines, i)
             stripped = combined_line.strip()
-            line = combined_line  # Use the combined line for task body
+            # Update line to the combined version so it's added to task body correctly (used in line 1316)
+            line = combined_line
             i = new_i
             continuation_processed = True
         
