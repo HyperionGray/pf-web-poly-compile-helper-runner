@@ -7,8 +7,10 @@ set -e
 # Note: Using --break-system-packages is safe here because this is a .deb package
 # that is being installed system-wide. The dependencies are part of the package's
 # contract and won't interfere with Python package manager.
-pip3 install --break-system-packages "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12" 2>/dev/null || \
-pip3 install "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12"
+# Core dependencies: lark (parsing), json5 (config)
+# Note: fabric is bundled in the package, so we don't install it via pip
+pip3 install --break-system-packages "lark>=1.1.0" "json5>=0.13.0" 2>/dev/null || \
+pip3 install "lark>=1.1.0" "json5>=0.13.0"
 
 # Fix permissions
 chmod +x /usr/local/bin/pf
