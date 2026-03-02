@@ -1,6 +1,8 @@
 # pf-runner Installation Guide
 
-This repository provides **THREE** working installation methods for pf-runner. Choose the one that best fits your needs.
+This repository provides **TWO** officially supported installation methods for pf-runner. Choose the one that best fits your needs.
+
+> **Note:** RPM and Arch Linux package support has been deprecated. See `bak/installers/README.md` for more information.
 
 ## Installation Methods
 
@@ -140,9 +142,9 @@ sudo ./install-static.sh
 
 ## Which Method Should I Use?
 
-- **Use Native Install** if you want a full-featured installation and don't mind Python dependencies
-- **Use .deb Package** if you're on Ubuntu/Debian and want system package manager integration
-- **Use Static Executable** if you want the simplest installation with no dependencies
+- **Use .deb Package** (Recommended) if you're on Ubuntu/Debian and want system package manager integration and automatic updates
+- **Use Static Executable** (Recommended) if you want the simplest installation with no dependencies on non-Debian systems
+- **Use Native Install** if you're developing pf-runner or need a customizable installation
 
 ## Verification
 
@@ -161,15 +163,6 @@ pf --help
 
 ## Uninstallation
 
-**Native install:**
-```bash
-# System-wide
-sudo rm -rf /usr/local/lib/pf-runner /usr/local/bin/pf
-
-# User install
-rm -rf ~/.local/lib/pf-runner ~/.local/bin/pf
-```
-
 **Debian package:**
 ```bash
 sudo dpkg -r pf-runner
@@ -182,6 +175,15 @@ sudo rm /usr/local/bin/pf
 
 # User install
 rm ~/.local/bin/pf
+```
+
+**Native install:**
+```bash
+# System-wide
+sudo rm -rf /usr/local/lib/pf-runner /usr/local/bin/pf
+
+# User install
+rm -rf ~/.local/lib/pf-runner ~/.local/bin/pf
 ```
 
 ## Troubleshooting

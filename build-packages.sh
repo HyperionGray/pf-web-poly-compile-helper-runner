@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# build-packages.sh - Build native packages for pf-runner
-# Supports: deb (Debian/Ubuntu), rpm (Red Hat/Fedora), pkg.tar.zst (Arch)
+# build-packages.sh - Build Debian packages for pf-runner
+# Note: RPM and Arch package support has been deprecated
+# See bak/installers/README.md for more information
 
 set -euo pipefail
 
@@ -40,7 +41,7 @@ show_help() {
 pf-runner Package Builder
 
 USAGE:
-    ./build-packages.sh [OPTIONS] [FORMATS...]
+    ./build-packages.sh [OPTIONS]
 
 OPTIONS:
     --version VERSION    Package version (default: $VERSION)
@@ -50,35 +51,27 @@ OPTIONS:
     --install            Install packages after building (requires sudo)
     --help, -h           Show this help message
 
-FORMATS:
-    deb                  Build Debian/Ubuntu packages
-    rpm                  Build Red Hat/Fedora packages  
-    arch                 Build Arch Linux packages
-    all                  Build all supported formats (default)
-
 EXAMPLES:
-    # Build all package formats
+    # Build Debian packages
     ./build-packages.sh
 
-    # Build only Debian packages
-    ./build-packages.sh deb
-
     # Build and install Debian packages
-    ./build-packages.sh --install deb
+    ./build-packages.sh --install
 
-    # Clean build and build all formats
-    ./build-packages.sh --clean all
+    # Clean build and build packages
+    ./build-packages.sh --clean
 
 REQUIREMENTS:
-    For deb: debuild, dpkg-buildpackage
-    For rpm: rpmbuild, rpm-build
-    For arch: makepkg, pacman
+    debuild, dpkg-buildpackage (install with: sudo apt-get install dpkg-dev)
+
+NOTE:
+    RPM and Arch package support has been deprecated. This script now only
+    builds Debian packages. See bak/installers/README.md for more information.
 
 EOF
 }
 
 # Parse command line arguments
-FORMATS=()
 CLEAN=false
 INSTALL=false
 
@@ -120,9 +113,14 @@ while [[ $# -gt 0 ]]; do
             show_help
             exit 0
             ;;
-        deb|rpm|arch|all)
-            FORMATS+=("$1")
+        deb)
+            # Accept 'deb' for backward compatibility, but it's now the default
             shift
+            ;;
+        rpm|arch|all)
+            log_error "Format '$1' is no longer supported. Only .deb packages are built."
+            log_error "See bak/installers/README.md for more information."
+            exit 1
             ;;
         *)
             log_error "Unknown option: $1"
@@ -131,16 +129,6 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-
-# Default to all formats if none specified
-if [[ ${#FORMATS[@]} -eq 0 ]]; then
-    FORMATS=("all")
-fi
-
-# Expand "all" format
-if [[ " ${FORMATS[*]} " =~ " all " ]]; then
-    FORMATS=("deb" "rpm" "arch")
-fi
 
 # Clean build directory if requested
 if [[ "$CLEAN" == true ]]; then
@@ -214,65 +202,8 @@ build_deb() {
     ls -la "$deb_dir"/*.deb
 }
 
-# Build RPM packages
-build_rpm() {
-    log_info "Building RPM packages..."
-    
-    # Check for required tools
-    if ! command -v rpmbuild >/dev/null 2>&1; then
-        log_error "rpmbuild not found. Install with: sudo dnf install rpm-build"
-        return 1
-    fi
-    
-    # Create RPM build directories
-    local rpm_dir="${BUILD_DIR}/rpm"
-    mkdir -p "$rpm_dir"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
-    
-    # Copy spec file and source
-    cp "${SCRIPT_DIR}/pf-runner.spec" "$rpm_dir/SPECS/"
-    cp "${BUILD_DIR}/pf-runner-${VERSION}.tar.gz" "$rpm_dir/SOURCES/"
-    
-    # Update spec file with current date
-    sed -i "s/\$(date \"+%a %b %d %Y\")/$(date "+%a %b %d %Y")/" "$rpm_dir/SPECS/pf-runner.spec"
-    
-    # Build packages
-    log_info "Running rpmbuild..."
-    rpmbuild --define "_topdir $rpm_dir" -ba "$rpm_dir/SPECS/pf-runner.spec"
-    
-    # Move packages to build directory
-    find "$rpm_dir/RPMS" -name "*.rpm" -exec mv {} "$rpm_dir/" \;
-    find "$rpm_dir/SRPMS" -name "*.rpm" -exec mv {} "$rpm_dir/" \;
-    
-    log_success "RPM packages built in: $rpm_dir"
-    ls -la "$rpm_dir"/*.rpm
-}
-
-# Build Arch packages
-build_arch() {
-    log_info "Building Arch Linux packages..."
-    
-    # Check for required tools
-    if ! command -v makepkg >/dev/null 2>&1; then
-        log_error "makepkg not found. Install with: sudo pacman -S base-devel"
-        return 1
-    fi
-    
-    # Create build directory
-    local arch_dir="${BUILD_DIR}/arch"
-    mkdir -p "$arch_dir"
-    
-    # Copy PKGBUILD and source
-    cp "${SCRIPT_DIR}/PKGBUILD" "$arch_dir/"
-    cp "${BUILD_DIR}/pf-runner-${VERSION}.tar.gz" "$arch_dir/"
-    
-    # Build packages
-    cd "$arch_dir"
-    log_info "Running makepkg..."
-    makepkg -sf --noconfirm
-    
-    log_success "Arch packages built in: $arch_dir"
-    ls -la "$arch_dir"/*.pkg.tar.*
-}
+# RPM and Arch package building has been deprecated
+# See bak/installers/README.md for more information
 
 # Install packages
 install_packages() {
@@ -280,41 +211,27 @@ install_packages() {
         return 0
     fi
     
-    log_info "Installing packages..."
+    log_info "Installing Debian packages..."
     
-    # Detect package manager and install appropriate packages
-    if command -v apt-get >/dev/null 2>&1 && [[ " ${FORMATS[*]} " =~ " deb " ]]; then
-        log_info "Installing Debian packages..."
-        sudo dpkg -i "${BUILD_DIR}/deb"/*.deb || true
-        sudo apt-get install -f -y  # Fix any dependency issues
-        
-    elif command -v dnf >/dev/null 2>&1 && [[ " ${FORMATS[*]} " =~ " rpm " ]]; then
-        log_info "Installing RPM packages..."
-        sudo dnf install -y "${BUILD_DIR}/rpm"/*.rpm
-        
-    elif command -v yum >/dev/null 2>&1 && [[ " ${FORMATS[*]} " =~ " rpm " ]]; then
-        log_info "Installing RPM packages..."
-        sudo yum install -y "${BUILD_DIR}/rpm"/*.rpm
-        
-    elif command -v pacman >/dev/null 2>&1 && [[ " ${FORMATS[*]} " =~ " arch " ]]; then
-        log_info "Installing Arch packages..."
-        sudo pacman -U --noconfirm "${BUILD_DIR}/arch"/*.pkg.tar.*
-        
-    else
-        log_warning "No compatible package manager found for installation"
+    if ! command -v apt-get >/dev/null 2>&1; then
+        log_error "apt-get not found. This script only supports Debian/Ubuntu systems."
+        log_error "For other systems, use the static executable installer: ./install-static.sh"
         return 1
     fi
+    
+    sudo dpkg -i "${BUILD_DIR}/deb"/*.deb || true
+    sudo apt-get install -f -y  # Fix any dependency issues
     
     log_success "Packages installed successfully!"
 }
 
 # Main execution
 main() {
-    echo -e "${BLUE}pf-runner Package Builder${NC}"
-    echo "========================="
+    echo -e "${BLUE}pf-runner Debian Package Builder${NC}"
+    echo "=================================="
     echo ""
     
-    log_info "Building packages for formats: ${FORMATS[*]}"
+    log_info "Building Debian packages"
     log_info "Version: $VERSION-$RELEASE"
     log_info "Build directory: $BUILD_DIR"
     echo ""
@@ -322,25 +239,9 @@ main() {
     # Create source tarball
     create_source_tarball
     
-    # Build packages for each format
-    for format in "${FORMATS[@]}"; do
-        case "$format" in
-            deb)
-                build_deb
-                ;;
-            rpm)
-                build_rpm
-                ;;
-            arch)
-                build_arch
-                ;;
-            *)
-                log_error "Unknown format: $format"
-                exit 1
-                ;;
-        esac
-        echo ""
-    done
+    # Build Debian packages
+    build_deb
+    echo ""
     
     # Install packages if requested
     install_packages
@@ -349,14 +250,12 @@ main() {
     log_success "🎉 Package building completed successfully!"
     echo ""
     log_info "Built packages:"
-    find "$BUILD_DIR" -name "*.deb" -o -name "*.rpm" -o -name "*.pkg.tar.*" | sort
+    find "$BUILD_DIR" -name "*.deb" | sort
     echo ""
     
     if [[ "$INSTALL" != true ]]; then
-        log_info "To install packages, run with --install flag or use your package manager:"
-        echo "  Debian/Ubuntu: sudo dpkg -i build-packages/deb/*.deb && sudo apt-get install -f"
-        echo "  Red Hat/Fedora: sudo dnf install build-packages/rpm/*.rpm"
-        echo "  Arch Linux: sudo pacman -U build-packages/arch/*.pkg.tar.*"
+        log_info "To install packages, run with --install flag or use:"
+        echo "  sudo dpkg -i build-packages/deb/*.deb && sudo apt-get install -f"
     fi
 }
 
