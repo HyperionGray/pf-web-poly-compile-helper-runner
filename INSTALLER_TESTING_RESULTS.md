@@ -1,5 +1,7 @@
 # Installer Testing Results
 
+> **Note (Updated March 2026)**: This document reflects historical testing. RPM and Arch Linux package support has been **deprecated**. Only Debian packages (.deb) and static executables are now officially supported. See `bak/installers/README.md` for more information.
+
 ## Overview
 
 This document details the comprehensive testing performed on all pf-runner installers to ensure they function correctly and the installed executables work as expected.
