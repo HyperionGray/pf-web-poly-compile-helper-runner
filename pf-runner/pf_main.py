@@ -44,6 +44,7 @@ from pf_parser import (
     _dedupe_preserve_order,
     _interpolate,
     _exec_line_fabric,
+    _accumulate_shell_command,
     BUILTINS,
 )
 from pf_args import PfArgumentParser
@@ -602,7 +603,9 @@ class PfRunner:
                 print(f"{prefix} --> {task_name}")
                 task_env = {}
                 
-                for line in lines:
+                idx = 0
+                while idx < len(lines):
+                    line = lines[idx]
                     stripped = line.strip()
                     
                     # Handle env command (stateful)
@@ -611,24 +614,28 @@ class PfRunner:
                             if '=' in tok:
                                 k, v = tok.split('=', 1)
                                 task_env[k] = _interpolate(v, params, task_env)
+                        idx += 1
                         continue
                     
                     try:
                         # Use enhanced shell execution for shell commands
                         if stripped.startswith('shell '):
-                            shell_cmd = stripped[6:].strip()  # Remove 'shell ' prefix
+                            # Accumulate the full command (handles heredocs and continuations)
+                            shell_cmd, next_idx = _accumulate_shell_command(lines, idx)
                             shell_cmd = _interpolate(shell_cmd, params, task_env)
                             
                             rc = execute_shell_command(
                                 shell_cmd, task_env, args.sudo, args.sudo_user,
                                 connection, prefix
                             )
+                            idx = next_idx
                         else:
                             # Use original execution for other commands
                             rc = _exec_line_fabric(
                                 line, connection, task_env, task_name,
                                 args.sudo, args.sudo_user
                             )
+                            idx += 1
                         
                         if rc != 0:
                             # Command failed - create detailed error

@@ -1104,6 +1104,73 @@ def list_dsl_tasks_with_desc(file_arg: Optional[str] = None) -> List[Tuple[str, 
         raise
 
 
+def _accumulate_shell_command(lines: List[str], start_idx: int) -> Tuple[str, int]:
+    """
+    Accumulate a potentially multiline shell command starting from start_idx.
+    
+    This handles:
+    - Heredocs (<<EOF ... EOF)
+    - Backslash line continuation
+    - All other bash syntax that requires multiple lines
+    
+    Args:
+        lines: List of all task lines
+        start_idx: Index of the line starting with 'shell '
+        
+    Returns:
+        Tuple of (complete_command, next_line_index)
+    """
+    first_line = lines[start_idx].strip()
+    if not first_line.startswith("shell "):
+        return "", start_idx + 1
+    
+    # Extract the command part (everything after "shell ")
+    cmd = first_line[6:]  # Don't strip() here to preserve leading/trailing spaces
+    
+    # Check if this is a heredoc command
+    # Look for << followed by a delimiter (with or without quotes)
+    heredoc_match = re.search(r'<<\s*["\']?(\w+)["\']?', cmd)
+    if heredoc_match:
+        delimiter = heredoc_match.group(1)
+        # Accumulate lines until we find the delimiter
+        cmd_lines = [cmd]
+        idx = start_idx + 1
+        while idx < len(lines):
+            line = lines[idx]
+            cmd_lines.append(line.rstrip())  # Preserve indentation but remove trailing whitespace
+            if line.strip() == delimiter:
+                idx += 1
+                break
+            idx += 1
+        return '\n'.join(cmd_lines), idx
+    
+    # Check if this line ends with backslash continuation
+    if cmd.rstrip().endswith('\\'):
+        cmd_lines = [cmd.rstrip()[:-1].rstrip()]  # Remove the trailing backslash and any spaces before it
+        idx = start_idx + 1
+        while idx < len(lines):
+            line = lines[idx]
+            # Check if this is a continuation line (doesn't start with a known verb)
+            stripped = line.strip()
+            if stripped.startswith(('shell ', 'env ', 'describe ', 'packages ', 'service ', 
+                                  'directory ', 'copy ', 'sync ')):
+                # This is a new command, stop accumulating
+                break
+            
+            # Add this line to the command
+            if stripped.endswith('\\'):
+                cmd_lines.append(stripped[:-1].rstrip())  # Remove trailing backslash and spaces
+                idx += 1
+            else:
+                cmd_lines.append(stripped)
+                idx += 1
+                break
+        return ' \\\n'.join(cmd_lines), idx
+    
+    # Single-line command - just return it
+    return cmd, start_idx + 1
+
+
 def run_task_by_name(
     task_name: str,
     file_arg: Optional[str] = None,
@@ -1136,21 +1203,28 @@ def run_task_by_name(
     params = {}
 
     rc = 0
-    for line in lines:
+    idx = 0
+    while idx < len(lines):
+        line = lines[idx]
         stripped = line.strip()
+        
         if stripped.startswith("env "):
             for tok in shlex.split(stripped)[1:]:
                 if "=" in tok:
                     k, v = tok.split("=", 1)
                     task_env[k] = _interpolate(v, params, task_env)
+            idx += 1
             continue
 
         if stripped.startswith("shell "):
-            cmd = stripped[6:].strip()
+            # Accumulate the full command (handles heredocs and continuations)
+            cmd, next_idx = _accumulate_shell_command(lines, idx)
             cmd = _interpolate(cmd, params, task_env)
             rc = _exec_line_fabric(cmd, None, task_env, task_name, False, None)
+            idx = next_idx
         else:
             print(f"[skip] unsupported verb in task '{task_name}': {stripped}", file=sys.stderr)
+            idx += 1
             continue
 
         if rc != 0:
