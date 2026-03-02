@@ -1,0 +1,79 @@
+# Heap Spray Helpers and Demos - pf tasks
+# FOR EDUCATIONAL PURPOSES ONLY
+
+# Build tasks
+task build-heap-spray-lib
+  describe Build the heap spray helper library
+  shell cd demos/heap-spray && make $(OBJ_DIR)/heap_spray.o
+end
+
+task build-heap-spray-basic
+  describe Build the basic heap spray demo
+  shell cd demos/heap-spray && make basic_demo
+end
+
+task build-heap-spray-vulns
+  describe Build the vulnerability demonstration
+  shell cd demos/heap-spray && make vulnerability_demo
+end
+
+task build-heap-spray-tools
+  describe Build the heap analysis tools
+  shell cd demos/heap-spray && make heap_analyzer
+end
+
+task build-heap-spray-demos
+  describe Build all heap spray demos and tools
+  shell cd demos/heap-spray && make all
+end
+
+# Run tasks
+task demo-heap-spray-basic
+  describe Run the basic heap spray demonstration
+  shell cd demos/heap-spray && make run-basic
+end
+
+task demo-heap-spray-vulns
+  describe Run the vulnerability exploitation demonstration
+  shell cd demos/heap-spray && make run-vulns
+end
+
+task demo-heap-spray-analyze
+  describe Run the heap spray analysis tool
+  shell cd demos/heap-spray && make run-analyzer
+end
+
+task demo-heap-spray-all
+  describe Run all heap spray demonstrations
+  shell cd demos/heap-spray && make run-all
+end
+
+# Clean task
+task clean-heap-spray
+  describe Clean heap spray build artifacts
+  shell cd demos/heap-spray && make clean
+end
+
+# Help task
+task heap-spray-help
+  describe Show help for heap spray tasks
+  shell echo "Heap Spray Helpers and Demos"
+  shell echo ""
+  shell echo "Build tasks:"
+  shell echo "  build-heap-spray-demos   - Build all demos and tools"
+  shell echo "  build-heap-spray-basic   - Build basic demo only"
+  shell echo "  build-heap-spray-vulns   - Build vulnerability demo"
+  shell echo "  build-heap-spray-tools   - Build analysis tools"
+  shell echo ""
+  shell echo "Demo tasks:"
+  shell echo "  demo-heap-spray-basic    - Basic heap spray techniques"
+  shell echo "  demo-heap-spray-vulns    - Vulnerability exploitation"
+  shell echo "  demo-heap-spray-analyze  - Heap spray detection"
+  shell echo "  demo-heap-spray-all      - Run all demonstrations"
+  shell echo ""
+  shell echo "Utility tasks:"
+  shell echo "  clean-heap-spray         - Clean build artifacts"
+  shell echo "  heap-spray-help          - Show this help"
+  shell echo ""
+  shell echo "Documentation: demos/heap-spray/README.md"
+end

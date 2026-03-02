@@ -1,0 +1,31 @@
+[Unit]
+Description=pf Container Health Monitor Service
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=/opt/pf-runner
+ExecStart=/bin/bash -c 'if command -v podman >/dev/null 2>&1; then echo "Monitoring Podman containers..."; while true; do echo "[$(date)] Checking container health..."; unhealthy=$(podman ps --filter "health=unhealthy" --format "{{.Names}}" 2>/dev/null || true); if [ -n "$unhealthy" ]; then echo "Unhealthy containers: $unhealthy"; echo "$unhealthy" | xargs -r podman restart; else echo "All containers healthy"; fi; sleep 60; done; elif command -v docker >/dev/null 2>&1; then echo "Monitoring Docker containers..."; while true; do echo "[$(date)] Checking container health..."; unhealthy=$(docker ps --filter "health=unhealthy" --format "{{.Names}}" 2>/dev/null || true); if [ -n "$unhealthy" ]; then echo "Unhealthy containers: $unhealthy"; echo "$unhealthy" | xargs -r docker restart; else echo "All containers healthy"; fi; sleep 60; done; else echo "No container runtime available"; exit 1; fi'
+Restart=on-failure
+RestartSec=10
+
+# Environment configuration
+Environment=PF_CONTAINER_CHECK_INTERVAL=60
+EnvironmentFile=-/etc/default/pf-container-health
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/log/pf
+
+# Resource limits
+MemoryMax=256M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,784 @@
+#!/usr/bin/env python3
+"""
+pf_main.py - Enhanced main entry point for pf with subcommand support
+
+This module provides:
+- Integration of enhanced argument parsing
+- Orchestration of specialized components
+- Backward compatibility with existing usage
+- Integration with pfuck autocorrect
+
+Architecture:
+  This module now acts as a lightweight orchestrator, delegating to specialized components:
+  - SubcommandManager: Handles subcommand discovery and registration
+  - BuiltinCommandHandler: Manages built-in command implementations
+  - TaskExecutor: Orchestrates task execution and parallel processing
+  - pf_parser: Core DSL parsing and task management
+  - pf_args: Argument parsing
+  - pf_shell: Shell command execution
+  - pfuck: Autocorrect functionality
+
+The refactoring follows Single Responsibility Principle by separating concerns
+into focused, cohesive components while maintaining the same public interface.
+"""
+
+import os
+import sys
+import traceback
+import difflib
+import shlex
+import textwrap
+from typing import List, Dict, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+# Import existing pf functionality
+from pf_parser import (
+    get_alias_map,
+    _find_pfyfile,
+    _load_pfy_source_with_includes,
+    parse_pfyfile_text,
+    Task,
+    list_dsl_tasks_with_desc,
+    _merge_env_hosts,
+    _normalize_hosts,
+    _parse_host,
+    _c_for,
+    _dedupe_preserve_order,
+    _interpolate,
+    _render_polyglot_command,
+    _exec_line_fabric,
+    BUILTINS,
+)
+from pf_args import PfArgumentParser
+from pf_exceptions import (
+    PFException,
+    PFExecutionError,
+    PFTaskNotFoundError,
+    PFConnectionError,
+    format_exception_for_user,
+)
+
+# Import specialized components
+from pf_subcommand_manager import SubcommandManager
+from pf_builtin_commands import BuiltinCommandHandler
+from pf_task_executor import TaskExecutor
+from pf_shell import execute_shell_command
+from pfuck import PfAutocorrect
+
+
+class PfRunner:
+    """Enhanced pf runner with subcommand support and modular architecture."""
+    
+    def __init__(self):
+        self.arg_parser = PfArgumentParser()
+        self.subcommand_manager = SubcommandManager()
+        self.builtin_handler = BuiltinCommandHandler()
+        self.task_executor = TaskExecutor()
+        self.autocorrect = None
+        
+    def discover_subcommands(self, pfyfile: Optional[str] = None) -> Dict[str, List[str]]:
+        """Discover and register subcommands from included files."""
+        self.subcommand_manager.register_subcommands_with_parser(self.arg_parser, pfyfile)
+        return self.subcommand_manager.discover_subcommands(pfyfile)
+
+    def _extract_global_env(self, dsl_src: str) -> Dict[str, str]:
+        """Extract env KEY=VAL declarations outside task blocks."""
+        global_env: Dict[str, str] = {}
+        in_task = False
+
+        for raw_line in dsl_src.splitlines():
+            stripped = raw_line.strip()
+
+            if stripped.startswith("task "):
+                in_task = True
+                continue
+            if in_task and stripped == "end":
+                in_task = False
+                continue
+
+            if in_task:
+                continue
+
+            if stripped.startswith("env "):
+                for tok in shlex.split(stripped)[1:]:
+                    if "=" in tok:
+                        k, v = tok.split("=", 1)
+                        global_env[k] = _interpolate(v, {}, global_env)
+
+        return global_env
+    
+    def run_command(self, args: List[str]) -> int:
+        """Run pf command with enhanced argument parsing and error handling."""
+        # Lightweight version flag handling to avoid mis-parsing as a task
+        if args and args[0] in ("--version", "-V", "version"):
+            try:
+                from pf_grammar import __version__ as grammar_version
+            except Exception:
+                grammar_version = "unknown"
+            print(f"pf (merged build) - grammar {grammar_version}")
+            return 0
+
+        # Check if we need to resolve an alias
+        # First, extract file argument if present (before any command)
+        file_arg = None
+        args_copy = list(args)
+        i = 0
+        while i < len(args_copy):
+            if args_copy[i] in ('-f', '--file') and i + 1 < len(args_copy):
+                file_arg = args_copy[i + 1]
+                i += 2
+            elif args_copy[i].startswith('--file='):
+                file_arg = args_copy[i].split('=', 1)[1]
+                i += 1
+            elif not args_copy[i].startswith('-'):
+                # Found a non-option argument, check if it's an alias
+                builtins = {'list', 'help', 'run', 'prune', 'debug-on', 'debug-off'}
+                if args_copy[i] not in builtins:
+                    try:
+                        alias_map = get_alias_map(file_arg=file_arg)
+                        if args_copy[i] in alias_map:
+                            # Replace alias with actual task name and prefix with 'run'
+                            task_name = alias_map[args_copy[i]]
+                            args = args[:i] + ['run', task_name] + args[i+1:]
+                    except Exception:
+                        # If alias resolution fails, continue with normal parsing
+                        pass
+                break
+            else:
+                i += 1
+
+        # Register subcommands before argparse parsing (uses `-f/--file` if provided).
+        self.discover_subcommands(pfyfile=file_arg)
+        
+        # Parse arguments
+        try:
+            # Parse arguments
+            try:
+                parsed_args = self.arg_parser.parse_args(args)
+            except SystemExit as e:
+                return e.code if e.code is not None else 1
+                
+            # Initialize autocorrect with the specified file
+            self.autocorrect = PfAutocorrect(parsed_args.file)
+            
+            # Handle different commands
+            if parsed_args.command == 'list':
+                return self._handle_list_command(parsed_args)
+            elif parsed_args.command == 'help':
+                return self._handle_help_command(parsed_args)
+            elif parsed_args.command == 'run':
+                return self._handle_run_command(parsed_args)
+            elif parsed_args.command == 'prune':
+                return self._handle_prune_command(parsed_args)
+            elif parsed_args.command == 'debug-on':
+                return self._handle_debug_on_command(parsed_args)
+            elif parsed_args.command == 'debug-off':
+                return self._handle_debug_off_command(parsed_args)
+            elif parsed_args.command == 'version':
+                return self._handle_version_command(parsed_args)
+            elif hasattr(parsed_args, 'subcommand_tasks'):
+                # It's a subcommand
+                return self._handle_subcommand(parsed_args)
+            else:
+                raise PFException(
+                    message=f"Unknown command: {parsed_args.command}",
+                    suggestion="Run 'pf help' to see available commands"
+                )
+                
+        except PFException as e:
+            # Our custom exceptions - show full context
+            print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
+            return 1
+        except Exception as e:
+            # Unexpected exceptions - show with context
+            print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
+            return 1
+    
+    def _handle_prune_command(self, args) -> int:
+        """Handle the prune command for syntax checking."""
+        try:
+            from pf_prune import prune_tasks
+            
+            passed, failed, failed_tasks = prune_tasks(
+                file_arg=args.file,
+                dry_run=getattr(args, 'dry_run', True),
+                verbose=getattr(args, 'verbose', False),
+                output_file=getattr(args, 'output', 'pfail.fail.pf')
+            )
+            return 0 if failed == 0 else 1
+            
+        except Exception as e:
+            print(f"Error during prune: {e}", file=sys.stderr)
+            return 1
+    
+    def _handle_debug_on_command(self, args) -> int:
+        """Handle the debug-on command."""
+        try:
+            from pf_prune import set_debug_mode
+            set_debug_mode(True)
+            return 0
+        except PermissionError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"Error enabling debug mode: {e}", file=sys.stderr)
+            return 1
+    
+    def _handle_debug_off_command(self, args) -> int:
+        """Handle the debug-off command."""
+        try:
+            from pf_prune import set_debug_mode
+            set_debug_mode(False)
+            return 0
+        except PermissionError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"Error disabling debug mode: {e}", file=sys.stderr)
+            return 1
+
+    def _handle_version_command(self, args) -> int:
+        """Display version information."""
+        version = getattr(self.arg_parser, "version", None) or "unknown"
+        grammar_version = getattr(sys.modules.get("pf_grammar"), "__version__", None)
+
+        print(f"pf {version}")
+        if grammar_version:
+            print(f"pf grammar {grammar_version}")
+
+        install_dir = Path(__file__).resolve().parent
+        print(f"install: {install_dir}")
+        return 0
+    
+    def _handle_list_command(self, args) -> int:
+        """Handle the list command."""
+        try:
+            tasks_with_desc = list_dsl_tasks_with_desc(file_arg=args.file)
+            
+            if args.subcommand:
+                # Filter tasks by subcommand
+                print(f"Tasks for {args.subcommand}:")
+                # This would need more sophisticated filtering
+                # For now, show all tasks
+            else:
+                print("Available tasks:")
+                
+            if not tasks_with_desc:
+                print("  No tasks found.")
+                if args.file:
+                    print(f"\nNote: Using Pfyfile: {args.file}")
+                    print("Check if the file exists and contains task definitions.")
+                else:
+                    print("\nNote: No Pfyfile found in current directory or parent directories.")
+                    print(
+                        "Create pf-files/Pfyfile.pf (recommended) or Pfyfile.pf, or specify one with: pf -f <path> list"
+                    )
+                return 0
+                
+            # Group tasks by category if possible
+            main_tasks = []
+            categorized_tasks = {}
+            
+            for task_name, description, aliases in tasks_with_desc:
+                # Simple categorization based on task name patterns
+                if any(prefix in task_name for prefix in ['web-', 'build-', 'install-', 'test-']):
+                    category = task_name.split('-')[0]
+                    if category not in categorized_tasks:
+                        categorized_tasks[category] = []
+                    categorized_tasks[category].append((task_name, description, aliases))
+                else:
+                    main_tasks.append((task_name, description, aliases))
+            
+            # Display main tasks first
+            if main_tasks:
+                print("\nCore tasks:")
+                for task_name, description, aliases in main_tasks:
+                    desc_text = f" - {description}" if description else ""
+                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
+                    print(f"  {task_name}{desc_text}{alias_text}")
+            
+            # Display categorized tasks
+            for category, tasks in sorted(categorized_tasks.items()):
+                print(f"\n{category.title()} tasks:")
+                for task_name, description, aliases in tasks:
+                    desc_text = f" - {description}" if description else ""
+                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
+                    print(f"  {task_name}{desc_text}{alias_text}")
+                    
+            # Show usage hint
+            print(f"\nUsage: pf run <task_name> [params...]")
+            print(f"       pf help <task_name>  # Show help for specific task")
+            
+            return 0
+            
+        except FileNotFoundError as e:
+            # Specific error for missing file
+            print(f"Error: Pfyfile not found: {e}", file=sys.stderr)
+            if args.file:
+                print(f"The specified file '{args.file}' does not exist.", file=sys.stderr)
+            else:
+                print("No Pfyfile found in current directory or parent directories.", file=sys.stderr)
+            print("\nSuggestions:", file=sys.stderr)
+            print(
+                "  - Create pf-files/Pfyfile.pf (recommended) or Pfyfile.pf in your project directory",
+                file=sys.stderr,
+            )
+            print("  - Specify a file with: pf -f <path> list", file=sys.stderr)
+            print("  - Check the PFY_FILE environment variable", file=sys.stderr)
+            return 1
+        except BrokenPipeError:
+            # Output pipe closed (e.g., piped to head); exit quietly
+            try:
+                sys.stdout.close()
+            except Exception:
+                pass
+            return 0
+        except Exception as e:
+            print(f"Error listing tasks: {e}", file=sys.stderr)
+            print("\nTraceback:", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+            return 1
+    
+    def _handle_help_command(self, args) -> int:
+        """Handle the help command."""
+        if args.topic:
+            # Show help for specific task or subcommand
+            return self._show_task_help(args.topic, args.file)
+        else:
+            # Show general help
+            self.arg_parser.parser.print_help()
+            return 0
+    
+    def _show_task_help(self, task_name: str, pfyfile: Optional[str] = None) -> int:
+        """Show help for a specific task."""
+        try:
+            dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=pfyfile)
+            dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
+            
+            if task_name in dsl_tasks:
+                task = dsl_tasks[task_name]
+                print(f"Task: {task_name}")
+                if task.description:
+                    print(f"Description: {task.description}")
+                print("\nCommands:")
+                for line in task.lines:
+                    print(f"  {line}")
+            elif task_name in BUILTINS:
+                print(f"Built-in task: {task_name}")
+                print("Commands:")
+                for line in BUILTINS[task_name]:
+                    print(f"  {line}")
+            else:
+                # Try to suggest corrections
+                suggestions = self.autocorrect.suggest_task_correction(task_name)
+                print(f"Task '{task_name}' not found.")
+                if suggestions:
+                    print("Did you mean:")
+                    for suggestion in suggestions:
+                        print(f"  {suggestion}")
+                return 1
+                
+            return 0
+            
+        except Exception as e:
+            print(f"Error showing help for {task_name}: {e}", file=sys.stderr)
+            return 1
+    
+    def _handle_run_command(self, args) -> int:
+        """Handle the run command."""
+        if not hasattr(args, 'tasks') or not args.tasks:
+            print("No tasks specified to run.", file=sys.stderr)
+            return 1
+            
+        return self._execute_tasks(args, args.tasks)
+    
+    def _handle_subcommand(self, args) -> int:
+        """Handle a subcommand (from included file)."""
+        if not hasattr(args, 'task'):
+            print("No task specified for subcommand.", file=sys.stderr)
+            return 1
+            
+        # Combine task name with parameters
+        task_args = [args.task]
+        if hasattr(args, 'params') and args.params:
+            task_args.extend(args.params)
+            
+        return self._execute_tasks(args, task_args)
+    
+    def _execute_tasks(self, args, task_args: List[str]) -> int:
+        """Execute the specified tasks."""
+        try:
+            # Build host list
+            env_names = args.env or []
+            host_specs = []
+            
+            if args.hosts:
+                host_specs.extend(_normalize_hosts(args.hosts))
+            if args.host:
+                host_specs.extend(args.host)
+                
+            # Resolve hosts
+            env_hosts = _merge_env_hosts(env_names)
+            merged_hosts = _dedupe_preserve_order(env_hosts + host_specs)
+            if not merged_hosts:
+                merged_hosts = ["@local"]
+            
+            # Load tasks
+            dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=args.file)
+            global_env = self._extract_global_env(dsl_src)
+            # Ensure nested `pf ...` calls inside tasks resolve to this interpreter's venv.
+            if "PATH" not in global_env:
+                venv_bin = os.path.dirname(sys.executable)
+                if os.path.basename(venv_bin) == "bin":
+                    global_env["PATH"] = f"{venv_bin}:{os.environ.get('PATH', '')}"
+            dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
+            valid_task_names = set(BUILTINS.keys()) | set(dsl_tasks.keys())
+            
+            # Parse task arguments
+            selected_tasks = self._parse_task_arguments(task_args, valid_task_names, dsl_tasks)
+            
+            if not selected_tasks:
+                print("No valid tasks found to execute.", file=sys.stderr)
+                return 1
+            
+            # Execute tasks across hosts
+            return self._execute_on_hosts(selected_tasks, merged_hosts, args, global_env)
+            
+        except Exception as e:
+            print(f"Error executing tasks: {e}", file=sys.stderr)
+            return 1
+    
+    def _parse_task_arguments(
+        self,
+        task_args: List[str],
+        valid_task_names: set,
+        dsl_tasks: Dict[str, Task],
+    ) -> List[Tuple[str, List[str], Dict[str, str], Optional[str]]]:
+        """Parse task arguments into (task_name, lines, params, default_lang) tuples."""
+        selected = []
+        i = 0
+        
+        while i < len(task_args):
+            task_name = task_args[i]
+
+            # Resolve/auto-correct task name when it is not an exact match
+            resolved_name = self._resolve_task_name(task_name, valid_task_names)
+            
+            i += 1
+            
+            # Parse parameters for this task
+            cli_params: Dict[str, str] = {}
+            while i < len(task_args) and '=' in task_args[i] and not task_args[i].startswith('--'):
+                key, value = task_args[i].split('=', 1)
+                cli_params[key] = value
+                i += 1
+            
+            # Get task lines
+            if resolved_name in BUILTINS:
+                lines = BUILTINS[resolved_name]
+                default_lang = None
+                merged_params: Dict[str, str] = dict(cli_params)
+            else:
+                task = dsl_tasks[resolved_name]
+                lines = task.lines
+                default_lang = task.default_lang
+                merged_params = dict(task.params)
+                merged_params.update(cli_params)
+            
+            selected.append((resolved_name, lines, merged_params, default_lang))
+        
+        return selected
+
+    def _resolve_task_name(self, task_name: str, valid_task_names: set) -> str:
+        """Return a valid task name, applying autocorrect with user-controlled policy."""
+        if task_name in valid_task_names:
+            return task_name
+
+        mode = os.getenv("PF_AUTOCORRECT_MODE", "auto").lower()
+        threshold = float(os.getenv("PF_AUTOCORRECT_THRESHOLD", "0.75"))
+
+        close_matches = difflib.get_close_matches(task_name, valid_task_names, n=5, cutoff=0.4)
+        auto_suggestions = self.autocorrect.suggest_task_correction(task_name)
+
+        # Merge suggestions while preserving order
+        suggestions = []
+        seen = set()
+        for s in close_matches + auto_suggestions:
+            if s not in seen:
+                seen.add(s)
+                suggestions.append(s)
+
+        best = suggestions[0] if suggestions else None
+        score = difflib.SequenceMatcher(None, task_name, best or "").ratio() if best else 0.0
+
+        def _fail():
+            raise PFTaskNotFoundError(
+                task_name=task_name,
+                available_tasks=list(valid_task_names),
+                suggestion=f"Did you mean: {', '.join(suggestions)}?" if suggestions else None
+            )
+
+        if mode == "off":
+            _fail()
+
+        if mode == "ask":
+            if best and score >= 0.6 and sys.stdin.isatty():
+                reply = input(
+                    f"Task '{task_name}' not found. Run '{best}' instead? [Y/n]: "
+                ).strip().lower()
+                if reply in ("", "y", "yes"):
+                    print(
+                        f"Auto-correcting '{task_name}' -> '{best}' (confidence {score:.2f})",
+                        file=sys.stderr,
+                    )
+                    return best
+                _fail()
+            _fail()
+
+        # default: auto (warn)
+        if best and score >= threshold:
+            print(
+                f"Warning: task '{task_name}' not found. Auto-corrected to '{best}' "
+                f"(confidence {score:.2f}). Set PF_AUTOCORRECT_MODE=off to disable.",
+                file=sys.stderr,
+            )
+            return best
+
+        _fail()
+    
+    def _execute_on_hosts(
+        self,
+        selected_tasks: List[Tuple[str, List[str], Dict[str, str], Optional[str]]],
+        hosts: List[str],
+        args,
+        global_env: Dict[str, str],
+    ) -> int:
+        """Execute tasks on the specified hosts."""
+        
+        def run_host(host_spec: str) -> int:
+            """Run tasks on a single host."""
+            spec = _parse_host(host_spec, default_user=args.user, default_port=args.port)
+            prefix = f"[{host_spec}]"
+            
+            # Set up connection
+            if spec.get("local"):
+                connection = None
+            else:
+                connection_tuple = _c_for(spec, args.sudo, args.sudo_user)
+                if isinstance(connection_tuple, tuple):
+                    connection, sudo_flag, sudo_user = connection_tuple
+                else:
+                    connection = None
+                    sudo_flag = args.sudo
+                    sudo_user = args.sudo_user
+                
+                if connection is not None:
+                    try:
+                        connection.open()
+                    except Exception as e:
+                        raise PFConnectionError(
+                            message=str(e),
+                            host=host_spec,
+                            suggestion="Verify SSH credentials and network connectivity"
+                        )
+            
+            # Execute tasks
+            rc = 0
+            for task_name, lines, params, task_default_lang in selected_tasks:
+                print(f"{prefix} --> {task_name}")
+                task_env = dict(global_env)
+                implicit_lang: Optional[str] = task_default_lang or params.get("default_lang")
+                shell_lang: Optional[str] = None
+                pending_script: List[str] = []
+                current_lang: Optional[str] = shell_lang or implicit_lang
+
+                def flush_pending() -> None:
+                    nonlocal rc, pending_script, implicit_lang
+                    if not pending_script:
+                        return
+                    script_body = textwrap.dedent("\n".join(pending_script)).strip("\n")
+                    if not implicit_lang:
+                        raise PFExecutionError(
+                            message="Inline code block provided without default_lang/shell_lang",
+                            task_name=task_name,
+                            command=script_body,
+                            environment=task_env,
+                            suggestion="Add shell_lang <lang> or default_lang <lang> before inline code",
+                        )
+                    rendered_cmd, _lang = _render_polyglot_command(
+                        implicit_lang, script_body, os.getcwd()
+                    )
+                    rc_flush = _exec_line_fabric(
+                        rendered_cmd, connection, task_env, task_name,
+                        args.sudo, args.sudo_user
+                    )
+                    if rc_flush != 0:
+                        raise PFExecutionError(
+                            message=f"Command failed with exit code {rc_flush}",
+                            task_name=task_name,
+                            command=rendered_cmd,
+                            exit_code=rc_flush,
+                            environment=task_env,
+                            suggestion="Check the command output above for details",
+                        )
+                    pending_script = []
+
+                i = 0
+                while i < len(lines):
+                    line = lines[i]
+                    stripped = line.strip()
+
+                    if not stripped or stripped.startswith('#'):
+                        i += 1
+                        continue
+
+                    if stripped.startswith('env '):
+                        flush_pending()
+                        for tok in shlex.split(stripped)[1:]:
+                            if '=' in tok:
+                                k, v = tok.split('=', 1)
+                                task_env[k] = _interpolate(v, params, task_env)
+                        i += 1
+                        continue
+
+                    if stripped.startswith('shell_lang '):
+                        flush_pending()
+                        parts = stripped.split(None, 1)
+                        shell_lang = parts[1].strip() if len(parts) > 1 else None
+                        current_lang = shell_lang or implicit_lang
+                        i += 1
+                        continue
+
+                    if stripped.startswith('default_lang '):
+                        flush_pending()
+                        parts = stripped.split(None, 1)
+                        implicit_lang = parts[1].strip() if len(parts) > 1 else None
+                        current_lang = shell_lang or implicit_lang
+                        i += 1
+                        continue
+
+                    try:
+                        if stripped.startswith('shell '):
+                            flush_pending()
+                            shell_cmd = _interpolate(stripped[6:].strip(), params, task_env)
+
+                            if shell_cmd.startswith("|"):
+                                block_lines: List[str] = []
+                                i += 1
+                                while i < len(lines):
+                                    next_line = lines[i]
+                                    next_stripped = next_line.strip()
+                                    if next_stripped.startswith(
+                                        ('env ', 'shell ', 'shell_lang ', 'default_lang ', 'describe ', 'task ', 'end')
+                                    ):
+                                        break
+                                    block_lines.append(next_line.lstrip())
+                                    i += 1
+
+                                script_body = "\n".join(block_lines)
+                                shell_bin = "bash"
+                                if shell_lang in ("bash", "sh", "zsh", "dash", "ksh", "fish"):
+                                    shell_bin = "bash" if shell_lang == "sh" else shell_lang
+                                heredoc_cmd = f"{shell_bin} <<'PF_EOF'\n{script_body}\nPF_EOF"
+                                rc = _exec_line_fabric(
+                                    heredoc_cmd, connection, task_env, task_name,
+                                    args.sudo, args.sudo_user
+                                )
+                            else:
+                                rendered_cmd = None
+                                if shell_lang:
+                                    rendered_cmd, _lang = _render_polyglot_command(
+                                        shell_lang, shell_cmd, os.getcwd()
+                                    )
+                                if rendered_cmd:
+                                    rc = _exec_line_fabric(
+                                        rendered_cmd, connection, task_env, task_name,
+                                        args.sudo, args.sudo_user
+                                    )
+                                else:
+                                    rc = execute_shell_command(
+                                        shell_cmd, task_env, args.sudo, args.sudo_user,
+                                        connection, prefix
+                                    )
+
+                            if rc != 0:
+                                raise PFExecutionError(
+                                    message=f"Command failed with exit code {rc}",
+                                    task_name=task_name,
+                                    command=shell_cmd,
+                                    exit_code=rc,
+                                    environment=task_env,
+                                    suggestion="Check the command output above for details"
+                                )
+
+                            if not shell_cmd.startswith("|"):
+                                i += 1
+                            continue
+
+                        if implicit_lang:
+                            pending_script.append(line)
+                        else:
+                            print(f"{prefix}[skip] unsupported verb in task '{task_name}': {stripped}", file=sys.stderr)
+                        i += 1
+                        continue
+
+                    except PFExecutionError:
+                        raise
+                    except Exception as e:
+                        raise PFExecutionError(
+                            message=f"Unexpected error executing command: {e}",
+                            task_name=task_name,
+                            command=line,
+                            environment=task_env
+                        )
+
+                flush_pending()
+            
+            # Clean up connection
+            if connection is not None:
+                connection.close()
+                
+            return rc
+        
+        # Execute in parallel across hosts
+        rc_total = 0
+        executor = ThreadPoolExecutor(max_workers=min(32, len(hosts)))
+        futures = {executor.submit(run_host, host): host for host in hosts}
+
+        try:
+            for future in as_completed(futures):
+                try:
+                    rc = future.result()
+                except PFException as e:
+                    print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
+                    rc = 1
+                except Exception as e:
+                    print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
+                    rc = 1
+                rc_total = rc_total or rc
+        except KeyboardInterrupt:
+            for f in futures:
+                f.cancel()
+            executor.shutdown(wait=False, cancel_futures=True)
+            print("Interrupted.", file=sys.stderr)
+            return 130
+        finally:
+            executor.shutdown(wait=True, cancel_futures=True)
+
+        return rc_total
+
+
+def main(argv: List[str]) -> int:
+    """Main entry point for enhanced pf."""
+    runner = PfRunner()
+    return runner.run_command(argv)
+
+
+def console_main() -> int:
+    """Console script shim that forwards CLI args."""
+    return main(sys.argv[1:])
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -1,0 +1,43 @@
+#!/bin/bash
+# Post-installation script for pf-runner-core
+
+set -e
+
+case "$1" in
+    configure)
+        # Update shell completion databases
+        if [ -x /usr/bin/update-bash-completion ]; then
+            /usr/bin/update-bash-completion || true
+        fi
+        
+        # Reload systemd daemon if systemd is running
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload || true
+        fi
+        
+        # Create symlink for backward compatibility
+        if [ ! -e /usr/lib/pf-runner/pf ]; then
+            ln -sf pf_main.py /usr/lib/pf-runner/pf || true
+        fi
+        
+        # Ensure proper permissions
+        chmod +x /usr/bin/pf || true
+        chmod +x /usr/lib/pf-runner/pf_main.py || true
+        
+        echo "pf-runner-core installed successfully!"
+        echo "Try: pf --version"
+        echo "     pf list"
+        ;;
+        
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+        
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

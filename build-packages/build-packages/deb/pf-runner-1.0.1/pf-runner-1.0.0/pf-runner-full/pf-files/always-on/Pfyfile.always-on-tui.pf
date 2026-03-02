@@ -1,0 +1,37 @@
+# TUI (Text User Interface) Tasks - Always Available
+# Interactive terminal interface for pf runner with rich library
+# Category: User Interface
+
+task tui
+  describe Launch interactive TUI for task management and debugging
+  shell cd $(dirname $(which pf))/../lib/pf-runner 2>/dev/null && python3 pf_tui.py || python3 $(dirname $0)/pf_tui.py
+end
+
+task tui-with-file
+  describe Launch TUI with a specific Pfyfile
+  shell cd $(dirname $(which pf))/../lib/pf-runner 2>/dev/null && python3 pf_tui.py ${file} || python3 $(dirname $0)/pf_tui.py ${file}
+end
+
+task tui-help
+  describe Show TUI usage and features
+  shell echo "🎨 pf Interactive TUI"
+  shell echo ""
+  shell echo "A comprehensive Text User Interface for managing pf tasks with rich library"
+  shell echo ""
+  shell echo "Features:"
+  shell echo "  ✓ Task browsing organized by categories (15+ categories)"
+  shell echo "  ✓ Interactive task execution with parameter input"
+  shell echo "  ✓ Syntax checking for task definitions"
+  shell echo "  ✓ Debugging tools status and information"
+  shell echo "  ✓ Exploit development tools menu with quick actions"
+  shell echo "  ✓ Task search functionality"
+  shell echo "  ✓ Beautiful terminal UI with colors and tables"
+  shell echo ""
+  shell echo "Usage:"
+  shell echo "  pf tui                    # Launch TUI with default Pfyfile"
+  shell echo "  pf tui-with-file file=custom.pf  # Launch with specific file"
+  shell echo ""
+  shell echo "Requirements:"
+  shell echo "  - Python 3.8+"
+  shell echo "  - rich library (install with: pf install-tui-deps)"
+end

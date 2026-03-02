@@ -1,0 +1,18 @@
+#!/bin/bash
+# Post-installation script for pf-runner
+
+set -e
+
+# Install Python dependencies system-wide
+# Note: Using --break-system-packages is safe here because this is a .deb package
+# that is being installed system-wide. The dependencies are part of the package's
+# contract and won't interfere with Python package manager.
+pip3 install --break-system-packages "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12" 2>/dev/null || \
+pip3 install "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12"
+
+# Fix permissions
+chmod +x /usr/local/bin/pf
+chmod +x /usr/local/lib/pf-runner/pf_main.py
+
+echo "pf-runner installed successfully!"
+echo "Run 'pf list' to get started."
