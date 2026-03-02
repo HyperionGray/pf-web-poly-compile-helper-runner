@@ -533,9 +533,9 @@ See [Distro Container Management Guide](docs/DISTRO-CONTAINER-MANAGEMENT.md) for
 ### Minimum Requirements
 - Linux (Ubuntu/Debian recommended) or macOS
 - Git
-- Docker or Podman (optional, only for container-based dev workflows)
+- Docker or Podman (for building/running the pf container)
 
-**Note:** The base installer is now native-only. Use `./install.sh [--prefix ~/.local]` to install on the host; container helpers live under `scripts/manage-containers.sh`.
+**Note:** For a host-only install, use `./install.sh --mode native`. The default install path is container-first.
 
 ### Optional Prerequisites
 The container image already bundles the pf runtime; language toolchains are installed inside the containers defined under `containers/`.

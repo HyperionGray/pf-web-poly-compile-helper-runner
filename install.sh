@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Native-only installer for pf-runner and bundled tasks (container paths deprecated).
+# install.sh - Simple native installer for pf-runner base runner
+# Usage: ./install.sh [--prefix PATH] [--skip-deps] [--help]
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULT_PREFIX_ROOT="/usr/local"
+# Configuration
+DEFAULT_PREFIX="/usr/local"
 DEFAULT_PREFIX_USER="${HOME}/.local"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PF_RUNNER_DIR="${SCRIPT_DIR}/pf-runner"
 
 # ------------- logging -------------
 if [[ -t 1 ]]; then
@@ -43,23 +46,75 @@ Options:
 USAGE
 }
 
+# Parse command line arguments
 PREFIX=""
 SKIP_DEPS=false
-PF_FILES_DIR=""
+SHOW_HELP=false
 
-parse_args() {
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --prefix) PREFIX="$2"; shift 2 ;;
-      --prefix=*) PREFIX="${1#*=}"; shift ;;
-      --skip-deps) SKIP_DEPS=true; shift ;;
-      --help|-h) usage; exit 0 ;;
-      --mode|--mode=*) warn "Container/package modes deprecated; proceeding with native install"; [[ "$1" == --mode ]] && shift 2 || shift ;;
-      --container|--runtime|--image) warn "Container install flags are deprecated; ignoring $1"; shift 2 ;;
-      --container=*|--runtime=*|--image=*) warn "Container install flags are deprecated; ignoring $1"; shift ;;
-      *) warn "Ignoring unknown option: $1"; shift ;;
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --prefix)
+            PREFIX="$2"
+            PREFIX_SET=true
+            shift 2
+            ;;
+        --prefix=*)
+            PREFIX="${1#*=}"
+            PREFIX_SET=true
+            shift
+            ;;
+        --skip-deps)
+            SKIP_DEPS=true
+            shift
+            ;;
+        --help|-h)
+            SHOW_HELP=true
+            shift
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown option $1${NC}" >&2
+            SHOW_HELP=true
+            shift
+            ;;
     esac
-  done
+done
+
+# Help function
+show_help() {
+    cat << EOF
+pf-runner Native Installation Script
+
+USAGE:
+    ./install.sh [OPTIONS]
+
+OPTIONS:
+    --prefix PATH     Install prefix
+                      Default: ${DEFAULT_PREFIX} (system-wide, requires sudo)
+                               ${DEFAULT_PREFIX_USER} (user install, no sudo)
+    --skip-deps       Skip system dependency installation
+    --help, -h        Show this help message
+
+EXAMPLES:
+    # System-wide install (requires sudo)
+    sudo ./install.sh
+
+    # User install (no sudo required)
+    ./install.sh --prefix ~/.local
+
+    # User install without installing system dependencies
+    ./install.sh --prefix ~/.local --skip-deps
+
+WHAT THIS SCRIPT DOES:
+    1. Checks prerequisites (Python 3.8+, Git, pip)
+    2. Installs system dependencies (optional)
+    3. Sets up Python virtual environment (for user installs)
+    4. Installs Python dependencies (lark, fabric, typer)
+    5. Copies pf-runner files to installation directory
+    6. Creates pf executable wrapper
+    7. Installs shell completions (optional)
+    8. Validates installation
+
+EOF
 }
 
 abs_path() {
@@ -75,17 +130,40 @@ PY
   fi
 }
 
-set_defaults() {
-  if [[ -z "$PREFIX" ]]; then
-    if [[ "$(id -u 2>/dev/null || echo 1)" -eq 0 ]]; then
-      PREFIX="$DEFAULT_PREFIX_ROOT"
-    else
-      PREFIX="$DEFAULT_PREFIX_USER"
-    fi
-  fi
-  PREFIX="$(abs_path "$PREFIX")"
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
 
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1" >&2
+}
+
+# Set default prefix
+if [[ "$PREFIX_SET" == false ]]; then
+    if [[ $EUID -eq 0 ]]; then
+        PREFIX="$DEFAULT_PREFIX"
+    else
+        PREFIX="$DEFAULT_PREFIX_USER"
+    fi
+fi
+
+# Check if running as root when needed
+check_permissions() {
+    if [[ "$PREFIX" == "/usr/local" ]] || [[ "$PREFIX" == "/usr"* ]]; then
+        if [[ $EUID -ne 0 ]]; then
+            log_error "Installation to ${PREFIX} requires root privileges."
+            log_info "Try: sudo ./install.sh"
+            log_info "Or use user installation: ./install.sh --prefix ~/.local"
+            exit 1
+        fi
+    fi
+}
+
+# Detect operating system
 detect_os() {
   local sys="$(uname -s 2>/dev/null || echo unknown)"
   case "$sys" in
@@ -207,50 +285,143 @@ write_wrapper() {
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd -P)"
-LIB_DIR="\$(cd "\${SCRIPT_DIR}/../lib/pf-runner" && pwd -P)"
-VENV_PY="\${SCRIPT_DIR}/../lib/pf-runner-venv/bin/python3"
-PF_FILES_DIR="${pf_files}"
-DEFAULT_PFY="\${PF_FILES_DIR}/Pfyfile.pf"
-
-if [[ -z "\${PFY_FILE:-}" && -f "\${DEFAULT_PFY}" ]]; then
-  export PFY_FILE="\${DEFAULT_PFY}"
-  export PFY_ROOT="\${PF_FILES_DIR}"
-fi
-
-if [[ -x "\${VENV_PY}" ]]; then
-  exec "\${VENV_PY}" "\${LIB_DIR}/pf_main.py" "\$@"
-fi
-
-if command -v python3 >/dev/null 2>&1; then
-  exec python3 "\${LIB_DIR}/pf_main.py" "\$@"
-fi
-
-echo "python3 is required to run pf (missing in PATH)." >&2
-exit 1
-EOF
-  chmod +x "${PREFIX}/bin/pf"
+# Install shell completions
+install_completions() {
+    log_info "Installing shell completions..."
+    
+    local completions_dir="${PF_RUNNER_DIR}/completions"
+    if [[ ! -d "$completions_dir" ]]; then
+        log_warning "Completions directory not found, skipping"
+        return 0
+    fi
+    
+    # Install bash completion
+    local bash_completion_installed=false
+    if [[ -d "/etc/bash_completion.d" ]] && [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
+        cp "${completions_dir}/pf-completion.bash" "/etc/bash_completion.d/pf"
+        log_success "Installed bash completion to /etc/bash_completion.d/pf"
+        bash_completion_installed=true
+    elif [[ -d "${HOME}/.local/share/bash-completion/completions" ]]; then
+        mkdir -p "${HOME}/.local/share/bash-completion/completions"
+        cp "${completions_dir}/pf-completion.bash" "${HOME}/.local/share/bash-completion/completions/pf"
+        log_success "Installed bash completion to ~/.local/share/bash-completion/completions/pf"
+        bash_completion_installed=true
+    fi
+    
+    # Install zsh completion
+    local zsh_completion_installed=false
+    if [[ -d "/usr/local/share/zsh/site-functions" ]] && [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
+        cp "${completions_dir}/_pf" "/usr/local/share/zsh/site-functions/_pf"
+        log_success "Installed zsh completion to /usr/local/share/zsh/site-functions/_pf"
+        zsh_completion_installed=true
+    elif [[ -d "${HOME}/.zsh/completions" ]] || mkdir -p "${HOME}/.zsh/completions" 2>/dev/null; then
+        cp "${completions_dir}/_pf" "${HOME}/.zsh/completions/_pf"
+        log_success "Installed zsh completion to ~/.zsh/completions/_pf"
+        log_info "Add 'fpath=(~/.zsh/completions \$fpath)' to your ~/.zshrc if not already present"
+        zsh_completion_installed=true
+    fi
+    
+    if [[ "$bash_completion_installed" == false ]] && [[ "$zsh_completion_installed" == false ]]; then
+        log_warning "Could not install shell completions (no suitable directories found)"
+    fi
 }
 
-validate_install() {
-  log "Validating installation"
-  [[ -x "${PREFIX}/bin/pf" ]] || die "pf launcher missing"
-  "${PREFIX}/bin/pf" --help >/dev/null 2>&1 || die "pf --help failed"
-  log "pf installed successfully to ${PREFIX}"
-  if [[ "$PREFIX" != /usr* ]]; then
-    warn "Add ${PREFIX}/bin to your PATH (e.g. export PATH=\"${PREFIX}/bin:$PATH\")"
-  fi
+# Validate installation
+validate_installation() {
+    log_info "Validating installation..."
+    
+    local pf_cmd="${PREFIX}/bin/pf"
+    
+    # Check if pf command exists and is executable
+    if [[ ! -x "$pf_cmd" ]]; then
+        log_error "pf command not found or not executable at $pf_cmd"
+        return 1
+    fi
+    
+    # Test basic pf functionality
+    log_info "Testing pf list..."
+    local list_output
+    if ! list_output=$("$pf_cmd" list 2>&1); then
+        log_error "pf list failed: $list_output"
+        return 1
+    fi
+    
+    log_success "Basic pf functionality validated"
+    log_success "Installation validation passed"
+    return 0
 }
 
-parse_args "$@"
-set_defaults
-PF_FILES_DIR="${PREFIX}/lib/pf-files"
-ensure_permissions
-install_system_deps
-ensure_prereqs
-setup_python_env
-copy_project
-write_wrapper
-validate_install
+# Update PATH information
+update_path_info() {
+    local bin_dir="${PREFIX}/bin"
+    
+    # Check if bin directory is in PATH
+    if [[ ":$PATH:" != *":${bin_dir}:"* ]]; then
+        log_warning "The installation directory ${bin_dir} is not in your PATH"
+        log_info "Add the following to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
+        echo ""
+        echo "    export PATH=\"${bin_dir}:\$PATH\""
+        echo ""
+        log_info "Or run: echo 'export PATH=\"${bin_dir}:\$PATH\"' >> ~/.bashrc"
+        log_info "Then restart your shell or run: source ~/.bashrc"
+    else
+        log_success "Installation directory is already in PATH"
+    fi
+}
 
-log "Native installation complete (container modes deprecated)."
+# Main installation function
+main() {
+    echo -e "${BLUE}pf-runner Native Installation Script${NC}"
+    echo "======================================"
+    echo ""
+    
+    # Check if we're in the right directory
+    if [[ ! -d "$PF_RUNNER_DIR" ]]; then
+        log_error "pf-runner directory not found at $PF_RUNNER_DIR"
+        log_info "Please run this script from the repository root directory"
+        exit 1
+    fi
+    
+    # Check permissions
+    check_permissions
+    
+    # Run installation steps
+    check_prerequisites
+    
+    if [[ "$SKIP_DEPS" == false ]]; then
+        install_system_deps
+    fi
+    
+    setup_python_env
+    install_pf_runner
+    install_completions
+    
+    # Validate installation
+    if validate_installation; then
+        echo ""
+        log_success "🎉 pf-runner native installation completed successfully!"
+        echo ""
+        log_info "Installation summary:"
+        echo "  • pf-runner library: ${PREFIX}/lib/pf-runner"
+        echo "  • pf executable: ${PREFIX}/bin/pf"
+        echo "  • Python dependencies: lark, fabric, typer"
+        echo ""
+        
+        update_path_info
+        
+        echo ""
+        log_info "Next steps:"
+        echo "  1. Restart your shell or run: source ~/.bashrc"
+        echo "  2. Try: pf --version"
+        echo "  3. Try: pf list"
+        echo "  4. Read the documentation: cat README.md"
+        echo ""
+        log_success "Happy task running! 🚀"
+    else
+        log_error "Installation validation failed"
+        exit 1
+    fi
+}
+
+# Run main function
+main "$@"

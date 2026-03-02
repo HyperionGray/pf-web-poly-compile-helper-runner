@@ -108,7 +108,9 @@ task sanitizer-test
   shell echo "3. Testing clang with UBSan..."
   shell echo '#include <limits.h>' | cat - <(echo 'int main(){int x=INT_MAX; return x+1;}') | clang -x c -fsanitize=undefined -o $TEST_UBSAN - 2>&1 | head -5 || true
   shell echo ""
-  shell echo "[OK] Sanitizer installation test complete!"
+  shell echo "✅ Sanitizer installation test complete!"
+end
+  shell rm -f /tmp/test_asan /tmp/test_msan /tmp/test_ubsan
 end
 
 # Advanced Sanitizer Features

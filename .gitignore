@@ -38,6 +38,11 @@ venv/
 # Test artifacts
 test-results/
 playwright-report/
+htmlcov/
+coverage.xml
+.coverage
+.pytest_cache/
+*.cover
 tui-test-report.json
 
 # CodeQL artifacts
@@ -67,3 +72,6 @@ __pycache__/
 *.tmp
 venv/
 venv
+**.zip
+.bish.**
+.bish**

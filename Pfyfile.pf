@@ -1,4 +1,249 @@
 # Top-level pf entrypoint.
 # All task definitions live under pf/.
 
-include pf/Pfyfile.pf
+# Include always-available tasks (general OS tasks that don't require specific files/directories)
+include pf/Pfyfile.always-available.pf
+
+# Include smart workflows for intelligent tool integration
+include pf/Pfyfile.smart-workflows.pf
+
+# Include binary lifting tasks
+include pf/Pfyfile.lifting.pf
+
+# Include binary injection tasks
+include pf/Pfyfile.injection.pf
+# Include debugging and reverse engineering tasks
+include pf/Pfyfile.debugging.pf
+# Include ROP exploit demonstration tasks
+include pf/Pfyfile.rop.pf
+# Include practice binaries tasks
+include pf/Pfyfile.practice.pf
+
+# Include fuzzing tasks
+include pf/Pfyfile.fuzzing.pf
+
+# Include sanitizer deep-dive tasks (analysis, wrappers, demos)
+include pf/Pfyfile.sanitizers.pf
+
+# Include security testing tasks
+include pf/Pfyfile.security.pf
+
+# Include unified security assessment framework
+include pf/Pfyfile.unified-security.pf
+
+# Include git cleanup tasks
+include pf/Pfyfile.git-cleanup.pf
+
+# Include PR management tasks
+include pf/Pfyfile.pr-management.pf
+
+# Include exploit development tasks
+include pf/Pfyfile.exploit.pf
+# Include TUI tasks
+include pf/Pfyfile.tui.pf
+
+# Include debugging tools tasks
+include pf/Pfyfile.debug-tools.pf
+
+# Include container and quadlet tasks
+include pf/Pfyfile.containers.pf
+
+# Include package manager translation tasks
+include pf/Pfyfile.package-manager.pf
+
+# Include OS container management tasks
+include pf/Pfyfile.os-containers.pf
+
+# Include OS switching tasks (DANGEROUS)
+include pf/Pfyfile.os-switching.pf
+# Include distro container and OS switching tasks
+include pf/Pfyfile.distro-switch.pf
+
+# Include PE execution and cross-platform binary execution tasks
+include pf/Pfyfile.pe-execution.pf
+
+# Include PE container tasks
+include pf/Pfyfile.pe-containers.pf
+
+# Include heap spray demonstration tasks
+include pf/Pfyfile.heap-spray.pf
+
+# Include kernel debugging tasks
+include pf/Pfyfile.kernel-debug.pf
+
+# Include web development and WASM build tasks
+include pf/Pfyfile.web.pf
+
+# Include REST API management tasks
+include pf/Pfyfile.rest-api.pf
+
+# Include always-on task management
+include pf/Pfyfile.always-on.pf
+
+task web-dev
+  describe Start development server with REST API support
+  shell_lang bash
+  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+end
+
+task web-dev-static
+  describe Start basic static file server (legacy)
+  shell_lang bash
+  shell node tools/static-server.mjs ${dir:-web} ${port:-8080}
+end
+
+task api-server
+  describe Start REST API server
+  shell_lang bash
+  shell node tools/api-server.mjs ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+end
+
+task web-test
+  
+  shell npx playwright test --reporter=list
+end
+
+task web-build-rust
+  
+  shell cd demos/pf-web-polyglot-demo-plus-c/rust && wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
+end
+
+task web-build-rust-wasm
+  describe Build Rust to WebAssembly
+  
+  shell cd demos/pf-web-polyglot-demo-plus-c/rust && wasm-pack build --target web --out-dir ../web/wasm/rust/pkg --out-name rust_demo
+end
+
+task web-build-rust-llvm
+  describe Build Rust to LLVM IR with optimization (opt_level=3 by default, parallel=false)
+  
+  shell cd demos/pf-web-polyglot-demo-plus-c/rust && mkdir -p ../web/llvm/rust && rustc --emit=llvm-ir --crate-type=lib -C opt-level=${opt_level:-3} src/lib_simple.rs -o ../web/llvm/rust/lib.ll
+end
+
+task web-build-c
+  
+  shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
+end
+
+task web-build-c-wasm
+  describe Build C to WebAssembly
+  
+  shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O0 -sASSERTIONS=1 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/wasm/c/c_trap.js
+end
+
+task web-build-c-asm
+  describe Build C to asm.js
+  
+  shell cd demos/pf-web-polyglot-demo-plus-c/c && emcc c_trap.c -O2 -sWASM=0 -sMODULARIZE -sEXPORT_ES6 -sENVIRONMENT=web -sEXPORTED_FUNCTIONS=_trigger_trap,_main -sINVOKE_RUN=0 -o ../web/asm/c/c_trap_asm.js
+end
+
+task web-build-c-llvm
+  describe Build C to LLVM IR with optimization (opt_level=3 by default, parallel=false for OpenMP)
+  
+  shell cd demos/pf-web-polyglot-demo-plus-c/c && mkdir -p .tmp && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
+end
+
+task web-build-fortran
+  
+  shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown
+end
+
+task web-build-fortran-wasm
+  describe Build Fortran to WebAssembly
+  
+  shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 -o ../web/wasm/fortran/fortran.wasm --target=wasm32-unknown-unknown
+end
+
+task web-build-fortran-llvm
+  describe Build Fortran to LLVM IR with optimization (opt_level=3 by default, parallel=false for OpenMP)
+  
+  shell cd demos/pf-web-polyglot-demo-plus-c/fortran && lfortran src/hello.f90 --show-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -o ../web/llvm/fortran/hello.ll
+end
+
+task web-build-wat
+  
+  shell cd demos/pf-web-polyglot-demo-plus-c/asm && wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
+end
+
+task web-build-wat-wasm
+  describe Build WAT to WebAssembly
+  
+  shell cd demos/pf-web-polyglot-demo-plus-c/asm && wat2wasm mini.wat -o ../web/wasm/asm/mini.wasm
+end
+
+task web-build-all
+  shell pf web-toolchain-check
+  shell pf web-build-rust
+  shell pf web-build-c
+  shell pf web-build-fortran
+  shell pf web-build-wat
+end
+
+task web-build-all-wasm
+  describe Build all languages to WebAssembly
+  shell pf web-toolchain-check
+  shell pf web-build-rust-wasm
+  shell pf web-build-c-wasm
+  shell pf web-build-fortran-wasm
+  shell pf web-build-wat-wasm
+end
+
+task web-build-all-asm
+  describe Build all languages to asm.js where supported
+  shell pf web-toolchain-check
+  shell pf web-build-c-asm
+end
+
+task web-build-all-llvm
+  describe Build all languages to LLVM IR where supported (with O3 by default, use opt_level= and parallel=true as needed)
+  shell pf web-toolchain-check
+  shell pf web-build-rust-llvm opt_level=${opt_level:-3}
+  shell pf web-build-c-llvm opt_level=${opt_level:-3} parallel=${parallel:-false}
+  shell pf web-build-fortran-llvm opt_level=${opt_level:-3} parallel=${parallel:-false}
+end
+
+task web-toolchain-check
+  describe Verify required web/WASM toolchains are installed
+  shell_lang bash
+  shell missing=(); \
+       reqs=(wasm-pack emcc lfortran wat2wasm clang opt-18); \
+       for cmd in "${reqs[@]}"; do \
+         if ! command -v "$cmd" >/dev/null 2>&1; then missing+=("$cmd"); fi; \
+       done; \
+       if [ ${#missing[@]} -eq 0 ]; then \
+         echo "✅ Web toolchain ready: wasm-pack, emcc, lfortran, wat2wasm, clang, opt-18"; \
+       else \
+         echo "❌ Missing toolchain components: ${missing[*]}"; \
+         echo "Install hints:"; \
+         echo "  - emcc/emsdk: https://emscripten.org/docs/getting_started/downloads.html"; \
+         echo "  - wasm-pack: https://rustwasm.github.io/wasm-pack/installer/"; \
+         echo "  - lfortran: https://lfortran.org/download"; \
+         echo "  - wat2wasm: install wabt package"; \
+         echo "  - opt-18: install llvm-18 (or adjust PATH to your llvm tools)"; \
+         exit 1; \
+       fi
+end
+
+task web-build-c-llvm-opt
+  describe Build C to LLVM IR with custom optimization passes (passes="pass1,pass2,..." uses new pass manager)
+  
+  shell cd demos/pf-web-polyglot-demo-plus-c/c && mkdir -p .tmp ../web/llvm/c && echo "#define EMSCRIPTEN_KEEPALIVE" > .tmp/emscripten.h && clang -S -emit-llvm -O${opt_level:-3} ${parallel:+-fopenmp} -I.tmp c_trap.c -o .tmp/c_trap_unopt.ll && opt-18 -S -passes="${passes:-mem2reg,instcombine,simplifycfg,loop-vectorize}" .tmp/c_trap_unopt.ll -o ../web/llvm/c/c_trap.ll && rm -rf .tmp
+end
+
+task debug-check-podman
+  describe Show podman visibility from inside pf container
+  shell command -v podman || echo "podman not in PATH"
+  shell ls -l /usr/bin/podman || true
+  shell env | grep -E 'XDG_RUNTIME_DIR|CONTAINER_HOST' || true
+end
+
+task sync-demo
+  describe Demo of sync command - sync files with rsync
+  
+  shell echo "Sync command examples:"
+  shell echo "  Local:  sync src=/path/src/ dest=/path/dest/ verbose"
+  shell echo "  Remote: sync src=/local/ dest=/remote/ host=server.com user=deploy port=22"
+  shell echo "  Excludes: sync src=./ dest=/backup/ excludes=[\"*.log\",\"*.tmp\"] delete dry"
+  shell echo "  From file: sync src=./ dest=/backup/ exclude_file=.rsync-exclude"
+  shell echo "See pf-runner/SYNC.md for full documentation"
+end
