@@ -130,12 +130,6 @@ def _extract_polyglot_heredoc(cmd: str) -> Optional[Tuple[str, Optional[str]]]:
 class PfRunner:
     """Enhanced pf runner with subcommand support and modular architecture."""
     
-    # Shell metacharacters that require quoting when present in PATH tokens (not shell operators)
-    # Note: This list excludes shell operators like [, ], (, ), {, }, etc. because those
-    # should NOT be quoted when they appear as separate tokens in shell commands.
-    # This is specifically for detecting when modified path tokens need quoting.
-    SHELL_METACHARACTERS = {';', '|', '&', '$', '`', '"', "'", ' '}
-    
     def __init__(self):
         self.arg_parser = PfArgumentParser()
         self.subcommand_manager = SubcommandManager()
@@ -144,16 +138,6 @@ class PfRunner:
         self.autocorrect = None
         self.config = None
         self.config_path = None
-
-    @staticmethod
-    def _needs_shell_quoting(token: str) -> bool:
-        """
-        Check if a token needs shell quoting.
-        
-        Returns True if the token contains any shell metacharacters that would
-        require quoting to prevent shell interpretation.
-        """
-        return any(c in token for c in PfRunner.SHELL_METACHARACTERS)
 
     def _maybe_update_bashrc_aliases(self, dsl_tasks: Dict[str, Task]) -> None:
         """Best-effort: export `rc=true` tasks as bash aliases in ~/.bashrc."""
@@ -1368,8 +1352,8 @@ class PfRunner:
         This avoids the shlex.split() -> modify -> shlex.join() pattern that incorrectly quotes
         shell metacharacters like [, ], (, ), &&, ||, etc.
         
-        The key insight: we only quote the modified path tokens that need quoting (paths with
-        special characters), and leave all other tokens as-is to preserve shell syntax.
+        The key insight: we only quote the modified path tokens (using shlex.quote for safety),
+        and leave all other tokens as-is to preserve shell syntax.
         
         Note: This approach joins tokens with single spaces, which may differ from the original
         spacing. This is acceptable because:
@@ -1388,17 +1372,13 @@ class PfRunner:
         if not modified_indices:
             return original_content
         
-        # Reconstruct by joining tokens, but only quote modified tokens if they need it
+        # Reconstruct by joining tokens, quoting only modified tokens
         result_parts = []
         for idx, tok in enumerate(tokens):
             if idx in modified_indices:
                 # This token was modified (typically a path that was resolved)
-                # Quote it if it contains shell metacharacters that would break parsing
-                if self._needs_shell_quoting(tok):
-                    result_parts.append(shlex.quote(tok))
-                else:
-                    # For simple absolute paths without special characters, no quoting needed
-                    result_parts.append(tok)
+                # Always use shlex.quote for comprehensive safety - it will only quote if needed
+                result_parts.append(shlex.quote(tok))
             else:
                 # Original token - keep as-is without quoting
                 # This preserves shell operators like [, ], &&, ||, (, ), etc.
@@ -1646,20 +1626,11 @@ class PfRunner:
             warnings.append(f"polyglot source {note}")
         
         # Polyglot file references are in the form @file or file:file
-        # We only modify the first token (the file path), so track that
+        # We modified the first token (the file path), so track that
         modified_indices: Set[int] = {0}
         
-        # For single-token commands, check if quoting is needed
-        if len(tokens) == 1:
-            tok = tokens[0]
-            # Quote if the token contains shell metacharacters
-            if self._needs_shell_quoting(tok):
-                return shlex.quote(tok), warnings
-            else:
-                return tok, warnings
-        else:
-            # Multiple tokens - reconstruct preserving shell syntax
-            return self._reconstruct_shell_command(cmd, tokens, modified_indices), warnings
+        # Reconstruct using the standard method which handles both single and multi-token cases
+        return self._reconstruct_shell_command(cmd, tokens, modified_indices), warnings
 
     def _autofix_shell_command_context(
         self,
