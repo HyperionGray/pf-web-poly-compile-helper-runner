@@ -1,9 +1,6 @@
 #!/bin/bash
-"""
-Syzkaller Installation Script
-
-Installs and configures Syzkaller for kernel fuzzing integration.
-"""
+# Syzkaller Installation Script
+# Installs and configures Syzkaller for kernel fuzzing integration.
 
 set -e
 

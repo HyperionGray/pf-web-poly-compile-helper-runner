@@ -13,15 +13,15 @@ install_linux_gh() {
 install_linux_glab() {
   local tmpdir
   tmpdir="$(mktemp -d)"
-  trap 'rm -rf "$tmpdir"' EXIT
 
   (cd "$tmpdir" && curl -fsSL https://api.github.com/repos/profclems/glab/releases/latest \
-    | grep "browser_download_url.*linux_amd64.tar.gz" \
+    | grep "browser_download_url.*Linux_x86_64.tar.gz" \
     | cut -d '"' -f 4 \
     | xargs -n 1 curl -fsSLO)
 
-  (cd "$tmpdir" && tar -xzf glab_*_linux_amd64.tar.gz)
+  (cd "$tmpdir" && tar -xzf glab_*_Linux_x86_64.tar.gz)
   sudo mv "$tmpdir/bin/glab" /usr/local/bin/
+  rm -rf "$tmpdir"
 }
 
 install_linux_jq() {
