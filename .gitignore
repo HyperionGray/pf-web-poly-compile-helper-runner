@@ -5,6 +5,7 @@ bfg**
 **.code-workspace
 **bak/**
 # Build artifacts
+build-packages/**/target/
 demos/**/web/wasm/**/pkg/
 demos/**/web/wasm/**/*.js
 demos/**/web/wasm/**/*.wasm
