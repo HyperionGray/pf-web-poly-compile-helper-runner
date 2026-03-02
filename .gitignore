@@ -70,3 +70,5 @@ __pycache__/
 *.tmp
 venv/
 venv
+**.zip
+**/**.zip
