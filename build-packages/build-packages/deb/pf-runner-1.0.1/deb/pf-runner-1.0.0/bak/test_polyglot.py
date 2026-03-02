@@ -11,13 +11,17 @@ pf_runner_dir = repo_root / "pf-runner"
 pf_polyglot_path = pf_runner_dir / "pf_polyglot.py"
 
 # Add pf-runner to path
-sys.path.insert(0, str(pf_runner_dir))
+script_dir = os.path.dirname(os.path.abspath(__file__))
+repo_root = os.path.dirname(script_dir)
+pf_runner_path = os.path.join(repo_root, 'pf-runner')
+sys.path.insert(0, pf_runner_path)
 
 def test_syntax():
     """Test that pf_polyglot.py has valid syntax"""
     try:
         import py_compile
-        py_compile.compile(str(pf_polyglot_path), doraise=True)
+        polyglot_file = os.path.join(pf_runner_path, 'pf_polyglot.py')
+        py_compile.compile(polyglot_file, doraise=True)
         print("✅ Syntax check passed")
         return True
     except py_compile.PyCompileError as e:

@@ -8,7 +8,8 @@ import os
 
 # Add pf-runner to path (relative to this script's location)
 script_dir = os.path.dirname(os.path.abspath(__file__))
-pf_runner_path = os.path.join(script_dir, 'pf-runner')
+repo_root = os.path.dirname(script_dir)
+pf_runner_path = os.path.join(repo_root, 'pf-runner')
 sys.path.insert(0, pf_runner_path)
 
 from pf_tui import PfTUI

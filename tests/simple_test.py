@@ -1,37 +1,21 @@
 import py_compile
 import sys
-import os
 from pathlib import Path
 
-
-def repo_root() -> Path:
-    """Resolve the repository root without assuming /workspace."""
-    for env_var in ("PF_WORKSPACE", "WORKSPACE"):
-        env_path = os.environ.get(env_var)
-        if env_path:
-            candidate = Path(env_path).expanduser()
-            if candidate.exists():
-                return candidate
-    return Path(__file__).resolve().parent
-
-
-REPO_ROOT = repo_root()
-PF_RUNNER_DIR = REPO_ROOT / "pf-runner"
-PF_POLYGLOT_PATH = PF_RUNNER_DIR / "pf_polyglot.py"
-
-if not PF_POLYGLOT_PATH.exists():
-    raise FileNotFoundError(f"pf_polyglot.py not found at expected location: {PF_POLYGLOT_PATH}")
+repo_root = Path(__file__).resolve().parent
+pf_runner_dir = repo_root / "pf-runner"
+pf_polyglot_path = pf_runner_dir / "pf_polyglot.py"
 
 # Test syntax compilation
 try:
-    py_compile.compile(str(PF_POLYGLOT_PATH), doraise=True)
+    py_compile.compile(str(pf_polyglot_path), doraise=True)
     print("SUCCESS: pf_polyglot.py syntax is valid")
 except py_compile.PyCompileError as e:
     print(f"ERROR: Syntax error in pf_polyglot.py: {e}")
     sys.exit(1)
 
 # Test basic import
-sys.path.insert(0, str(PF_RUNNER_DIR))
+sys.path.insert(0, str(pf_runner_dir))
 try:
     import pf_polyglot
     print("SUCCESS: pf_polyglot.py imports successfully")

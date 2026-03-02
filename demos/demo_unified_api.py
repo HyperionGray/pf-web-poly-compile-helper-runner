@@ -1,31 +1,14 @@
 #!/usr/bin/env python3
-"""Demo script showing the unified pf API in action."""
+"""
+Demo script showing the unified pf API in action
+Demonstrates that all functionality is properly combined under the pf command
+"""
 
 import subprocess
 import sys
 import os
-import shlex
-from pathlib import Path
 
-
-def repo_root() -> Path:
-    for env_var in ("PF_WORKSPACE", "WORKSPACE"):
-        env_path = os.environ.get(env_var)
-        if env_path:
-            candidate = Path(env_path).expanduser()
-            if candidate.exists():
-                return candidate
-    return Path(__file__).resolve().parent
-
-
-def pf_command(repo_root_path: Path) -> str:
-    local_runner = repo_root_path / "pf-runner" / "pf_main.py"
-    if local_runner.exists():
-        return f"python3 {shlex.quote(str(local_runner))}"
-    return os.environ.get("PF_BIN", "pf")
-
-
-def run_pf_command(cmd, description, cwd):
+def run_pf_command(cmd, description):
     """Run a pf command and show the result"""
     print(f"\n🔍 {description}")
     print(f"Command: {cmd}")
@@ -33,7 +16,7 @@ def run_pf_command(cmd, description, cwd):
     
     try:
         # Try with pf first
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10, cwd=cwd)
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
             print("✅ SUCCESS")
             if result.stdout:
@@ -55,21 +38,20 @@ def main():
     print("combined under the unified 'pf' command interface.")
     print("=" * 60)
     
-    repo_root_path = repo_root()
-    pf_base = pf_command(repo_root_path)
+    os.chdir('/workspace')
     
     # Test basic API functionality
     commands = [
-        (f"{pf_base} --help", "Basic help system"),
-        (f"{pf_base} list | head -20", "Task listing (first 20 tasks)"),
-        (f"{pf_base} web-dev --help", "Task-specific help"),
-        (f"{pf_base} install --help", "Installation task help"),
-        (f"{pf_base} container-build-all --help", "Container task help"),
-        (f"{pf_base} smart-analyze --help", "Smart workflow help"),
+        ("pf --help", "Basic help system"),
+        ("pf list | head -20", "Task listing (first 20 tasks)"),
+        ("pf web-dev --help", "Task-specific help"),
+        ("pf install --help", "Installation task help"),
+        ("pf container-build-all --help", "Container task help"),
+        ("pf smart-analyze --help", "Smart workflow help"),
     ]
     
     for cmd, desc in commands:
-        run_pf_command(cmd, desc, cwd=repo_root_path)
+        run_pf_command(cmd, desc)
     
     print("\n" + "=" * 60)
     print("📊 API VALIDATION SUMMARY")

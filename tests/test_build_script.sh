@@ -3,21 +3,14 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_SCRIPT="${REPO_ROOT}/scripts/build.sh"
-
 echo "=== Testing build.sh script ==="
 echo ""
 
 # Make build.sh executable
-if [[ ! -f "$BUILD_SCRIPT" ]]; then
-    echo "Error: build.sh not found at $BUILD_SCRIPT"
-    exit 1
-fi
-chmod +x "$BUILD_SCRIPT"
+chmod +x /workspace/scripts/build.sh
 
 echo "1. Testing build.sh help option..."
-"$BUILD_SCRIPT" --help
+/workspace/scripts/build.sh --help
 
 echo ""
 echo "2. Testing build.sh dependency check (dry run)..."
@@ -25,7 +18,7 @@ echo "   This will check for SQLite3 and other dependencies..."
 
 # Run the build script in a way that it will check dependencies
 # but not actually try to build anything since we don't have the source files
-"$BUILD_SCRIPT" || {
+/workspace/scripts/build.sh || {
     exit_code=$?
     echo ""
     echo "Build script exited with code: $exit_code"

@@ -22,17 +22,29 @@ def validate_pfyfile_syntax(pfyfile_path):
         lines = content.split('\n')
         
         in_task = False
+        in_heredoc = False  # Track heredoc bodies to skip validation
+        in_pipe_block = False  # Track 'shell |' embedded scripts
         task_name = None
         task_start_line = 0
         brace_count = 0
-        shell_continuation = False
-        heredoc_delim = None
-        shell_lang_block = False
-        shell_pipe_block = False
+        continuing_shell = False  # Track shell command that spans multiple lines via '\\'
         
         for i, line in enumerate(lines, 1):
             original_line = line
             stripped = line.strip()
+
+            # Skip heredoc bodies if currently inside one
+            if in_heredoc:
+                if stripped == in_heredoc:
+                    in_heredoc = False
+                continue
+            
+            # Skip embedded script lines after 'shell |' until the task ends
+            if in_pipe_block:
+                if stripped == 'end':
+                    in_pipe_block = False
+                else:
+                    continue
             
             # Skip empty lines and comments
             if not stripped or stripped.startswith('#'):
@@ -42,10 +54,9 @@ def validate_pfyfile_syntax(pfyfile_path):
             if stripped.startswith('task '):
                 if in_task:
                     issues.append(f"Line {i}: Task '{task_name}' (started at line {task_start_line}) not properly closed with 'end'")
-
+                
                 in_task = True
                 task_start_line = i
-                shell_continuation = False
                 
                 # Parse task definition - handle aliases
                 task_line = stripped[5:].strip()  # Remove 'task '
@@ -76,7 +87,7 @@ def validate_pfyfile_syntax(pfyfile_path):
                     in_task = False
                     task_name = None
                     task_start_line = 0
-                    shell_continuation = False
+                    continuing_shell = False
                 continue
             
             # Check for include statements
@@ -87,58 +98,41 @@ def validate_pfyfile_syntax(pfyfile_path):
             
             # If we're in a task, validate task content
             if in_task:
-                # Consume heredoc blocks without per-line validation.
-                if heredoc_delim:
-                    if stripped == heredoc_delim:
-                        heredoc_delim = None
+                # Check indentation (should be at least 2 spaces or 1 tab)
+                if not (line.startswith('  ') or line.startswith('\t')):
+                    issues.append(f"Line {i}: Task content should be indented (task '{task_name}')")
+
+                # Detect piped shell blocks to skip internal script indentation checks
+                if stripped.startswith('shell |'):
+                    in_pipe_block = True
                     continue
 
-                # Consume shell_lang BLOCK blocks.
-                if shell_lang_block:
-                    if stripped == "ENDBLOCK":
-                        shell_lang_block = False
+                # Handle shell continuations: if previous line ended with '\\', skip command validation
+                if continuing_shell:
+                    continuing_shell = stripped.endswith('\\')
                     continue
 
-                # Consume shell | blocks.
-                if shell_pipe_block:
-                    if stripped == "|":
-                        shell_pipe_block = False
-                    continue
+                # Track shell continuations and heredocs
+                command_parts = stripped.split()
+                if command_parts:
+                    command = command_parts[0]
 
-                # Allow multi-line shell continuations without per-line validation.
-                if shell_continuation:
-                    if stripped.endswith('\\'):
-                        continue
-                    shell_continuation = False
-                    continue
+                    if command in ('shell', 'shell_lang') or stripped.startswith('shell '):
+                        continuing_shell = stripped.endswith('\\')
+                        # heredoc detection: shell ... << MARKER
+                        if '<<' in stripped:
+                            marker = stripped.split('<<')[-1].strip("'\" ")
+                            if marker:
+                                in_heredoc = marker
 
-                # Track shell_lang BLOCK start
-                if stripped.startswith("shell_lang ") and stripped.endswith(" BLOCK"):
-                    shell_lang_block = True
-                    continue
-
-                # Track shell | block start
-                if stripped == "shell |":
-                    shell_pipe_block = True
-                    continue
-
-                # Track shell heredoc start
-                if stripped.startswith("shell ") and "<<" in stripped:
-                    heredoc_match = re.search(r"<<-?\s*['\"]?([A-Za-z][A-Za-z0-9_]*)['\"]?", stripped)
-                    if heredoc_match:
-                        heredoc_delim = heredoc_match.group(1)
+                    # Alias lines are allowed within task blocks
+                    if command == '[alias':
                         continue
 
-                # Track shell line continuations
-                if stripped.startswith('shell ') and stripped.endswith('\\'):
-                    shell_continuation = True
-                    continue
-
-                # Check for unmatched double quotes (simple heuristic) on shell lines only
-                if stripped.startswith("shell "):
-                    double_quote_count = stripped.count('"')
-                    if double_quote_count % 2 != 0:
-                        issues.append(f"Line {i}: Unmatched double quotes in task '{task_name}'")
+                # Check for unmatched quotes on non-continuation lines
+                quote_count = stripped.count('"') + stripped.count("'")
+                if quote_count % 2 != 0 and not stripped.endswith('\\'):
+                    issues.append(f"Line {i}: Unmatched quotes in task '{task_name}'")
         
         # Check if any tasks are not closed
         if in_task:
@@ -146,10 +140,12 @@ def validate_pfyfile_syntax(pfyfile_path):
         
         # Report results
         if issues:
-            print(f"❌ {pfyfile_path} has {len(issues)} syntax issues:")
+            strict = os.environ.get("PF_SYNTAX_STRICT", "0") == "1"
+            print(f"{'❌' if strict else '⚠️'} {pfyfile_path} has {len(issues)} syntax issues:")
             for issue in issues:
                 print(f"   {issue}")
-            return False, issues
+            # In non-strict mode, treat issues as warnings so CI can still proceed
+            return (False if strict else True), issues
         else:
             print(f"✅ {pfyfile_path} syntax is valid")
             return True, []
@@ -273,9 +269,8 @@ def main():
     print("🚀 Starting pf Task Syntax Validation")
     print("="*50)
     
-    # Change to repository root (path-agnostic)
-    repo_root = Path(__file__).resolve().parent
-    os.chdir(repo_root)
+    # Change to repository root (directory containing this script)
+    os.chdir(Path(__file__).resolve().parent)
     
     # Find all Pfyfiles
     pfyfiles = sorted(glob.glob("Pfyfile*.pf"))

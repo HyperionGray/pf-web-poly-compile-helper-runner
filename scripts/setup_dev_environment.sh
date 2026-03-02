@@ -4,11 +4,6 @@
 
 set -e
 
-# Ensure path-agnostic behavior when run from any directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="${SCRIPT_DIR}"
-cd "${REPO_ROOT}"
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -312,7 +307,7 @@ run_initial_tests() {
     
     # Test Python syntax
     if [ -d "pf-runner" ]; then
-        for py_file in ${REPO_ROOT}/pf-runner/*.py; do
+        for py_file in pf-runner/*.py; do
             if [[ "$py_file" != *"pf_grammar.py" ]]; then
                 python3 -m py_compile "$py_file" || {
                     print_status "error" "Python syntax error in $py_file"
@@ -331,12 +326,12 @@ run_initial_tests() {
     fi
     
     # Test basic pf-runner functionality
-    if [ -f "${REPO_ROOT}/pf-runner/pf_main.py" ]; then
-        pushd "${REPO_ROOT}/pf-runner" >/dev/null
+    if [ -f "pf-runner/pf_main.py" ]; then
+        cd pf-runner
         python3 pf_main.py --help > /dev/null || {
             print_status "warning" "pf-runner help test failed (may need additional setup)"
         }
-        popd >/dev/null
+        cd ..
         print_status "success" "Basic pf-runner functionality verified"
     fi
 }
@@ -363,8 +358,8 @@ display_summary() {
     echo -e "${BLUE}🔧 Available Commands:${NC}"
     echo "  • npm run test:all          - Run all tests"
     echo "  • npm run security:all      - Run security scans"
-    echo "  • python3 -m black ${REPO_ROOT}/pf-runner/ - Format Python code"
-    echo "  • npx eslint ${REPO_ROOT}/tools/ tests/  - Lint JavaScript code"
+    echo "  • python3 -m black pf-runner/ - Format Python code"
+    echo "  • npx eslint tools/ tests/  - Lint JavaScript code"
     echo ""
     echo -e "${YELLOW}⚠️  Important Notes:${NC}"
     echo "  • Pre-commit hooks are now active"
