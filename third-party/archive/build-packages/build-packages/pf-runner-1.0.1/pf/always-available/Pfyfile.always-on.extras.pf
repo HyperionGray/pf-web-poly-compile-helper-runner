@@ -1,0 +1,124 @@
+task file-watch-on [alias=fwon]
+  describe Start file watching service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl enable --now pf-file-watch@$USER.service && \
+          echo "File watcher started. Monitoring ${PF_WATCH_DIR:-$(pwd)} for changes..."; \
+        else \
+          echo "systemd not available. Use 'pf file-watch-dev' for foreground mode."; \
+          exit 1; \
+        fi
+end
+
+task file-watch-off [alias=fwoff]
+  describe Stop file watching service
+  shell_lang bash
+  shell if command -v systemctl >/dev/null 2>&1; then \
+          sudo systemctl disable --now pf-file-watch@$USER.service && \
+          echo "File watcher stopped."; \
+        else \
+          echo "systemd not available."; \
+          exit 1; \
+        fi
+end
+
+task file-watch-dev [alias=fwdev]
+  describe Start file watcher in development mode (foreground)
+  shell_lang bash
+  shell <<'EOF'
+set -euo pipefail
+echo "Starting file watcher in development mode..."
+WATCH_DIR="${PF_WATCH_DIR:-$(pwd)}"
+echo "Watching directory: $WATCH_DIR"
+if command -v inotifywait >/dev/null 2>&1; then
+  echo "Using inotifywait for file monitoring..."
+  inotifywait -m -r -e modify,create,delete,move --exclude '\.git|node_modules|target|build|\.log' "$WATCH_DIR" |
+  while read -r path action file; do
+    echo "[$(date)] $action: $path$file"
+    case "$file" in
+      *.rs|*.c|*.cpp|*.h) echo "  → Source code changed, consider rebuilding" ;;
+      *.pf) echo "  → pf task file changed, consider reloading" ;;
+      *.md|*.txt) echo "  → Documentation changed" ;;
+      *) echo "  → File system change detected" ;;
+    esac
+  done
+else
+  echo "inotifywait not available. Install inotify-tools package."
+  echo "Falling back to polling mode..."
+  touch /tmp/pf-watch-marker
+  while true; do
+    if find "$WATCH_DIR" -newer /tmp/pf-watch-marker 2>/dev/null | head -1 | grep -q .; then
+      echo "[$(date)] Changes detected in $WATCH_DIR"
+    fi
+    touch /tmp/pf-watch-marker
+    sleep 5
+  done
+fi
+EOF
+end
+
+# ---------------------------------------------------------------------------==
+# Service Health and Diagnostics
+# ---------------------------------------------------------------------------==
+
+task always-on-health [alias=aoh]
+  describe Check health of all always-on services
+  shell_lang bash
+  shell <<'EOF'
+set -euo pipefail
+echo "--- Always-On Services Health Check ---"
+echo ""
+services=("pf-rest-api@$USER" "pf-security-monitor@$USER" "pf-build-watch@$USER" "pf-container-health@$USER" "pf-dev-proxy@$USER" "pf-log-aggregator@$USER" "pf-file-watch@$USER")
+healthy=0
+total=0
+for service in "${services[@]}"; do
+  total=$((total + 1))
+  if command -v systemctl >/dev/null 2>&1; then
+    if systemctl is-active "$service" >/dev/null 2>&1; then
+      echo "OK $service: healthy"
+      healthy=$((healthy + 1))
+    else
+      echo "NO $service: not running"
+    fi
+  else
+    echo "? $service: systemd not available"
+  fi
+done
+echo ""
+echo "Health Summary: $healthy/$total services healthy"
+if [ $healthy -eq $total ]; then
+  echo "All always-on services are healthy!"
+elif [ $healthy -eq 0 ]; then
+  echo "No always-on services are running. Use 'pf always-on-start-all' to start them."
+else
+  echo "Some services need attention. Use 'pf always-on-status' for details."
+fi
+EOF
+end
+
+task always-on-logs [alias=aol]
+  describe View logs from all always-on services
+  shell_lang bash
+  shell <<'EOF'
+set -euo pipefail
+echo "--- Always-On Services Logs ---"
+if command -v journalctl >/dev/null 2>&1; then
+  echo "Showing recent logs from all pf services..."
+  journalctl --user -u "pf-*" --since "1 hour ago" --no-pager -n 50 || true
+else
+  echo "journalctl not available. Checking local logs..."
+  LOG_DIR="${PF_LOG_DIR:-./logs}"
+  if [ -d "$LOG_DIR" ]; then
+    echo "Recent logs from $LOG_DIR:"
+    find "$LOG_DIR" -name "*.log" -exec tail -n 10 {} + 2>/dev/null || echo "No log files found"
+  else
+    echo "No log directory found at $LOG_DIR"
+  fi
+fi
+EOF
+end
+
+task always-on-config [alias=aoc]
+  describe Show always-on services configuration
+  shell printf '%s\n' "=== Always-On Services Configuration ===" "" "Environment Variables:" "  PF_API_HOST=${PF_API_HOST:-127.0.0.1} (REST API bind address)" "  PF_API_PORT=${PF_API_PORT:-8000} (REST API port)" "  PF_PROXY_PORT=${PF_PROXY_PORT:-3000} (Development proxy port)" "  PF_WEB_PORT=${PF_WEB_PORT:-8080} (Web service port)" "  PF_LOG_DIR=${PF_LOG_DIR:-./logs} (Log aggregation directory)" "  PF_WATCH_DIR=${PF_WATCH_DIR:-$(pwd)} (File watch directory)" "" "Service Files:" "  /etc/systemd/system/pf-*@.service (systemd service templates)" "  ~/.config/containers/systemd/ (Quadlet container services)" "" "Configuration Files:" "  /etc/default/pf-* (service environment overrides)" "  Pfyfile.always-on.pf (task definitions)"
+end

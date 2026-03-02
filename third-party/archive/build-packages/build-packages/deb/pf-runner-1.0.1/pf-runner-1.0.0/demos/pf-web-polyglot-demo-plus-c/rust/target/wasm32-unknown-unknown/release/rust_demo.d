@@ -1,0 +1,1 @@
+/home/punk/projects/pf-web-poly-compile-helper-runner/demos/pf-web-polyglot-demo-plus-c/rust/target/wasm32-unknown-unknown/release/rust_demo.wasm: /home/punk/projects/pf-web-poly-compile-helper-runner/demos/pf-web-polyglot-demo-plus-c/rust/src/lib.rs

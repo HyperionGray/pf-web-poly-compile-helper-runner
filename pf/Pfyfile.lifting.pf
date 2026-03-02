@@ -150,7 +150,7 @@ task test-lifting-workflow
   shell echo "3. Disassembling..."
   shell llvm-objdump-18 -d demos/binary-lifting/examples/bin/simple_math > demos/binary-lifting/examples/output/simple_math.asm 2>&1 || echo "llvm-objdump-18 not available"
   shell test -f demos/binary-lifting/examples/output/simple_math.asm && echo "Created: simple_math.asm" || true
-  shell echo "=== Workflow test complete ==="
+  shell echo "-- Workflow test complete --"
   shell echo "To lift binaries, install RetDec: pf install-retdec"
   shell echo "Then run: pf lift-examples-retdec"
 end

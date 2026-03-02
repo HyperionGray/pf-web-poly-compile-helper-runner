@@ -1,0 +1,32 @@
+[Unit]
+Description=pf File Watch Service
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=${PF_WATCH_DIR:-/home/%i}
+ExecStart=/bin/bash -c 'WATCH_DIR="${PF_WATCH_DIR:-$(pwd)}"; echo "Watching directory: $WATCH_DIR"; if command -v inotifywait >/dev/null 2>&1; then echo "Using inotifywait for file monitoring..."; inotifywait -m -r -e modify,create,delete,move --exclude "\.git|node_modules|target|build|\.log" "$WATCH_DIR" | while read -r path action file; do echo "[$(date)] $action: $path$file"; case "$file" in *.rs|*.c|*.cpp|*.h) echo "Source code changed, consider rebuilding" ;; *.pf) echo "pf task file changed, consider reloading" ;; *.md|*.txt) echo "Documentation changed" ;; *) echo "File system change detected" ;; esac; done; else echo "inotifywait not available, using polling..."; while true; do if find "$WATCH_DIR" -newer /tmp/pf-watch-marker 2>/dev/null | head -1 | grep -q .; then echo "[$(date)] Changes detected in $WATCH_DIR"; fi; touch /tmp/pf-watch-marker; sleep 5; done; fi'
+Restart=on-failure
+RestartSec=5
+
+# Environment configuration
+Environment=PF_WATCH_DIR=/home/%i
+Environment=PF_WATCH_INTERVAL=5
+EnvironmentFile=-/etc/default/pf-file-watch
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/log/pf
+
+# Resource limits
+MemoryMax=256M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

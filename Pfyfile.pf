@@ -1,4 +1,5 @@
-# pf web plugin (minimal)
+# Top-level pf entrypoint.
+# All task definitions live under pf/.
 
 # Include always-available tasks (general OS tasks that don't require specific files/directories)
 include pf/Pfyfile.always-available.pf

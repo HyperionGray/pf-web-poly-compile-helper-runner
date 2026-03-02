@@ -1,0 +1,6 @@
+# Split into parts on 2026-02-14 to keep file < 340 lines.
+# Original file: Pfyfile.always-available.pf
+
+include Pfyfile.always-available.part1.pf
+include Pfyfile.always-available.part2.pf
+include Pfyfile.always-available.part3.pf

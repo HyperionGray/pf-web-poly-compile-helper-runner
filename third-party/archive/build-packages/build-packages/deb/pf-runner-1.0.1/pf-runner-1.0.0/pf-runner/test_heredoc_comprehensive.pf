@@ -1,0 +1,94 @@
+# Comprehensive heredoc tests for multiple languages
+
+task test-python-simple
+  describe Simple Python heredoc
+  shell [lang:python] << EOF
+print("Hello World")
+print("From Python")
+EOF
+end
+
+task test-ruby-heredoc
+  describe Ruby heredoc syntax
+  shell [lang:ruby] << RUBYEOF
+puts "Hello from Ruby"
+puts "Line 2"
+5.times { |i| puts "Count: #{i}" }
+RUBYEOF
+end
+
+task test-perl-heredoc
+  describe Perl heredoc syntax
+  shell [lang:perl] << PERLEOF
+print "Hello from Perl\n";
+print "Line 2\n";
+for my $i (1..3) {
+    print "Number: $i\n";
+}
+PERLEOF
+end
+
+task test-lua-heredoc
+  describe Lua heredoc syntax
+  shell [lang:lua] << LUAEOF
+print("Hello from Lua")
+print("Line 2")
+for i=1,3 do
+    print("Count: " .. i)
+end
+LUAEOF
+end
+
+task test-rust-heredoc
+  describe Rust heredoc syntax
+  shell [lang:rust] << RUSTEOF
+fn main() {
+    println!("Hello from Rust!");
+    println!("Line 2");
+    for i in 1..=3 {
+        println!("Count: {}", i);
+    }
+}
+RUSTEOF
+end
+
+task test-php-heredoc
+  describe PHP heredoc syntax
+  shell [lang:php] << PHPEOF
+<?php
+echo "Hello from PHP\n";
+echo "Line 2\n";
+for ($i = 1; $i <= 3; $i++) {
+    echo "Count: $i\n";
+}
+?>
+PHPEOF
+end
+
+task test-bash-polyglot-heredoc
+  describe Bash polyglot heredoc (explicit lang marker)
+  shell [lang:bash] << BASHEOF
+echo "Hello from Bash polyglot"
+echo "Line 2"
+for i in 1 2 3; do
+    echo "Count: $i"
+done
+BASHEOF
+end
+
+task test-mixed-heredoc-and-regular
+  describe Mix heredoc and regular commands
+  shell [lang:python] << EOF
+print("From heredoc")
+EOF
+  shell [lang:python] print("Regular inline")
+  shell echo "Plain bash"
+end
+
+task test-long-delimiter
+  describe Test longer delimiter name
+  shell [lang:python] << PYTHON_CODE_BLOCK_EOF
+print("With long delimiter")
+print("Multiple lines")
+PYTHON_CODE_BLOCK_EOF
+end

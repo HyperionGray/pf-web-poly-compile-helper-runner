@@ -1,0 +1,8 @@
+# Compiled binaries
+bin/
+
+# Lifted IR outputs
+output/
+
+# Temporary files
+*.tmp

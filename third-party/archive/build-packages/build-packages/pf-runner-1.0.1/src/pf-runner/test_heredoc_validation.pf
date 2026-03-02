@@ -1,0 +1,52 @@
+# Final validation tests for heredoc feature
+
+task test-delimiter-case-sensitive
+  describe Test that delimiter is case sensitive
+  shell [lang:python] << EOF
+print("This is EOF")
+print("Not eof or Eof")
+EOF
+end
+
+task test-whitespace-in-code
+  describe Test heredoc with various whitespace
+  shell [lang:python] << EOF
+
+print("After blank line")
+    print("Indented line")
+print("Normal line")
+
+print("Before blank line")
+
+EOF
+end
+
+task test-quotes-in-heredoc
+  describe Test heredoc with quotes
+  shell [lang:python] << EOF
+print("Double quotes")
+print('Single quotes')
+print("""Triple quotes""")
+print(f"F-string with {1+1}")
+EOF
+end
+
+task test-special-chars
+  describe Test heredoc with special characters
+  shell [lang:python] << EOF
+print("Special: !@#$%^&*()")
+print("Backslash: \\")
+print("Newline char: \\n but not real newline")
+EOF
+end
+
+task test-empty-lines-preserved
+  describe Test that empty lines are preserved
+  shell [lang:python] << EOF
+print("Line 1")
+
+print("Line 3 (line 2 was blank)")
+
+print("Line 5 (line 4 was blank)")
+EOF
+end

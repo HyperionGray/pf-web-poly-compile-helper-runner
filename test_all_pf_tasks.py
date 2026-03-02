@@ -1,349 +1,258 @@
 #!/usr/bin/env python3
 """
-Comprehensive pf task validation script
-Tests all pf tasks for syntax correctness and functionality
+Comprehensive pf task validation (safe, no task execution).
+
+Validates:
+  - Runner is available (defaults to `python3 pf-runner/pf_main.py`, or `pf` with --use-system-pf)
+  - `pf prune` passes (syntax validation)
+  - `pf list` returns tasks, all with descriptions, and aliases are unique
+  - `pf help <task>` works for every task (parseability)
 """
 
+from __future__ import annotations
+
+import argparse
 import os
-import sys
+import random
+import re
+import shutil
 import subprocess
-import glob
-import json
+import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Dict, List, Optional, Sequence, Tuple
 
-def run_command(cmd, cwd=None, capture_output=True):
-    """Run a command and return result"""
-    try:
-        result = subprocess.run(
-            cmd, 
-            shell=True, 
-            cwd=cwd, 
-            capture_output=capture_output,
-            text=True,
-            timeout=30
-        )
-        return result.returncode, result.stdout, result.stderr
-    except subprocess.TimeoutExpired:
-        return -1, "", "Command timed out"
-    except Exception as e:
-        return -1, "", str(e)
 
-def test_pf_installation():
-    """Test if pf is properly installed and accessible"""
-    print("🔍 Testing pf installation...")
-    
-    # Check if pf command exists
-    returncode, stdout, stderr = run_command("which pf")
-    if returncode != 0:
-        print("❌ pf command not found in PATH, trying pf-runner directly...")
-        # Try using pf-runner directly
-        returncode, stdout, stderr = run_command("python3 pf-runner/pf_main.py --help")
-        if returncode != 0:
-            print(f"❌ pf-runner also failed: {stderr}")
-            return False
+@dataclass(frozen=True)
+class TaskInfo:
+    name: str
+    description: str
+    aliases: Tuple[str, ...]
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parent
+
+
+def _pf_cmd(repo_root: Path, use_system_pf: bool) -> List[str]:
+    repo_runner = repo_root / "pf-runner" / "pf_main.py"
+
+    if not use_system_pf and repo_runner.exists():
+        return ["python3", str(repo_runner)]
+
+    if shutil.which("pf"):
+        return ["pf"]
+
+    if repo_runner.exists():
+        return ["python3", str(repo_runner)]
+
+    raise FileNotFoundError("Neither `pf` nor `pf-runner/pf_main.py` found")
+
+
+def _run(
+    args: Sequence[str],
+    repo_root: Path,
+    timeout_s: int,
+    capture_output: bool = True,
+) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        list(args),
+        cwd=str(repo_root),
+        text=True,
+        capture_output=capture_output,
+        timeout=timeout_s,
+    )
+
+
+_TASK_LINE_RE = re.compile(r"^\s{2}([A-Za-z0-9][A-Za-z0-9_-]*)\b")
+_ALIASES_RE = re.compile(r"\(aliases:\s*([^)]+)\)\s*$")
+
+
+def _parse_pf_list(output: str) -> List[TaskInfo]:
+    tasks: List[TaskInfo] = []
+    for raw in output.splitlines():
+        line = raw.rstrip("\n")
+        m = _TASK_LINE_RE.match(line)
+        if not m:
+            continue
+
+        name = m.group(1)
+        remainder = line[m.end() :].strip()
+
+        description = ""
+        aliases: Tuple[str, ...] = ()
+
+        if remainder.startswith("-"):
+            remainder = remainder[1:].lstrip()
+            alias_match = _ALIASES_RE.search(remainder)
+            if alias_match:
+                alias_str = alias_match.group(1)
+                aliases = tuple(a.strip() for a in alias_str.split(",") if a.strip())
+                description = remainder[: alias_match.start()].rstrip()
+            else:
+                description = remainder.strip()
         else:
-            print("✅ pf-runner works directly")
-            return True
-    
-    print(f"✅ pf found at: {stdout.strip()}")
-    
-    # Test basic pf functionality
-    returncode, stdout, stderr = run_command("pf --help")
-    if returncode != 0:
-        print(f"❌ pf --help failed: {stderr}")
-        return False
-    
+            # No description printed for this task.
+            description = ""
+
+        tasks.append(TaskInfo(name=name, description=description, aliases=aliases))
+
+    # Deduplicate while preserving order (in case `pf list` repeats tasks in multiple groups).
+    seen: set[str] = set()
+    unique: List[TaskInfo] = []
+    for t in tasks:
+        if t.name in seen:
+            continue
+        seen.add(t.name)
+        unique.append(t)
+    return unique
+
+
+def _alias_duplicates(tasks: List[TaskInfo]) -> Dict[str, List[str]]:
+    alias_to_tasks: Dict[str, List[str]] = {}
+    for task in tasks:
+        for alias in task.aliases:
+            alias_to_tasks.setdefault(alias, []).append(task.name)
+    return {a: ts for a, ts in alias_to_tasks.items() if len(ts) > 1}
+
+
+def _help_failures(
+    pf_cmd: List[str],
+    repo_root: Path,
+    tasks: List[TaskInfo],
+    timeout_s: int,
+    jobs: int,
+) -> List[Tuple[str, str]]:
+    failures: List[Tuple[str, str]] = []
+
+    def _check_one(task_name: str) -> Optional[Tuple[str, str]]:
+        proc = _run([*pf_cmd, "help", task_name], repo_root=repo_root, timeout_s=timeout_s, capture_output=True)
+        if proc.returncode == 0:
+            return None
+        msg = (proc.stderr or proc.stdout or "").strip()
+        return task_name, msg[:500]
+
+    with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
+        futures = {pool.submit(_check_one, t.name): t.name for t in tasks}
+        for fut in as_completed(futures):
+            res = fut.result()
+            if res:
+                failures.append(res)
+
+    failures.sort(key=lambda x: x[0])
+    return failures
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Validate pf tasks without executing them")
+    parser.add_argument("--jobs", type=int, default=8, help="Parallelism for `pf help` checks (default: 8)")
+    parser.add_argument("--timeout", type=int, default=30, help="Per-command timeout seconds (default: 30)")
+    parser.add_argument("--skip-help-check", action="store_true", help="Skip `pf help <task>` for all tasks")
+    parser.add_argument(
+        "--no-shuffle",
+        dest="shuffle",
+        action="store_false",
+        default=True,
+        help="Disable randomized task order for `pf help` checks",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Seed for task order randomization (default: pseudo-random)",
+    )
+    parser.add_argument(
+        "--use-system-pf",
+        action="store_true",
+        help="Use `pf` from PATH instead of the repo runner (default: prefer repo runner).",
+    )
+    args = parser.parse_args()
+
+    repo_root = _repo_root()
+    os.chdir(repo_root)
+
+    print("\n🚀 Starting pf Task Validation (safe mode)")
+    print("==================================================")
+
+    pf_cmd = _pf_cmd(repo_root, use_system_pf=args.use_system_pf)
+    print(f"🔍 Using runner: {' '.join(pf_cmd)}")
+
+    # 1) Basic runner check
+    proc = _run([*pf_cmd, "--help"], repo_root=repo_root, timeout_s=args.timeout)
+    if proc.returncode != 0:
+        print("❌ pf --help failed")
+        print((proc.stderr or proc.stdout).strip())
+        return 1
     print("✅ pf --help works")
-    return True
 
-def test_pf_list():
-    """Test pf list command to see all available tasks"""
-    print("\n🔍 Testing pf list command...")
-    
-    # Try pf first, then pf-runner directly
-    returncode, stdout, stderr = run_command("pf list")
-    if returncode != 0:
-        print("❌ pf list failed, trying pf-runner directly...")
-        returncode, stdout, stderr = run_command("python3 pf-runner/pf_main.py list")
-        if returncode != 0:
-            print(f"❌ pf-runner list also failed: {stderr}")
-            return False, []
-    
-    print("✅ pf list works")
-    
-    # Parse tasks from output
-    tasks = []
-    lines = stdout.split('\n')
-    for line in lines:
-        line = line.strip()
-        if line and not line.startswith('#') and not line.startswith('='):
-            # Extract task name (first word)
-            parts = line.split()
-            if parts:
-                task_name = parts[0]
-                if task_name and not task_name.startswith('['):
-                    tasks.append(task_name)
-    
+    # 2) Syntax validation
+    print("\n🔍 Running `pf prune` (syntax validation)...")
+    proc = _run([*pf_cmd, "prune"], repo_root=repo_root, timeout_s=max(args.timeout, 120))
+    if proc.returncode != 0:
+        print("❌ pf prune failed")
+        print((proc.stderr or proc.stdout).strip())
+        return 1
+    print("✅ pf prune passed")
+
+    # 3) List + metadata validation
+    print("\n🔍 Running `pf list` (metadata validation)...")
+    proc = _run([*pf_cmd, "list"], repo_root=repo_root, timeout_s=args.timeout)
+    if proc.returncode != 0:
+        print("❌ pf list failed")
+        print((proc.stderr or proc.stdout).strip())
+        return 1
+
+    tasks = _parse_pf_list(proc.stdout or "")
+    if not tasks:
+        print("❌ No tasks parsed from `pf list` output")
+        return 1
     print(f"📊 Found {len(tasks)} tasks")
-    return True, tasks
 
-def validate_pfyfile_syntax(pfyfile_path):
-    """Validate syntax of a single Pfyfile"""
-    print(f"🔍 Validating {pfyfile_path}...")
-    
-    try:
-        with open(pfyfile_path, 'r') as f:
-            content = f.read()
-        
-        # Basic syntax checks
-        issues = []
-        lines = content.split('\n')
-        
-        in_task = False
-        task_name = None
-        indent_level = 0
-        
-        for i, line in enumerate(lines, 1):
-            stripped = line.strip()
-            
-            # Skip empty lines and comments
-            if not stripped or stripped.startswith('#'):
-                continue
-            
-            # Check for task definition
-            if stripped.startswith('task '):
-                if in_task:
-                    issues.append(f"Line {i}: Task '{task_name}' not properly closed")
-                in_task = True
-                task_parts = stripped.split()
-                if len(task_parts) < 2:
-                    issues.append(f"Line {i}: Invalid task definition")
-                else:
-                    task_name = task_parts[1]
-                continue
-            
-            # Check for end statement
-            if stripped == 'end':
-                if not in_task:
-                    issues.append(f"Line {i}: 'end' without matching 'task'")
-                in_task = False
-                task_name = None
-                continue
-            
-            # Check for include statements
-            if stripped.startswith('include '):
-                continue
-            
-            # If we're in a task, check indentation and valid commands
-            if in_task:
-                if not line.startswith('  ') and not line.startswith('\t'):
-                    issues.append(f"Line {i}: Task content should be indented")
-                
-                # Check for valid task commands
-                valid_commands = [
-                    'describe', 'shell', 'shell_lang', 'env', 'packages', 'service',
-                    'directory', 'copy', 'autobuild', 'makefile', 'cmake', 'cargo',
-                    'go_build', 'meson', 'sync'
-                ]
-                
-                command = stripped.split()[0] if stripped.split() else ''
-                if command and not any(stripped.startswith(cmd) for cmd in valid_commands):
-                    # Check if it's a shell command with [lang:...] prefix
-                    if not (stripped.startswith('shell [lang:') or 
-                           stripped.startswith('shell @') or
-                           stripped.startswith('shell ') or
-                           '=' in stripped):  # Parameter assignment
-                        issues.append(f"Line {i}: Unknown command '{command}'")
-        
-        # Check if any tasks are not closed
-        if in_task:
-            issues.append(f"Task '{task_name}' not properly closed with 'end'")
-        
-        if issues:
-            print(f"❌ {pfyfile_path} has {len(issues)} syntax issues:")
-            for issue in issues:
-                print(f"   {issue}")
-            return False
-        else:
-            print(f"✅ {pfyfile_path} syntax is valid")
-            return True
-            
-    except Exception as e:
-        print(f"❌ Error reading {pfyfile_path}: {e}")
-        return False
+    no_desc = [t.name for t in tasks if not t.description]
+    if no_desc:
+        print(f"❌ {len(no_desc)} task(s) missing descriptions (example: {no_desc[:10]})")
+        return 1
+    print("✅ All tasks have descriptions")
 
-def test_all_pfyfiles():
-    """Test syntax of all Pfyfile.*.pf files"""
-    print("\n🔍 Testing all Pfyfile syntax...")
-    
-    pfyfiles = glob.glob("Pfyfile*.pf")
-    if not pfyfiles:
-        print("❌ No Pfyfile.*.pf files found")
-        return False
-    
-    print(f"📊 Found {len(pfyfiles)} Pfyfile(s)")
-    
-    all_valid = True
-    for pfyfile in sorted(pfyfiles):
-        if not validate_pfyfile_syntax(pfyfile):
-            all_valid = False
-    
-    return all_valid
+    dup_aliases = _alias_duplicates(tasks)
+    if dup_aliases:
+        print(f"❌ Found {len(dup_aliases)} duplicate alias(es):")
+        for alias, owners in sorted(dup_aliases.items()):
+            print(f"  - {alias}: {', '.join(owners)}")
+        return 1
+    print("✅ No duplicate aliases")
 
-def test_sample_tasks(tasks):
-    """Test a sample of tasks to ensure they can be parsed"""
-    print("\n🔍 Testing sample task parsing...")
-    
-    # Test a few representative tasks
-    sample_tasks = []
-    for task in tasks[:10]:  # Test first 10 tasks
-        sample_tasks.append(task)
-    
-    if not sample_tasks:
-        print("❌ No tasks to test")
-        return False
-    
-    success_count = 0
-    for task in sample_tasks:
-        print(f"  Testing task: {task}")
-        # Try pf first, then pf-runner directly
-        returncode, stdout, stderr = run_command(f"pf {task} --help")
-        if returncode != 0:
-            returncode, stdout, stderr = run_command(f"python3 pf-runner/pf_main.py {task} --help")
-        
-        if returncode == 0 or "describe" in stdout.lower():
-            print(f"    ✅ {task} - parseable")
-            success_count += 1
-        else:
-            print(f"    ❌ {task} - failed: {stderr}")
-    
-    print(f"📊 {success_count}/{len(sample_tasks)} sample tasks passed")
-    return success_count == len(sample_tasks)
-
-def analyze_novel_features():
-    """Analyze the most novel features in the pf system"""
-    print("\n🔍 Analyzing novel features...")
-    
-    novel_features = {
-        "Polyglot Shell Support": {
-            "description": "Execute code in 40+ languages inline",
-            "files": ["Pfyfile.pf", "pf-runner/addon/polyglot.py"],
-            "examples": ["shell [lang:python]", "shell [lang:rust]", "shell_lang python"]
-        },
-        "Unified Build System": {
-            "description": "Auto-detect and build projects (autobuild)",
-            "files": ["pf-runner/pf_parser.py"],
-            "examples": ["autobuild", "autobuild release=true jobs=8"]
-        },
-        "Container Integration": {
-            "description": "Seamless container and quadlet management",
-            "files": ["Pfyfile.containers.pf", "containers/"],
-            "examples": ["container-build-all", "quadlet-install"]
-        },
-        "WebAssembly Compilation": {
-            "description": "Multi-language WASM compilation pipeline",
-            "files": ["Pfyfile.pf", "demos/pf-web-polyglot-demo-plus-c/"],
-            "examples": ["web-build-all-wasm", "web-build-rust-wasm"]
-        },
-        "Security/Exploit Tools": {
-            "description": "Integrated exploit development and security testing",
-            "files": ["Pfyfile.exploit.pf", "Pfyfile.security.pf", "Pfyfile.fuzzing.pf"],
-            "examples": ["install-exploit-tools", "heap-spray-demo"]
-        },
-        "OS Container Management": {
-            "description": "Switch between different OS environments",
-            "files": ["Pfyfile.os-containers.pf", "Pfyfile.distro-switch.pf"],
-            "examples": ["os-container-ubuntu", "distro-switch"]
-        },
-        "Binary Analysis Tools": {
-            "description": "Integrated binary lifting and analysis",
-            "files": ["Pfyfile.lifting.pf", "Pfyfile.debug-tools.pf"],
-            "examples": ["install-oryx", "install-binsider", "binary-lift"]
-        },
-        "Flexible Parameter Passing": {
-            "description": "Multiple parameter formats (GNU-style, key=value, etc.)",
-            "files": ["pf-runner/pf_args.py"],
-            "examples": ["--key=value", "key=value", "--key value"]
-        }
-    }
-    
-    print("🚀 Most Novel Features Identified:")
-    for feature, details in novel_features.items():
-        print(f"\n  📌 {feature}")
-        print(f"     {details['description']}")
-        print(f"     Examples: {', '.join(details['examples'])}")
-    
-    return novel_features
-
-def generate_report(test_results):
-    """Generate a comprehensive test report"""
-    print("\n" + "="*60)
-    print("📋 COMPREHENSIVE PF TASK VALIDATION REPORT")
-    print("="*60)
-    
-    total_tests = len(test_results)
-    passed_tests = sum(1 for result in test_results.values() if result)
-    
-    print(f"📊 Overall Results: {passed_tests}/{total_tests} tests passed")
-    print(f"✅ Success Rate: {(passed_tests/total_tests)*100:.1f}%")
-    
-    print("\n📝 Test Details:")
-    for test_name, result in test_results.items():
-        status = "✅ PASS" if result else "❌ FAIL"
-        print(f"  {status} {test_name}")
-    
-    if passed_tests == total_tests:
-        print("\n🎉 All tests passed! The pf system is ready for use.")
+    # 4) Help parseability
+    if not args.skip_help_check:
+        if args.shuffle:
+            seed = args.seed if args.seed is not None else random.randrange(2**32)
+            rng = random.Random(seed)
+            rng.shuffle(tasks)
+            print(f"\n🔀 Shuffled task order for help checks (seed={seed})")
+        print("\n🔍 Running `pf help <task>` for every task...")
+        failures = _help_failures(
+            pf_cmd=pf_cmd,
+            repo_root=repo_root,
+            tasks=tasks,
+            timeout_s=args.timeout,
+            jobs=args.jobs,
+        )
+        if failures:
+            print(f"❌ {len(failures)} task(s) failed `pf help`:")
+            for task, msg in failures[:25]:
+                print(f"  - {task}: {msg}")
+            if len(failures) > 25:
+                print(f"  ... plus {len(failures) - 25} more")
+            return 1
+        print("✅ All tasks are help-parseable")
     else:
-        print(f"\n⚠️  {total_tests - passed_tests} test(s) failed. Review the issues above.")
-    
-    return passed_tests == total_tests
+        print("\nℹ️  Skipping `pf help <task>` checks")
 
-def main():
-    """Main test execution"""
-    print("🚀 Starting Comprehensive pf Task Validation")
-    print("="*50)
-    
-    # Change to workspace directory
-    os.chdir('/workspace')
-    
-    test_results = {}
-    
-    # Test 1: pf installation
-    test_results["pf Installation"] = test_pf_installation()
-    
-    # Test 2: Pfyfile syntax validation
-    test_results["Pfyfile Syntax"] = test_all_pfyfiles()
-    
-    # Test 3: pf list command
-    list_success, tasks = test_pf_list()
-    test_results["pf List Command"] = list_success
-    
-    # Test 4: Sample task parsing (only if list worked)
-    if list_success and tasks:
-        test_results["Sample Task Parsing"] = test_sample_tasks(tasks)
-    else:
-        test_results["Sample Task Parsing"] = False
-    
-    # Analyze novel features
-    novel_features = analyze_novel_features()
-    
-    # Generate final report
-    all_passed = generate_report(test_results)
-    
-    # Recommendations
-    print("\n🎯 RECOMMENDATIONS:")
-    print("1. ✅ QUICKSTART.md is comprehensive and well-structured")
-    print("2. ✅ Unified API through 'pf' command is working")
-    print("3. 🚀 Most novel features to highlight:")
-    print("   - Polyglot shell support (40+ languages)")
-    print("   - WebAssembly multi-language compilation")
-    print("   - Container/OS switching capabilities")
-    print("   - Integrated security/exploit tools")
-    print("4. 📈 Suggested direction: Focus on the polyglot + WASM pipeline")
-    print("   as it's unique in the ecosystem")
-    
-    return 0 if all_passed else 1
+    print("\n==================================================")
+    print("✅ PF TASK VALIDATION PASSED")
+    return 0
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

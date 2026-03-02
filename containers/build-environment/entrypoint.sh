@@ -4,10 +4,13 @@ set -e
 # Source Emscripten environment
 source /opt/emsdk/emsdk_env.sh
 
+# Prefer env-provided paths; fall back to common container defaults.
+WORKSPACE_DIR="${WORKSPACE:-/workspace}"
+
 # Function to build Rust to WASM
 build_rust_wasm() {
-    local src_dir="${1:-/workspace/demos/pf-web-polyglot-demo-plus-c/rust}"
-    local output_dir="${2:-/workspace/demos/pf-web-polyglot-demo-plus-c/web/wasm}"
+    local src_dir="${1:-${WORKSPACE_DIR}/demos/pf-web-polyglot-demo-plus-c/rust}"
+    local output_dir="${2:-${WORKSPACE_DIR}/demos/pf-web-polyglot-demo-plus-c/web/wasm}"
     
     echo "Building Rust to WASM..."
     echo "Source: $src_dir"
@@ -25,8 +28,8 @@ build_rust_wasm() {
 
 # Function to build C to WASM
 build_c_wasm() {
-    local src_file="${1:-/workspace/demos/pf-web-polyglot-demo-plus-c/c/c_trap.c}"
-    local output_dir="${2:-/workspace/demos/pf-web-polyglot-demo-plus-c/web/wasm}"
+    local src_file="${1:-${WORKSPACE_DIR}/demos/pf-web-polyglot-demo-plus-c/c/c_trap.c}"
+    local output_dir="${2:-${WORKSPACE_DIR}/demos/pf-web-polyglot-demo-plus-c/web/wasm}"
     
     echo "Building C to WASM..."
     echo "Source: $src_file"
@@ -49,8 +52,8 @@ build_c_wasm() {
 
 # Function to build WAT to WASM
 build_wat_wasm() {
-    local src_file="${1:-/workspace/demos/pf-web-polyglot-demo-plus-c/asm/mini.wat}"
-    local output_dir="${2:-/workspace/demos/pf-web-polyglot-demo-plus-c/web/wasm}"
+    local src_file="${1:-${WORKSPACE_DIR}/demos/pf-web-polyglot-demo-plus-c/asm/mini.wat}"
+    local output_dir="${2:-${WORKSPACE_DIR}/demos/pf-web-polyglot-demo-plus-c/web/wasm}"
     
     echo "Building WAT to WASM..."
     echo "Source: $src_file"
@@ -68,8 +71,8 @@ build_wat_wasm() {
 
 # Function to build Fortran to WASM (experimental)
 build_fortran_wasm() {
-    local src_file="${1:-/workspace/demos/pf-web-polyglot-demo-plus-c/fortran/src/hello.f90}"
-    local output_dir="${2:-/workspace/demos/pf-web-polyglot-demo-plus-c/web/wasm}"
+    local src_file="${1:-${WORKSPACE_DIR}/demos/pf-web-polyglot-demo-plus-c/fortran/src/hello.f90}"
+    local output_dir="${2:-${WORKSPACE_DIR}/demos/pf-web-polyglot-demo-plus-c/web/wasm}"
     
     echo "Building Fortran to WASM (experimental)..."
     echo "Source: $src_file"
@@ -144,10 +147,10 @@ Examples:
     $0 build-all
     
     # Build specific language
-    $0 build-rust --src-dir /workspace/my-rust-project
+    $0 build-rust --src-dir ${WORKSPACE_DIR}/my-rust-project
     
     # Build C with custom paths
-    $0 build-c --src-file /workspace/my-code.c --output-dir /builds
+    $0 build-c --src-file ${WORKSPACE_DIR}/my-code.c --output-dir /builds
     
     # Show environment info
     $0 info

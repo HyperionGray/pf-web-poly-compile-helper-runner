@@ -1,0 +1,4 @@
+# Top-level pf entrypoint.
+# All task definitions live under pf/.
+
+include pf/Pfyfile.pf

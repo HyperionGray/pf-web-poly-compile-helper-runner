@@ -1,0 +1,1 @@
+/home/punk/projects/pf-web-poly-compile-helper-runner/demos/binary-injection/examples/rust-payload/target/x86_64-unknown-linux-gnu/release/librust_payload.so: /home/punk/projects/pf-web-poly-compile-helper-runner/demos/binary-injection/examples/rust-payload/src/lib.rs

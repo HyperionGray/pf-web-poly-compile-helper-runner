@@ -10,10 +10,10 @@ task install-sanitizer-tools
   shell echo "╚════════════════════════════════════════════════════════════╝"
   shell echo ""
   shell echo "[1/4] Installing clang and LLVM tools..."
-  packages clang llvm llvm-dev libc++-dev libc++abi-dev
+  packages install clang llvm llvm-dev libc++-dev libc++abi-dev
   shell echo ""
   shell echo "[2/4] Installing additional sanitizer dependencies..."
-  packages gcc-multilib g++-multilib
+  packages install gcc-multilib g++-multilib
   shell echo ""
   shell echo "[3/4] Setting up sanitizer environment..."
   shell mkdir -p ~/.local/bin ~/.local/lib/sanitizers
@@ -21,7 +21,7 @@ task install-sanitizer-tools
   shell echo "[4/4] Creating sanitizer wrapper scripts..."
   shell pf create-sanitizer-wrappers
   shell echo ""
-  shell echo "✅ Sanitizer toolchain installed successfully"
+  shell echo "[OK] Sanitizer toolchain installed successfully"
   shell echo "Test with: pf sanitizer-test"
 end
 
@@ -33,7 +33,7 @@ task create-sanitizer-wrappers
   shell chmod +x ~/.local/bin/clang-msan ~/.local/bin/clang++-msan
   shell chmod +x ~/.local/bin/clang-ubsan ~/.local/bin/clang++-ubsan
   shell chmod +x ~/.local/bin/clang-tsan ~/.local/bin/clang++-tsan
-  shell echo "✅ Sanitizer wrapper scripts created"
+  shell echo "[OK] Sanitizer wrapper scripts created"
 end
 
 # Sanitizer Analysis Tasks
@@ -41,33 +41,33 @@ end
 task sanitizer-analyze
   describe Analyze sanitizer output and generate report
   shell python3 tools/sanitizers/analyze_output.py ${log_file} ${output:-sanitizer_report.html}
-  shell echo "📊 Sanitizer analysis complete: ${output:-sanitizer_report.html}"
+  shell echo " Sanitizer analysis complete: ${output:-sanitizer_report.html}"
 end
 
 task sanitizer-symbolize
   describe Symbolize sanitizer stack traces for better debugging
   shell python3 tools/sanitizers/symbolize_traces.py ${binary} ${log_file} ${output:-symbolized.log}
-  shell echo "🔍 Symbolized traces saved to: ${output:-symbolized.log}"
+  shell echo " Symbolized traces saved to: ${output:-symbolized.log}"
 end
 
 task sanitizer-compare
   describe Compare sanitizer runs to identify new issues
   shell python3 tools/sanitizers/compare_runs.py ${baseline_log} ${current_log} ${output:-comparison.html}
-  shell echo "📈 Comparison report: ${output:-comparison.html}"
+  shell echo " Comparison report: ${output:-comparison.html}"
 end
 
 # Fuzzing Integration with Sanitizers
 
 task fuzz-with-asan
   describe Run fuzzing with AddressSanitizer for enhanced bug detection
-  shell echo "🚀 Starting fuzzing with AddressSanitizer..."
+  shell echo " Starting fuzzing with AddressSanitizer..."
   shell pf build-with-asan dir=${dir:-.}
   shell python3 tools/fuzzing/fuzz_with_sanitizer.py --sanitizer asan --binary ${binary} --corpus ${corpus:-./corpus} --timeout ${timeout:-3600}
 end
 
 task fuzz-with-msan
   describe Run fuzzing with MemorySanitizer for uninitialized memory detection
-  shell echo "🚀 Starting fuzzing with MemorySanitizer..."
+  shell echo " Starting fuzzing with MemorySanitizer..."
   shell pf build-with-msan dir=${dir:-.}
   shell python3 tools/fuzzing/fuzz_with_sanitizer.py --sanitizer msan --binary ${binary} --corpus ${corpus:-./corpus} --timeout ${timeout:-3600}
 end
@@ -76,7 +76,7 @@ end
 
 task sanitizer-demo
   describe Demonstrate sanitizer capabilities with vulnerable code
-  shell echo "🎓 Running sanitizer demonstration..."
+  shell echo " Running sanitizer demonstration..."
   shell gcc -o /tmp/vuln_asan -fsanitize=address -g tools/sanitizers/demo/buffer_overflow.c
   shell gcc -o /tmp/vuln_msan -fsanitize=memory -g tools/sanitizers/demo/uninitialized_memory.c
   shell gcc -o /tmp/vuln_ubsan -fsanitize=undefined -g tools/sanitizers/demo/undefined_behavior.c
@@ -90,12 +90,12 @@ task sanitizer-demo
   shell echo "Running UBSan demo (undefined behavior):"
   shell /tmp/vuln_ubsan || true
   shell echo ""
-  shell echo "🎓 Sanitizer demonstration complete!"
+  shell echo " Sanitizer demonstration complete!"
 end
 
 task sanitizer-test
   describe Test sanitizer installation and basic functionality
-  shell echo "🧪 Testing sanitizer installation..."
+  shell echo " Testing sanitizer installation..."
   shell echo ""
   shell TEST_ASAN=$(mktemp)
   shell TEST_MSAN=$(mktemp)
@@ -117,13 +117,13 @@ end
 
 task sanitizer-coverage
   describe Build with sanitizer coverage for guided fuzzing
-  shell echo "📊 Building with sanitizer coverage..."
+  shell echo " Building with sanitizer coverage..."
   env CC=clang CXX=clang++
   env CFLAGS="-fsanitize=address -fsanitize-coverage=trace-pc-guard,trace-cmp,trace-div -fno-omit-frame-pointer -g -O1"
   env CXXFLAGS="-fsanitize=address -fsanitize-coverage=trace-pc-guard,trace-cmp,trace-div -fno-omit-frame-pointer -g -O1"
   env LDFLAGS="-fsanitize=address"
   autobuild ${dir:+dir=$dir} ${jobs:+jobs=$jobs}
-  shell echo "✅ Build complete with sanitizer coverage"
+  shell echo "[OK] Build complete with sanitizer coverage"
 end
 
 task sanitizer-profile

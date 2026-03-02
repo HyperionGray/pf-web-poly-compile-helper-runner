@@ -1,0 +1,65 @@
+[Unit]
+Description=pf Build Service Container (GPU Enabled)
+Documentation=https://github.com/containers/podman/blob/main/docs/source/markdown/podman-systemd.unit.5.md
+Requires=pf-main-pod-gpu.service
+After=pf-main-pod-gpu.service
+BindsTo=pf-main-pod-gpu.service
+
+[Container]
+# Container name
+ContainerName=pf-build-service-gpu
+
+# Image to use
+Image=localhost/pf-build-environment:latest
+
+# Pod assignment
+Pod=pf-main-pod-gpu
+
+# GPU access
+Device=nvidia.com/gpu=all
+
+# Volume mounts
+Volume=pf-workspace:/workspace:rw,z
+Volume=pf-builds:/builds:rw,z
+Volume=pf-cache:/cache:rw,z
+
+# Environment variables
+Environment=WORKSPACE=/workspace
+Environment=BUILD_OUTPUT=/builds
+Environment=NVIDIA_VISIBLE_DEVICES=all
+Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+# Working directory
+WorkingDir=/workspace
+
+# User
+User=1000:1000
+
+# Security options
+SecurityLabelDisable=false
+NoNewPrivileges=false
+
+# Resource limits (higher for GPU workloads)
+Memory=4g
+CPUQuota=400%
+
+# Health check
+HealthCmd=rustc --version && node --version && emcc --version && wat2wasm --version && nvidia-smi || exit 1
+HealthInterval=60s
+HealthTimeout=30s
+HealthRetries=3
+HealthStartPeriod=30s
+
+# Labels
+Label=app=pf-development
+Label=component=build-service
+Label=gpu=enabled
+
+# Restart policy
+Restart=always
+
+# Command (keep container running)
+Exec=sleep infinity
+
+[Install]
+WantedBy=default.target

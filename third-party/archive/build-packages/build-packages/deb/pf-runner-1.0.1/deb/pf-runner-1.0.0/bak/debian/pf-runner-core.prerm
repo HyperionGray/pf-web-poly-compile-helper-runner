@@ -1,0 +1,26 @@
+#!/bin/bash
+# Pre-removal script for pf-runner-core
+
+set -e
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        # Stop any running pf services
+        if [ -d /run/systemd/system ]; then
+            systemctl stop 'pf-*' || true
+            systemctl daemon-reload || true
+        fi
+        ;;
+        
+    failed-upgrade)
+        ;;
+        
+    *)
+        echo "prerm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

@@ -1,0 +1,2 @@
+[console_scripts]
+pf = pf_main:console_main

@@ -1,0 +1,57 @@
+[Unit]
+Description=pf Web Service Container
+Documentation=https://github.com/containers/podman/blob/main/docs/source/markdown/podman-systemd.unit.5.md
+Requires=pf-main-pod.service
+After=pf-main-pod.service
+BindsTo=pf-main-pod.service
+
+[Container]
+# Container name
+ContainerName=pf-web-service
+
+# Image to use
+Image=localhost/pf-web-services:latest
+
+# Pod assignment
+Pod=pf-main-pod
+
+# Volume mounts
+Volume=pf-workspace:/workspace:rw,z
+Volume=pf-builds:/builds:rw,z
+Volume=pf-cache:/cache:rw,z
+
+# Environment variables
+Environment=NODE_ENV=production
+Environment=PORT=8080
+Environment=ROOT=/workspace/demos/pf-web-polyglot-demo-plus-c/web
+
+# Working directory
+WorkingDir=/app
+
+# User
+User=1000:1000
+
+# Security options
+SecurityLabelDisable=false
+NoNewPrivileges=true
+
+# Resource limits
+Memory=512m
+CPUQuota=50%
+
+# Health check
+HealthCmd=curl -f http://localhost:8080/api/health || exit 1
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=10s
+
+# Labels
+Label=app=pf-development
+Label=component=web-service
+
+# Restart policy
+Restart=always
+
+[Install]
+WantedBy=default.target
