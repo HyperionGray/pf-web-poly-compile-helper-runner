@@ -558,11 +558,13 @@ def run_task_by_name(
     shell_lang: Optional[str] = None
     for line in lines:
         stripped = line.strip()
+        
         if stripped.startswith("env "):
             for tok in shlex.split(stripped)[1:]:
                 if "=" in tok:
                     k, v = tok.split("=", 1)
                     task_env[k] = _interpolate(v, params, task_env)
+            idx += 1
             continue
 
         if stripped == "shell_lang" or stripped.startswith("shell_lang "):
@@ -575,6 +577,7 @@ def run_task_by_name(
 
         if not stripped.startswith("shell "):
             print(f"[skip] unsupported verb in task '{task_name}': {stripped}", file=sys.stderr)
+            idx += 1
             continue
 
         shell_cmd = stripped[6:].strip()

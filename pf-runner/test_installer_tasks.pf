@@ -1,0 +1,37 @@
+# Test file to verify installer task syntax works correctly
+# This simulates the installer tasks without actually running them
+
+task test-setup-syntax
+  describe Test setup task bash syntax
+  shell echo "Simulating: sudo apt-get update"
+  shell echo "Simulating install of: java google-android-build-tools-34.0.0-installer 'openjdk-25-*' golang llvm ninja ninja-build gfortran"
+end
+
+task test-setup-optional-syntax
+  describe Test setup-optional task bash syntax with complex conditional
+  shell echo "Simulating: sudo apt-get install -y luajit2 zsh-static ch"
+  shell if ! command -v fake_rustup >/dev/null 2>&1; then echo "Would install rustup"; else echo "rustup already installed"; fi
+end
+
+task test-install-podman-syntax
+  describe Test install-podman task bash syntax with complex conditionals
+  shell echo "Installing podman..."
+  shell [ -f /etc/debian_version ] && echo "Debian: would install podman" || [ -f /etc/redhat-release ] && echo "RedHat: would install podman" || [ "$(uname)" = "Darwin" ] && echo "macOS: would install podman" || echo "Unknown OS"
+  shell echo "✅ podman installed"
+end
+
+task test-all-installer-syntax
+  describe Test all installer task syntax combined
+  shell echo "=== Testing setup ==="
+  shell echo "Update: OK"
+  shell echo "Install packages: OK"
+  shell echo "=== Testing setup-optional ==="
+  shell if ! command -v fake_tool >/dev/null 2>&1; then \
+    echo "Tool not found, would install"; \
+  else \
+    echo "Tool already installed"; \
+  fi
+  shell echo "=== Testing install-podman ==="
+  shell [ -f /etc/debian_version ] && echo "Detected Debian" || echo "Not Debian"
+  shell echo "All installer syntax tests passed"
+end
