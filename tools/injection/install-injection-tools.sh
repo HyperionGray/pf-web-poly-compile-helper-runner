@@ -24,15 +24,13 @@ if [[ "$OS" == "linux" ]]; then
     # Check if running as root or with sudo
     if [[ $EUID -eq 0 ]] || sudo -n true 2>/dev/null; then
         # Essential tools for binary manipulation
+        # Note: objdump, readelf, hexdump are part of binutils package
         sudo apt-get update -qq
         sudo apt-get install -y \
             binutils \
             gdb \
             strace \
             ltrace \
-            objdump \
-            readelf \
-            hexdump \
             patchelf \
             python3-dev \
             python3-pip \
