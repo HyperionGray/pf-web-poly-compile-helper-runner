@@ -14,10 +14,10 @@ git clone <repository-url>
 cd pf-web-poly-compile-helper-runner
 
 # Install natively (system-wide, requires sudo)
-sudo ./install.sh --mode native
+sudo ./install.sh
 
 # OR install to user directory (no sudo required)
-./install.sh --mode native --prefix ~/.local
+./install.sh --prefix ~/.local
 
 # Test the installation
 pf --version

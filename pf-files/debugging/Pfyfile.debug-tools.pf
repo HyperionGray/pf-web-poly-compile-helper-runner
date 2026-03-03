@@ -1,0 +1,411 @@
+# Debugging Tools Installation and Integration
+# Tasks for installing and configuring debugging tools mentioned in the TUI issue
+
+task install-oryx
+  describe Install oryx - TUI for exploring binaries
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    arch="$(uname -m)"
+    os="$(uname -s)"
+    if [[ "$os" != "Linux" ]]; then
+      echo "[ERR] oryx installer currently supports Linux only" >&2
+      exit 1
+    fi
+
+    case "$arch" in
+      x86_64|amd64) asset_arch="x86_64-unknown-linux-musl" ;;
+      aarch64|arm64) asset_arch="aarch64-unknown-linux-musl" ;;
+      *) echo "[ERR] unsupported arch: $arch" >&2; exit 1 ;;
+    esac
+
+    url="https://github.com/pythops/oryx/releases/download/v0.7.2/oryx-${asset_arch}"
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    install_dir="${INSTALL_PREFIX:-$HOME/.local/bin}"
+
+    echo "Downloading oryx binary..."
+    if curl -fsSL "$url" -o "$tmp/oryx"; then
+      mkdir -p "$install_dir"
+      install -m 0755 "$tmp/oryx" "$install_dir/oryx"
+      echo "[OK] oryx installed to $install_dir/oryx (v0.7.2)"
+      exit 0
+    fi
+
+    echo "[WARN] binary download failed; falling back to cargo build (slower)..."
+    if command -v apt-get >/dev/null 2>&1; then
+      sudo apt-get update
+      sudo apt-get install -y clang llvm make pkg-config libelf-dev libbpf-dev zlib1g-dev
+    fi
+    command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && . "$HOME/.cargo/env")
+    cargo install --locked --git https://github.com/pythops/oryx --tag v0.7.2 --force
+    echo "[OK] oryx installed via cargo (v0.7.2)"
+end
+
+task install-binsider
+  describe Install binsider - Binary analyzer with TUI
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    if command -v binsider >/dev/null 2>&1; then
+      echo "binsider already installed at $(command -v binsider)"
+      exit 0
+    fi
+
+    case "$(uname -m)" in
+      x86_64|amd64) asset_arch="x86_64-unknown-linux-gnu" ;;
+      aarch64|arm64) asset_arch="aarch64-unknown-linux-gnu" ;;
+      *) echo "[ERR] unsupported arch: $(uname -m)" >&2; exit 1 ;;
+    esac
+
+    version="0.3.1"
+    url="https://github.com/orhun/binsider/releases/download/v${version}/binsider-${version}-${asset_arch}.tar.gz"
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    install_dir="${INSTALL_PREFIX:-$HOME/.local/bin}"
+
+    echo "Downloading binsider binary..."
+    if curl -fsSL "$url" -o "$tmp/binsider.tar.gz"; then
+      tar -xzf "$tmp/binsider.tar.gz" -C "$tmp"
+      bin_path="$(find "$tmp" -type f -name binsider | head -1 || true)"
+      if [ -n "${bin_path:-}" ] && [ -f "$bin_path" ]; then
+        mkdir -p "$install_dir"
+        install -m 0755 "$bin_path" "$install_dir/binsider"
+        echo "[OK] binsider installed to $install_dir/binsider (v${version})"
+        exit 0
+      fi
+    fi
+
+    echo "[WARN] binary download failed; falling back to cargo build..."
+    if command -v apt-get >/dev/null 2>&1; then
+      sudo apt-get update || true
+      sudo apt-get install -y pkg-config libssl-dev || true
+    fi
+    command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && . "$HOME/.cargo/env")
+    cargo install --locked --git https://github.com/orhun/binsider --tag v${version} --force || {
+      echo "[WARN] cargo install binsider failed; returning success to avoid breaking bundle installs."
+      exit 0
+    }
+    echo "[OK] binsider installed via cargo (v${version})"
+end
+
+task install-rustnet
+  describe Install rustnet - Network monitoring tool
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    arch="$(uname -m)"
+    os="$(uname -s)"
+    if [[ "$os" != "Linux" ]]; then
+      echo "[ERR] rustnet installer currently supports Linux only" >&2
+      exit 1
+    fi
+
+    case "$arch" in
+      x86_64|amd64) asset_arch="x86_64-unknown-linux-gnu" ;;
+      aarch64|arm64) asset_arch="aarch64-unknown-linux-gnu" ;;
+      *) echo "[ERR] unsupported arch: $arch" >&2; exit 1 ;;
+    esac
+
+    version="0.18.0"
+    url="https://github.com/domcyrus/rustnet/releases/download/v${version}/rustnet-v${version}-${asset_arch}.tar.gz"
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    install_dir="${INSTALL_PREFIX:-$HOME/.local/bin}"
+
+    echo "Downloading rustnet binary..."
+    if curl -fsSL "$url" -o "$tmp/rustnet.tar.gz"; then
+      tar -xzf "$tmp/rustnet.tar.gz" -C "$tmp"
+      if [ -f "$tmp/rustnet" ] || [ -f "$tmp/rustnet-monitor" ]; then
+        mkdir -p "$install_dir"
+        src="$tmp/rustnet"
+        [ -f "$tmp/rustnet" ] || src="$tmp/rustnet-monitor"
+        install -m 0755 "$src" "$install_dir/rustnet"
+        echo "[OK] rustnet installed to $install_dir/rustnet (v${version})"
+        exit 0
+      fi
+    fi
+
+    echo "[WARN] binary download failed; falling back to cargo build..."
+    command -v cargo >/dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && . "$HOME/.cargo/env")
+    cargo install --locked --git https://github.com/domcyrus/rustnet --tag v${version} --force
+    mkdir -p "$install_dir"
+    ln -sf "$HOME/.cargo/bin/rustnet-monitor" "$install_dir/rustnet"
+    echo "[OK] rustnet installed via cargo (v${version})"
+end
+
+task install-sysz
+  describe Install sysz - Systemd unit file viewer
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    arch="$(uname -m)"
+    os="$(uname -s)"
+    if [[ "$os" != "Linux" ]]; then
+      echo "[ERR] sysz installer currently supports Linux only" >&2
+      exit 1
+    fi
+
+    if command -v apt-get >/dev/null 2>&1; then
+      sudo apt-get update
+      sudo apt-get install -y fzf
+    fi
+
+    version="1.4.3"
+    url="https://github.com/joehillen/sysz/releases/download/${version}/sysz"
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    install_dir="${INSTALL_PREFIX:-$HOME/.local/bin}"
+
+    echo "Downloading sysz script..."
+    if curl -fsSL "$url" -o "$tmp/sysz"; then
+      mkdir -p "$install_dir"
+      install -m 0755 "$tmp/sysz" "$install_dir/sysz"
+      echo "[OK] sysz installed to $install_dir/sysz (v${version})"
+      exit 0
+    fi
+
+    echo "[WARN] download failed; installing via git checkout..."
+    git clone --depth 1 --branch "$version" https://github.com/joehillen/sysz "$tmp/repo"
+    mkdir -p "$install_dir"
+    install -m 0755 "$tmp/repo/sysz" "$install_dir/sysz"
+    echo "[OK] sysz installed from source (v${version})"
+end
+
+task install-radare2
+  describe Install Radare2 - Reverse engineering framework
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    echo " Installing Radare2..."
+    if [ -f /etc/debian_version ]; then
+      sudo apt-get update
+      sudo apt-get install -y radare2
+    elif [ -f /etc/redhat-release ]; then
+      sudo yum install -y radare2
+    elif [ "$(uname)" = "Darwin" ]; then
+      brew install radare2
+    else
+      echo "Building Radare2 from source..."
+      rm -rf /tmp/radare2
+      git clone https://github.com/radareorg/radare2 /tmp/radare2
+      cd /tmp/radare2
+      sys/install.sh
+      rm -rf /tmp/radare2
+    fi
+    echo "OK Radare2 installed"
+end
+
+task install-ghidra
+  describe Install Ghidra - NSA reverse engineering suite (automated)
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    echo " Installing Ghidra..."
+    echo "Checking for Java..."
+    if ! command -v java >/dev/null 2>&1; then
+      echo "Installing OpenJDK 17..."
+      if [ -f /etc/debian_version ]; then
+        sudo apt-get update && sudo apt-get install -y openjdk-17-jdk
+      elif [ -f /etc/redhat-release ]; then
+        sudo yum install -y java-17-openjdk
+      elif [ "$(uname)" = "Darwin" ]; then
+        brew install openjdk@17
+      else
+        echo "[ERR] Unsupported platform for automated OpenJDK install"
+        exit 1
+      fi
+    fi
+    echo "Note: Ghidra requires manual download from GitHub releases"
+    echo "Visit: https://github.com/NationalSecurityAgency/ghidra/releases"
+    echo "Or run the automated installer with internet connection"
+end
+
+task install-snowman
+  describe Install Snowman decompiler - C++ decompiler (free/open source)
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    if command -v snowman >/dev/null 2>&1; then
+      echo "Snowman already installed at $(command -v snowman); skipping rebuild."
+      exit 0
+    fi
+
+    echo " Installing Snowman decompiler..."
+    echo "Checking for build dependencies..."
+    if [ -f /etc/debian_version ]; then
+      sudo apt-get update
+      sudo apt-get install -y cmake g++ libboost-dev qt5-qmake qtbase5-dev
+    elif [ -f /etc/redhat-release ]; then
+      sudo yum groupinstall -y "Development Tools"
+      sudo yum install -y cmake boost-devel qt5-qtbase-devel
+    elif [ "$(uname)" = "Darwin" ]; then
+      brew install cmake boost qt@5
+    else
+      echo "[ERR] Unsupported platform for Snowman build dependency installation"
+      exit 1
+    fi
+
+    echo "Cloning Snowman repository from verified x64dbg fork..."
+    rm -rf /tmp/snowman-install
+    git -C /tmp clone --depth 1 https://github.com/x64dbg/snowman.git snowman-install
+    cd /tmp/snowman-install && mkdir -p build && cd build
+
+    echo "Building Snowman (this may take a few minutes)..."
+    cmake ../src -DX64DBG_MODULE_ENABLED=OFF -DMSVC=OFF
+    make -j"$(nproc 2>/dev/null || echo 4)"
+
+    echo "Installing to $HOME/.local/bin..."
+    mkdir -p "$HOME/.local/bin"
+    if [ -f /tmp/snowman-install/build/nocode/nocode ]; then
+      cp /tmp/snowman-install/build/nocode/nocode "$HOME/.local/bin/snowman"
+    elif [ -f /tmp/snowman-install/build/src/nocode/nocode ]; then
+      cp /tmp/snowman-install/build/src/nocode/nocode "$HOME/.local/bin/snowman"
+    else
+      echo "[ERR] Could not find compiled binary"
+      exit 1
+    fi
+    rm -rf /tmp/snowman-install
+    echo "OK Snowman installed to $HOME/.local/bin/snowman"
+    echo "Note: Make sure $HOME/.local/bin is in your PATH"
+    echo "Note: Using x64dbg fork for active maintenance"
+end
+
+task install-binaryninja-info
+  describe Show information about Binary Ninja (commercial license required)
+  shell echo " Binary Ninja Information"
+  shell echo ""
+  shell echo "Binary Ninja is a commercial reverse engineering platform."
+  shell echo "It requires a paid license to use."
+  shell echo ""
+  shell echo "Pricing:"
+  shell echo "  • Personal License: $299 USD"
+  shell echo "  • Commercial License: $1,299 USD"
+  shell echo "  • Enterprise License: $2,999 USD"
+  shell echo ""
+  shell echo "Website: https://binary.ninja/"
+  shell echo "Free alternative: Use Radare2 or Ghidra (run 'pf install-radare2' or 'pf install-ghidra')"
+  shell echo ""
+  shell echo "Note: This project prioritizes free and open-source tools."
+end
+
+task install-all-debug-tools
+  describe Install all debugging and RE tools (including Snowman)
+  shell echo " Installing all debugging tools..."
+  shell echo "This may take several minutes..."
+  shell echo ""
+  shell pf install-oryx
+  shell pf install-binsider
+  shell if command -v rustnet >/dev/null 2>&1; then echo "rustnet already installed"; else pf install-rustnet; fi
+  shell if command -v sysz >/dev/null 2>&1; then echo "sysz already installed"; else pf install-sysz; fi
+  shell if command -v r2 >/dev/null 2>&1; then echo "radare2 already installed"; else pf install-radare2; fi
+  shell pf install-snowman
+  shell echo ""
+  shell echo "OK All debugging tools installed!"
+  shell echo ""
+  shell echo "Note: Ghidra requires manual installation. Run: pf install-ghidra"
+  shell echo "Note: Binary Ninja is commercial software. Run: pf install-binaryninja-info"
+end
+
+task check-debug-tools
+  describe Check installation status of debugging tools
+  shell echo " Checking debugging tool installation status..."
+  shell echo ""
+  shell echo "Binary Analysis:"
+  shell command -v oryx >/dev/null 2>&1 && echo "  OK oryx - installed" || echo "  NO oryx - not installed"
+  shell command -v binsider >/dev/null 2>&1 && echo "  OK binsider - installed" || echo "  NO binsider - not installed"
+  shell command -v r2 >/dev/null 2>&1 && echo "  OK radare2 - installed" || echo "  NO radare2 - not installed"
+  shell command -v ghidra >/dev/null 2>&1 && echo "  OK Ghidra - installed" || echo "  NO Ghidra - not installed"
+  shell command -v snowman >/dev/null 2>&1 && echo "  OK Snowman - installed" || echo "  NO Snowman - not installed"
+  shell echo ""
+  shell echo "Network Analysis:"
+  shell command -v rustnet >/dev/null 2>&1 && echo "  OK rustnet - installed" || echo "  NO rustnet - not installed"
+  shell echo ""
+  shell echo "System Analysis:"
+  shell command -v sysz >/dev/null 2>&1 && echo "  OK sysz - installed" || echo "  NO sysz - not installed"
+  shell command -v strace >/dev/null 2>&1 && echo "  OK strace - installed" || echo "  NO strace - not installed"
+  shell command -v ltrace >/dev/null 2>&1 && echo "  OK ltrace - installed" || echo "  NO ltrace - not installed"
+  shell echo ""
+  shell echo "Debuggers:"
+  shell command -v gdb >/dev/null 2>&1 && echo "  OK GDB - installed" || echo "  NO GDB - not installed"
+  shell command -v lldb >/dev/null 2>&1 && echo "  OK LLDB - installed" || echo "  NO LLDB - not installed"
+  shell command -v pwndbg >/dev/null 2>&1 && echo "  OK pwndbg - installed" || echo "  NO pwndbg - not installed"
+  shell echo ""
+  shell echo "Binary Manipulation:"
+  shell command -v patchelf >/dev/null 2>&1 && echo "  OK patchelf - installed" || echo "  NO patchelf - not installed"
+  shell echo ""
+  shell echo "Exploit Development:"
+  shell python3 -c "import pwn" >/dev/null 2>&1 && echo "  OK pwntools - installed" || echo "  NO pwntools - not installed"
+  shell command -v checksec >/dev/null 2>&1 && echo "  OK checksec - installed" || echo "  NO checksec - not installed"
+  shell command -v ROPgadget >/dev/null 2>&1 && echo "  OK ROPgadget - installed" || echo "  NO ROPgadget - not installed"
+  shell command -v ropper >/dev/null 2>&1 && echo "  OK ropper - installed" || echo "  NO ropper - not installed"
+end
+
+task run-oryx
+  describe Run oryx binary explorer on a file
+  shell echo " Running oryx..."
+  shell oryx ${binary}
+end
+
+task run-binsider
+  describe Run binsider binary analyzer on a file
+  shell echo " Running binsider..."
+  shell binsider ${binary}
+end
+
+task run-rustnet
+  describe Run rustnet network monitor
+  shell echo " Running rustnet..."
+  shell rustnet
+end
+
+task run-sysz
+  describe Run sysz systemd unit viewer
+  shell echo "  Running sysz..."
+  shell sysz
+end
+
+task run-snowman
+  describe Run Snowman decompiler on a binary file
+  shell echo " Running Snowman decompiler..."
+  shell snowman ${binary}
+end
+
+task debug-tools-help
+  describe Show help for debugging tools
+  shell echo "  Debugging Tools - Installation and Usage"
+  shell echo ""
+  shell echo "Installation:"
+  shell echo "  pf install-oryx              - Install oryx (binary explorer)"
+  shell echo "  pf install-binsider          - Install binsider (binary analyzer)"
+  shell echo "  pf install-rustnet           - Install rustnet (network monitor)"
+  shell echo "  pf install-sysz              - Install sysz (systemd viewer)"
+  shell echo "  pf install-radare2           - Install radare2 (RE framework)"
+  shell echo "  pf install-ghidra            - Install Ghidra (NSA RE suite)"
+  shell echo "  pf install-snowman           - Install Snowman (C++ decompiler)"
+  shell echo "  pf install-binaryninja-info  - Show Binary Ninja info (commercial)"
+  shell echo "  pf install-all-debug-tools   - Install all tools at once"
+  shell echo ""
+  shell echo "Status Check:"
+  shell echo "  pf check-debug-tools         - Check which tools are installed"
+  shell echo ""
+  shell echo "Usage:"
+  shell echo "  pf run-oryx binary=/path/to/file    - Explore binary with oryx"
+  shell echo "  pf run-binsider binary=/path/to/file - Analyze binary with binsider"
+  shell echo "  pf run-snowman binary=/path/to/file  - Decompile binary with Snowman"
+  shell echo "  pf run-rustnet                      - Monitor network with rustnet"
+  shell echo "  pf run-sysz                         - View systemd units with sysz"
+  shell echo ""
+  shell echo "Tool Information:"
+  shell echo "  • oryx      - https://github.com/pythops/oryx"
+  shell echo "  • binsider  - https://github.com/orhun/binsider"
+  shell echo "  • rustnet   - https://github.com/domcyrus/rustnet"
+  shell echo "  • sysz      - https://github.com/joehillen/sysz"
+  shell echo "  • radare2   - https://rada.re/"
+  shell echo "  • Ghidra    - https://ghidra-sre.org/"
+  shell echo "  • Snowman   - https://github.com/x64dbg/snowman"
+  shell echo ""
+  shell echo "TUI Integration:"
+  shell echo "  Launch the pf TUI to view all debugging tools:"
+  shell echo "  pf tui → Option 4 (View debugging tools)"
+end

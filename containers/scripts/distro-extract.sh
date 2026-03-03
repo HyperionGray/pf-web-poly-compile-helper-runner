@@ -10,6 +10,21 @@
 
 set -euo pipefail
 
+# Run a command with root privileges, falling back to sudo or su when available.
+run_as_root() {
+    if [[ $(id -u) -eq 0 ]]; then
+        "$@"
+    elif command -v sudo &>/dev/null; then
+        sudo "$@"
+    elif command -v su &>/dev/null; then
+        su -m root -c "$*"
+    else
+        echo "ERROR: need root privileges to run: $*" >&2
+        echo "Install sudo in the image or run the container as root." >&2
+        exit 1
+    fi
+}
+
 # Detect package manager
 detect_package_manager() {
     if command -v dnf &>/dev/null; then
@@ -20,6 +35,8 @@ detect_package_manager() {
         echo "pacman"
     elif command -v zypper &>/dev/null; then
         echo "zypper"
+    elif command -v pkg &>/dev/null; then
+        echo "pkg"
     elif command -v apt-get &>/dev/null; then
         echo "apt"
     else
@@ -36,16 +53,20 @@ install_package() {
 
     case "$pkg_manager" in
         dnf|yum)
-            sudo "$pkg_manager" install -y "${packages[@]}"
+            run_as_root "$pkg_manager" install -y "${packages[@]}"
             ;;
         pacman)
-            sudo pacman -S --noconfirm "${packages[@]}"
+            run_as_root pacman -S --noconfirm "${packages[@]}"
             ;;
         zypper)
-            sudo zypper --non-interactive install -y "${packages[@]}"
+            run_as_root zypper --non-interactive install -y "${packages[@]}"
+            ;;
+        pkg)
+            run_as_root env ASSUME_ALWAYS_YES=yes pkg install -y "${packages[@]}"
             ;;
         apt)
-            sudo apt-get update && sudo apt-get install -y "${packages[@]}"
+            run_as_root apt-get update
+            run_as_root apt-get install -y "${packages[@]}"
             ;;
         *)
             echo "ERROR: Unknown package manager: $pkg_manager"
@@ -69,12 +90,38 @@ get_package_files() {
         zypper)
             rpm -ql "$package" 2>/dev/null || true
             ;;
+        pkg)
+            pkg info -l "$package" 2>/dev/null | awk '/^\// {print $1}' || true
+            ;;
         apt)
             dpkg -L "$package" 2>/dev/null || true
             ;;
         *)
             echo "ERROR: Unknown package manager: $pkg_manager"
             exit 1
+            ;;
+    esac
+}
+
+# List installed packages (names only) for diffing dependency installs.
+list_installed_packages() {
+    local pkg_manager="$1"
+
+    case "$pkg_manager" in
+        dnf|yum|zypper)
+            rpm -qa --qf '%{NAME}\n' | sort -u
+            ;;
+        pacman)
+            pacman -Qq | sort -u
+            ;;
+        pkg)
+            pkg query -a '%n' 2>/dev/null | sort -u
+            ;;
+        apt)
+            dpkg-query -W -f='${Package}\n' | sort -u
+            ;;
+        *)
+            echo ""
             ;;
     esac
 }
@@ -93,7 +140,7 @@ copy_to_output() {
         target_dir="$output_base/bin"
     elif [[ "$file" == /usr/sbin/* ]] || [[ "$file" == /sbin/* ]]; then
         target_dir="$output_base/bin"
-    elif [[ "$file" == /usr/lib/* ]] || [[ "$file" == /lib/* ]] || [[ "$file" == /usr/lib64/* ]]; then
+    elif [[ "$file" == /usr/lib/* ]] || [[ "$file" == /lib/* ]] || [[ "$file" == /usr/lib64/* ]] || [[ "$file" == /lib64/* ]]; then
         target_dir="$output_base/lib"
     elif [[ "$file" == /usr/share/* ]]; then
         target_dir="$output_base/share"
@@ -128,6 +175,34 @@ extract_package() {
     echo "Extracted $count files for $package"
 }
 
+# Extract multiple packages, skipping duplicates.
+extract_packages() {
+    local pkg_manager="$1"
+    shift
+
+    declare -A seen=()
+    for package in "$@"; do
+        [[ -z "${package}" ]] && continue
+        if [[ -n "${seen[$package]:-}" ]]; then
+            continue
+        fi
+        seen["$package"]=1
+        extract_package "$pkg_manager" "$package"
+    done
+}
+
+# Copy any runtime library dependencies discovered via ldd on extracted binaries.
+copy_ldd_dependencies() {
+    local bin
+    while IFS= read -r bin; do
+        [[ -x "$bin" ]] || continue
+        ldd "$bin" 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i ~ /^\//) print $i}' | while IFS= read -r dep; do
+            [[ -f "$dep" ]] || continue
+            copy_to_output "$dep"
+        done || true
+    done < <(find /output/bin -type f -perm -111 2>/dev/null)
+}
+
 # Main
 main() {
     if [[ $# -lt 1 ]]; then
@@ -141,14 +216,31 @@ main() {
     pkg_manager=$(detect_package_manager)
     echo "Detected package manager: $pkg_manager"
 
+    # Snapshot installed packages before install so we can extract deps too.
+    local before_packages after_packages
+    local -a new_packages combined_packages
+    before_packages="$(list_installed_packages "$pkg_manager")"
+
     # Install all packages first
     echo "Installing packages: $@"
     install_package "$pkg_manager" "$@"
 
-    # Then extract files for each package
-    for package in "$@"; do
-        extract_package "$pkg_manager" "$package"
+    # Compute newly added packages (dependencies included)
+    after_packages="$(list_installed_packages "$pkg_manager")"
+    mapfile -t new_packages < <(comm -13 <(printf '%s\n' "$before_packages") <(printf '%s\n' "$after_packages"))
+
+    # Combine requested packages and new dependencies for extraction
+    combined_packages=("$@")
+    for pkg in "${new_packages[@]}"; do
+        [[ -z "$pkg" ]] && continue
+        combined_packages+=("$pkg")
     done
+
+    echo "Extracting packages (requested + dependencies): ${combined_packages[*]}"
+    extract_packages "$pkg_manager" "${combined_packages[@]}"
+
+    echo "Capturing runtime library dependencies via ldd..."
+    copy_ldd_dependencies
 
     echo ""
     echo "Extraction complete. Files are in /output/"

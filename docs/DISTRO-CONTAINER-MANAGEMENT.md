@@ -21,6 +21,9 @@ pf distro-init
 # Install packages from Fedora
 pf distro-install-fedora packages="vim htop neofetch"
 
+# Install packages from RHEL/UBI
+pf distro-install distro=rhel packages="git coreutils"
+
 # Install packages from Arch
 pf distro-install-arch packages="neovim tree"
 
@@ -30,16 +33,17 @@ pf distro-status
 
 ### How It Works
 
-1. **Lightweight Containers**: Each distro (Fedora, CentOS, Arch, openSUSE) has a minimal container image with just the package manager
+1. **Lightweight Containers**: Each distro (Fedora, RHEL/UBI, CentOS, Arch, openSUSE) has a minimal container image with just the package manager
 2. **rshared Mounts**: Containers mount the output directory with `rshared` propagation for efficient artifact extraction
-3. **Binary Extraction**: When you install a package, the binaries are extracted to `~/.pf/distros/<distro>/bin`
-4. **PATH Integration**: Add the distro's bin directory to your PATH to use the installed tools
+3. **Binary + Dependency Extraction**: Requested packages **and their dependencies** are copied to `~/.pf/distros/<distro>/{bin,lib,share,etc}`
+4. **PATH/LD_LIBRARY_PATH Integration**: Add the distro's `bin` and `lib` directories to use the installed tools on the host
 
 ### Supported Distros
 
 | Distro | Package Manager | Container Image |
 |--------|-----------------|-----------------|
 | Fedora | dnf | fedora:40 |
+| RHEL (UBI) | dnf | registry.access.redhat.com/ubi9/ubi |
 | CentOS | dnf (yum) | almalinux:9 |
 | Arch | pacman | archlinux:latest |
 | openSUSE | zypper | opensuse/tumbleweed |
@@ -57,6 +61,10 @@ pf distro-install-fedora packages="vim htop"
 pf distro-install-centos packages="nginx php"
 pf distro-install-arch packages="neovim tree"
 pf distro-install-opensuse packages="gcc make"
+
+# Use extracted binaries on the host
+export PATH="$HOME/.pf/distros/rhel/bin:$PATH"
+export LD_LIBRARY_PATH="$HOME/.pf/distros/rhel/lib:$LD_LIBRARY_PATH"
 ```
 
 #### View Modes
@@ -112,6 +120,8 @@ pf distro-help
 │   ├── lib/              # Extracted libraries
 │   ├── share/            # Shared data
 │   └── etc/              # Configuration files
+├── rhel/
+│   └── ...
 ├── centos/
 │   └── ...
 ├── arch/

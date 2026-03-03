@@ -1,142 +1,143 @@
 #!/usr/bin/env node
 
 /**
- * PR Analytics
- * Generates basic metrics from discovered PRs and writes json/html reports.
+ * PR Analytics Tool
+ *
+ * Generates simple analytics from discovered PR metadata.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
+import fs from 'fs';
+import path from 'path';
 
-import { ensureDir, loadPrContext } from './pr-common.mjs';
-
-function parsePeriod(period) {
-  const p = (period || '30d').trim().toLowerCase();
-  const match = p.match(/^(\d+)([dh])$/);
-  if (!match) return 30 * 24 * 60 * 60 * 1000;
-  const n = parseInt(match[1], 10);
-  const unit = match[2];
-  if (unit === 'h') return n * 60 * 60 * 1000;
-  return n * 24 * 60 * 60 * 1000;
-}
-
-function loadPRs(filePath) {
-  try {
-    if (fs.existsSync(filePath)) {
-      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+class PRAnalytics {
+    constructor() {
+        this.prDataPath = path.join(process.env.HOME, '.config', 'pf', 'discovered-prs.json');
+        this.prs = this.loadPRs();
     }
-  } catch {
-    // ignore
-  }
-  return [];
-}
 
-function htmlEscape(s) {
-  return String(s)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
+    loadPRs() {
+        try {
+            if (fs.existsSync(this.prDataPath)) {
+                return JSON.parse(fs.readFileSync(this.prDataPath, 'utf8'));
+            }
+        } catch (error) {
+            console.error('❌ Failed to load PR data:', error.message);
+        }
+        return [];
+    }
 
-function renderHtml(report) {
-  const rows = report.items
-    .map(
-      (p) =>
-        `<tr><td>${htmlEscape(p.platform)}</td><td>${htmlEscape(p.repository)}</td><td>${p.id}</td><td>${htmlEscape(
-          p.title
-        )}</td><td>${htmlEscape(p.state)}</td><td>${htmlEscape(p.updatedAt)}</td></tr>`
-    )
-    .join('\n');
+    parseDays(period) {
+        const p = String(period || '30d').trim().toLowerCase();
+        if (p.startsWith('${')) return 30;
+        const m = p.match(/^(\d+)\s*d$/);
+        if (m) return parseInt(m[1], 10);
+        const n = parseInt(p, 10);
+        return Number.isFinite(n) ? n : 30;
+    }
 
-  return `<!doctype html>
+    buildReport(days) {
+        const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+        const recent = this.prs.filter(pr => {
+            const t = Date.parse(pr.updatedAt || pr.createdAt || '');
+            return Number.isFinite(t) ? t >= cutoff : true;
+        });
+
+        const byPlatform = recent.reduce((acc, pr) => {
+            acc[pr.platform] = (acc[pr.platform] || 0) + 1;
+            return acc;
+        }, {});
+
+        return {
+            generatedAt: new Date().toISOString(),
+            periodDays: days,
+            totalPRs: this.prs.length,
+            recentPRs: recent.length,
+            byPlatform,
+            stats: {
+                mergeable: recent.filter(pr => pr.mergeable).length,
+                conflicts: recent.filter(pr => pr.conflicts).length,
+                aiReviewed: recent.filter(pr => pr.aiReviewed).length,
+                approved: recent.filter(pr => pr.reviewDecision === 'APPROVED').length
+            }
+        };
+    }
+
+    toHtml(report) {
+        const rows = Object.entries(report.byPlatform)
+            .map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`)
+            .join('\n');
+
+        return `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>PR Analytics</title>
+    <title>PR Analytics Report</title>
     <style>
       body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
-      table { border-collapse: collapse; width: 100%; }
-      th, td { border: 1px solid #ddd; padding: 8px; vertical-align: top; }
-      th { background: #f6f6f6; text-align: left; }
-      .meta { margin-bottom: 16px; }
-      .kpi { display: inline-block; margin-right: 18px; }
+      table { border-collapse: collapse; }
+      td, th { border: 1px solid #ddd; padding: 8px 10px; }
+      th { background: #f5f5f5; text-align: left; }
+      .muted { color: #666; }
+      code { background: #f5f5f5; padding: 2px 4px; border-radius: 4px; }
     </style>
   </head>
   <body>
     <h1>PR Analytics</h1>
-    <div class="meta">
-      <div class="kpi"><strong>Total:</strong> ${report.metrics.total}</div>
-      <div class="kpi"><strong>Open:</strong> ${report.metrics.open}</div>
-      <div class="kpi"><strong>Merged:</strong> ${report.metrics.merged}</div>
-      <div class="kpi"><strong>Conflicts:</strong> ${report.metrics.conflicts}</div>
-      <div class="kpi"><strong>AI Reviewed:</strong> ${report.metrics.aiReviewed}</div>
-      <div><strong>Generated:</strong> ${htmlEscape(report.generatedAt)}</div>
-      <div><strong>Period:</strong> ${htmlEscape(report.period)}</div>
-    </div>
+    <p class="muted">Generated: ${report.generatedAt} • Period: ${report.periodDays} day(s)</p>
+    <h2>Summary</h2>
+    <ul>
+      <li>Total PRs in dataset: <b>${report.totalPRs}</b></li>
+      <li>PRs updated within period: <b>${report.recentPRs}</b></li>
+      <li>Mergeable: <b>${report.stats.mergeable}</b></li>
+      <li>Conflicts: <b>${report.stats.conflicts}</b></li>
+      <li>AI reviewed: <b>${report.stats.aiReviewed}</b></li>
+      <li>Approved: <b>${report.stats.approved}</b></li>
+    </ul>
+    <h2>By Platform</h2>
     <table>
-      <thead>
-        <tr><th>Platform</th><th>Repo</th><th>ID</th><th>Title</th><th>State</th><th>Updated</th></tr>
-      </thead>
-      <tbody>
-        ${rows}
-      </tbody>
+      <thead><tr><th>Platform</th><th>Count</th></tr></thead>
+      <tbody>${rows}</tbody>
     </table>
+    <p class="muted">Source: <code>${this.prDataPath}</code></p>
   </body>
 </html>`;
+    }
+
+    run(period = '30d', format = 'html', output = 'pr-report.html') {
+        if (this.prs.length === 0) {
+            console.log('❌ No PR data found. Run "pf pr-discover" first.');
+            return;
+        }
+
+        const days = this.parseDays(period);
+        const report = this.buildReport(days);
+        const fmt = String(format || 'html').trim().toLowerCase();
+
+        if (fmt === 'json') {
+            console.log(JSON.stringify(report, null, 2));
+            return;
+        }
+
+        const outPath = path.isAbsolute(output) ? output : path.join(process.cwd(), output);
+        const html = this.toHtml(report);
+        fs.writeFileSync(outPath, html);
+        console.log(`✅ Report written to ${outPath}`);
+    }
 }
 
 function main() {
-  const args = process.argv.slice(2);
-  const period = args[0] || '30d';
-  const format = (args[1] || 'html').toLowerCase();
-  const outputArg = args[2] || 'pr-report.html';
+    const args = process.argv.slice(2);
+    const period = args[0] || '30d';
+    const format = args[1] || 'html';
+    const output = args[2] || 'pr-report.html';
 
-  const ctx = loadPrContext();
-  const prs = loadPRs(ctx.paths.discoveredPrsFile);
-  if (prs.length === 0) {
-    console.log('❌ No PR data found. Run "pf pr-discover" first.');
-    return;
-  }
-
-  const cutoff = Date.now() - parsePeriod(period);
-  const items = prs.filter((pr) => {
-    const updated = new Date(pr.updatedAt || pr.createdAt || 0).getTime();
-    return Number.isFinite(updated) ? updated >= cutoff : true;
-  });
-
-  const metrics = {
-    total: items.length,
-    open: items.filter((p) => p.state === 'open').length,
-    merged: items.filter((p) => p.state === 'merged').length,
-    conflicts: items.filter((p) => p.conflicts).length,
-    aiReviewed: items.filter((p) => p.aiReviewed).length,
-    byPlatform: items.reduce((acc, p) => {
-      acc[p.platform] = (acc[p.platform] || 0) + 1;
-      return acc;
-    }, {}),
-  };
-
-  const report = {
-    generatedAt: new Date().toISOString(),
-    period,
-    metrics,
-    items,
-  };
-
-  const outPath = path.isAbsolute(outputArg) ? outputArg : path.join(ctx.paths.analyticsDir, outputArg);
-  ensureDir(path.dirname(outPath));
-
-  if (format === 'json') {
-    fs.writeFileSync(outPath, JSON.stringify(report, null, 2));
-  } else {
-    fs.writeFileSync(outPath, renderHtml(report));
-  }
-
-  console.log(`📈 Analytics written: ${outPath}`);
+    const tool = new PRAnalytics();
+    tool.run(period, format, output);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+    main();
 }
+
+export default PRAnalytics;
 

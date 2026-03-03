@@ -175,15 +175,10 @@ Each subdirectory contains:
 
 ### Building Containers
 
-```bash
-# Build all container images
-./containers/scripts/build-containers.sh all
+We no longer ship pf core containers. The remaining build helper is only for PE
+execution targets when needed:
 
-# Build specific components
-./containers/scripts/build-containers.sh base
-./containers/scripts/build-containers.sh api
-./containers/scripts/build-containers.sh build
-./containers/scripts/build-containers.sh debug
+```bash
 ./containers/scripts/build-containers.sh pe    # PE execution containers
 ```
 

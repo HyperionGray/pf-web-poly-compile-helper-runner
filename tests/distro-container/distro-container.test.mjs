@@ -56,6 +56,13 @@ async function runTests() {
   console.log(`${colors.bright}║          Distro Container Manager Tests                         ║${colors.reset}`);
   console.log(`${colors.bright}╚════════════════════════════════════════════════════════════════╝${colors.reset}\n`);
 
+  // Guard: Node <20 cannot parse import attributes used by dependencies (e.g., cli-spinners)
+  const major = parseInt(process.versions.node.split('.')[0], 10);
+  if (major < 20) {
+    log(colors.yellow, '[SKIP]', `Node ${process.versions.node} lacks import attributes; upgrade to >=20 to run these tests.`);
+    process.exit(0);
+  }
+
   // Import module
   try {
     const module = await import(join(toolsDir, 'distro-container-manager.mjs'));
@@ -120,9 +127,16 @@ async function runTests() {
   console.log(`\n${colors.cyan}Testing CLI Interface...${colors.reset}\n`);
 
   try {
-    const helpOutput = execSync(`node ${join(toolsDir, 'distro-container-manager.mjs')} --help`, {
+    // Prefer the current Node binary (process.execPath) so we keep import-attributes support.
+    const nodeBin = process.env.NODE_BIN || process.execPath;
+    const childEnv = {
+      ...process.env,
+      PATH: `${dirname(nodeBin)}:${process.env.PATH}`
+    };
+    const helpOutput = execSync(`${nodeBin} ${join(toolsDir, 'distro-container-manager.mjs')} --help`, {
       encoding: 'utf-8',
-      cwd: projectRoot
+      cwd: projectRoot,
+      env: childEnv,
     });
     assert(helpOutput.includes('Distro Container Manager'), 'Help shows tool name');
     assert(helpOutput.includes('install'), 'Help shows install command');

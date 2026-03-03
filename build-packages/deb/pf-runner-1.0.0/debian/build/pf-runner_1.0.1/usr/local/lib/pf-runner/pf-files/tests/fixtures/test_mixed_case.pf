@@ -1,0 +1,6 @@
+task test-mixed-case-delim
+  describe Test mixed case delimiter
+  shell [lang:python] << PyEof
+print("Mixed case delimiter works!")
+PyEof
+end

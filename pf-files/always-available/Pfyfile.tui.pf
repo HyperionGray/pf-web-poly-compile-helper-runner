@@ -1,0 +1,125 @@
+# TUI (Text User Interface) Tasks
+# Interactive terminal interface for pf runner with rich library
+
+task tui
+  describe Launch interactive TUI for task management and debugging
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    find_root() {
+      if [ -n "${PFY_ROOT:-}" ] && [ -d "${PFY_ROOT}" ]; then
+        if git -C "${PFY_ROOT}" rev-parse --show-toplevel >/dev/null 2>&1; then
+          git -C "${PFY_ROOT}" rev-parse --show-toplevel
+        else
+          echo "${PFY_ROOT}"
+        fi
+        return
+      fi
+      if [ -n "${PFY_FILE_PATH:-}" ] && [ -f "${PFY_FILE_PATH}" ]; then
+        PFY_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+        if git -C "${PFY_DIR}" rev-parse --show-toplevel >/dev/null 2>&1; then
+          git -C "${PFY_DIR}" rev-parse --show-toplevel
+        else
+          echo "${PFY_DIR}"
+        fi
+        return
+      fi
+      if git rev-parse --show-toplevel >/dev/null 2>&1; then
+        git rev-parse --show-toplevel
+        return
+      fi
+      if [ -n "${PFY_FILE:-}" ] && git -C "$(dirname "$PFY_FILE")" rev-parse --show-toplevel >/dev/null 2>&1; then
+        git -C "$(dirname "$PFY_FILE")" rev-parse --show-toplevel
+        return
+      fi
+      cur="$PWD"
+      while [ "$cur" != "/" ]; do
+        if [ -d "$cur/pf-files" ] && [ -f "$cur/pf-files/Pfyfile.pf" ]; then
+          echo "$cur"
+          return
+        fi
+        cur="$(dirname "$cur")"
+      done
+      echo "$PWD"
+    }
+
+    ROOT="$(find_root)"
+    for dir in "$ROOT/pf-runner-full" "$ROOT/pf-runner" "$ROOT/build-packages/pf-runner-1.0.0/pf-runner"; do
+      if [ -d "$dir" ] && [ -f "$dir/pf_tui.py" ]; then
+        cd "$dir" && python3 pf_tui.py
+        exit $?
+      fi
+    done
+    echo "[ERR] Could not find pf_tui.py (searched pf-runner-full and packaged runner)" >&2
+    exit 1
+end
+
+task tui-with-file
+  describe Launch TUI with a specific Pfyfile
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    find_root() {
+      if [ -n "${PFY_ROOT:-}" ] && [ -d "${PFY_ROOT}" ]; then
+        if git -C "${PFY_ROOT}" rev-parse --show-toplevel >/dev/null 2>&1; then
+          git -C "${PFY_ROOT}" rev-parse --show-toplevel
+        else
+          echo "${PFY_ROOT}"
+        fi
+        return
+      fi
+      if [ -n "${PFY_FILE_PATH:-}" ] && [ -f "${PFY_FILE_PATH}" ]; then
+        PFY_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+        if git -C "${PFY_DIR}" rev-parse --show-toplevel >/dev/null 2>&1; then
+          git -C "${PFY_DIR}" rev-parse --show-toplevel
+        else
+          echo "${PFY_DIR}"
+        fi
+        return
+      fi
+      if git rev-parse --show-toplevel >/dev/null 2>&1; then
+        git rev-parse --show-toplevel
+        return
+      fi
+      if [ -n "${PFY_FILE:-}" ] && git -C "$(dirname "$PFY_FILE")" rev-parse --show-toplevel >/dev/null 2>&1; then
+        git -C "$(dirname "$PFY_FILE")" rev-parse --show-toplevel
+        return
+      fi
+      cur="$PWD"
+      while [ "$cur" != "/" ]; do
+        if [ -d "$cur/pf-files" ] && [ -f "$cur/pf-files/Pfyfile.pf" ]; then
+          echo "$cur"
+          return
+        fi
+        cur="$(dirname "$cur")"
+      done
+      echo "$PWD"
+    }
+
+    ROOT="$(find_root)"
+    for dir in "$ROOT/pf-runner-full" "$ROOT/pf-runner" "$ROOT/build-packages/pf-runner-1.0.0/pf-runner"; do
+      if [ -d "$dir" ] && [ -f "$dir/pf_tui.py" ]; then
+        cd "$dir" && python3 pf_tui.py ${file}
+        exit $?
+      fi
+    done
+    echo "[ERR] Could not find pf_tui.py (searched pf-runner-full and packaged runner)" >&2
+    exit 1
+end
+
+task install-tui-deps
+  describe Install TUI dependencies (rich library)
+  shell python3 -m pip install --user --break-system-packages rich || pip3 install --user --break-system-packages rich
+  shell echo "TUI dependencies installed"
+end
+
+task tui-help
+  describe Show TUI usage and features
+  shell echo "pf TUI"
+  shell echo ""
+  shell echo "Usage:"
+  shell echo "  pf --file pf-files/Pfyfile.pf tui"
+  shell echo "  pf --file pf-files/Pfyfile.pf tui-with-file file=custom.pf"
+  shell echo ""
+  shell echo "Docs: docs/TUI.md"
+end

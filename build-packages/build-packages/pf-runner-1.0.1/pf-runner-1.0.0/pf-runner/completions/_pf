@@ -1,0 +1,66 @@
+#compdef pf
+# Zsh completion script for pf task runner
+# Install: Copy to a directory in your $fpath, typically ~/.zsh/completions/ or /usr/local/share/zsh/site-functions/_pf
+
+_pf() {
+    local -a tasks builtin_tasks opts pf_tasks
+    local curcontext="$curcontext" state line
+    typeset -A opt_args
+
+    # Built-in tasks
+    builtin_tasks=(
+        'update:Update system packages'
+        'upgrade:Upgrade system packages'
+        'install-base:Install base packages'
+        'setup-venv:Setup Python virtual environment'
+        'reboot:Reboot the system'
+        'podman_install:Install Podman'
+        'docker_compat:Install Docker compatibility layer'
+        'nginx_install:Install Nginx'
+        'list:List all available tasks'
+        'help:Show help message'
+    )
+
+    # Common options
+    opts=(
+        'env=-[Set environment name]:environment:'
+        'hosts=-[Set remote hosts]:hosts:'
+        'host=-[Set single remote host]:host:'
+        'user=-[Set SSH user]:user:'
+        'port=-[Set SSH port]:port:'
+        'sudo=-[Run with sudo]:sudo:(true false)'
+        'sudo_user=-[Run as specific user with sudo]:sudo_user:'
+    )
+
+    # Try to get tasks from Pfyfile.pf if pf is available
+    if (( $+commands[pf] )); then
+        # Extract task names from pf list output
+        local task_list
+        task_list=$(pf list 2>/dev/null | grep -E '^\s+[a-zA-Z]' | awk '{print $1}')
+        if [[ -n "$task_list" ]]; then
+            pf_tasks=("${(@f)task_list}")
+        fi
+    fi
+
+    # Combine all tasks
+    tasks=($builtin_tasks $pf_tasks)
+
+    _arguments -C \
+        '1:pf file or task:(($tasks) *.pf)' \
+        '*::arg:->args' \
+        $opts
+
+    case $state in
+        args)
+            # For subsequent arguments, offer tasks and parameter completions
+            _alternative \
+                'tasks:task:(($tasks))' \
+                'files:pf file:_files -g "*.pf"' \
+                'params:parameter:(env= hosts= host= user= port= sudo= sudo_user=)'
+            ;;
+    esac
+
+    return 0
+}
+
+_pf "$@"

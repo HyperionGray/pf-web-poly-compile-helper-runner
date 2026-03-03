@@ -7,7 +7,7 @@ A comprehensive polyglot WebAssembly development environment featuring the **pf*
 **Amazon Q Code Review (Dec 27, 2025):** ✅ **Completed - Grade A+** (Excellent)  
 **CI/CD Review (Dec 27, 2025):** ✅ **Completed - All Action Items Addressed**
 
-All action items addressed. See [Amazon Q Review (Dec 27)](docs/AMAZON-Q-REVIEW-2025-12-27.md) and [CI/CD Review Response](CICD_REVIEW_RESPONSE.md) for details.
+All action items addressed. See [Amazon Q Review (Dec 27)](AMAZON-Q-REVIEW-2025-12-27.md) and [CI/CD Review Response](CICD_REVIEW_RESPONSE.md) for details.
 
 ```bash
 # Run comprehensive security scans
@@ -35,19 +35,30 @@ npm run security:all
 - ✅ **Test Coverage:** 101/101 tests passing (100%)
 
 **Documentation:**
-- [Security Scanning Guide](docs/SECURITY-SCANNING-GUIDE.md) - Complete security documentation
-- [Amazon Q Review (Dec 27)](docs/AMAZON-Q-REVIEW-2025-12-27.md) - Latest review with quick reference
-- [Amazon Q Review Response (Dec 26)](docs/AMAZON-Q-REVIEW-RESPONSE.md) - Previous detailed analysis
+- [Security Scanning Guide](SECURITY-SCANNING-GUIDE.md) - Complete security documentation
+- [Amazon Q Review (Dec 27)](AMAZON-Q-REVIEW-2025-12-27.md) - Latest review with quick reference
+- [Amazon Q Review Response (Dec 26)](AMAZON-Q-REVIEW-RESPONSE.md) - Previous detailed analysis
 - [CI/CD Review Response (Dec 29)](CICD_REVIEW_RESPONSE.md) - Latest CI/CD review response
-- [Review Action Items](docs/REVIEW-ACTION-ITEMS.md) - Action items tracking
+- [Review Action Items](REVIEW-ACTION-ITEMS.md) - Action items tracking
 
 ## Quick Start
 
+**Install (canonical, Debian/Ubuntu):**
+
+```bash
+sudo dpkg -i build-packages/deb/pf-runner_latest.deb || sudo apt-get -f install -y
+# or: ./build-packages/build-packages.sh --install deb --version 1.0.1
+```
+
+Pyproject/pip installs are deprecated; use the packaged installer to get all deps, completions, and service units in one shot.
+
+> Canonical layout: `pf-runner-full/` is the source of truth and builds the .deb. The older `pf-runner/` tree has been removed to avoid confusion.
+
 **New to pf?** Check out the [**QUICKSTART.md**](QUICKSTART.md) for a comprehensive guide with examples!
 
-**Want to organize tasks with subcommands?** See [**SUBCOMMANDS.md**](docs/SUBCOMMANDS.md) for grouping and organizing your tasks!
+**Want to organize tasks with subcommands?** See [**SUBCOMMANDS.md**](SUBCOMMANDS.md) for grouping and organizing your tasks!
 
-**Want powerful combined workflows?** See [**SMART-WORKFLOWS.md**](docs/SMART-WORKFLOWS.md) for intelligent tool combinations!
+**Want powerful combined workflows?** See [**SMART-WORKFLOWS.md**](SMART-WORKFLOWS.md) for intelligent tool combinations!
 
 The QUICKSTART covers:
 - All parameter passing formats (4 different ways!)
@@ -79,7 +90,7 @@ pf web-security-full-stack                 # or: pf wsfs
 pf kernel-smart-fuzz binary=./module       # or: pf ksf binary=./module
 ```
 
-See [**Smart Workflows Guide**](docs/SMART-WORKFLOWS.md) for complete documentation.
+See [**Smart Workflows Guide**](SMART-WORKFLOWS.md) for complete documentation.
 
 ## Overview
 
@@ -245,7 +256,7 @@ Compile code to shared libraries and inject into binaries for advanced debugging
 - **Assembly Patching**: Direct binary modification at machine code level
 - **Cross-Language Integration**: Inject code from any supported language into any binary
 
-See [Binary Injection Guide](docs/BINARY-INJECTION.md) for complete documentation.
+See [Binary Injection Guide](BINARY-INJECTION.md) for complete documentation.
 
 ### LLVM Binary Lifting 🔬
 Convert compiled binaries back to LLVM IR for analysis, optimization, and transformation:
@@ -256,7 +267,7 @@ Convert compiled binaries back to LLVM IR for analysis, optimization, and transf
 - **Optimization**: Apply LLVM optimization passes to legacy/closed-source code
 - **Security Analysis**: Instrument and analyze binaries for vulnerabilities
 
-See [LLVM Lifting Guide](docs/LLVM-LIFTING.md) for complete documentation.
+See [LLVM Lifting Guide](LLVM-LIFTING.md) for complete documentation.
 
 ### Fuzzing & Sanitizers 🔍
 Comprehensive fuzzing and memory safety testing with turnkey integration:
@@ -287,7 +298,7 @@ pf lift-and-instrument-binary binary=/path/to/binary
 pf afl-fuzz target=binary_afl_lifted time=30m
 ```
 
-See [Fuzzing Guide](docs/FUZZING.md) for complete documentation.
+See [Fuzzing Guide](FUZZING.md) for complete documentation.
 
 ### Advanced Kernel Debugging 🛡️
 Comprehensive kernel-mode debugging and security analysis capabilities:
@@ -318,8 +329,8 @@ pf kernel-complexity-analyze binary=/path/to/binary
 pf kernel-fuzz-in-memory binary=/path/to/binary function=parse_input
 ```
 
-See [Kernel Debugging Guide](docs/KERNEL-DEBUGGING.md) for complete documentation.
-See [Automagic Demo](demos/kernel-debugging/AUTOMAGIC-DEMO.md) for hands-on examples.
+See [Kernel Debugging Guide](KERNEL-DEBUGGING.md) for complete documentation.
+See [Automagic Demo](../demos/kernel-debugging/AUTOMAGIC-DEMO.md) for hands-on examples.
 
 ### Web Application Security Testing 🔒
 Comprehensive web application security scanning and fuzzing inspired by Burp Suite and massweb:
@@ -360,7 +371,7 @@ pf security-test-all url=http://localhost:8080
 - Missing Security Headers
 - Broken Access Control
 
-See [Security Testing Guide](docs/SECURITY-TESTING.md) for complete documentation.
+See [Security Testing Guide](SECURITY-TESTING.md) for complete documentation.
 
 ### Binary Injection 💉
 Inject compiled polyglot code into existing binaries and shared libraries:
@@ -371,7 +382,7 @@ Inject compiled polyglot code into existing binaries and shared libraries:
 - **Advanced Techniques**: Function hooking, process memory injection, dynamic library manipulation
 - **Security Research**: Tools for binary analysis, reverse engineering, and penetration testing
 
-See [Binary Injection Guide](demos/binary-injection/README.md) for complete documentation.
+See [Binary Injection Guide](../demos/binary-injection/README.md) for complete documentation.
 ### Advanced Debugging & Reverse Engineering 🐛
 Interactive debugging and reverse engineering for ELF binaries (C/C++/Rust):
 - **GDB & LLDB**: Support for both standard debuggers with seamless switching
@@ -381,7 +392,7 @@ Interactive debugging and reverse engineering for ELF binaries (C/C++/Rust):
 - **Practice Examples**: Vulnerable binaries for learning debugging and exploitation techniques
 - **Multi-Language**: Dedicated support for C, C++, and Rust debugging workflows
 
-See [Debugging Guide](demos/debugging/README.md) for complete documentation.
+See [Debugging Guide](../demos/debugging/README.md) for complete documentation.
 
 ### ROP (Return-Oriented Programming) Exploit Demo 💥
 End-to-end demonstration of exploiting buffer overflow vulnerabilities using ROP:
@@ -392,7 +403,7 @@ End-to-end demonstration of exploiting buffer overflow vulnerabilities using ROP
 - **Analysis Tools**: Gadget finding, disassembly, and security checking
 - **Interactive Testing**: Build, analyze, and test exploits step-by-step
 
-See [ROP Exploit Demo](demos/rop-exploit/README.md) for complete documentation.
+See [ROP Exploit Demo](../demos/rop-exploit/README.md) for complete documentation.
 ### Git Repository Cleanup 🗑️
 Interactive tool for removing large files from git history with an intuitive TUI:
 - **Interactive TUI**: Beautiful terminal interface with checkbox selection
@@ -414,7 +425,7 @@ pf git-analyze-large-files
 pf git-repo-size
 ```
 
-See [Git Cleanup Guide](docs/GIT-CLEANUP.md) for complete documentation.
+See [Git Cleanup Guide](GIT-CLEANUP.md) for complete documentation.
 
 ### Interactive TUI 🎨
 Beautiful text-based user interface for managing tasks and debugging:
@@ -443,7 +454,7 @@ pf tui-help
 - **Exploit Development**: Integration with pwntools, checksec, ROPgadget
 - **Rich Formatting**: Color-coded categories, tables, and progress bars
 
-See [TUI Documentation](docs/TUI.md) for complete guide.
+See [TUI Documentation](TUI.md) for complete guide.
 
 ### Package Manager Translation 📦
 Translate packages between the 5 most common Linux package formats using a hub-and-spoke model:
@@ -471,7 +482,7 @@ pf pkg-info package=myapp.deb
 pf pkg-matrix
 ```
 
-See [Package Manager Guide](docs/PACKAGE-MANAGER.md) for complete documentation.
+See [Package Manager Guide](PACKAGE-MANAGER.md) for complete documentation.
 
 ### Multi-Distro Container Management 🐧
 Use lightweight containers for CentOS, Fedora, Arch, and openSUSE to install and manage packages without polluting your host system:
@@ -495,7 +506,7 @@ pf distro-status
 pf distro-view-unified
 ```
 
-See [Distro Container Management Guide](docs/DISTRO-CONTAINER-MANAGEMENT.md) for complete documentation.
+See [Distro Container Management Guide](DISTRO-CONTAINER-MANAGEMENT.md) for complete documentation.
 
 ### OS Switching (Experimental) 🔄
 Switch between different Linux distributions using containers and kexec for rebootless kernel switching:
@@ -521,7 +532,7 @@ pf switch-os target=fedora partition=/dev/sda3
 
 ⚠️ **Warning**: OS switching is a powerful feature that modifies your system. Always have backups!
 
-See [Distro Container Management Guide](docs/DISTRO-CONTAINER-MANAGEMENT.md) for complete documentation.
+See [Distro Container Management Guide](DISTRO-CONTAINER-MANAGEMENT.md) for complete documentation.
 
 ### Testing & Development
 - **Live dev server**: Static HTTP server with CORS headers for WASM
@@ -533,9 +544,9 @@ See [Distro Container Management Guide](docs/DISTRO-CONTAINER-MANAGEMENT.md) for
 ### Minimum Requirements
 - Linux (Ubuntu/Debian recommended) or macOS
 - Git
-- Docker or Podman (for building/running the pf container)
+- Podman (for building/running the pf container)
 
-**Note:** For a host-only install, use `./install.sh --mode native`. The default install path is container-first.
+**Note:** For a host-only install, use `./install.sh`. The default install path is package-first.
 
 ### Optional Prerequisites
 The container image already bundles the pf runtime; language toolchains are installed inside the containers defined under `containers/`.
@@ -559,7 +570,7 @@ curl -sSL https://raw.githubusercontent.com/P4X-ng/pf-web-poly-compile-helper-ru
 ```
 
 The quick installer automatically:
-- Detects your OS and available tools (podman, docker, or native)
+- Detects your OS and available tools (podman or native)
 - Uses `.deb` package on Debian/Ubuntu if available
 - Installs to the appropriate location (system-wide or user)
 - Sets everything up with minimal user interaction
@@ -574,11 +585,11 @@ cd debian
 ./build-deb.sh
 
 # Install it
-sudo dpkg -i build/pf-runner_1.0.0.deb
+sudo dpkg -i build/pf-runner-core_*.deb build/pf-runner-langs_*.deb build/pf-runner-tools_*.deb build/pf-runner_*.deb
 sudo apt-get install -f  # Fix any dependency issues
 ```
 
-This installs pf-runner system-wide to `/usr/local`.
+This installs pf-runner system-wide to `/usr`.
 
 ### Container-First Install (Manual)
 
@@ -593,7 +604,7 @@ cd pf-web-poly-compile-helper-runner
 ./install.sh --runtime podman
 
 # Or install system-wide (requires sudo)
-sudo ./install.sh --runtime podman --prefix /usr/local
+sudo ./install.sh --runtime podman --prefix /usr
 ```
 
 What this does:
@@ -607,16 +618,16 @@ For a host-only install (no containers):
 
 ```bash
 # System-wide install (requires sudo)
-sudo ./install.sh --mode native
+sudo ./install.sh
 
 # Or install to user directory (no sudo needed)
-./install.sh --mode native --prefix ~/.local
+./install.sh --prefix ~/.local
 ```
 
 What this does:
 1. Installs Python dependencies (fabric, lark, typer)
-2. Copies pf-runner library to `/usr/local/lib/pf-runner` (or your prefix)
-3. Creates `pf` executable in `/usr/local/bin` (or your prefix/bin)
+2. Copies pf-runner library to `/usr/lib/pf-runner` (or your prefix)
+3. Creates `pf` executable in `/usr/bin` (or your prefix/bin)
 
 ### Using pf Tasks (After Initial Install)
 
@@ -635,9 +646,9 @@ pf install-base  # Alias to install (for compatibility)
 - `localhost/pf-runner:latest` container image
 - `pf` wrapper in `~/.local/bin` (or your prefix)
 
-**Native install (`./install.sh --mode native`):**
-- `pf` executable in `/usr/local/bin` (or `~/.local/bin`)
-- `pf-runner` library in `/usr/local/lib/pf-runner` (or `~/.local/lib/pf-runner`)
+**Native install (`./install.sh`):**
+- `pf` executable in `/usr/bin` (or `~/.local/bin`)
+- `pf-runner` library in `/usr/lib/pf-runner` (or `~/.local/lib/pf-runner`)
 - Python dependencies (fabric, lark, typer)
 
 ## Quick Start
@@ -665,13 +676,14 @@ This automatically detects your system and chooses the best installation method.
 
 **Native install (no containers):**
 ```bash
-./install.sh --mode native --prefix ~/.local
+./install.sh --prefix ~/.local
 ```
 
 **Debian/Ubuntu package:**
 ```bash
-cd debian && ./build-deb.sh
-sudo dpkg -i build/pf-runner_1.0.0.deb
+cd debian
+./build-deb.sh
+sudo dpkg -i build/pf-runner-core_*.deb build/pf-runner-langs_*.deb build/pf-runner-tools_*.deb build/pf-runner_*.deb
 ```
 
 #### Using pf Commands
@@ -690,10 +702,10 @@ For a host-only install (no containers):
 
 ```bash
 # System-wide install (requires sudo)
-sudo ./install.sh --mode native
+sudo ./install.sh
 
 # User install (no sudo needed)
-./install.sh --mode native --prefix ~/.local
+./install.sh --prefix ~/.local
 ```
 
 #### Manual Installation
@@ -938,7 +950,7 @@ pf demo-python-multiline
 - Works with all supported languages (Python, Node, Go, Rust, Ruby, etc.)
 - Supports output redirection: `<< EOF > output.txt`
 
-See [pf-runner/README.md](pf-runner/README.md) for complete polyglot documentation.
+See [pf-runner/README.md](../pf-runner/README.md) for complete polyglot documentation.
 
 ### Automagic Builder Examples
 
@@ -1113,7 +1125,7 @@ pf env=prod deploy
 
 ### Making Changes
 
-1. **Edit source files** in `demos/pf-web-polyglot-demo-plus-c/`
+1. **Edit source files** in `../demos/pf-web-polyglot-demo-plus-c/`
 
 2. **Rebuild WASM modules**
    ```bash
@@ -1172,42 +1184,42 @@ npx playwright show-report
 ## Documentation
 
 - **🚀 QUICKSTART Guide**: See [`QUICKSTART.md`](QUICKSTART.md) - **Start here!** Comprehensive guide with examples of all features
-- **🎯 SUBCOMMANDS Guide**: See [`docs/SUBCOMMANDS.md`](docs/SUBCOMMANDS.md) - **Organize your tasks!** Complete guide to subcommands and task organization
-- **🔥 SMART WORKFLOWS Guide**: See [`docs/SMART-WORKFLOWS.md`](docs/SMART-WORKFLOWS.md) - **NEW!** Powerful tool combinations for efficient workflows
-- **⚡ ALWAYS-ON TASKS Guide**: See [`docs/ALWAYS-ON-TASKS.md`](docs/ALWAYS-ON-TASKS.md) - **NEW!** System-wide tasks available from any directory
-- **pf-runner Documentation**: See [`pf-runner/README.md`](pf-runner/README.md) for comprehensive pf runner documentation
-- **REST API Guide**: See [`docs/REST-API.md`](docs/REST-API.md) for complete API documentation and examples
-- **Fuzzing & Sanitizers Guide**: See [`docs/FUZZING.md`](docs/FUZZING.md) for fuzzing, AFL++, and sanitizer documentation
-- **Security Testing Guide**: See [`docs/SECURITY-TESTING.md`](docs/SECURITY-TESTING.md) for web application security testing
-- **Security Configuration Guide**: See [`docs/SECURITY-CONFIGURATION.md`](docs/SECURITY-CONFIGURATION.md) - **NEW!** Production security setup and best practices
-- **Binary Injection Guide**: See [`docs/BINARY-INJECTION.md`](docs/BINARY-INJECTION.md) for injection and hooking documentation
-- **LLVM Lifting Guide**: See [`docs/LLVM-LIFTING.md`](docs/LLVM-LIFTING.md) for binary lifting documentation
-- **Kernel Debugging Guide**: See [`docs/KERNEL-DEBUGGING.md`](docs/KERNEL-DEBUGGING.md) for advanced debugging features
-- **Interactive TUI Guide**: See [`docs/TUI.md`](docs/TUI.md) for text user interface documentation
-- **Package Manager Guide**: See [`docs/PACKAGE-MANAGER.md`](docs/PACKAGE-MANAGER.md) for package format translation
+- **🎯 SUBCOMMANDS Guide**: See [`SUBCOMMANDS.md`](SUBCOMMANDS.md) - **Organize your tasks!** Complete guide to subcommands and task organization
+- **🔥 SMART WORKFLOWS Guide**: See [`SMART-WORKFLOWS.md`](SMART-WORKFLOWS.md) - **NEW!** Powerful tool combinations for efficient workflows
+- **⚡ ALWAYS-ON TASKS Guide**: See [`ALWAYS-ON-TASKS.md`](ALWAYS-ON-TASKS.md) - **NEW!** System-wide tasks available from any directory
+- **pf-runner Documentation**: See [`../pf-runner/README.md`](../pf-runner/README.md) for comprehensive pf runner documentation
+- **REST API Guide**: See [`REST-API.md`](REST-API.md) for complete API documentation and examples
+- **Fuzzing & Sanitizers Guide**: See [`FUZZING.md`](FUZZING.md) for fuzzing, AFL++, and sanitizer documentation
+- **Security Testing Guide**: See [`SECURITY-TESTING.md`](SECURITY-TESTING.md) for web application security testing
+- **Security Configuration Guide**: See [`SECURITY-CONFIGURATION.md`](SECURITY-CONFIGURATION.md) - **NEW!** Production security setup and best practices
+- **Binary Injection Guide**: See [`BINARY-INJECTION.md`](BINARY-INJECTION.md) for injection and hooking documentation
+- **LLVM Lifting Guide**: See [`LLVM-LIFTING.md`](LLVM-LIFTING.md) for binary lifting documentation
+- **Kernel Debugging Guide**: See [`KERNEL-DEBUGGING.md`](KERNEL-DEBUGGING.md) for advanced debugging features
+- **Interactive TUI Guide**: See [`TUI.md`](TUI.md) for text user interface documentation
+- **Package Manager Guide**: See [`PACKAGE-MANAGER.md`](PACKAGE-MANAGER.md) for package format translation
 
 ### 🔒 Code Quality & Security Reviews
-- **Security Scanning Guide**: See [`docs/SECURITY-SCANNING-GUIDE.md`](docs/SECURITY-SCANNING-GUIDE.md) - **NEW!** Quick reference for all security tools
-- **Amazon Q Review Response (Dec 24, 2025)**: See [`docs/reviews/AMAZON_Q_REVIEW_2025_12_24_RESPONSE.md`](docs/reviews/AMAZON_Q_REVIEW_2025_12_24_RESPONSE.md) - Latest review response
-- **Amazon Q Implementation**: See [`docs/AMAZON-Q-REVIEW-IMPLEMENTATION.md`](docs/AMAZON-Q-REVIEW-IMPLEMENTATION.md) - Comprehensive security implementation details
-- **Security Validation**: See [`docs/AMAZON-Q-REVIEW-VALIDATION.md`](docs/AMAZON-Q-REVIEW-VALIDATION.md) - Validation procedures
+- **Security Scanning Guide**: See [`SECURITY-SCANNING-GUIDE.md`](SECURITY-SCANNING-GUIDE.md) - **NEW!** Quick reference for all security tools
+- **Amazon Q Review Response (Dec 24, 2025)**: See [`reviews/AMAZON_Q_REVIEW_2025_12_24_RESPONSE.md`](reviews/AMAZON_Q_REVIEW_2025_12_24_RESPONSE.md) - Latest review response
+- **Amazon Q Implementation**: See [`AMAZON-Q-REVIEW-IMPLEMENTATION.md`](AMAZON-Q-REVIEW-IMPLEMENTATION.md) - Comprehensive security implementation details
+- **Security Validation**: See [`AMAZON-Q-REVIEW-VALIDATION.md`](AMAZON-Q-REVIEW-VALIDATION.md) - Validation procedures
 
 ### 🆕 Reverse Engineering Tools Roadmap
-- **Executive Summary**: See [`docs/RE-TOOLS-EXECUTIVE-SUMMARY.md`](docs/RE-TOOLS-EXECUTIVE-SUMMARY.md) - Quick overview of missing tools (start here!)
-- **Comprehensive Tool List**: See [`docs/MISSING-RE-DEBUG-EXPLOIT-TOOLS.md`](docs/MISSING-RE-DEBUG-EXPLOIT-TOOLS.md) - Detailed descriptions of 40+ tools to integrate
-- **Quick Reference**: See [`docs/RE-TOOLS-QUICK-REFERENCE.md`](docs/RE-TOOLS-QUICK-REFERENCE.md) - Fast lookup table and comparison charts
-- **Implementation Roadmap**: See [`docs/IMPLEMENTATION-ROADMAP.md`](docs/IMPLEMENTATION-ROADMAP.md) - Detailed implementation plan with timelines
+- **Executive Summary**: See [`RE-TOOLS-EXECUTIVE-SUMMARY.md`](RE-TOOLS-EXECUTIVE-SUMMARY.md) - Quick overview of missing tools (start here!)
+- **Comprehensive Tool List**: See [`MISSING-RE-DEBUG-EXPLOIT-TOOLS.md`](MISSING-RE-DEBUG-EXPLOIT-TOOLS.md) - Detailed descriptions of 40+ tools to integrate
+- **Quick Reference**: See [`RE-TOOLS-QUICK-REFERENCE.md`](RE-TOOLS-QUICK-REFERENCE.md) - Fast lookup table and comparison charts
+- **Implementation Roadmap**: See [`IMPLEMENTATION-ROADMAP.md`](IMPLEMENTATION-ROADMAP.md) - Detailed implementation plan with timelines
 
 ### Examples and Demos
-- **Kernel Debugging Demo**: See [`demos/kernel-debugging/README.md`](demos/kernel-debugging/README.md) for examples
-- **Binary Lifting Examples**: See [`demos/binary-lifting/README.md`](demos/binary-lifting/README.md) for lifting tutorials
-- **Debugging Guide**: See [`demos/debugging/README.md`](demos/debugging/README.md) for debugging and reverse engineering
-- **ROP Exploit Demo**: See [`demos/rop-exploit/README.md`](demos/rop-exploit/README.md) for ROP exploitation tutorial
-- **Git Cleanup Guide**: See [`docs/GIT-CLEANUP.md`](docs/GIT-CLEANUP.md) for removing large files from git history
-- **Web Demo Documentation**: See [`demos/pf-web-polyglot-demo-plus-c/README.md`](demos/pf-web-polyglot-demo-plus-c/README.md)
-- **WIT Components**: See [`pf/wit/README.md`](pf/wit/README.md)
+- **Kernel Debugging Demo**: See [`../demos/kernel-debugging/README.md`](../demos/kernel-debugging/README.md) for examples
+- **Binary Lifting Examples**: See [`../demos/binary-lifting/README.md`](../demos/binary-lifting/README.md) for lifting tutorials
+- **Debugging Guide**: See [`../demos/debugging/README.md`](../demos/debugging/README.md) for debugging and reverse engineering
+- **ROP Exploit Demo**: See [`../demos/rop-exploit/README.md`](../demos/rop-exploit/README.md) for ROP exploitation tutorial
+- **Git Cleanup Guide**: See [`GIT-CLEANUP.md`](GIT-CLEANUP.md) for removing large files from git history
+- **Web Demo Documentation**: See [`../demos/pf-web-polyglot-demo-plus-c/README.md`](../demos/pf-web-polyglot-demo-plus-c/README.md)
+- **WIT Components**: See [`../pf/wit/README.md`](../pf/wit/README.md)
 
-Additional documentation in `pf-runner/`:
+Additional documentation in `../pf-runner/`:
 - `BUILD-HELPERS.md`: Build system integration guide
 - `LANGS.md`: Supported polyglot languages
 - `EXAMPLE-PIPELINE.md`: CI/CD pipeline examples
@@ -1465,19 +1477,19 @@ Additional documentation in `pf-runner/`:
 
 #### pf command not found
 - Run `./install.sh --runtime podman` to reinstall the container wrapper
-- For native user install: `./install.sh --mode native --prefix ~/.local`
-- For native system install: `sudo ./install.sh --mode native`
+- For native user install: `./install.sh --prefix ~/.local`
+- For native system install: `sudo ./install.sh`
 - Run `source ~/.bashrc` (or `~/.zshrc`) to reload your shell configuration
 - Check that the install path is in your PATH
 
 #### Fabric import error
 - Run `pip install --user "fabric>=3.2,<4"` to install the dependency
-- Or reinstall with: `./install.sh --mode native` (dependencies are installed automatically)
+- Or reinstall with: `./install.sh` (dependencies are installed automatically)
 
 #### Installation script fails
 - Ensure Python 3.10+ is installed: `python3 --version`
 - Ensure pip is available: `python3 -m pip --version`
-- For container install, ensure docker or podman is installed
+- For container install, ensure podman is installed
 - Review error messages for specific missing dependencies
 
 ### WASM build failures
@@ -1511,7 +1523,7 @@ Additional documentation in `pf-runner/`:
 
 ### Issue Management
 
-For maintainers: To assign all open issues to GitHub Copilot for automated assistance, see [Bulk Assign Copilot Guide](docs/BULK_ASSIGN_COPILOT.md).
+For maintainers: To assign all open issues to GitHub Copilot for automated assistance, see [Bulk Assign Copilot Guide](BULK_ASSIGN_COPILOT.md).
 
 ## License
 
@@ -1520,13 +1532,13 @@ See LICENSE file for details.
 ## Support
 
 - File issues on the GitHub repository
-- Check existing documentation in `pf-runner/` directory
+- Check existing documentation in `../pf-runner/` directory
 - Review example tasks in `Pfyfile.pf` files
 
 ---
 
 **Quick Links:**
-- [pf-runner Documentation](pf-runner/README.md)
-- [Web Demo Guide](demos/pf-web-polyglot-demo-plus-c/README.md)
-- [Build Helpers Guide](pf-runner/BUILD-HELPERS.md)
-- [Supported Languages](pf-runner/LANGS.md)
+- [pf-runner Documentation](../pf-runner/README.md)
+- [Web Demo Guide](../demos/pf-web-polyglot-demo-plus-c/README.md)
+- [Build Helpers Guide](../pf-runner/BUILD-HELPERS.md)
+- [Supported Languages](../pf-runner/LANGS.md)

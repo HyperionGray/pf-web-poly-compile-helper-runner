@@ -1,0 +1,11 @@
+#!lang:bash
+# Pfyfile for HGActions
+# Defines tasks for running Hyperion Gray Actions
+
+task hga-run file="" execute="true"
+  describe Run an HGActions workflow
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    "$ROOT/.github/hg_actions/scripts/hga_run.sh" "$file" "$execute"
+end

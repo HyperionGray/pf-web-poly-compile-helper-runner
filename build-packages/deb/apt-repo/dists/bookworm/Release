@@ -1,0 +1,8 @@
+Origin: pf-runner
+Label: pf-runner
+Suite: bookworm
+Codename: bookworm
+Architectures: amd64
+Components: main
+Date: Wed, 28 Jan 2026 00:23:21 +0000
+Description: pf-runner apt repository

@@ -75,8 +75,8 @@ test_native_install() {
     cd "$REPO_ROOT"
     
     # Run installer with test prefix
-    log_info "Running: ./install.sh --mode native --prefix ${TEST_PREFIX} --skip-deps"
-    if ! ./install.sh --mode native --prefix "${TEST_PREFIX}" --skip-deps; then
+    log_info "Running: ./install.sh --prefix ${TEST_PREFIX} --skip-deps"
+    if ! ./install.sh --prefix "${TEST_PREFIX}" --skip-deps; then
         log_error "Native installation failed"
         return 1
     fi

@@ -1,0 +1,23 @@
+# Pfyfile.builds.pf - Build and release tasks
+
+task build-validate
+  describe Validate Python syntax and basic pf functionality
+  shell python3 -m compileall -q .
+  shell python3 -m pf_main -f pf-files/Pfyfile.pf list
+end
+
+task build-package
+  describe Build a wheel into ./dist
+  shell mkdir -p dist
+  shell python3 -m pip wheel -w dist .
+end
+
+task build-install
+  describe Install pf-runner into current environment
+  shell python3 -m pip install -U .
+end
+
+task build-uninstall
+  describe Uninstall pf-runner from current environment
+  shell python3 -m pip uninstall -y pf-runner
+end

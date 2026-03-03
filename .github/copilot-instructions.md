@@ -1,32 +1,38 @@
-# Overall Instructions
+# Copilot Instructions (P4X-ng)
 
-- Don't leave any code with TODO items - instead put it into a TODO.md where the code would be and include it in the markup, explaining what there is todo
-- DO NOT exaggerate what is done and what is not, please be straightforward, if there was not time for something or it did not get done I need to know.
-- Please summarize your work in the comments and always leave behind a checklist of things that you see as left to do in the comments.
-- If I ask you to clean up, you may absolutely move files and folders to a bak/ folder in any directory. If it does not exist you can create one. Don't leave trash behind out of fear of not wanting to change my repo. I want my repo changed, that's why I'm coming to you for help.
-- Code *should not* exceed a few hundred lines. If it does, please split it up into logical files with includes. This is especially true of files with complex logic. It is NOT an excuse to say the "code is complex and therefore long", if it is complex that's even more reason to split it into logical pieces.
-- **DO NOT** duplicate filenames and directories, if you need a file or dir from somewhere else and it needs to be in both places, use a symlink.
-- Always use the last few minutes of your time to CLEAN UP, that means mark any TODO items as listed above (in a file called TODO.md) and do not leave any unfinished code silently behind.
-- please keep the repository logically organized, ALWAYS check where you are coding- does it make sense to be there? if not move it and work there.
-- The end state of a repo should be reasonable:
+These instructions apply to all code changes, PRs, and issue work produced by Copilot.
 
-```
-include/
-build/
-src/
-QUICKSTART.md
-README.md
-docs/    <---- ALL OTHER DOCS GO HERE
-bak/
-```
+## Global rules
+- Follow repository rules and any `rules.json` strictly when present.
+- Keep files small and modular (aim for <= 200–300 lines per file). Refactor into multiple files/modules when needed.
+- Prefer clarity, safety, and maintainability over cleverness.
+- Add or update tests for any significant logic change. Do not reduce test coverage.
 
-- You may add to the above but you must logically categorize it in a directory. For example having a src/python-lib and src/c-lib is reasonable, same for varoius topics or business logic like src/transfer  src/compute  for example are valid. But the repo should stay clean at absolutely all times. Otherwise the PR does not get merged in.
+## Language choices
+- Prefer **Python** if no language is specified.
+- If significant JavaScript is required, use **TypeScript** (not JavaScript).
+- In C/C++: prioritize memory safety. Add bounds checks; validate pointers; avoid undefined behavior.
 
+## Python standards
+- Keep modules small and focused.
+- Double-check imports; remove unused imports.
+- Use type hints where practical.
 
+## Container / runtime standards
+- Use **Podman**, not Docker.
+- Name compose files generically according to best practices (e.g., `compose.yml`). Avoid `Dockerfile` unless explicitly required.
 
-# Preferences
+## Virtual machines
+- For VM needs, use `P4X-ng/HGWS` and the **VMKit** directory.
+- If VMKit is missing/broken, fix VMKit first, then proceed.
 
-- Podman over docker
-- python for anything that is not performance critical
-- C or Rust for anything performance critical
-- Typescript with React for any web UI stuff or if appropriate
+## Testing / PF DSL
+- If tests require PF, use `HyperionGray/pf-web-poly-compiler-helper`.
+- Before editing PF scripts, inspect the `.lark` grammar, learn the DSL, and update any examples accordingly.
+- Always check `Pfyfile.pf` and other `.pf` files for outdated paths or stale targets; update them.
+
+## Repository cleanup
+- As a final step, clean up the repository:
+  - Move truly unneeded artifacts to `bak/` at repo root.
+  - Move useful references to `refs/` at repo root.
+  - Keep the tree tidy and consistent.

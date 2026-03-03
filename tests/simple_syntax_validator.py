@@ -204,7 +204,7 @@ def extract_tasks_from_file(pfyfile_path):
     
     return tasks
 
-def analyze_novel_features():
+def analyze_novel_features(pfyfiles):
     """Analyze novel features by scanning file contents"""
     print("\n🔍 Analyzing novel features...")
     
@@ -218,9 +218,6 @@ def analyze_novel_features():
         'build_systems': [],
         'parameter_formats': []
     }
-    
-    # Scan all Pfyfiles for feature indicators
-    pfyfiles = glob.glob("Pfyfile*.pf")
     
     for pfyfile in pfyfiles:
         try:
@@ -269,11 +266,28 @@ def main():
     print("🚀 Starting pf Task Syntax Validation")
     print("="*50)
     
-    # Change to repository root (directory containing this script)
-    os.chdir(Path(__file__).resolve().parent)
-    
-    # Find all Pfyfiles
-    pfyfiles = sorted(glob.glob("Pfyfile*.pf"))
+    # Change to repository root (parent of this tests directory)
+    repo_root = Path(__file__).resolve().parent.parent
+    os.chdir(repo_root)
+
+    # Find Pfyfiles across the repo (avoid packaged copies and build artifacts)
+    search_roots = [
+        repo_root / "pf-files",
+        repo_root / "pf-runner",
+        repo_root / ".github" / "hg_actions",
+    ]
+
+    pfyfiles = []
+    for root in search_roots:
+        if not root.exists():
+            continue
+        pfyfiles.extend(
+            sorted(
+                str(path.relative_to(repo_root))
+                for path in root.rglob("Pfyfile*.pf")
+            )
+        )
+
     if not pfyfiles:
         print("❌ No Pfyfile.*.pf files found")
         return 1
@@ -318,7 +332,7 @@ def main():
         print(f"\n⚠️  {total_files - valid_files} file(s) have syntax issues")
     
     # Analyze novel features
-    features = analyze_novel_features()
+    features = analyze_novel_features(pfyfiles)
     
     print("\n" + "="*50)
     print("🚀 NOVEL FEATURES ANALYSIS")

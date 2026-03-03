@@ -1,0 +1,32 @@
+[Unit]
+Description=pf Build Watch Service
+Documentation=https://github.com/P4X-ng/pf-web-poly-compile-helper-runner
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=${PF_WATCH_DIR:-/home/%i}
+ExecStart=/bin/bash -c 'if command -v inotifywait >/dev/null 2>&1; then echo "Watching for changes..."; while inotifywait -r -e modify,create,delete --exclude "\.git|node_modules|target|build" . 2>/dev/null; do echo "[$(date)] File change detected, triggering build..."; pf autobuild >/dev/null 2>&1 && echo "Build successful" || echo "Build failed"; done; else echo "inotifywait not available, using polling..."; while true; do pf autobuild >/dev/null 2>&1 && echo "Build check complete" || echo "Build issues detected"; sleep 10; done; fi'
+Restart=on-failure
+RestartSec=5
+
+# Environment configuration
+Environment=PF_WATCH_DIR=/home/%i
+Environment=PF_BUILD_INTERVAL=10
+EnvironmentFile=-/etc/default/pf-build-watch
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/log/pf
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target

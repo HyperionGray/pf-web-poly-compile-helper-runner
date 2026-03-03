@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Default container image/runtime for the pf wrapper.
+# Override with:
+#   PF_IMAGE=... PF_RUNTIME=... pf ...
+DEFAULT_IMAGE="localhost/pf-runner:latest"
+DEFAULT_RUNTIME="podman"
+
+IMAGE="${PF_IMAGE:-$DEFAULT_IMAGE}"
+RUNTIME="${PF_RUNTIME:-$DEFAULT_RUNTIME}"
+
+if ! command -v "$RUNTIME" >/dev/null 2>&1; then
+  echo "Error: container runtime '$RUNTIME' not found." >&2
+  echo "" >&2
+  echo "Available options:" >&2
+  echo "  1. Install $RUNTIME (recommended):" >&2
+  if [[ "$RUNTIME" == "podman" ]]; then
+    echo "     - Debian/Ubuntu: sudo apt-get install podman" >&2
+    echo "     - Fedora/RHEL: sudo dnf install podman" >&2
+    echo "     - macOS: brew install podman" >&2
+  else
+    echo "     - See https://docs.docker.com/get-docker/" >&2
+  fi
+  echo "  2. Use docker instead: PF_RUNTIME=docker pf ..." >&2
+  echo "  3. Install the native runner: sudo ./install.sh" >&2
+  exit 1
+fi
+
+# If the user did not override PF_IMAGE, avoid confusing 'trying to pull localhost/...'
+# behavior by checking for the local image first.
+if [[ -z "${PF_IMAGE:-}" ]]; then
+  IMAGE_EXISTS=false
+  if [[ "$RUNTIME" = "podman" ]]; then
+    if podman image exists "$IMAGE" >/dev/null 2>&1; then
+      IMAGE_EXISTS=true
+    fi
+  elif [[ "$RUNTIME" = "docker" ]]; then
+    if docker image inspect "$IMAGE" >/dev/null 2>&1; then
+      IMAGE_EXISTS=true
+    fi
+  fi
+  
+  if [[ "$IMAGE_EXISTS" = "false" ]]; then
+    echo "Error: container image '$IMAGE' not found locally." >&2
+    echo "" >&2
+    echo "To fix this issue:" >&2
+    echo "  1. Build the image from the repo root:" >&2
+    echo "     ./install.sh --runtime $RUNTIME" >&2
+    echo "  2. Or install the native runner:" >&2
+    echo "     sudo ./install.sh" >&2
+    echo "  3. Or specify a different image:" >&2
+    echo "     PF_IMAGE=<your-image> pf ..." >&2
+    exit 1
+  fi
+fi
+
+WORKDIR="${PWD}"
+ARGS=(run --rm)
+if [[ -t 0 && -t 1 ]]; then
+  ARGS+=(-it)
+fi
+USER_FLAG=()
+if command -v id >/dev/null 2>&1; then
+  USER_FLAG=(--user "$(id -u)":"$(id -g)")
+fi
+ARGS+=(-v "${WORKDIR}:${WORKDIR}")
+ARGS+=(-w "${WORKDIR}")
+if [[ -d "${HOME}" ]]; then
+  ARGS+=(-v "${HOME}:${HOME}")
+  ARGS+=(-e "HOME=${HOME}")
+fi
+
+# Expose host podman into the container when present (for container/quadlet tasks)
+# Mount podman binary and runtime socket so 'podman' inside the container talks to host daemon
+if command -v podman >/dev/null 2>&1; then
+  # binary
+  if [[ -x "/usr/bin/podman" ]]; then
+    ARGS+=(-v "/usr/bin/podman:/usr/bin/podman:ro")
+  fi
+  # helpers
+  [[ -d "/usr/libexec/podman" ]] && ARGS+=(-v "/usr/libexec/podman:/usr/libexec/podman:ro")
+  [[ -d "/usr/lib/podman" ]] && ARGS+=(-v "/usr/lib/podman:/usr/lib/podman:ro")
+  # socket (rootless)
+  SOCK_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+  if [[ -S "${SOCK_DIR}/podman/podman.sock" ]]; then
+    ARGS+=(-v "${SOCK_DIR}/podman:${SOCK_DIR}/podman")
+    # ensure same path inside container
+    ARGS+=(-e "XDG_RUNTIME_DIR=${SOCK_DIR}")
+    ARGS+=(-e "CONTAINER_HOST=unix://${SOCK_DIR}/podman/podman.sock")
+  fi
+  # config
+  [[ -d "/etc/containers" ]] && ARGS+=(-v "/etc/containers:/etc/containers:ro")
+  [[ -d "/usr/share/containers" ]] && ARGS+=(-v "/usr/share/containers:/usr/share/containers:ro")
+fi
+
+ARGS+=(-e "PFY_FILE=${PFY_FILE:-}")
+
+exec "$RUNTIME" "${ARGS[@]}" "${USER_FLAG[@]}" "$IMAGE" pf "$@"

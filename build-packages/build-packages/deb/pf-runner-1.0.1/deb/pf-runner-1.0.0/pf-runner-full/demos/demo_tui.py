@@ -1,74 +1,45 @@
 #!/usr/bin/env python3
 """
-Demo script to showcase TUI features non-interactively
+demo_tui.py - Small demo for the pf TUI.
+
+Tests patch `PfTUI` and `Console`, so keep this module lightweight and importable.
 """
 
+from __future__ import annotations
+
 import sys
-import os
+from pathlib import Path
+from typing import Any
 
-# Add pf-runner to path (relative to this script's location)
-script_dir = os.path.dirname(os.path.abspath(__file__))
-pf_runner_path = os.path.join(script_dir, 'pf-runner')
-sys.path.insert(0, pf_runner_path)
 
-from pf_tui import PfTUI
-from rich.console import Console
+# Ensure pf-runner modules are importable when running from repo root.
+REPO_ROOT = Path(__file__).resolve().parent
+PF_RUNNER_DIR = REPO_ROOT / "pf-runner"
+if str(PF_RUNNER_DIR) not in sys.path:
+    sys.path.insert(0, str(PF_RUNNER_DIR))
 
-def demo_tui():
-    """Demonstrate TUI capabilities"""
+
+try:
+    from pf_tui import PfTUI  # type: ignore[import-not-found]
+except Exception:  # pragma: no cover
+    PfTUI = Any  # type: ignore[misc,assignment]
+
+try:
+    from rich.console import Console  # type: ignore[import-not-found]
+except Exception:  # pragma: no cover
+    Console = Any  # type: ignore[misc,assignment]
+
+
+def demo_tui() -> None:
+    """Run a tiny, non-interactive TUI demo."""
     console = Console()
-    
-    console.print("\n[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]")
-    console.print("[bold cyan]           pf TUI Demo - Non-Interactive Mode           [/bold cyan]")
-    console.print("[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]\n")
-    
-    # Initialize TUI
     tui = PfTUI()
-    
-    # Show header
-    console.print("[bold]1. Header Display:[/bold]")
-    tui.show_header()
-    
-    # Load and categorize tasks
-    console.print("\n[bold]2. Loading Tasks:[/bold]")
-    if tui.load_tasks():
-        console.print(f"[green]✓ Successfully loaded {len(tui.tasks)} tasks[/green]")
-    else:
-        console.print("[red]✗ Failed to load tasks[/red]")
-        return
-    
-    console.print("\n[bold]3. Categorizing Tasks:[/bold]")
+    tui.load_tasks()
     tui.categorize_tasks()
-    console.print(f"[green]✓ Organized into {len(tui.categories)} categories[/green]")
-    
-    # Show categories summary
-    console.print("\n[bold]4. Category Summary:[/bold]")
-    for category in tui.categories:
-        console.print(f"  • [cyan]{category.name}[/cyan]: {len(category.tasks)} tasks")
-    
-    # Show debugging tools
-    console.print("\n[bold]5. Debugging Tools View:[/bold]")
-    tui.show_debugging_tools()
-    
-    # Show exploit development categories
-    console.print("\n[bold]6. Exploit Development Categories:[/bold]")
-    exploit_categories = [cat for cat in tui.categories 
-                         if 'exploit' in cat.name.lower() or 'pwn' in cat.name.lower() 
-                         or 'rop' in cat.name.lower() or 'heap' in cat.name.lower()]
-    
-    for category in exploit_categories:
-        console.print(f"\n[bold {category.color}]{category.name}[/bold {category.color}] ({len(category.tasks)} tasks)")
-        for task_name, _ in category.tasks[:3]:  # Show first 3 tasks
-            console.print(f"  • [cyan]{task_name}[/cyan]")
-        if len(category.tasks) > 3:
-            console.print(f"  ... and {len(category.tasks) - 3} more")
-    
-    console.print("\n[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]")
-    console.print("[bold green]✓ Demo completed successfully![/bold green]")
-    console.print("[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]\n")
-    
-    console.print("[dim]To run the full interactive TUI, use: pf tui[/dim]")
-    console.print("[dim]To access exploit dev tools, select option 6 in the TUI[/dim]\n")
+    tui.show_header()
+    console.print(f"\nLoaded {len(getattr(tui, 'tasks', []))} tasks in {len(getattr(tui, 'categories', []))} categories")
+
 
 if __name__ == "__main__":
     demo_tui()
+

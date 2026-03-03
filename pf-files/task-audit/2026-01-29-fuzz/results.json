@@ -1,0 +1,80 @@
+[
+  {
+    "task": "install-aflplusplus",
+    "source": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/vuln-hunting/Pfyfile.fuzzing.pf",
+    "description": "Install AFL++ fuzzer with LLVM instrumentation",
+    "aliases": [],
+    "default_params": {},
+    "status": "ok",
+    "exit_code": 0,
+    "duration_s": 0.214,
+    "timed_out": false,
+    "failure_class": null,
+    "log": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/task-audit/2026-01-29-fuzz/logs/0218-install-aflplusplus.log"
+  },
+  {
+    "task": "install-aflplusplus-lite",
+    "source": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/vuln-hunting/Pfyfile.fuzzing.pf",
+    "description": "Install AFL++ quickly without Nyx/Unicorn/QEMU extras (NO_NYX=1)",
+    "aliases": [],
+    "default_params": {},
+    "status": "ok",
+    "exit_code": 0,
+    "duration_s": 0.216,
+    "timed_out": false,
+    "failure_class": null,
+    "log": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/task-audit/2026-01-29-fuzz/logs/0219-install-aflplusplus-lite.log"
+  },
+  {
+    "task": "install-fuzzing-tools",
+    "source": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/vuln-hunting/Pfyfile.fuzzing.pf",
+    "description": "Install all fuzzing tools (AFL++, libfuzzer, sanitizers)",
+    "aliases": [],
+    "default_params": {},
+    "status": "ok",
+    "exit_code": 0,
+    "duration_s": 24.364,
+    "timed_out": false,
+    "failure_class": null,
+    "log": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/task-audit/2026-01-29-fuzz/logs/0228-install-fuzzing-tools.log"
+  },
+  {
+    "task": "install-libfuzzer",
+    "source": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/vuln-hunting/Pfyfile.fuzzing.pf",
+    "description": "Install libfuzzer development files",
+    "aliases": [],
+    "default_params": {},
+    "status": "ok",
+    "exit_code": 0,
+    "duration_s": 11.937,
+    "timed_out": false,
+    "failure_class": null,
+    "log": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/task-audit/2026-01-29-fuzz/logs/0233-install-libfuzzer.log"
+  },
+  {
+    "task": "install-sanitizer-tools",
+    "source": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/vuln-hunting/Pfyfile.sanitizers.pf",
+    "description": "Install and configure sanitizer toolchain",
+    "aliases": [],
+    "default_params": {},
+    "status": "ok",
+    "exit_code": 0,
+    "duration_s": 12.64,
+    "timed_out": false,
+    "failure_class": null,
+    "log": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/task-audit/2026-01-29-fuzz/logs/0251-install-sanitizer-tools.log"
+  },
+  {
+    "task": "install-sanitizers",
+    "source": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/vuln-hunting/Pfyfile.fuzzing.pf",
+    "description": "Install LLVM sanitizer libraries and tools",
+    "aliases": [],
+    "default_params": {},
+    "status": "ok",
+    "exit_code": 0,
+    "duration_s": 12.089,
+    "timed_out": false,
+    "failure_class": null,
+    "log": "/home/punk/projects/pf-web-poly-compile-helper-runner/pf-files/task-audit/2026-01-29-fuzz/logs/0252-install-sanitizers.log"
+  }
+]

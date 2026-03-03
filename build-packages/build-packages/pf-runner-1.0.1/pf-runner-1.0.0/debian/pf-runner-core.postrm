@@ -1,0 +1,33 @@
+#!/bin/bash
+# Post-removal script for pf-runner-core
+
+set -e
+
+case "$1" in
+    purge)
+        # Remove any remaining configuration files
+        rm -rf /etc/pf-runner || true
+        
+        # Remove user-specific pf directories if they exist and are empty
+        for home in /home/*; do
+            if [ -d "$home/.pf" ] && [ -z "$(ls -A "$home/.pf" 2>/dev/null)" ]; then
+                rm -rf "$home/.pf" || true
+            fi
+        done
+        
+        # Clean up any remaining symlinks
+        rm -f /usr/lib/pf-runner/pf || true
+        ;;
+        
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+        
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

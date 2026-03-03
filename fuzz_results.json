@@ -1,0 +1,14 @@
+{
+  "stats": {
+    "total_cases": 4528319,
+    "crashes": 1964,
+    "hangs": 0,
+    "unique_crashes": 1,
+    "exec_per_sec": 75471.98483282694,
+    "start_time": 1769698850.575344
+  },
+  "crash_log": [
+    {
+      "case": {
+        "target": "/dev/null",
+        "input_data": 

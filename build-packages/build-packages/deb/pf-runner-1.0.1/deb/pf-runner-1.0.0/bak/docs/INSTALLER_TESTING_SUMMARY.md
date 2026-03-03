@@ -28,7 +28,7 @@ The `pf-runner/pf_parser.py` file is severely corrupted:
 ### Current Status
 
 ❌ **Native Installer**: Cannot work - executable fails with `NameError`  
-❌ **Container Installer**: Unknown - cannot test until base code fixed  
+❌ **Container Installer**: Deprecated/removed (script moved to `scripts/bak/install-containers.sh`; only .deb/native installs are supported)  
 ❌ **All pf commands**: Fail to execute
 
 ---

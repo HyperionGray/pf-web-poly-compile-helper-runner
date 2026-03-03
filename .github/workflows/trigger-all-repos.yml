@@ -1,4 +1,4 @@
-name: "Trigger Workflow on All Repos"
+name: Trigger Workflow on All Repos
 
 on:
   workflow_dispatch:
@@ -7,6 +7,11 @@ on:
         description: 'Workflow file name to trigger (e.g., workflows-sync.yml)'
         required: true
         type: string
+      all_accounts:
+        description: 'Trigger on all accounts (P4X-ng, HyperionGray, TeamHG-Memex)'
+        required: false
+        default: true
+        type: boolean
       ref:
         description: 'Git reference (branch/tag/SHA) to run workflow from'
         required: false
@@ -28,10 +33,10 @@ jobs:
     runs-on: [self-hosted, linux, x64, big]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@main
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -43,19 +48,36 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          python trigger_workflow_all_repos.py \
-            P4X-ng \
-            "${{ inputs.workflow_file }}" \
-            --ref "${{ inputs.ref }}" \
-            ${{ inputs.include_archived && '--include-archived' || '' }} \
-            ${{ inputs.check_only && '--check-only' || '' }} \
-            --delay 1.5
+          if [ "${{ inputs.all_accounts }}" = "true" ]; then
+            echo "Triggering on all accounts: P4X-ng, HyperionGray, TeamHG-Memex"
+            python trigger_workflow_all_repos.py \
+              "${{ inputs.workflow_file }}" \
+              --all-accounts \
+              --ref "${{ inputs.ref }}" \
+              ${{ inputs.include_archived && '--include-archived' || '' }} \
+              ${{ inputs.check_only && '--check-only' || '' }} \
+              --delay 1.5
+          else
+            echo "Triggering on P4X-ng only"
+            python trigger_workflow_all_repos.py \
+              P4X-ng \
+              "${{ inputs.workflow_file }}" \
+              --ref "${{ inputs.ref }}" \
+              ${{ inputs.include_archived && '--include-archived' || '' }} \
+              ${{ inputs.check_only && '--check-only' || '' }} \
+              --delay 1.5
+          fi
 
       - name: Summary
         run: |
           echo "## Workflow Dispatch Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Workflow:** ${{ inputs.workflow_file }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.all_accounts }}" = "true" ]; then
+            echo "**Accounts:** P4X-ng, HyperionGray, TeamHG-Memex (all accounts)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Accounts:** P4X-ng only" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "**Reference:** ${{ inputs.ref }}" >> $GITHUB_STEP_SUMMARY
           echo "**Include archived:** ${{ inputs.include_archived }}" >> $GITHUB_STEP_SUMMARY
           echo "**Check only:** ${{ inputs.check_only }}" >> $GITHUB_STEP_SUMMARY

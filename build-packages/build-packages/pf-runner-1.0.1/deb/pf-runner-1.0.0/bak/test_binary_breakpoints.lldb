@@ -1,0 +1,78 @@
+# Auto-generated breakpoint script
+
+break set -n malloc
+break command add -s python
+print('[BREAKPOINT] malloc called')
+frame = lldb.thread.GetSelectedFrame()
+print('  Args:', [str(frame.FindVariable(f'arg{i}')) for i in range(3)])
+DONE
+
+break set -n free
+break command add -s python
+print('[BREAKPOINT] free called')
+frame = lldb.thread.GetSelectedFrame()
+print('  Args:', [str(frame.FindVariable(f'arg{i}')) for i in range(3)])
+DONE
+
+break set -n realloc
+break command add -s python
+print('[BREAKPOINT] realloc called')
+frame = lldb.thread.GetSelectedFrame()
+print('  Args:', [str(frame.FindVariable(f'arg{i}')) for i in range(3)])
+DONE
+
+break set -n calloc
+break command add -s python
+print('[BREAKPOINT] calloc called')
+frame = lldb.thread.GetSelectedFrame()
+print('  Args:', [str(frame.FindVariable(f'arg{i}')) for i in range(3)])
+DONE
+
+break set -n strcpy
+break command add -s python
+print('[BREAKPOINT] strcpy called')
+frame = lldb.thread.GetSelectedFrame()
+print('  Args:', [str(frame.FindVariable(f'arg{i}')) for i in range(3)])
+DONE
+
+break set -n strcat
+break command add -s python
+print('[BREAKPOINT] strcat called')
+frame = lldb.thread.GetSelectedFrame()
+print('  Args:', [str(frame.FindVariable(f'arg{i}')) for i in range(3)])
+DONE
+
+break set -n sprintf
+break command add -s python
+print('[BREAKPOINT] sprintf called')
+frame = lldb.thread.GetSelectedFrame()
+print('  Args:', [str(frame.FindVariable(f'arg{i}')) for i in range(3)])
+DONE
+
+break set -n gets
+break command add -s python
+print('[BREAKPOINT] gets called')
+frame = lldb.thread.GetSelectedFrame()
+print('  Args:', [str(frame.FindVariable(f'arg{i}')) for i in range(3)])
+DONE
+
+break set -n memcpy
+break command add -s python
+print('[BREAKPOINT] memcpy called')
+frame = lldb.thread.GetSelectedFrame()
+print('  Args:', [str(frame.FindVariable(f'arg{i}')) for i in range(3)])
+DONE
+
+break set -n memmove
+break command add -s python
+print('[BREAKPOINT] memmove called')
+frame = lldb.thread.GetSelectedFrame()
+print('  Args:', [str(frame.FindVariable(f'arg{i}')) for i in range(3)])
+DONE
+
+break set -n strncpy
+break command add -s python
+print('[BREAKPOINT] strncpy called')
+frame = lldb.thread.GetSelectedFrame()
+print('  Args:', [str(frame.FindVariable(f'arg{i}')) for i in range(3)])
+DONE

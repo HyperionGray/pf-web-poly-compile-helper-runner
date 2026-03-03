@@ -97,8 +97,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Debugging & Reverse Engineering**: GDB, LLDB, and pwndbg integration
 
 ### Changed
-- Simplified installation to container-first approach with `./install.sh`
-- Legacy host-based installer accessible via `./install.sh --mode native`
+- Simplified installation to package-first approach with `./install.sh`
+- Legacy host-based installer accessible via `./install.sh`
 
 ### Documentation
 - Comprehensive README with examples

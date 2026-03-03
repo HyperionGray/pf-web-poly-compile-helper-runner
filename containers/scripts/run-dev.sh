@@ -12,36 +12,27 @@
 
 set -euo pipefail
 
-# Color output helpers
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
-log_success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
-log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
+log_info() { echo "INFO $*"; }
+log_success() { echo "OK $*"; }
+log_warn() { echo "WARN $*"; }
+log_error() { echo "ERROR $*"; }
 
 # Get script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-# Container runtime
-CONTAINER_RT="${CONTAINER_RT:-podman}"
-COMPOSE_RT="${COMPOSE_RT:-podman-compose}"
+# Container runtime (podman only)
+CONTAINER_RT="podman"
+COMPOSE_RT="podman-compose"
 
-# Fallback to docker-compose if podman-compose not available
-if ! command -v "${COMPOSE_RT}" &> /dev/null; then
-    if command -v docker-compose &> /dev/null; then
-        COMPOSE_RT="docker-compose"
-        CONTAINER_RT="docker"
-        log_warn "podman-compose not found, using docker-compose"
-    else
-        log_error "Neither podman-compose nor docker-compose found."
-        exit 1
-    fi
+if ! command -v "${CONTAINER_RT}" >/dev/null 2>&1; then
+    log_error "podman not found. Install podman first."
+    exit 1
+fi
+
+if ! command -v "${COMPOSE_RT}" >/dev/null 2>&1; then
+    log_error "podman-compose not found. Install podman-compose first."
+    exit 1
 fi
 
 show_help() {

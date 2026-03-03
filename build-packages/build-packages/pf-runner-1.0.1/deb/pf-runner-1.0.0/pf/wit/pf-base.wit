@@ -1,0 +1,32 @@
+package pf:base;
+
+interface console {
+  log: func(msg: string);
+  warn: func(msg: string);
+  error: func(msg: string);
+}
+
+interface time {
+  now_millis: func() -> u64;
+  sleep_millis: func(ms: u32);
+}
+
+interface kv {
+  get: func(key: string) -> option<string>;
+  set: func(key: string, value: string);
+  delete: func(key: string);
+  keys: func() -> list<string>;
+}
+
+interface http {
+  get_text: func(url: string) -> result<string, string>;
+}
+
+world app {
+  import console: console;
+  import time: time;
+  import kv: kv;
+  import http: http;
+
+  export run: func();
+}

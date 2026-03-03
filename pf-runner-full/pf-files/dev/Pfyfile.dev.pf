@@ -1,0 +1,27 @@
+# Pfyfile.dev.pf - Development tasks
+
+task dev-setup
+  describe Set up development environment
+  shell make setup-venv
+  shell ./.venv/bin/python -m pip install -U black flake8 mypy
+end
+
+task dev-test
+  describe Run basic smoke checks
+  shell python3 -m compileall -q .
+  shell python3 -m pf_main -f pf-files/Pfyfile.pf list
+end
+
+task dev-lint
+  describe Run code linting and formatting
+  shell ./.venv/bin/python -m black pf_*.py pfuck.py
+  shell ./.venv/bin/python -m flake8 pf_*.py pfuck.py --max-line-length=120
+  shell ./.venv/bin/python -m mypy pf_*.py pfuck.py --ignore-missing-imports
+end
+
+task dev-symlink
+  describe Create symlink to make pf available globally (container wrapper)
+  shell mkdir -p ~/.local/bin
+  shell ln -sf "$PWD/pf_universal" "$HOME/.local/bin/pf"
+  shell echo "Symlink created. Ensure ~/.local/bin is in your PATH"
+end
