@@ -128,8 +128,446 @@ except ImportError:
         "--hlp",
     }
 
-# Built-in task definitions (kept empty unless populated elsewhere).
-BUILTINS: Dict[str, List[str]] = {}
+
+def _build_browser_js_command(code: str, args: List[str]) -> str:
+    code = _ensure_newline(code)
+    arg_str = _poly_args(args)
+    snippet = textwrap.indent(code, "  ")
+    body = (
+        "const { chromium } = require('playwright');\n"
+        "(async () => {\n"
+        "  const browser = await chromium.launch({ headless: process.env.PF_HEADFUL ? false : true });\n"
+        "  const page = await browser.newPage();\n"
+        f"{snippet}"
+        "  await browser.close();\n"
+        "})().catch(err => {\n"
+        "  console.error(err);\n"
+        "  process.exit(1);\n"
+        "});\n"
+    )
+    return (
+        "tmpdir=$(mktemp -d)\n"
+        'src="$tmpdir/pf_poly_browser.mjs"\n'
+        "cat <<'"
+        + _POLY_DELIM
+        + '\' > "$src"\n'
+        + body
+        + _POLY_DELIM
+        + '\nnode "$src"'
+        + (f" {arg_str}" if arg_str else "")
+        + '\nrc=$?\nrm -rf "$tmpdir"\nexit $rc\n'
+    )
+
+
+def _script_profile(
+    parts: List[str] | Tuple[str, ...], ext: str, basename: str = "pf_poly"
+):
+    cmd = _cmd_str(parts)
+
+    def builder(code: str, args: List[str]) -> str:
+        return _build_script_command(cmd, ext, code, args, basename=basename)
+
+    return builder
+
+
+def _compile_profile(
+    ext: str,
+    compiler_cmd: str,
+    run_cmd: str,
+    setup_lines: List[str] | None = None,
+    basename: str = "pf_poly",
+    append_args: bool = True,
+):
+    def builder(code: str, args: List[str]) -> str:
+        return _build_compile_command(
+            ext,
+            code,
+            compiler_cmd,
+            run_cmd,
+            args,
+            setup_lines or [],
+            basename=basename,
+            append_args=append_args,
+        )
+
+    return builder
+
+
+def _java_openjdk_builder() -> Callable[[str, List[str]], str]:
+    return _compile_profile(
+        ".java",
+        "javac -d {classes} {src}",
+        "(cd {classes} && java Main{args})",
+        setup_lines=['classes="$tmpdir/classes"', 'mkdir -p "$classes"'],
+        basename="Main",
+        append_args=False,
+    )
+
+
+def _java_android_builder() -> Callable[[str, List[str]], str]:
+    def builder(code: str, args: List[str]) -> str:
+        code = _ensure_newline(code)
+        arg_str = _poly_args(args)
+        body = f"""tmpdir=$(mktemp -d)
+src="$tmpdir/Main.java"
+classes="$tmpdir/classes"
+dexdir="$tmpdir/dex"
+mkdir -p "$classes" "$dexdir"
+cat <<'{_POLY_DELIM}' > "$src"
+{code}{_POLY_DELIM}
+
+ANDROID_SDK="${{ANDROID_SDK_ROOT:-${{ANDROID_HOME:-}}}}"
+platform_jar="${{ANDROID_PLATFORM_JAR:-}}"
+if [ -z "$platform_jar" ] && [ -n "$ANDROID_SDK" ]; then
+  latest_platform=$(ls -1 "$ANDROID_SDK/platforms" 2>/dev/null | sort -V | tail -1)
+  if [ -n "$latest_platform" ] && [ -f "$ANDROID_SDK/platforms/$latest_platform/android.jar" ]; then
+    platform_jar="$ANDROID_SDK/platforms/$latest_platform/android.jar"
+  fi
+fi
+javac_cp=""
+if [ -n "$platform_jar" ] && [ -f "$platform_jar" ]; then
+  javac_cp="-classpath $platform_jar"
+fi
+javac $javac_cp -d "$classes" "$src"
+rc=$?
+if [ $rc -ne 0 ]; then
+  rm -rf "$tmpdir"
+  exit $rc
+fi
+
+d8_bin="${{ANDROID_D8:-}}"
+if [ -z "$d8_bin" ] && [ -n "$ANDROID_SDK" ]; then
+  latest_bt=$(ls -1 "$ANDROID_SDK/build-tools" 2>/dev/null | sort -V | tail -1)
+  if [ -n "$latest_bt" ] && [ -x "$ANDROID_SDK/build-tools/$latest_bt/d8" ]; then
+    d8_bin="$ANDROID_SDK/build-tools/$latest_bt/d8"
+  fi
+fi
+
+if [ -n "$d8_bin" ] && command -v dalvikvm >/dev/null 2>&1; then
+  "$d8_bin" --output "$dexdir" "$classes" >/dev/null
+  rc=$?
+  if [ $rc -eq 0 ]; then
+    dalvikvm -cp "$dexdir/classes.dex" Main{" " + arg_str if arg_str else ""}
+    rc=$?
+    rm -rf "$tmpdir"
+    exit $rc
+  fi
+fi
+
+(cd "$classes" && java Main{" " + arg_str if arg_str else ""})
+rc=$?
+rm -rf "$tmpdir"
+exit $rc
+"""
+        return body
+
+    return builder
+
+
+POLYGLOT_LANGS: Dict[str, Callable[[str, List[str]], str]] = {
+    # Shells
+    "bash": _script_profile(["bash"], ".sh"),
+    "sh": _script_profile(["sh"], ".sh"),
+    "dash": _script_profile(["dash"], ".sh"),
+    "zsh": _script_profile(["zsh"], ".sh"),
+    "fish": _script_profile(["fish"], ".fish"),
+    "ksh": _script_profile(["ksh"], ".sh"),
+    "tcsh": _script_profile(["tcsh"], ".csh"),
+    "pwsh": _script_profile(["pwsh", "-NoLogo", "-NonInteractive", "-File"], ".ps1"),
+    # Scripting / Interpreted
+    "python": _script_profile(["python3"], ".py"),
+    "node": _script_profile(["node"], ".js"),
+    "deno": _script_profile(["deno", "run"], ".ts"),
+    "ts-node": _script_profile(["ts-node"], ".ts"),
+    "perl": _script_profile(["perl"], ".pl"),
+    "php": _script_profile(["php"], ".php"),
+    "ruby": _script_profile(["ruby"], ".rb"),
+    "r": _script_profile(["Rscript"], ".R"),
+    "julia": _script_profile(["julia"], ".jl"),
+    "haskell": _script_profile(["runghc"], ".hs"),
+    "ocaml": _script_profile(["ocaml"], ".ml"),
+    "elixir": _script_profile(["elixir"], ".exs"),
+    "dart": _script_profile(["dart", "run"], ".dart"),
+    "lua": _script_profile(["lua"], ".lua"),
+    # Compiled / AOT
+    "go": _script_profile(["go", "run"], ".go"),
+    "rust": _compile_profile(".rs", "rustc {src} -o {bin}", "{bin}"),
+    "c": _compile_profile(".c", "clang -x c {src} -o {bin}", "{bin}"),
+    "cpp": _compile_profile(".cc", "clang++ {src} -o {bin}", "{bin}"),
+    "c-llvm": _compile_profile(
+        ".c",
+        "clang -x c -O3 -S -emit-llvm {src} -o {bin}.ll && cat {bin}.ll",
+        "echo '(LLVM IR generated with O3 optimization)'",
+    ),
+    "cpp-llvm": _compile_profile(
+        ".cc",
+        "clang++ -O3 -S -emit-llvm {src} -o {bin}.ll && cat {bin}.ll",
+        "echo '(LLVM IR generated with O3 optimization)'",
+    ),
+    "c-llvm-bc": _compile_profile(
+        ".c",
+        "clang -x c -O3 -c -emit-llvm {src} -o {bin}.bc && llvm-dis {bin}.bc -o {bin}.ll && cat {bin}.ll",
+        "echo '(LLVM bitcode generated with O3 optimization)'",
+    ),
+    "cpp-llvm-bc": _compile_profile(
+        ".cc",
+        "clang++ -O3 -c -emit-llvm {src} -o {bin}.bc && llvm-dis {bin}.bc -o {bin}.ll && cat {bin}.ll",
+        "echo '(LLVM bitcode generated with O3 optimization)'",
+    ),
+    "fortran": _compile_profile(".f90", "gfortran {src} -o {bin}", "{bin}"),
+    "fortran-llvm": _compile_profile(
+        ".f90",
+        "flang -O3 {src} -S -emit-llvm -o {bin}.ll && cat {bin}.ll",
+        "echo '(LLVM IR generated with O3 optimization)'",
+    ),
+    "asm": _compile_profile(".s", "clang -x assembler {src} -o {bin}", "{bin}"),
+    "zig": _compile_profile(
+        ".zig", "zig build-exe -O Debug -femit-bin={bin} {src}", "{bin}"
+    ),
+    "nim": _compile_profile(".nim", "nim c -o:{bin} {src}", "{bin}"),
+    "crystal": _compile_profile(".cr", "crystal build -o {bin} {src}", "{bin}"),
+    "haskell-compile": _compile_profile(".hs", "ghc -o {bin} {src}", "{bin}"),
+    "ocamlc": _compile_profile(".ml", "ocamlc -o {bin} {src}", "{bin}"),
+    # Java / JVM
+    "java-openjdk": _java_openjdk_builder(),
+    "java-android": _java_android_builder(),
+}
+
+POLYGLOT_ALIASES = {
+    # Shells
+    "shell": "bash",
+    "sh": "sh",
+    "zshell": "zsh",
+    "powershell": "pwsh",
+    "ps1": "pwsh",
+    # Python
+    "py": "python",
+    "python3": "python",
+    "ipython": "python",
+    # JavaScript / TypeScript
+    "javascript": "node",
+    "js": "node",
+    "nodejs": "node",
+    "ts": "deno",
+    "typescript": "deno",
+    "tsnode": "ts-node",
+    # C-family
+    "c++": "cpp",
+    "cxx": "cpp",
+    "clang": "c",
+    "clang++": "cpp",
+    "g++": "cpp",
+    "gcc": "c",
+    "c-ir": "c-llvm",
+    "c-ll": "c-llvm",
+    "cpp-ir": "cpp-llvm",
+    "cpp-ll": "cpp-llvm",
+    "c-bc": "c-llvm-bc",
+    "cpp-bc": "cpp-llvm-bc",
+    "fortran-ll": "fortran-llvm",
+    "fortran-ir": "fortran-llvm",
+    # Others common
+    "golang": "go",
+    "rb": "ruby",
+    "pl": "perl",
+    "ml": "ocaml",
+    "hs": "haskell",
+    "fortran90": "fortran",
+    "gfortran": "fortran",
+    "java": "java-openjdk",
+    "java-openjdk": "java-openjdk",
+    "java-android-google": "java-android",
+    "java-android": "java-android",
+    "android-java": "java-android",
+    "fishshell": "fish",
+    "shellscript": "bash",
+    "dashshell": "dash",
+    "asm86": "asm",
+}
+
+
+def _parse_polyglot_template(template: str) -> Optional[str]:
+    stripped = template.strip()
+    m = re.match(
+        r"^(?:lang|language|polyglot)\s*(?:[:=]|\s+)\s*(.+)$", stripped, re.IGNORECASE
+    )
+    if not m:
+        return None
+    return m.group(1).strip().lower()
+
+
+def _canonical_lang(lang_hint: str) -> str:
+    """
+    Resolve a language hint to a canonical language key.
+    Uses POLYGLOT_ALIASES to resolve aliases to their canonical form.
+
+    Args:
+        lang_hint: The language name or alias (e.g., 'py', 'python3', 'js')
+
+    Returns:
+        The canonical language key (e.g., 'python', 'node')
+
+    Raises:
+        ValueError: If the language is not recognized
+    """
+    lang = lang_hint.strip().lower()
+    # Check if it's already a canonical language name
+    if lang in POLYGLOT_LANGS:
+        return lang
+    # Check if it's an alias
+    if lang in POLYGLOT_ALIASES:
+        return POLYGLOT_ALIASES[lang]
+    raise PFExecutionError(
+        message=f"Unsupported language: {lang_hint}",
+        suggestion=f"Supported languages: {', '.join(sorted(POLYGLOT_LANGS.keys()))}",
+        command=f"shell_lang {lang_hint}"
+    )
+
+
+# Regex to parse [lang:xxx] syntax from shell command
+# re.DOTALL makes . match newlines, allowing multi-line code blocks
+_LANG_BRACKET_RE = re.compile(r"^\s*\[lang:([^\]]+)\]\s*(.*)$", re.IGNORECASE | re.DOTALL)
+
+# Regex to parse heredoc syntax: << DELIMITER [> output_file]
+# Allow uppercase or mixed case delimiters (following bash convention)
+_HEREDOC_RE = re.compile(r"<<\s*([A-Za-z][A-Za-z0-9_]*)\s*(?:>\s*([^\s]+))?$")
+
+
+def _parse_heredoc_syntax(cmd: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Parse heredoc syntax from a command line.
+    
+    Args:
+        cmd: The command string that may contain << DELIMITER [> output_file]
+    
+    Returns:
+        Tuple of (delimiter or None, output_file or None)
+    
+    Examples:
+        "<< PYEOF" -> ("PYEOF", None)
+        "<< PYEOF > output.txt" -> ("PYEOF", "output.txt")
+        "print('hello')" -> (None, None)
+    """
+    match = _HEREDOC_RE.search(cmd)
+    if match:
+        delimiter = match.group(1)
+        output_file = match.group(2) if match.group(2) else None
+        return delimiter, output_file
+    return None, None
+
+
+def _parse_lang_bracket(cmd: str) -> Tuple[Optional[str], str]:
+    """
+    Parse [lang:xxx] syntax from the beginning of a shell command.
+
+    Args:
+        cmd: The command string that may start with [lang:xxx]
+
+    Returns:
+        Tuple of (language_name or None, remaining_command)
+
+    Examples:
+        "[lang:python] print('hello')" -> ("python", "print('hello')")
+        "echo hello" -> (None, "echo hello")
+    """
+    match = _LANG_BRACKET_RE.match(cmd)
+    if match:
+        lang = match.group(1).strip()
+        remaining = match.group(2)
+        return lang, remaining
+    return None, cmd
+
+
+def _is_dsl_verb(line: str) -> bool:
+    """
+    Check if a line starts with a known DSL verb.
+    
+    Args:
+        line: The stripped line to check
+    
+    Returns:
+        True if the line starts with a DSL verb, False otherwise
+    
+    DSL verbs include: describe, env, shell, shell_lang, sync, packages, service,
+    directory, copy, makefile/make, cmake, meson/ninja, cargo, go_build/gobuild,
+    configure, justfile/just, autobuild/auto_build, build_detect/detect_build,
+    for, if, else, end
+    """
+    # Check exact match for keywords without arguments
+    if line in ("end", "else", "build_detect", "detect_build"):
+        return True
+    
+    # List of all DSL verb prefixes from the grammar (with space for verbs that take arguments)
+    dsl_prefixes = [
+        "describe ", "env ", "shell ", "shell_lang ", "sync ", "packages ",
+        "service ", "directory ", "copy ", "makefile ", "make ", "cmake ",
+        "meson ", "ninja ", "cargo ", "go_build ", "gobuild ", "configure ",
+        "justfile ", "just ", "autobuild ", "auto_build ", "for ", "if "
+    ]
+    
+    # Check prefix matches
+    for prefix in dsl_prefixes:
+        if line.startswith(prefix):
+            return True
+    
+    return False
+
+
+def _extract_polyglot_source(
+    cmd: str, working_dir: Optional[str] = None
+) -> Tuple[str, List[str], Optional[str]]:
+    raw = cmd.strip()
+    base_dir = working_dir or PFY_ROOT or os.getcwd()
+    if not raw:
+        raise PFSyntaxError(
+            message="Polyglot shell requires code or @file reference",
+            suggestion="Provide inline code or use @filename syntax"
+        )
+    if raw.startswith("@") or raw.startswith("file:"):
+        tokens = shlex.split(cmd)
+        if not tokens:
+            raise PFSyntaxError(
+                message="Polyglot file token missing",
+                suggestion="Use syntax: shell_lang python @script.py"
+            )
+        source_token = tokens.pop(0)
+        if source_token.startswith("@"):
+            rel_path = source_token[1:]
+        else:
+            rel_path = source_token[5:]
+        full_path = (
+            rel_path if os.path.isabs(rel_path) else os.path.join(base_dir, rel_path)
+        )
+        if not os.path.exists(full_path):
+            raise PFSyntaxError(
+                message=f"Polyglot source file not found: {full_path}",
+                file_path=full_path,
+                suggestion="Check that the file path is correct and the file exists"
+            )
+        with open(full_path, "r", encoding="utf-8") as poly_file:
+            code = poly_file.read()
+        if tokens and tokens[0] == "--":
+            tokens = tokens[1:]
+        return code, tokens, full_path
+    return cmd, [], None
+
+
+def _render_polyglot_command(
+    lang_hint: Optional[str], cmd: str, working_dir: Optional[str]
+) -> Tuple[Optional[str], Optional[str]]:
+    if not lang_hint:
+        return None, None
+    lang_key = _canonical_lang(lang_hint)
+    # _canonical_lang validates that the language exists, but let's be extra safe
+    if lang_key not in POLYGLOT_LANGS:
+        raise PFExecutionError(
+            message=f"Language '{lang_key}' (from '{lang_hint}') has no builder registered",
+            suggestion=f"Supported languages: {', '.join(sorted(POLYGLOT_LANGS.keys()))}"
+        )
+    builder = POLYGLOT_LANGS[lang_key]
+    snippet, lang_args, _ = _extract_polyglot_source(cmd, working_dir)
+    rendered = builder(snippet, lang_args)
+    return rendered, lang_key
 
 
 # ---------- DSL (include + describe) ----------
@@ -554,12 +992,18 @@ def run_task_by_name(
     lines = dsl_tasks[task_name].lines
     task_env: Dict[str, str] = {}
     params = {}
+    shell_lang: Optional[str] = None  # Track current shell language
 
     rc = 0
     shell_lang: Optional[str] = None
     for line in lines:
         stripped = line.strip()
         
+        # Skip empty lines and comments
+        if not stripped or stripped.startswith('#'):
+            continue
+            
+        # Handle env directive
         if stripped.startswith("env "):
             for tok in shlex.split(stripped)[1:]:
                 if "=" in tok:
@@ -568,18 +1012,71 @@ def run_task_by_name(
             idx += 1
             continue
 
-        if stripped == "shell_lang" or stripped.startswith("shell_lang "):
-            lang = stripped[len("shell_lang") :].strip()
-            if not lang or lang.lower() in {"default", "none"}:
+        # Handle shell_lang directive
+        if stripped.startswith("shell_lang "):
+            lang_hint = stripped[11:].strip()
+            if lang_hint.lower() in ("default", "none", ""):
                 shell_lang = None
             else:
-                shell_lang = lang
+                try:
+                    shell_lang = _canonical_lang(lang_hint)
+                except PFExecutionError as e:
+                    print(format_exception_for_user(e, include_traceback=False), file=sys.stderr)
+                    return 1
             continue
 
-        if not stripped.startswith("shell "):
+        # Handle explicit shell commands
+        if stripped.startswith("shell "):
+            cmd = stripped[6:].strip()
+            # Check for [lang:xxx] syntax in the command
+            inline_lang, cmd_without_lang = _parse_lang_bracket(cmd)
+            
+            if inline_lang:
+                # Inline language overrides shell_lang for this command
+                try:
+                    rendered, _ = _render_polyglot_command(inline_lang, cmd_without_lang, PFY_ROOT)
+                    if rendered:
+                        cmd = rendered
+                    else:
+                        cmd = cmd_without_lang
+                except PFExecutionError as e:
+                    print(format_exception_for_user(e, include_traceback=False), file=sys.stderr)
+                    return 1
+            elif shell_lang:
+                # Use the current shell_lang
+                try:
+                    rendered, _ = _render_polyglot_command(shell_lang, cmd, PFY_ROOT)
+                    if rendered:
+                        cmd = rendered
+                except PFExecutionError as e:
+                    print(format_exception_for_user(e, include_traceback=False), file=sys.stderr)
+                    return 1
+            
+            cmd = _interpolate(cmd, params, task_env)
+            rc = _exec_line_fabric(cmd, None, task_env, task_name, False, None)
+        # Check if it's a known DSL verb
+        elif _is_dsl_verb(stripped):
             print(f"[skip] unsupported verb in task '{task_name}': {stripped}", file=sys.stderr)
             idx += 1
             continue
+        # If shell_lang is set and line is not a DSL verb, treat as shell command
+        elif shell_lang:
+            try:
+                rendered, _ = _render_polyglot_command(shell_lang, stripped, PFY_ROOT)
+                if rendered:
+                    cmd = rendered
+                else:
+                    cmd = stripped
+                cmd = _interpolate(cmd, params, task_env)
+                rc = _exec_line_fabric(cmd, None, task_env, task_name, False, None)
+            except PFExecutionError as e:
+                print(format_exception_for_user(e, include_traceback=False), file=sys.stderr)
+                return 1
+        else:
+            # Backward compatibility: treat as shell command
+            # This maintains existing behavior for tasks that don't use shell_lang
+            cmd = _interpolate(stripped, params, task_env)
+            rc = _exec_line_fabric(cmd, None, task_env, task_name, False, None)
 
         shell_cmd = stripped[6:].strip()
 
@@ -1029,18 +1526,77 @@ def main(argv: List[str]) -> int:
         for tname, lines, params in selected:
             print(f"{prefix} --> {tname}")
             task_env = {}
+            shell_lang: Optional[str] = None  # Track current shell language
             for ln in lines:
                 stripped = ln.strip()
+                
+                # Skip empty lines and comments
+                if not stripped or stripped.startswith('#'):
+                    continue
+                
+                # Handle env directive
                 if stripped.startswith("env "):
                     for tok in shlex.split(stripped)[1:]:
                         if "=" in tok:
                             k, v = tok.split("=", 1)
                             task_env[k] = _interpolate(v, params, task_env)
                     continue
+                
+                # Handle shell_lang directive
+                if stripped.startswith("shell_lang "):
+                    lang_hint = stripped[11:].strip()
+                    if lang_hint.lower() in ("default", "none", ""):
+                        shell_lang = None
+                    else:
+                        try:
+                            shell_lang = _canonical_lang(lang_hint)
+                        except PFExecutionError as e:
+                            print(format_exception_for_user(e, include_traceback=False), file=sys.stderr)
+                            return 1
+                    continue
+                
                 try:
-                    rc = _exec_line_fabric(
-                        ln, connection, task_env, tname, sflag, suser
-                    )
+                    # Handle explicit shell commands
+                    if stripped.startswith("shell "):
+                        cmd = stripped[6:].strip()
+                        # Check for [lang:xxx] syntax in the command
+                        inline_lang, cmd_without_lang = _parse_lang_bracket(cmd)
+                        
+                        if inline_lang:
+                            # Inline language overrides shell_lang for this command
+                            rendered, _ = _render_polyglot_command(inline_lang, cmd_without_lang, PFY_ROOT)
+                            if rendered:
+                                cmd = rendered
+                            else:
+                                cmd = cmd_without_lang
+                        elif shell_lang:
+                            # Use the current shell_lang
+                            rendered, _ = _render_polyglot_command(shell_lang, cmd, PFY_ROOT)
+                            if rendered:
+                                cmd = rendered
+                        
+                        cmd = _interpolate(cmd, params, task_env)
+                        rc = _exec_line_fabric(cmd, connection, task_env, tname, sflag, suser)
+                    # Check if it's a known DSL verb
+                    elif _is_dsl_verb(stripped):
+                        # Skip unsupported DSL verbs with a warning
+                        print(f"{prefix}[skip] unsupported verb: {stripped}", file=sys.stderr)
+                        continue
+                    # If shell_lang is set and line is not a DSL verb, treat as shell command
+                    elif shell_lang:
+                        rendered, _ = _render_polyglot_command(shell_lang, stripped, PFY_ROOT)
+                        if rendered:
+                            cmd = rendered
+                        else:
+                            cmd = stripped
+                        cmd = _interpolate(cmd, params, task_env)
+                        rc = _exec_line_fabric(cmd, connection, task_env, tname, sflag, suser)
+                    else:
+                        # Backward compatibility: assume it's a shell command
+                        # This maintains existing behavior where lines are passed to _exec_line_fabric
+                        cmd = _interpolate(ln, params, task_env)
+                        rc = _exec_line_fabric(cmd, connection, task_env, tname, sflag, suser)
+                    
                     if rc != 0:
                         # Command failed - create detailed error
                         exc = PFExecutionError(
