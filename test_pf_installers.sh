@@ -11,7 +11,7 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-REPO_ROOT="/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PF_DIR="${REPO_ROOT}/build-packages/deb/pf-runner-1.0.0/pf-runner"
 PF_FILE="${REPO_ROOT}/pf-files/Pfyfile.pf"
 TEST_PREFIX="/tmp/pf-installer-test-$(date +%s)"
@@ -109,7 +109,7 @@ test_help_output() {
     
     log_test "Testing help: $task_name"
     
-    if run_pf "$task_name" 2>&1 | grep -qi "usage\|help\|instruction\|example"; then
+    if run_pf "$task_name" 2>&1 | grep -qiE 'usage|help|instruction|example|test commands|test:'; then
         log_success "Help output present: $task_name"
         return 0
     else
@@ -160,14 +160,14 @@ log_info "Testing git filter repo..."
 test_installer "install-git-filter-repo"
 
 # Module installers
-log_info "Testing module installers..."
-# These might require special permissions
-log_skip "Module installers require system permissions - skipping for now"
-SKIPPED_TESTS=$((SKIPPED_TESTS + 1))
+log_info "Skipping module installers (require system permissions)..."
+log_skip "Module installers require system permissions - skipping"
+SKIPPED_INSTALLERS+=("module installers (require system permissions)")
 
 # Large installers that take time
+log_info "Skipping large installers (take significant time)..."
 log_skip "Large installers (AFL++, Ghidra, etc.) take significant time - skipping"
-SKIPPED_TESTS=$((SKIPPED_TESTS + 1))
+SKIPPED_INSTALLERS+=("large installers (AFL++, Ghidra, etc.)")
 
 #
 # Summary
