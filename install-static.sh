@@ -133,12 +133,24 @@ mkdir -p "$LIB_DIR" "$BIN_DIR"
 
 # Copy pf-runner-full directory
 log_info "Copying pf-runner files to $LIB_DIR"
-cp -r "$PF_RUNNER_FULL_DIR"/*.py "$LIB_DIR/" 2>/dev/null || true
-cp -r "$PF_RUNNER_FULL_DIR"/pf.lark "$LIB_DIR/" 2>/dev/null || true
-cp -r "$PF_RUNNER_FULL_DIR"/pf_runner.egg-info "$LIB_DIR/" 2>/dev/null || true
 
-# Make pf_main.py executable
-chmod +x "${LIB_DIR}/pf_main.py"
+# Copy Python files
+if ! cp -r "$PF_RUNNER_FULL_DIR"/*.py "$LIB_DIR/" 2>/dev/null; then
+    log_error "Failed to copy Python files from $PF_RUNNER_FULL_DIR"
+    exit 1
+fi
+
+# Copy grammar file (required)
+if [[ ! -f "$PF_RUNNER_FULL_DIR/pf.lark" ]]; then
+    log_error "Required file pf.lark not found in $PF_RUNNER_FULL_DIR"
+    exit 1
+fi
+cp "$PF_RUNNER_FULL_DIR/pf.lark" "$LIB_DIR/"
+
+# Copy egg-info if it exists (optional)
+if [[ -d "$PF_RUNNER_FULL_DIR/pf_runner.egg-info" ]]; then
+    cp -r "$PF_RUNNER_FULL_DIR/pf_runner.egg-info" "$LIB_DIR/"
+fi
 
 # Create pf wrapper executable
 cat > "${BIN_DIR}/pf" << 'EOF'
@@ -155,7 +167,9 @@ sys.path.insert(0, str(lib_dir))
 # Import and run pf_main
 try:
     import pf_main
-    sys.exit(pf_main.main(sys.argv[1:]))
+    exit_code = pf_main.main(sys.argv[1:])
+    # Handle None return value (treat as success)
+    sys.exit(exit_code if exit_code is not None else 0)
 except ImportError as e:
     print(f"ERROR: Could not import pf_main from {lib_dir}", file=sys.stderr)
     print(f"Error: {e}", file=sys.stderr)
