@@ -29,6 +29,10 @@ jobs:
     - name: Install dependencies
       run: npm ci
       
+    - name: Install Python Dependencies
+      run: |
+        pip install --user -r requirements.txt
+      
     - name: Install Playwright browsers
       run: npx playwright install --with-deps
       
