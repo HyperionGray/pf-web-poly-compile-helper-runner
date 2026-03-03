@@ -28,12 +28,13 @@ PIP_INSTALL_FLAGS ?= --ignore-installed
 # Avoid touching distro-managed pip/setuptools/wheel unless explicitly requested.
 SKIP_PIP_UPGRADE ?= 1
 
-.PHONY: help local-install local_install link setup-venv test clean distclean install install-deb install-pip install-user install-completions uninstall
+.PHONY: help local-install local_install link setup-venv test clean distclean install install-deb install-pip install-user install-completions uninstall build-static
 
 help:
 	@echo "Targets:"
 	@echo "  local-install      - create repo-local './pf' shim (native runner)"
 	@echo "  setup-venv         - create .venv and install deps (editable)"
+	@echo "  build-static       - build static executable using PyInstaller"
 	@echo "  install / install-deb - install packaged .deb via dpkg -i (uses sudo if needed)"
 	@echo "  apt-repo           - build .deb (if needed) and regenerate apt repo under ../build-packages/deb/apt-repo (CODENAME=$(CODENAME))"
 	@echo "  install-pip        - fallback pip install (not preferred)"
@@ -139,7 +140,20 @@ uninstall:
 clean:
 	@find . -type d -name __pycache__ -prune -exec rm -rf {} + || true
 	@find . -type f -name '*.pyc' -delete || true
+	@rm -rf build dist *.spec
 
 distclean: clean
 	@rm -f $(PF_LINK)
 	@echo "Removed local pf shim"
+
+build-static: setup-venv
+	@echo "Building static executable with PyInstaller..."
+	@$(PIP) install pyinstaller >/dev/null 2>&1
+	@$(PF_PY) -m PyInstaller --onefile --name pf-static pf_main.py
+	@if [ -f dist/pf-static ]; then \
+		mv dist/pf-static .; \
+		echo "Static executable created: ./pf-static"; \
+	else \
+		echo "Error: Failed to create static executable"; \
+		exit 1; \
+	fi
