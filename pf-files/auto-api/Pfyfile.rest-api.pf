@@ -104,7 +104,22 @@ task rest-install [alias=rinst]
     echo "Installing systemd unit from $UNIT_SRC"
     sudo install -m 0644 "$UNIT_SRC" /etc/systemd/system/pf-rest-api@.service
     sudo systemctl daemon-reload
-    echo "pf REST API service installed. Use 'pf rest-on' to start."
+    echo ""
+    echo "[OK] pf REST API service installed successfully!"
+    echo ""
+    echo "USAGE:"
+    echo "  pf rest-on       # Start the REST API server"
+    echo "  pf rest-off      # Stop the REST API server"
+    echo "  pf rest-status   # Check server status"
+    echo "  pf rest-logs     # View server logs"
+    echo "  pf rest-dev      # Start in development mode (foreground)"
+    echo ""
+    echo "API DOCUMENTATION:"
+    echo "  After starting: http://localhost:8000/docs (Swagger UI)"
+    echo "  After starting: http://localhost:8000/redoc (ReDoc)"
+    echo ""
+    echo "CONFIGURATION:"
+    echo "  pf rest-config   # Show configuration options"
 end
 
 task rest-uninstall [alias=runinst]
