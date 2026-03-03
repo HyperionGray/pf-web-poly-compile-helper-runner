@@ -38,12 +38,7 @@ venv/
 # Test artifacts
 test-results/
 playwright-report/
-htmlcov/
-coverage.xml
-.coverage
-.pytest_cache/
-*.cover
-tui-test-report.json
+*-test-report.json
 
 # CodeQL artifacts
 _codeql_*
