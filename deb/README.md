@@ -32,8 +32,9 @@ pf list
 
 The `.deb` package includes:
 - `/usr/local/lib/pf-runner/` - pf-runner Python library
+- `/usr/local/lib/pf-runner/fabric/` - bundled fabric library for SSH support
 - `/usr/local/bin/pf` - pf executable wrapper
-- Python dependencies (fabric, lark, typer) - installed via pip in postinst
+- Python dependencies (lark, json5) - installed via pip in postinst
 
 ## Dependencies
 
@@ -44,6 +45,8 @@ The package depends on:
 
 It recommends:
 - `podman` or `docker.io` for container support
+
+Note: fabric is bundled with the package, so it doesn't need to be installed separately.
 
 ## Uninstalling
 

@@ -5,6 +5,7 @@ bfg**
 **.code-workspace
 **bak/**
 # Build artifacts
+build-packages/**/target/
 demos/**/web/wasm/**/pkg/
 demos/**/web/wasm/**/*.js
 demos/**/web/wasm/**/*.wasm
@@ -54,7 +55,8 @@ pf-runner/*.spec
 build/
 
 # Debian package build artifacts
-deb/build/
+debian/build/
+build-packages/
 
 # Container artifacts (don't commit built images or runtime data)
 # Note: Dockerfiles and quadlet configs ARE committed

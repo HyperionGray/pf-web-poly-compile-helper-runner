@@ -29,7 +29,7 @@ import traceback
 import difflib
 import re
 import hashlib
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -1345,6 +1345,49 @@ class PfRunner:
             return None
         return best
 
+    def _reconstruct_shell_command(self, original_content: str, tokens: List[str], modified_indices: Set[int]) -> str:
+        """
+        Reconstruct a shell command line, preserving shell syntax while updating specific tokens.
+        
+        This avoids the shlex.split() -> modify -> shlex.join() pattern that incorrectly quotes
+        shell metacharacters like [, ], (, ), &&, ||, etc.
+        
+        The key insight: we only quote the modified path tokens (using shlex.quote for safety),
+        and leave all other tokens as-is to preserve shell syntax.
+        
+        Note: This approach joins tokens with single spaces, which may differ from the original
+        spacing. This is acceptable because:
+        - Shell commands treat multiple spaces the same as single spaces (except in quoted strings)
+        - We only modify path tokens, not quoted strings
+        - The alternative (shlex.join) would break shell syntax entirely
+        
+        Args:
+            original_content: The original command line string; returned unchanged if no modifications
+            tokens: List of tokens (from shlex.split)
+            modified_indices: Set of indices of tokens that were modified
+            
+        Returns:
+            Reconstructed command string with modified tokens replaced
+        """
+        if not modified_indices:
+            return original_content
+        
+        # Reconstruct by joining tokens, quoting only modified tokens
+        result_parts = []
+        for idx, tok in enumerate(tokens):
+            if idx in modified_indices:
+                # This token was modified (typically a path that was resolved)
+                # Always use shlex.quote for comprehensive safety - it will only quote if needed
+                result_parts.append(shlex.quote(tok))
+            else:
+                # Original token - keep as-is without quoting
+                # This preserves shell operators like [, ], &&, ||, (, ), etc.
+                result_parts.append(tok)
+        
+        # Join with spaces. This loses information about original spacing but preserves
+        # shell syntax since we're not quoting the shell operators.
+        return ' '.join(result_parts)
+
     def _maybe_generate_corrected_shell_script(
         self, script_abs: str, invocation_cwd: str, task_cwd: Optional[str]
     ) -> Tuple[Optional[str], Optional[str]]:
@@ -1422,6 +1465,7 @@ class PfRunner:
                 continue
 
             local_changed = False
+            modified_indices: Set[int] = set()  # Track which token indices were modified
             op_tokens = {"&&", "||", ";", "|", "&", "(", ")", "{", "}"}
             env_assign_re = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=.*$")
 
@@ -1445,6 +1489,7 @@ class PfRunner:
                         resolved = _resolve_rel(toks[idx + 1])
                         if resolved:
                             toks[idx + 1] = resolved
+                            modified_indices.add(idx + 1)
                             local_changed = True
                         at_command_start = False
                         idx += 1
@@ -1456,6 +1501,7 @@ class PfRunner:
                             resolved = _resolve_rel(toks[idx + 1])
                             if resolved:
                                 toks[idx + 1] = resolved
+                                modified_indices.add(idx + 1)
                                 local_changed = True
                         at_command_start = False
                         idx += 1
@@ -1466,6 +1512,7 @@ class PfRunner:
                         resolved = _resolve_rel(tok)
                         if resolved:
                             toks[idx] = resolved
+                            modified_indices.add(idx)
                             local_changed = True
 
                     at_command_start = False
@@ -1474,7 +1521,7 @@ class PfRunner:
 
             if local_changed:
                 changed = True
-                out_lines.append(indent + shlex.join(toks) + newline)
+                out_lines.append(indent + self._reconstruct_shell_command(content, toks, modified_indices) + newline)
             else:
                 out_lines.append(line)
 
@@ -1577,7 +1624,13 @@ class PfRunner:
         warnings = []
         if note:
             warnings.append(f"polyglot source {note}")
-        return shlex.join(tokens), warnings
+        
+        # Polyglot file references are in the form @file or file:file
+        # We modified the first token (the file path), so track that
+        modified_indices: Set[int] = {0}
+        
+        # Reconstruct using the standard method which handles both single and multi-token cases
+        return self._reconstruct_shell_command(cmd, tokens, modified_indices), warnings
 
     def _autofix_shell_command_context(
         self,
@@ -1682,7 +1735,9 @@ class PfRunner:
             tokens[script_idx] = corrected
             if corr_note:
                 warnings.append(corr_note)
-            return shlex.join(tokens), None, warnings
+            # Track that we modified the script token
+            modified_indices: Set[int] = {script_idx}
+            return self._reconstruct_shell_command(cmd, tokens, modified_indices), None, warnings
 
         # Prefer running from the task file directory unless the script strongly
         # indicates it expects a different base.
@@ -1708,7 +1763,9 @@ class PfRunner:
                 f"running script from '{cwd_override}' instead of task cwd '{task_cwd}' (relative paths in script)"
             )
 
-        return shlex.join(tokens), cwd_override, warnings
+        # Track that we modified the script token by resolving it to an absolute path
+        modified_indices: Set[int] = {script_idx}
+        return self._reconstruct_shell_command(cmd, tokens, modified_indices), cwd_override, warnings
     
     def _execute_on_hosts(self, selected_tasks: List[Tuple[str, List[str], Dict[str, str], Optional[str]]], 
                          hosts: List[str], args) -> int:

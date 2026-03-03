@@ -1,9 +1,6 @@
 #!/bin/bash
-"""
-KFuzz Installation Script
-
-Installs and configures KFuzz for kernel fuzzing integration.
-"""
+# KFuzz Installation Script
+# Installs and configures KFuzz for kernel fuzzing integration.
 
 set -e
 

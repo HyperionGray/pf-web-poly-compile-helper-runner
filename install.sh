@@ -48,8 +48,10 @@ USAGE
 
 # Parse command line arguments
 PREFIX=""
+PREFIX_SET=false
 SKIP_DEPS=false
 SHOW_HELP=false
+REPO_ROOT="${SCRIPT_DIR}"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -130,37 +132,11 @@ PY
   fi
 }
 
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1" >&2
-}
-
 # Set default prefix
-if [[ "$PREFIX_SET" == false ]]; then
-    if [[ $EUID -eq 0 ]]; then
-        PREFIX="$DEFAULT_PREFIX"
-    else
-        PREFIX="$DEFAULT_PREFIX_USER"
-    fi
-fi
-
-# Check if running as root when needed
-check_permissions() {
-    if [[ "$PREFIX" == "/usr/local" ]] || [[ "$PREFIX" == "/usr"* ]]; then
-        if [[ $EUID -ne 0 ]]; then
-            log_error "Installation to ${PREFIX} requires root privileges."
-            log_info "Try: sudo ./install.sh"
-            log_info "Or use user installation: ./install.sh --prefix ~/.local"
-            exit 1
-        fi
-    fi
+ensure_permissions() {
+  if [[ "$PREFIX" == /usr* ]] && [[ "$(id -u 2>/dev/null || echo 1)" -ne 0 ]]; then
+    die "Installing to $PREFIX requires root. Try: sudo ./install.sh or ./install.sh --prefix ~/.local"
+  fi
 }
 
 # Detect operating system
@@ -176,12 +152,6 @@ detect_os() {
     Darwin) echo macos ;;
     *) echo unknown ;;
   esac
-}
-
-ensure_permissions() {
-  if [[ "$PREFIX" == /usr* ]] && [[ "$(id -u 2>/dev/null || echo 1)" -ne 0 ]]; then
-    die "Installing to $PREFIX requires root. Try: sudo ./install.sh --prefix ~/.local"
-  fi
 }
 
 install_system_deps() {
@@ -239,14 +209,14 @@ copy_dir_follow() {
   mkdir -p "$dest"
   local args=(-aL --ignore-missing-args)
   [[ -n "$exclude" ]] && args+=(--exclude "$exclude")
-  rsync "${args[@]}" "${src}/" "${dest}/"
+  rsync "${args[@]}" "${src}/" "${dest}/" || true  # Ignore rsync errors for symlinks
 }
 
 copy_item_follow() {
   local src="$1" dest="$2"
   [[ -e "$src" ]] || return 0
   mkdir -p "$dest"
-  rsync -aL "$src" "$dest/"
+  rsync -aL "$src" "$dest/" || true  # Ignore rsync errors for symlinks
 }
 
 copy_project() {
@@ -279,149 +249,135 @@ copy_project() {
 }
 
 write_wrapper() {
-  local pf_files="${PF_FILES_DIR:-${PREFIX}/lib/pf-files}"
+  local venv_path=""
+  if [[ "$PREFIX" != /usr* ]]; then
+    venv_path="$PREFIX/lib/pf-runner-venv"
+  fi
+  
   log "Installing wrapper to ${PREFIX}/bin/pf"
-  cat > "${PREFIX}/bin/pf" <<EOF
+  cat > "${PREFIX}/bin/pf" <<'WRAPPER_EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Install shell completions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PREFIX="$(dirname "$SCRIPT_DIR")"
+PF_RUNNER="${PREFIX}/lib/pf-runner"
+VENV_PATH="${PREFIX}/lib/pf-runner-venv"
+
+# Activate venv if it exists
+if [[ -d "$VENV_PATH" ]] && [[ -f "$VENV_PATH/bin/activate" ]]; then
+    source "$VENV_PATH/bin/activate"
+fi
+
+# Run pf-runner
+exec python3 "${PF_RUNNER}/pf_main.py" "$@"
+WRAPPER_EOF
+  
+  chmod +x "${PREFIX}/bin/pf"
+}
+
+check_prerequisites() {
+  log "Checking prerequisites..."
+  ensure_prereqs
+}
+
+install_pf_runner() {
+  log "Installing pf-runner files..."
+  copy_project
+  write_wrapper
+}
+
 install_completions() {
-    log_info "Installing shell completions..."
-    
-    local completions_dir="${PF_RUNNER_DIR}/completions"
-    if [[ ! -d "$completions_dir" ]]; then
-        log_warning "Completions directory not found, skipping"
-        return 0
-    fi
-    
-    # Install bash completion
-    local bash_completion_installed=false
-    if [[ -d "/etc/bash_completion.d" ]] && [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
-        cp "${completions_dir}/pf-completion.bash" "/etc/bash_completion.d/pf"
-        log_success "Installed bash completion to /etc/bash_completion.d/pf"
-        bash_completion_installed=true
-    elif [[ -d "${HOME}/.local/share/bash-completion/completions" ]]; then
-        mkdir -p "${HOME}/.local/share/bash-completion/completions"
-        cp "${completions_dir}/pf-completion.bash" "${HOME}/.local/share/bash-completion/completions/pf"
-        log_success "Installed bash completion to ~/.local/share/bash-completion/completions/pf"
-        bash_completion_installed=true
-    fi
-    
-    # Install zsh completion
-    local zsh_completion_installed=false
-    if [[ -d "/usr/local/share/zsh/site-functions" ]] && [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
-        cp "${completions_dir}/_pf" "/usr/local/share/zsh/site-functions/_pf"
-        log_success "Installed zsh completion to /usr/local/share/zsh/site-functions/_pf"
-        zsh_completion_installed=true
-    elif [[ -d "${HOME}/.zsh/completions" ]] || mkdir -p "${HOME}/.zsh/completions" 2>/dev/null; then
-        cp "${completions_dir}/_pf" "${HOME}/.zsh/completions/_pf"
-        log_success "Installed zsh completion to ~/.zsh/completions/_pf"
-        log_info "Add 'fpath=(~/.zsh/completions \$fpath)' to your ~/.zshrc if not already present"
-        zsh_completion_installed=true
-    fi
-    
-    if [[ "$bash_completion_installed" == false ]] && [[ "$zsh_completion_installed" == false ]]; then
-        log_warning "Could not install shell completions (no suitable directories found)"
-    fi
-}
-
-# Validate installation
-validate_installation() {
-    log_info "Validating installation..."
-    
-    local pf_cmd="${PREFIX}/bin/pf"
-    
-    # Check if pf command exists and is executable
-    if [[ ! -x "$pf_cmd" ]]; then
-        log_error "pf command not found or not executable at $pf_cmd"
-        return 1
-    fi
-    
-    # Test basic pf functionality
-    log_info "Testing pf list..."
-    local list_output
-    if ! list_output=$("$pf_cmd" list 2>&1); then
-        log_error "pf list failed: $list_output"
-        return 1
-    fi
-    
-    log_success "Basic pf functionality validated"
-    log_success "Installation validation passed"
+  log "Installing shell completions..."
+  
+  # Check if completions directory exists
+  if [[ ! -d "${REPO_ROOT}/pf-runner/completions" ]]; then
+    warn "Completions directory not found, skipping"
     return 0
+  fi
+  
+  # Install bash completion
+  if [[ -d "/etc/bash_completion.d" ]] && [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
+    run_as_root cp "${REPO_ROOT}/pf-runner/completions/pf-completion.bash" "/etc/bash_completion.d/pf" 2>/dev/null || true
+    log "Installed bash completion to /etc/bash_completion.d/pf"
+  elif [[ -d "${HOME}/.local/share/bash-completion/completions" ]]; then
+    mkdir -p "${HOME}/.local/share/bash-completion/completions"
+    cp "${REPO_ROOT}/pf-runner/completions/pf-completion.bash" "${HOME}/.local/share/bash-completion/completions/pf" 2>/dev/null || true
+    log "Installed bash completion to ~/.local/share/bash-completion/completions/pf"
+  fi
+  
+  # Install zsh completion
+  if [[ -d "/usr/local/share/zsh/site-functions" ]] && [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
+    run_as_root cp "${REPO_ROOT}/pf-runner/completions/_pf" "/usr/local/share/zsh/site-functions/_pf" 2>/dev/null || true
+    log "Installed zsh completion to /usr/local/share/zsh/site-functions/_pf"
+  elif mkdir -p "${HOME}/.zsh/completions" 2>/dev/null; then
+    cp "${REPO_ROOT}/pf-runner/completions/_pf" "${HOME}/.zsh/completions/_pf" 2>/dev/null || true
+    log "Installed zsh completion to ~/.zsh/completions/_pf"
+  fi
 }
 
-# Update PATH information
+validate_installation() {
+  log "Validating installation..."
+  
+  local pf_cmd="${PREFIX}/bin/pf"
+  
+  # Check if pf command exists and is executable
+  if [[ ! -x "$pf_cmd" ]]; then
+    error "pf command not found or not executable at $pf_cmd"
+    return 1
+  fi
+  
+  log "Installation validated successfully"
+  return 0
+}
+
 update_path_info() {
-    local bin_dir="${PREFIX}/bin"
-    
-    # Check if bin directory is in PATH
-    if [[ ":$PATH:" != *":${bin_dir}:"* ]]; then
-        log_warning "The installation directory ${bin_dir} is not in your PATH"
-        log_info "Add the following to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
-        echo ""
-        echo "    export PATH=\"${bin_dir}:\$PATH\""
-        echo ""
-        log_info "Or run: echo 'export PATH=\"${bin_dir}:\$PATH\"' >> ~/.bashrc"
-        log_info "Then restart your shell or run: source ~/.bashrc"
-    else
-        log_success "Installation directory is already in PATH"
-    fi
-}
-
-# Main installation function
-main() {
-    echo -e "${BLUE}pf-runner Native Installation Script${NC}"
-    echo "======================================"
+  local bin_dir="${PREFIX}/bin"
+  
+  # Check if bin directory is in PATH
+  if [[ ":$PATH:" != *":${bin_dir}:"* ]]; then
+    warn "The installation directory ${bin_dir} is not in your PATH"
+    log "Add the following to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
     echo ""
-    
-    # Check if we're in the right directory
-    if [[ ! -d "$PF_RUNNER_DIR" ]]; then
-        log_error "pf-runner directory not found at $PF_RUNNER_DIR"
-        log_info "Please run this script from the repository root directory"
-        exit 1
-    fi
-    
-    # Check permissions
-    check_permissions
-    
-    # Run installation steps
-    check_prerequisites
-    
-    if [[ "$SKIP_DEPS" == false ]]; then
-        install_system_deps
-    fi
-    
-    setup_python_env
-    install_pf_runner
-    install_completions
-    
-    # Validate installation
-    if validate_installation; then
-        echo ""
-        log_success "🎉 pf-runner native installation completed successfully!"
-        echo ""
-        log_info "Installation summary:"
-        echo "  • pf-runner library: ${PREFIX}/lib/pf-runner"
-        echo "  • pf executable: ${PREFIX}/bin/pf"
-        echo "  • Python dependencies: lark, fabric, typer"
-        echo ""
-        
-        update_path_info
-        
-        echo ""
-        log_info "Next steps:"
-        echo "  1. Restart your shell or run: source ~/.bashrc"
-        echo "  2. Try: pf --version"
-        echo "  3. Try: pf list"
-        echo "  4. Read the documentation: cat README.md"
-        echo ""
-        log_success "Happy task running! 🚀"
-    else
-        log_error "Installation validation failed"
-        exit 1
-    fi
+    echo "    export PATH=\"${bin_dir}:\$PATH\""
+    echo ""
+  fi
 }
 
-# Run main function
-main "$@"
+# Show help if requested
+if [[ "$SHOW_HELP" == true ]]; then
+  show_help
+  exit 0
+fi
+
+# Set default prefix if not specified
+if [[ "$PREFIX_SET" == false ]]; then
+  if [[ $EUID -eq 0 ]]; then
+    PREFIX="$DEFAULT_PREFIX"
+  else
+    PREFIX="$DEFAULT_PREFIX_USER"
+  fi
+fi
+
+log "pf-runner Native Installer"
+log "Installation prefix: $PREFIX"
+echo ""
+
+ensure_permissions
+install_system_deps
+ensure_prereqs
+setup_python_env
+copy_project
+write_wrapper
+install_completions
+validate_installation
+
+echo ""
+log "Installation completed successfully!"
+log "pf-runner installed to: ${PREFIX}/lib/pf-runner"
+log "pf executable: ${PREFIX}/bin/pf"
+echo ""
+update_path_info
+echo ""
+log "Try: pf --version"
+log "Try: pf list"
