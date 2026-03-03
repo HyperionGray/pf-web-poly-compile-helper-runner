@@ -51,7 +51,7 @@ detect_os() {
 
 # Check if we're in the repo
 in_repo() {
-    [[ -f "install.sh" ]] && [[ -d "pf-runner" ]]
+    [[ -f "scripts/install.sh" ]] && [[ -d "pf-runner" ]]
 }
 
 # Main installation logic
@@ -70,15 +70,15 @@ main() {
         log_info "Detected repository - using local installer"
         
         # Check if we have a .deb package
-        if [[ "$os_type" == "debian" ]] && [[ -f "debian/build/pf-runner_${PF_VERSION}.deb" ]]; then
+        if [[ "$os_type" == "debian" ]] && [[ -f "deb/build/pf-runner_${PF_VERSION}.deb" ]]; then
             log_info "Found .deb package - installing via dpkg"
             if [[ $EUID -eq 0 ]]; then
-                dpkg -i "debian/build/pf-runner_${PF_VERSION}.deb" || true
+                dpkg -i "deb/build/pf-runner_${PF_VERSION}.deb" || true
                 apt-get install -f -y
                 log_success "Installed pf-runner from .deb package"
             else
                 log_error ".deb installation requires sudo"
-                log_info "Run: sudo dpkg -i debian/build/pf-runner_${PF_VERSION}.deb && sudo apt-get install -f"
+                log_info "Run: sudo dpkg -i deb/build/pf-runner_${PF_VERSION}.deb && sudo apt-get install -f"
                 exit 1
             fi
         else
