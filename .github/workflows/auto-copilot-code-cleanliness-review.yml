@@ -32,13 +32,16 @@ jobs:
           echo "Files larger than 500 lines that may benefit from splitting:" >> /tmp/analysis.md
           echo "" >> /tmp/analysis.md
           
-          # Find files larger than 500 lines (excluding common large files)
+          # Find files larger than 500 lines (excluding auto-generated, external dependencies, and common large files)
           find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.java" -o -name "*.go" -o -name "*.cs" -o -name "*.rb" \) \
             ! -path "*/node_modules/*" \
             ! -path "*/dist/*" \
             ! -path "*/build/*" \
             ! -path "*/.venv/*" \
             ! -path "*/vendor/*" \
+            ! -path "*/fabric/*" \
+            ! -name "*_grammar.py" \
+            ! -name "*grammar.py" \
             -exec wc -l {} \; | \
             awk '$1 > 500 {print $1 " lines: " $2}' | \
             sort -rn >> /tmp/analysis.md || echo "No large files found" >> /tmp/analysis.md
@@ -48,7 +51,7 @@ jobs:
           echo "" >> /tmp/analysis.md
           echo "Files with potential complexity issues:" >> /tmp/analysis.md
           
-          # Find files with many functions/classes (basic heuristic)
+          # Find files with many functions/classes (basic heuristic, excluding auto-generated and external)
           for ext in py js ts java go cs rb; do
             if [ "$ext" = "py" ]; then
               pattern="^def |^class "
@@ -64,6 +67,9 @@ jobs:
               ! -path "*/build/*" \
               ! -path "*/.venv/*" \
               ! -path "*/vendor/*" \
+              ! -path "*/fabric/*" \
+              ! -name "*_grammar.py" \
+              ! -name "*grammar.py" \
               -exec sh -c 'count=$(grep -c "$1" "$2" 2>/dev/null || echo 0); if [ "$count" -gt 20 ]; then echo "$count definitions in $2"; fi' _ "$pattern" {} \; \
               2>/dev/null || true
           done | sort -rn >> /tmp/analysis.md
