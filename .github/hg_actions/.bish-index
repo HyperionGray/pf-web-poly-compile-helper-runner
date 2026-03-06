@@ -1,8 +1,0 @@
-./examples/review_pr.md
-./config.py
-./planner.py
-./__init__.py
-./client.py
-./cli.py
-./parser.py
-./executor.py

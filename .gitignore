@@ -77,3 +77,4 @@ venv
 **.zip
 .bish.**
 .bish**
+**/**.bish.*
