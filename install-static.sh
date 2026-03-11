@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install-static.sh - Install pf-runner static executable
+# install-static.sh - Install pf-runner (Python-based, no build required)
 # Usage: ./install-static.sh [--prefix PATH]
 
 set -euo pipefail
@@ -8,7 +8,7 @@ set -euo pipefail
 DEFAULT_PREFIX="/usr/local"
 DEFAULT_PREFIX_USER="${HOME}/.local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATIC_EXEC="${SCRIPT_DIR}/pf-runner/pf-static"
+PF_RUNNER_FULL_DIR="${SCRIPT_DIR}/pf-runner-full"
 
 # Colors
 GREEN='\033[0;32m'
@@ -48,7 +48,7 @@ done
 
 show_help() {
     cat << EOF
-pf-runner Static Executable Installer
+pf-runner Installer (No Build Required)
 
 USAGE:
     ./install-static.sh [OPTIONS]
@@ -65,9 +65,10 @@ EXAMPLES:
     ./install-static.sh --prefix ~/.local
 
 WHAT THIS DOES:
-    Copies the pre-built static pf executable to the installation directory.
-    This is the simplest installation method - no build tools or Python
-    dependencies are required at install time.
+    Installs pf-runner from source without requiring any build step.
+    Copies the pf-runner-full directory and creates a wrapper script.
+    No Python dependencies are installed - you need to install them separately
+    or use the Makefile in pf-runner-full.
 
 EOF
 }
@@ -112,27 +113,74 @@ if [[ "$PREFIX" == "/usr/local" ]] || [[ "$PREFIX" == "/usr"* ]]; then
     fi
 fi
 
-# Check if static executable exists
-if [[ ! -f "$STATIC_EXEC" ]]; then
-    log_error "Static executable not found at $STATIC_EXEC"
-    log_info "Please build it first by running: cd pf-runner && make build"
+# Check if pf-runner-full exists
+if [[ ! -d "$PF_RUNNER_FULL_DIR" ]]; then
+    log_error "pf-runner-full directory not found at $PF_RUNNER_FULL_DIR"
+    log_info "This script must be run from the repository root"
     exit 1
 fi
 
-echo -e "${BLUE}pf-runner Static Executable Installer${NC}"
-echo "========================================"
+echo -e "${BLUE}pf-runner Installer${NC}"
+echo "===================="
 echo ""
 
-log_info "Installing pf static executable..."
+log_info "Installing pf-runner from source..."
 
-# Create bin directory
+# Create directories
+LIB_DIR="${PREFIX}/lib/pf-runner"
 BIN_DIR="${PREFIX}/bin"
-mkdir -p "$BIN_DIR"
+mkdir -p "$LIB_DIR" "$BIN_DIR"
 
-# Copy static executable
-cp "$STATIC_EXEC" "${BIN_DIR}/pf"
+# Copy pf-runner-full directory
+log_info "Copying pf-runner files to $LIB_DIR"
+
+# Copy Python files
+if ! cp -r "$PF_RUNNER_FULL_DIR"/*.py "$LIB_DIR/" 2>/dev/null; then
+    log_error "Failed to copy Python files from $PF_RUNNER_FULL_DIR"
+    exit 1
+fi
+
+# Copy grammar file (required)
+if [[ ! -f "$PF_RUNNER_FULL_DIR/pf.lark" ]]; then
+    log_error "Required file pf.lark not found in $PF_RUNNER_FULL_DIR"
+    exit 1
+fi
+cp "$PF_RUNNER_FULL_DIR/pf.lark" "$LIB_DIR/"
+
+# Copy egg-info if it exists (optional)
+if [[ -d "$PF_RUNNER_FULL_DIR/pf_runner.egg-info" ]]; then
+    cp -r "$PF_RUNNER_FULL_DIR/pf_runner.egg-info" "$LIB_DIR/"
+fi
+
+# Create pf wrapper executable
+cat > "${BIN_DIR}/pf" << 'EOF'
+#!/usr/bin/env python3
+# pf - Wrapper for pf-runner
+import sys
+import os
+from pathlib import Path
+
+# Add library directory to path
+lib_dir = Path(__file__).parent.parent / "lib" / "pf-runner"
+sys.path.insert(0, str(lib_dir))
+
+# Import and run pf_main
+try:
+    import pf_main
+    exit_code = pf_main.main(sys.argv[1:])
+    # Handle None return value (treat as success)
+    sys.exit(exit_code if exit_code is not None else 0)
+except ImportError as e:
+    print(f"ERROR: Could not import pf_main from {lib_dir}", file=sys.stderr)
+    print(f"Error: {e}", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("Make sure Python dependencies are installed:", file=sys.stderr)
+    print("  pip install 'lark>=1.1.0' 'fabric>=3.2,<4' 'typer>=0.12'", file=sys.stderr)
+    sys.exit(1)
+EOF
 chmod +x "${BIN_DIR}/pf"
 
+log_success "pf-runner installed to ${LIB_DIR}"
 log_success "pf executable installed to ${BIN_DIR}/pf"
 
 # Check if in PATH
