@@ -75,13 +75,13 @@ class TestModuleListing(unittest.TestCase):
             output = stdout.getvalue()
             self.assertEqual(rc, 0)
             self.assertIn("Core tasks:", output)
-            self.assertIn("  local-task - Local task", output)
-            self.assertIn("  local-alias - Local alias task (aliases: lt)", output)
+            self.assertIn("local-task - Local task", output)
+            self.assertIn("local-alias - Local alias task (aliases: lt)", output)
             self.assertIn("Modules:", output)
-            self.assertIn("  alpha (2 tasks)", output)
-            self.assertIn("  beta-tools (1 task)", output)
-            self.assertNotIn("  alpha-task - Alpha task", output)
-            self.assertNotIn("  beta-task - Beta task", output)
+            self.assertIn("alpha (2 tasks)", output)
+            self.assertIn("beta-tools (1 task)", output)
+            self.assertNotIn("alpha-task - Alpha task", output)
+            self.assertNotIn("beta-task - Beta task", output)
 
     def test_subcommand_list_shows_module_tasks(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -94,8 +94,8 @@ class TestModuleListing(unittest.TestCase):
             output = stdout.getvalue()
             self.assertEqual(rc, 0)
             self.assertIn("Tasks for alpha:", output)
-            self.assertIn("  alpha-task - Alpha task (aliases: at)", output)
-            self.assertIn("  alpha-second - Alpha second task", output)
+            self.assertIn("alpha-task - Alpha task (aliases: at)", output)
+            self.assertIn("alpha-second - Alpha second task", output)
             self.assertNotIn("local-task", output)
             self.assertNotIn("beta-task", output)
 

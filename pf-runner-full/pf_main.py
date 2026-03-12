@@ -76,6 +76,11 @@ from pf_task_executor import TaskExecutor
 from pf_shell import execute_shell_command
 from pfuck import PfAutocorrect
 
+# (task_name, description, aliases)
+TaskListing = Tuple[str, Optional[str], List[str]]
+_PFYFILE_MODULE_PREFIX = "Pfyfile."
+_PFYFILE_MODULE_SUFFIX = ".pf"
+
 
 class PfRunner:
     """Enhanced pf runner with subcommand support and modular architecture."""
@@ -86,7 +91,7 @@ class PfRunner:
         self.builtin_handler = BuiltinCommandHandler()
         self.task_executor = TaskExecutor()
         self.autocorrect = None
-        
+
     def discover_subcommands(self, pfyfile: Optional[str] = None) -> Dict[str, List[str]]:
         """Discover and register subcommands from included files."""
         self.subcommand_manager.register_subcommands_with_parser(self.arg_parser, pfyfile)
@@ -119,15 +124,26 @@ class PfRunner:
         return global_env
 
     def _module_name_from_source_file(self, source_file: Optional[str]) -> Optional[str]:
-        """Convert a Pfyfile path into the matching module/subcommand name."""
+        """Convert a `Pfyfile.<name>.pf` path into its module/subcommand name.
+
+        Underscores are normalized to hyphens and the result is lowercased.
+        Returns None for missing paths, non-matching filenames, or the main
+        `Pfyfile.pf`, which does not map to a module subcommand.
+        """
         if not source_file:
             return None
 
         basename = os.path.basename(source_file)
-        if not (basename.startswith("Pfyfile.") and basename.endswith(".pf")):
+        if not (
+            basename.startswith(_PFYFILE_MODULE_PREFIX)
+            and basename.endswith(_PFYFILE_MODULE_SUFFIX)
+        ):
             return None
 
-        module_name = basename[8:-3].replace("_", "-").lower()
+        module_name = basename[
+            len(_PFYFILE_MODULE_PREFIX) : -len(_PFYFILE_MODULE_SUFFIX)
+        ].replace("_", "-").lower()
+        # The main Pfyfile maps to direct tasks, not a nested module/subcommand.
         if module_name in ("", "pf"):
             return None
         return module_name
@@ -139,8 +155,14 @@ class PfRunner:
 
     def _load_task_listing(
         self, file_arg: Optional[str]
-    ) -> Tuple[List[Tuple[str, Optional[str], List[str]]], Dict[str, List[Tuple[str, Optional[str], List[str]]]]]:
-        """Load task metadata split into direct tasks and module tasks."""
+    ) -> Tuple[List[TaskListing], Dict[str, List[TaskListing]]]:
+        """Load task metadata as `(direct_tasks, module_tasks)`.
+
+        Each task entry is `(task_name, description, aliases)`. `direct_tasks`
+        are tasks defined in the main Pfyfile, while `module_tasks` is keyed by
+        module name and contains tasks sourced from included `Pfyfile.<name>.pf`
+        files.
+        """
         dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
         dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
 
@@ -149,8 +171,8 @@ class PfRunner:
             os.path.abspath(resolved_pfyfile) if resolved_pfyfile and os.path.exists(resolved_pfyfile) else None
         )
 
-        direct_tasks: List[Tuple[str, Optional[str], List[str]]] = []
-        module_tasks: Dict[str, List[Tuple[str, Optional[str], List[str]]]] = {}
+        direct_tasks: List[TaskListing] = []
+        module_tasks: Dict[str, List[TaskListing]] = {}
 
         for task_name, task in sorted(dsl_tasks.items()):
             task_info = (task_name, task.description, task.aliases)
@@ -168,8 +190,8 @@ class PfRunner:
 
         return direct_tasks, module_tasks
 
-    def _print_task_entries(self, tasks: List[Tuple[str, Optional[str], List[str]]]) -> None:
-        """Print task names with descriptions and aliases."""
+    def _print_task_entries(self, tasks: List[TaskListing]) -> None:
+        """Print `(task_name, description, aliases)` entries as CLI list rows."""
         for task_name, description, aliases in tasks:
             desc_text = f" - {description}" if description else ""
             alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
@@ -228,7 +250,7 @@ class PfRunner:
                 
             # Initialize autocorrect with the specified file
             self.autocorrect = PfAutocorrect(parsed_args.file)
-            
+
             # Handle different commands
             if parsed_args.command == 'list':
                 return self._handle_list_command(parsed_args)
