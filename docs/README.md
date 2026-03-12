@@ -52,7 +52,7 @@ sudo dpkg -i build-packages/deb/pf-runner_latest.deb || sudo apt-get -f install 
 
 Pyproject/pip installs are deprecated; use the packaged installer to get all deps, completions, and service units in one shot.
 
-> Canonical layout: `pf-runner-full/` is the source of truth and builds the .deb. The older `pf-runner/` tree has been removed to avoid confusion.
+> Canonical layout: `pf-runner-full/` is the source of truth and builds the .deb. `pf-runner/` is kept only as a compatibility symlink.
 
 **New to pf?** Check out the [**QUICKSTART.md**](QUICKSTART.md) for a comprehensive guide with examples!
 
@@ -96,7 +96,7 @@ See [**Smart Workflows Guide**](SMART-WORKFLOWS.md) for complete documentation.
 
 This repository provides:
 
-1. **pf-runner**: A lightweight, single-file task runner with a symbol-free DSL for managing development workflows
+1. **pf task runner**: A lightweight, single-file task runner with a symbol-free DSL for managing development workflows, implemented canonically in `pf-runner-full/`
 2. **Polyglot WebAssembly Demo**: A working demonstration of compiling multiple languages (Rust, C, Fortran, WAT) to WebAssembly
 3. **WIT Component Support**: WebAssembly Component Model integration with WIT (WebAssembly Interface Types)
 4. **End-to-End Testing**: Playwright-based test suite for validating WASM functionality
@@ -713,10 +713,10 @@ sudo ./install.sh
 For manual control:
 
 ```bash
-cd pf-runner
+cd pf-runner-full
 pip install --user "fabric>=3.2,<4" "lark>=1.1.0"
-make setup          # Creates ./pf symlink
-make install-local  # Installs to ~/.local/bin
+make local-install  # Creates ./pf shim
+make install-user   # Installs to ~/.local/bin
 ```
 
 ### 2. Verify Installation
@@ -724,7 +724,7 @@ make install-local  # Installs to ~/.local/bin
 Check that pf is available:
 
 ```bash
-pf --version  # or: ./pf-runner/pf if not installed globally
+pf --version  # or: ./pf-runner-full/pf if not installed globally
 ```
 
 ### 3. Run the WebAssembly Demo
@@ -844,13 +844,13 @@ pf-web-poly-compile-helper-runner/
 ├── Pfyfile.pf                      # Root task definitions for web/WASM
 ├── start.sh                        # Quick setup script
 │
-├── pf-runner/                      # pf task runner implementation
-│   ├── pf.py                       # Main runner (single-file Fabric wrapper)
-│   ├── Pfyfile.pf                  # Main pf configuration
-│   ├── Pfyfile.*.pf                # Modular task files (dev, builds, tests, etc.)
-│   ├── README.md                   # Detailed pf-runner documentation
-│   ├── scripts/                    # Helper scripts for system setup
+├── pf-runner-full/                 # Canonical pf task runner implementation
+│   ├── pf_main.py                  # Main CLI entrypoint
+│   ├── pf_parser.py                # Core DSL parser/runner
+│   ├── pf                          # Local wrapper script
+│   ├── docs/                       # Detailed pf-runner documentation
 │   └── ...
+├── pf-runner -> pf-runner-full     # Compatibility symlink for older paths
 │
 ├── demos/                          # Demo applications
 │   └── pf-web-polyglot-demo-plus-c/
@@ -950,7 +950,7 @@ pf demo-python-multiline
 - Works with all supported languages (Python, Node, Go, Rust, Ruby, etc.)
 - Supports output redirection: `<< EOF > output.txt`
 
-See [pf-runner/README.md](../pf-runner/README.md) for complete polyglot documentation.
+See [pf-runner documentation](../pf-runner-full/docs/README.md) for complete polyglot documentation.
 
 ### Automagic Builder Examples
 
@@ -1187,7 +1187,7 @@ npx playwright show-report
 - **🎯 SUBCOMMANDS Guide**: See [`SUBCOMMANDS.md`](SUBCOMMANDS.md) - **Organize your tasks!** Complete guide to subcommands and task organization
 - **🔥 SMART WORKFLOWS Guide**: See [`SMART-WORKFLOWS.md`](SMART-WORKFLOWS.md) - **NEW!** Powerful tool combinations for efficient workflows
 - **⚡ ALWAYS-ON TASKS Guide**: See [`ALWAYS-ON-TASKS.md`](ALWAYS-ON-TASKS.md) - **NEW!** System-wide tasks available from any directory
-- **pf-runner Documentation**: See [`../pf-runner/README.md`](../pf-runner/README.md) for comprehensive pf runner documentation
+- **pf-runner Documentation**: See [`../pf-runner-full/docs/README.md`](../pf-runner-full/docs/README.md) for comprehensive pf runner documentation
 - **REST API Guide**: See [`REST-API.md`](REST-API.md) for complete API documentation and examples
 - **Fuzzing & Sanitizers Guide**: See [`FUZZING.md`](FUZZING.md) for fuzzing, AFL++, and sanitizer documentation
 - **Security Testing Guide**: See [`SECURITY-TESTING.md`](SECURITY-TESTING.md) for web application security testing
@@ -1219,11 +1219,11 @@ npx playwright show-report
 - **Web Demo Documentation**: See [`../demos/pf-web-polyglot-demo-plus-c/README.md`](../demos/pf-web-polyglot-demo-plus-c/README.md)
 - **WIT Components**: See [`../pf/wit/README.md`](../pf/wit/README.md)
 
-Additional documentation in `../pf-runner/`:
-- `BUILD-HELPERS.md`: Build system integration guide
-- `LANGS.md`: Supported polyglot languages
-- `EXAMPLE-PIPELINE.md`: CI/CD pipeline examples
-- `IMPLEMENTATION-SUMMARY.md`: Implementation details
+Additional documentation in `../pf-runner-full/docs/`:
+- [`BUILD-HELPERS.md`](../pf-runner-full/docs/BUILD-HELPERS.md): Build system integration guide
+- [`LANGS.md`](../pf-runner-full/docs/LANGS.md): Supported polyglot languages
+- [`EXAMPLE-PIPELINE.md`](../pf-runner-full/docs/EXAMPLE-PIPELINE.md): CI/CD pipeline examples
+- [`IMPLEMENTATION-SUMMARY.md`](../pf-runner-full/docs/IMPLEMENTATION-SUMMARY.md): Implementation details
 
 ## Common Tasks Reference
 
@@ -1532,13 +1532,13 @@ See LICENSE file for details.
 ## Support
 
 - File issues on the GitHub repository
-- Check existing documentation in `../pf-runner/` directory
+- Check existing documentation in `../pf-runner-full/docs/`
 - Review example tasks in `Pfyfile.pf` files
 
 ---
 
 **Quick Links:**
-- [pf-runner Documentation](../pf-runner/README.md)
+- [pf-runner Documentation](../pf-runner-full/docs/README.md)
 - [Web Demo Guide](../demos/pf-web-polyglot-demo-plus-c/README.md)
-- [Build Helpers Guide](../pf-runner/BUILD-HELPERS.md)
-- [Supported Languages](../pf-runner/LANGS.md)
+- [Build Helpers Guide](../pf-runner-full/docs/BUILD-HELPERS.md)
+- [Supported Languages](../pf-runner-full/docs/LANGS.md)

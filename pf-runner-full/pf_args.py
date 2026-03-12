@@ -45,6 +45,22 @@ def _detect_version() -> str:
     return "0.0.0"
 
 
+def _resolve_cli_pfyfile_reference(file_arg: Optional[str]) -> Optional[str]:
+    """Best-effort resolution for CLI Pfyfile/module references."""
+    if not file_arg or file_arg.startswith("-") or "=" in file_arg:
+        return None
+
+    try:
+        from pf_parser import _resolve_pfyfile_reference
+    except Exception:
+        return None
+
+    try:
+        return _resolve_pfyfile_reference(file_arg, start_dir=os.getcwd())
+    except Exception:
+        return None
+
+
 class PfArgumentParser:
     """Enhanced argument parser for pf with subcommand support."""
 
@@ -54,16 +70,19 @@ class PfArgumentParser:
 
         self.parser = argparse.ArgumentParser(
             prog="pf",
-            description="pf - single-file, symbol-free Fabric runner with a tiny DSL",
+            description="pf - run tasks directly with `pf <task>` or `pf <module> <task>`",
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 Examples:
-  pf list                           # List all available tasks
-  pf run task_name                  # Run a task locally
-  pf run task_name env=prod         # Run task on prod environment
-  pf run task_name hosts=server1,server2  # Run on specific hosts
-  pf web dev                        # Run dev task from web subcommand
-  pf lifting install-tools          # Run install-tools from lifting subcommand
+  pf                                # List tasks from the nearest Pfyfile
+  pf task_name                      # Run a task locally
+  pf task_name env=prod             # Run task on prod environment
+  pf task_name hosts=server1,server2  # Run on specific hosts
+  pf web                            # List tasks from the `web` module/file
+  pf web dev                        # Run `dev` from the `web` module/file
+  pf path/to/tasks.pf               # List tasks from an explicit Pfyfile
+  pf path/to/tasks.pf deploy        # Run `deploy` from an explicit Pfyfile
+  pf run task_name                  # Explicit form still supported
   
 Environment Variables:
   PFY_FILE                          # Override default Pfyfile location (pf-files/Pfyfile.pf or Pfyfile.pf)
@@ -120,8 +139,13 @@ For more help on a specific subcommand:
         # list command
         list_parser = self.subparsers.add_parser(
             "list",
-            help="List available tasks",
+            help="List available tasks (also the default with no args or file-only)",
             description="List all available tasks with descriptions",
+        )
+        list_parser.add_argument(
+            "target",
+            nargs="?",
+            help="Optional module or Pfyfile to list tasks from",
         )
         list_parser.add_argument(
             "--subcommand", help="Show tasks only from specific subcommand"
@@ -130,7 +154,7 @@ For more help on a specific subcommand:
         # run command (default)
         run_parser = self.subparsers.add_parser(
             "run",
-            help="Run tasks (default command)",
+            help="Run tasks (explicit form; direct `pf <task>` also works)",
             description="Run one or more tasks with optional parameters",
         )
         run_parser.add_argument(
@@ -286,9 +310,10 @@ For more help on a specific subcommand:
 
         # Handle legacy syntax where first arg might be a file (only if no --file was specified)
         if not file_arg and remaining and not remaining[0].startswith("-") and "=" not in remaining[0]:
-            if os.path.exists(remaining[0]) or remaining[0].endswith(".pf"):
-                # First arg is a file
-                file_arg = remaining[0]
+            resolved_file = _resolve_cli_pfyfile_reference(remaining[0])
+            if resolved_file or remaining[0].endswith(".pf"):
+                # First arg is a file/module reference
+                file_arg = resolved_file or os.path.abspath(remaining[0])
                 remaining_args = remaining[1:]
             else:
                 remaining_args = remaining
@@ -353,6 +378,18 @@ For more help on a specific subcommand:
             elif key in ("sudo_user", "become_user"):
                 modern_args.extend(["--sudo-user", value])
 
+        if not task_args:
+            if file_arg:
+                modern_args.append("list")
+            return modern_args
+
+        if file_arg and task_args[0] in HELP_VARIATIONS:
+            if len(task_args) > 1 and task_args[1] not in HELP_VARIATIONS:
+                modern_args.extend(["help", task_args[1]])
+            else:
+                modern_args.append("list")
+            return modern_args
+
         # If no explicit command and we have task args, assume 'run'
         # (but do not rewrite built-in commands into tasks).
         if task_args and task_args[0] not in (
@@ -406,9 +443,6 @@ For more help on a specific subcommand:
         # Directly handle explicit commands and flags without legacy translation
         builtin_commands = {"list", "run", "help", "prune", "debug-on", "debug-off", "version"}
         if args[0] in builtin_commands or args[0] in ("--version", "-V"):
-            return self.parser.parse_args(args)
-
-        if hasattr(self, "_subcommand_names") and args[0] in self._subcommand_names:
             return self.parser.parse_args(args)
 
         # Convert legacy syntax to modern

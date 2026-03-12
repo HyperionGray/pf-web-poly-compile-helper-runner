@@ -306,8 +306,8 @@ run_initial_tests() {
     print_status "info" "Running initial tests to verify setup..."
     
     # Test Python syntax
-    if [ -d "pf-runner" ]; then
-        for py_file in pf-runner/*.py; do
+    if [ -d "pf-runner-full" ]; then
+        for py_file in pf-runner-full/*.py; do
             if [[ "$py_file" != *"pf_grammar.py" ]]; then
                 python3 -m py_compile "$py_file" || {
                     print_status "error" "Python syntax error in $py_file"
@@ -326,12 +326,10 @@ run_initial_tests() {
     fi
     
     # Test basic pf-runner functionality
-    if [ -f "pf-runner/pf_main.py" ]; then
-        cd pf-runner
-        python3 pf_main.py --help > /dev/null || {
+    if [ -f "pf-runner-full/pf_main.py" ]; then
+        python3 pf-runner-full/pf_main.py --help > /dev/null || {
             print_status "warning" "pf-runner help test failed (may need additional setup)"
         }
-        cd ..
         print_status "success" "Basic pf-runner functionality verified"
     fi
 }
@@ -352,13 +350,13 @@ display_summary() {
     echo -e "${BLUE}🚀 Next Steps:${NC}"
     echo "  1. Run comprehensive tests: python3 run_comprehensive_tests.py"
     echo "  2. Start development server: npm run dev"
-    echo "  3. Run TUI: cd pf-runner && python3 pf_tui.py"
+    echo "  3. Run TUI: python3 pf-runner-full/pf_tui.py"
     echo "  4. View documentation: open README.md"
     echo ""
     echo -e "${BLUE}🔧 Available Commands:${NC}"
     echo "  • npm run test:all          - Run all tests"
     echo "  • npm run security:all      - Run security scans"
-    echo "  • python3 -m black pf-runner/ - Format Python code"
+    echo "  • python3 -m black pf-runner-full/ - Format Python code"
     echo "  • npx eslint tools/ tests/  - Lint JavaScript code"
     echo ""
     echo -e "${YELLOW}⚠️  Important Notes:${NC}"

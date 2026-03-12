@@ -11,7 +11,9 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-REPO_ROOT="/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+RUNNER_DIR="${REPO_ROOT}/pf-runner-full"
+TEST_PF="${REPO_ROOT}/tests/fixtures/installer_test.pf"
 TEST_DIR="/tmp/installer-tests"
 
 log_info() {
@@ -30,6 +32,29 @@ log_test() {
     echo -e "${YELLOW}[TEST]${NC} $1"
 }
 
+test_pf_ignores_fake_venv() {
+    local test_name="$1"
+    shift
+    local pf_cmd=("$@")
+    local fake_venv="${TEST_DIR}/fake-venv-${RANDOM}"
+
+    mkdir -p "${fake_venv}/bin"
+    cat > "${fake_venv}/bin/python3" <<'EOF'
+#!/usr/bin/env bash
+echo "fake venv python3 should not be used" >&2
+exit 97
+EOF
+    chmod +x "${fake_venv}/bin/python3"
+
+    if ! VIRTUAL_ENV="${fake_venv}" PATH="${fake_venv}/bin:${PATH}" "${pf_cmd[@]}" -V >/dev/null 2>&1; then
+        log_error "$test_name: pf used PATH python3 from fake venv"
+        return 1
+    fi
+
+    log_info "$test_name: fake active venv does not break pf"
+    return 0
+}
+
 # Test pf executable
 test_pf_executable() {
     local test_name="$1"
@@ -45,16 +70,16 @@ test_pf_executable() {
     fi
     log_info "$test_name: pf -V works"
     
-    # Test list with test.pf
-    cd "$REPO_ROOT/pf-runner"
-    if ! "${pf_cmd[@]}" test.pf list >/dev/null 2>&1; then
+    # Test list with shared installer fixture
+    cd "$REPO_ROOT"
+    if ! "${pf_cmd[@]}" -f "$TEST_PF" list >/dev/null 2>&1; then
         log_error "$test_name: pf list failed"
         return 1
     fi
     log_info "$test_name: pf list works"
     
     # Test running a task
-    if ! "${pf_cmd[@]}" test.pf hello >/dev/null 2>&1; then
+    if ! "${pf_cmd[@]}" -f "$TEST_PF" hello >/dev/null 2>&1; then
         log_error "$test_name: pf hello failed"
         return 1
     fi
@@ -74,18 +99,19 @@ echo "========================================"
 echo ""
 
 #
-# Test 1: Direct pf_main.py execution
+# Test 1: Repo wrapper
 #
-log_test "Test 1: Direct pf_main.py execution"
-cd "$REPO_ROOT/pf-runner"
-test_pf_executable "Direct execution" python3 pf_main.py
+log_test "Test 1: Repo wrapper"
+cd "$REPO_ROOT"
+test_pf_executable "Repo wrapper" "$REPO_ROOT/pf.sh"
+test_pf_ignores_fake_venv "Repo wrapper" "$REPO_ROOT/pf.sh"
 echo ""
 
 #
 # Test 2: Static executable
 #
 log_test "Test 2: Static executable"
-test_pf_executable "Static executable" "$REPO_ROOT/pf-runner/pf-static"
+test_pf_executable "Static executable" "$RUNNER_DIR/pf-static"
 echo ""
 
 #
@@ -95,11 +121,15 @@ log_test "Test 3: Native install (custom prefix)"
 cd "$REPO_ROOT"
 ./install.sh --prefix "$TEST_DIR/native-install" --skip-deps >/dev/null 2>&1
 test_pf_executable "Native install" "$TEST_DIR/native-install/bin/pf"
-log_info "Checking virtual environment..."
-if [ -d "$TEST_DIR/native-install/lib/pf-runner-venv" ]; then
-    log_success "Virtual environment created correctly"
+test_pf_ignores_fake_venv "Native install" "$TEST_DIR/native-install/bin/pf"
+log_info "Checking bundled runtime..."
+if [ -d "$TEST_DIR/native-install/lib/pf-runner/vendor" ]; then
+    log_success "Bundled vendor directory created correctly"
 else
-    log_error "Virtual environment not found"
+    log_error "Bundled vendor directory not found"
+fi
+if [ -d "$TEST_DIR/native-install/lib/pf-runner-venv" ]; then
+    log_error "Legacy pf-runner-venv directory should not exist"
 fi
 echo ""
 
@@ -177,7 +207,7 @@ echo "========================================"
 log_success "All installer tests completed successfully!"
 echo ""
 echo "Tested installers:"
-echo "  ✓ Direct pf_main.py execution"
+echo "  ✓ Repo wrapper execution"
 echo "  ✓ Static executable (pf-static)"
 echo "  ✓ Native install script (install.sh)"
 echo "  ✓ Static install script (install-static.sh)"

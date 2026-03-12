@@ -8,7 +8,14 @@ __pf_installer_main_loaded() { :; }
 
 INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${INSTALLER_DIR}/../.." && pwd)"
-PF_RUNNER_DIR="${REPO_ROOT}/pf-runner"
+PF_RUNNER_DIR="${REPO_ROOT}/pf-runner-full"
+if [[ ! -d "$PF_RUNNER_DIR" && -d "${REPO_ROOT}/pf-runner" ]]; then
+  PF_RUNNER_DIR="${REPO_ROOT}/pf-runner"
+fi
+PF_TASKS_DIR="${REPO_ROOT}/pf-files"
+if [[ ! -d "$PF_TASKS_DIR" && -d "${PF_RUNNER_DIR}/pf-files" ]]; then
+  PF_TASKS_DIR="${PF_RUNNER_DIR}/pf-files"
+fi
 
 source "${INSTALLER_DIR}/common.sh"
 source "${INSTALLER_DIR}/config.sh"
@@ -86,8 +93,8 @@ installer_main() {
     installer_install_system_deps
   fi
 
-  installer_setup_python_env
   installer_install_pf_runner
+  installer_install_python_runtime
 
   installer_validate_native_installation || die "Native installation validation failed"
   printf '\n'

@@ -17,9 +17,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends podman && \
 # Install lark parser for pf grammar
 RUN python3 -m pip install --break-system-packages lark
 
-# Copy pf-runner source
-COPY --chown=pfuser:pfuser pf-runner /app/pf-runner
+# Copy pf-runner source and repo task tree
+COPY --chown=pfuser:pfuser pf-runner-full /app/pf-runner
+COPY --chown=pfuser:pfuser pf-files /app/pf-files
+COPY --chown=pfuser:pfuser pf /app/pf
+COPY --chown=pfuser:pfuser tools /app/tools
+COPY --chown=pfuser:pfuser scripts /app/scripts
+COPY --chown=pfuser:pfuser demos /app/demos
+COPY --chown=pfuser:pfuser containers /app/containers
+COPY --chown=pfuser:pfuser docs /app/docs
+COPY --chown=pfuser:pfuser examples /app/examples
+COPY --chown=pfuser:pfuser tests /app/tests
 COPY --chown=pfuser:pfuser Pfyfile*.pf /app/
+COPY --chown=pfuser:pfuser pf.config.json5 /app/
+COPY --chown=pfuser:pfuser package.json package-lock.json playwright.config.ts /app/
 
 # Make pf executable and create symlinks (ensure user bin dir exists)
 RUN mkdir -p /home/pfuser/.local/bin && \

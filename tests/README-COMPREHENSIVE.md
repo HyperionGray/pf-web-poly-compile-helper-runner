@@ -114,7 +114,7 @@ npm run test:api
 ## Test Categories
 
 ### 1. Grammar Tests
-Tests every grammar construct defined in `pf-runner/pf.lark`:
+Tests every grammar construct defined in `pf-runner-full/pf.lark`:
 - Task definitions with parameters
 - Environment variables (global and task-local)
 - Shell language specifications

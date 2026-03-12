@@ -20,6 +20,7 @@ DEB_PKG ?= pf-runner
 
 PF_LINK := pf
 PF_CLI := pf_universal
+TEST_PF ?= ../tests/fixtures/installer_test.pf
 
 # Allow callers to control pip flags (PEP 668 on Debian/Ubuntu requires --break-system-packages for system installs).
 PIP_FLAGS ?= --break-system-packages
@@ -39,7 +40,7 @@ help:
 	@echo "  install-pip        - fallback pip install (not preferred)"
 	@echo "  install-user   - user install via pip --user"
 	@echo "  install-completions - install bash/zsh completions"
-	@echo "  test           - smoke test pf against pf-files/tests/fixtures/test.pf"
+	@echo "  test           - smoke test pf against $(TEST_PF)"
 	@echo "  clean          - remove __pycache__ and *.pyc"
 	@echo "  distclean      - clean and remove the local shim"
 	@echo "  publish-apt    - regen apt repo (uses apt-repo target) then run PUBLISH_CMD to upload"
@@ -66,7 +67,7 @@ local-install: setup-venv link
 local_install: local-install
 
 test: local-install
-	@$(PF_PY) -m pf_main -f pf-files/tests/fixtures/test.pf list
+	@$(PF_PY) -m pf_main -f "$(TEST_PF)" list
 
 install: install-deb
 

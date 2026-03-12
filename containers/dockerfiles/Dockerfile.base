@@ -9,7 +9,10 @@ LABEL description="Base Ubuntu 24.04 image with common debugging tools"
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Update package lists and install common utilities needed by pf-runner
-RUN apt-get update && apt-get install -y \
+RUN chmod 1777 /tmp && \
+    mkdir -p /var/lib/dpkg /var/lib/dpkg/updates /var/lib/apt/lists/partial /var/cache/apt/archives/partial /var/log/apt && \
+    touch /var/lib/dpkg/status /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/log/dpkg.log && \
+    apt-get update && apt-get install -y \
     # Basic utilities
     curl \
     wget \

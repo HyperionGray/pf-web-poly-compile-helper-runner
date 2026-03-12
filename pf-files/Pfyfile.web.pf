@@ -1,0 +1,80 @@
+# Web module
+# Access via: pf web <task>
+
+include web-testing/Pfyfile.web.pf
+
+task usage
+  describe Show web module commands and preferred entrypoints
+  shell echo "Web module entrypoints:"
+  shell echo "  pf web install                               # Install/verify web module prerequisites"
+  shell echo "  pf web dev [dir=<path>] [port=8080]          # Start the main static dev server"
+  shell echo "  pf web dev-static [dir=<path>] [port=8080]   # Explicit static server alias"
+  shell echo "  pf web api-server [dir=<path>] [port=8080]   # Start the REST API server"
+  shell echo "  pf web test                                  # Run Playwright tests"
+  shell echo "  pf web build-all-wasm                        # Build all WebAssembly targets"
+  shell echo "  pf web build-all-llvm                        # Build all LLVM IR targets"
+  shell echo "  pf web toolchain-check                       # Verify toolchain availability"
+  shell echo ""
+  shell echo "Legacy root commands like pf web-dev still work as compatibility wrappers,"
+  shell echo "but prefer the module-local forms above."
+end
+task install
+  describe Install/verify web module prerequisites
+  shell pf "$PFY_FILE_PATH" install-tools
+end
+
+task install-tools
+  describe Install or verify web module tooling and API service hooks
+  shell pf "$(dirname "$PFY_FILE_PATH")/auto-api/Pfyfile.rest-api.pf" rest-install
+  shell pf "$PFY_FILE_PATH" toolchain-check
+end
+
+task dev-static dir="" port=""
+  describe Start the standalone static web server (explicit alias for `dev`)
+  shell pf "$PFY_FILE_PATH" dev dir="${dir}" port="${port}"
+end
+
+task api-server dir="" port=""
+  describe Start the REST API server for the web module
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/api-server.mjs" ${dir:-demos/pf-web-polyglot-demo-plus-c/web} ${port:-8080}
+end
+
+task toolchain-check
+  describe Verify required web/WASM toolchains are installed
+  shell_lang bash
+  shell |
+    python3 - <<'PY'
+import shutil
+reqs = ["wasm-pack", "emcc", "wat2wasm", "clang", "lfortran"]
+missing = [c for c in reqs if shutil.which(c) is None]
+if missing:
+    print("[ERR] Missing toolchain components:", " ".join(missing))
+    print("Install hints:")
+    print("  - emcc/emsdk: https://emscripten.org/docs/getting_started/downloads.html")
+    print("  - wasm-pack: https://rustwasm.github.io/wasm-pack/installer/")
+else:
+    print("[OK] Web toolchain ready:", ", ".join(reqs))
+PY
+end
+
+task build-all-wasm
+  describe Build all languages to WebAssembly
+  shell pf "$PFY_FILE_PATH" toolchain-check
+  shell pf "$(dirname "$PFY_FILE_PATH")/web-testing/Pfyfile.web.pf" build-all-wasm
+end
+
+task build-all-asm
+  describe Build all languages to asm.js where supported
+  shell pf "$PFY_FILE_PATH" toolchain-check
+  shell pf "$(dirname "$PFY_FILE_PATH")/web-testing/Pfyfile.web.pf" build-all-asm
+end
+
+task build-all-llvm opt_level="" parallel=""
+  describe Build all languages to LLVM IR where supported
+  shell pf "$PFY_FILE_PATH" toolchain-check
+  shell pf "$(dirname "$PFY_FILE_PATH")/web-testing/Pfyfile.web.pf" build-all-llvm opt_level="${opt_level}" parallel="${parallel}"
+end

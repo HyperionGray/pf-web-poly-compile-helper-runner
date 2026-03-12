@@ -26,6 +26,21 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
+test_fake_venv_resilience() {
+    local pf_cmd="$1"
+    local fake_venv="$2"
+
+    mkdir -p "${fake_venv}/bin"
+    cat > "${fake_venv}/bin/python3" <<'EOF'
+#!/usr/bin/env bash
+echo "fake venv python3 should not be used" >&2
+exit 97
+EOF
+    chmod +x "${fake_venv}/bin/python3"
+
+    VIRTUAL_ENV="${fake_venv}" PATH="${fake_venv}/bin:${PATH}" "${pf_cmd}" --version >/dev/null 2>&1
+}
+
 # Test prerequisites that should be available on fresh Ubuntu
 test_prerequisites() {
     log_info "Testing prerequisites on this system..."
@@ -98,14 +113,14 @@ test_native_install_isolated() {
     
     # Apply fixes
     log_info "Applying fixes..."
-    if [[ -f "pf-runner/pf_parser.py" ]]; then
-        sed -i '1s|^#!/.*|#!/usr/bin/env python3|' pf-runner/pf_parser.py
+    if [[ -f "pf-runner-full/pf_parser.py" ]]; then
+        sed -i '1s|^#!/.*|#!/usr/bin/env python3|' pf-runner-full/pf_parser.py
         log_success "Fixed shebang in pf_parser.py"
     fi
     
     # Make scripts executable
     chmod +x install.sh
-    chmod +x pf-runner/pf_universal 2>/dev/null || true
+    chmod +x pf-runner-full/pf_universal 2>/dev/null || true
     
     # Test installation
     log_info "Running native installation..."
@@ -133,6 +148,13 @@ test_native_install_isolated() {
                 cat "${test_dir}/version.log"
                 return 1
             fi
+
+            if test_fake_venv_resilience "${install_prefix}/bin/pf" "${test_dir}/fake-venv"; then
+                log_success "pf ignores unrelated active venvs"
+            else
+                log_error "pf broke when an unrelated venv was active"
+                return 1
+            fi
             
             # Test list
             log_info "Testing pf list..."
@@ -151,6 +173,16 @@ test_native_install_isolated() {
         # Check library installation
         if [[ -d "${install_prefix}/lib/pf-runner" ]]; then
             log_success "pf-runner library installed"
+
+            if [[ ! -d "${install_prefix}/lib/pf-runner/vendor" ]]; then
+                log_error "Bundled vendor directory not found"
+                return 1
+            fi
+
+            if [[ -d "${install_prefix}/lib/pf-runner-venv" ]]; then
+                log_error "Legacy pf-runner-venv directory should not exist"
+                return 1
+            fi
             
             # Check main parser
             if [[ -f "${install_prefix}/lib/pf-runner/pf_parser.py" ]]; then
@@ -210,14 +242,14 @@ test_native_install_with_deps() {
     
     # Apply fixes
     log_info "Applying fixes..."
-    if [[ -f "pf-runner/pf_parser.py" ]]; then
-        sed -i '1s|^#!/.*|#!/usr/bin/env python3|' pf-runner/pf_parser.py
+    if [[ -f "pf-runner-full/pf_parser.py" ]]; then
+        sed -i '1s|^#!/.*|#!/usr/bin/env python3|' pf-runner-full/pf_parser.py
         log_success "Fixed shebang in pf_parser.py"
     fi
     
     # Make scripts executable
     chmod +x install.sh
-    chmod +x pf-runner/pf_universal 2>/dev/null || true
+    chmod +x pf-runner-full/pf_universal 2>/dev/null || true
     
     # Test installation with dependencies
     log_info "Running native installation with dependencies..."
@@ -299,7 +331,7 @@ main() {
 }
 
 # Check if we're in the right directory
-if [[ ! -f "install.sh" ]] || [[ ! -d "pf-runner" ]]; then
+if [[ ! -f "install.sh" ]] || [[ ! -d "pf-runner-full" ]]; then
     log_error "This script must be run from the repository root directory"
     exit 1
 fi

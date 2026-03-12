@@ -8,7 +8,7 @@ set -euo pipefail
 DEFAULT_PREFIX="/usr/local"
 DEFAULT_PREFIX_USER="${HOME}/.local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATIC_EXEC="${SCRIPT_DIR}/pf-runner/pf-static"
+STATIC_EXEC="${SCRIPT_DIR}/pf-runner-full/pf-static"
 
 # Colors
 GREEN='\033[0;32m'
@@ -115,7 +115,7 @@ fi
 # Check if static executable exists
 if [[ ! -f "$STATIC_EXEC" ]]; then
     log_error "Static executable not found at $STATIC_EXEC"
-    log_info "Please build it first by running: cd pf-runner && make build"
+    log_info "Please build it first by running: cd pf-runner-full && make build"
     exit 1
 fi
 

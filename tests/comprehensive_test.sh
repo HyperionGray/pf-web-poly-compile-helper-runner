@@ -8,6 +8,8 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
 
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -37,13 +39,13 @@ test_native_installation() {
     
     # Copy repository to test directory
     log_info "Copying repository to test directory..."
-    cp -r . "$test_dir/repo"
+    cp -r "$REPO_ROOT" "$test_dir/repo"
     cd "$test_dir/repo"
     
     # Fix hardcoded paths first
     log_info "Fixing hardcoded paths..."
-    if [[ -f "pf-runner/pf_parser.py" ]]; then
-        sed -i '1s|^#!/.*|#!/usr/bin/env python3|' pf-runner/pf_parser.py
+    if [[ -f "pf-runner-full/pf_parser.py" ]]; then
+        sed -i '1s|^#!/.*|#!/usr/bin/env python3|' pf-runner-full/pf_parser.py
         log_success "Fixed shebang in pf_parser.py"
     fi
     
@@ -102,7 +104,7 @@ main() {
 }
 
 # Check if we're in the right directory
-if [[ ! -f "install.sh" ]] || [[ ! -d "pf-runner" ]]; then
+if [[ ! -f "${REPO_ROOT}/install.sh" ]] || [[ ! -d "${REPO_ROOT}/pf-runner-full" ]]; then
     log_error "This script must be run from the repository root directory"
     exit 1
 fi

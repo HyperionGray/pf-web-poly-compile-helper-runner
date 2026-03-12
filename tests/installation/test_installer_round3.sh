@@ -13,6 +13,7 @@ NC='\033[0m'
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TEST_DIR="/tmp/installer-round3-tests-$$"
+TEST_PF="${REPO_ROOT}/tests/fixtures/installer_test.pf"
 TESTS_PASSED=0
 TESTS_FAILED=0
 
@@ -72,14 +73,14 @@ fi
 if grep -q "cat.*<<" "$REPO_ROOT/install.sh"; then
     log_success "install.sh: Heredoc support detected"
 else
-    log_error "install.sh: No heredoc usage found"
+    log_info "install.sh: No heredoc usage found (expected for the thin wrapper)"
 fi
 
 # Test semicolon usage
 if grep -q ";" "$REPO_ROOT/install.sh"; then
     log_success "install.sh: Semicolon usage detected"
 else
-    log_error "install.sh: No semicolon usage found"
+    log_info "install.sh: No semicolon usage found (expected for the thin wrapper)"
 fi
 
 # Test && usage
@@ -122,10 +123,14 @@ if "$REPO_ROOT/install.sh" --prefix "$NATIVE_PREFIX" --skip-deps >/dev/null 2>&1
         log_error "pf-runner library directory not found"
     fi
     
-    if [[ -d "$NATIVE_PREFIX/lib/pf-runner-venv" ]]; then
-        log_success "Python virtual environment created"
+    if [[ -d "$NATIVE_PREFIX/lib/pf-runner/vendor" ]]; then
+        log_success "Bundled vendor directory created"
     else
-        log_error "Python virtual environment not found"
+        log_error "Bundled vendor directory not found"
+    fi
+
+    if [[ -d "$NATIVE_PREFIX/lib/pf-runner-venv" ]]; then
+        log_error "Legacy pf-runner-venv directory should not exist"
     fi
     
     # Test pf executable
@@ -136,14 +141,14 @@ if "$REPO_ROOT/install.sh" --prefix "$NATIVE_PREFIX" --skip-deps >/dev/null 2>&1
     fi
     
     # Test task listing
-    if cd "$REPO_ROOT/pf-runner" && "$NATIVE_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
+    if cd "$REPO_ROOT" && "$NATIVE_PREFIX/bin/pf" -f "$TEST_PF" list >/dev/null 2>&1; then
         log_success "pf list works"
     else
         log_error "pf list failed"
     fi
     
     # Test task execution
-    if cd "$REPO_ROOT/pf-runner" && "$NATIVE_PREFIX/bin/pf" test.pf hello >/dev/null 2>&1; then
+    if cd "$REPO_ROOT" && "$NATIVE_PREFIX/bin/pf" -f "$TEST_PF" hello >/dev/null 2>&1; then
         log_success "pf task execution works"
     else
         log_error "pf task execution failed"
@@ -160,10 +165,10 @@ echo ""
 log_test "Test 3: Static installation (install-static.sh)"
 
 # Check if static executable exists
-STATIC_EXE="$REPO_ROOT/pf-runner/pf-static"
+STATIC_EXE="$REPO_ROOT/pf-runner-full/pf-static"
 if [[ ! -f "$STATIC_EXE" ]]; then
     log_info "Static executable not built, skipping static installation test"
-    log_info "Build with: cd pf-runner && make build"
+    log_info "Build with: cd pf-runner-full && make build"
 else
     STATIC_PREFIX="$TEST_DIR/static-install"
     log_info "Installing to: $STATIC_PREFIX"
@@ -186,7 +191,7 @@ else
         fi
         
         # Test task listing
-        if cd "$REPO_ROOT/pf-runner" && "$STATIC_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
+        if cd "$REPO_ROOT" && "$STATIC_PREFIX/bin/pf" -f "$TEST_PF" list >/dev/null 2>&1; then
             log_success "Static pf list works"
         else
             log_error "Static pf list failed"

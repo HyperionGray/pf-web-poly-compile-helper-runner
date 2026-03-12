@@ -68,7 +68,7 @@ npm run test:sync             # Synchronization operations
 python3 -m pytest tests/
 
 # Run with coverage
-python3 -m pytest --cov=pf-runner tests/
+python3 -m pytest --cov=pf-runner-full tests/
 
 # Run specific test file
 python3 -m pytest tests/test_pf_tui.py
@@ -90,8 +90,8 @@ npm run security:all          # Run all security tests
 ### Files With Test Coverage
 
 #### Core Modules (Python)
-- ✅ `pf-runner/pf_tui.py` - TUI functionality (tests/test_pf_tui.py)
-- ✅ `pf-runner/pf_parser.py` - Parser functionality (tests/test_pf_parser.py)
+- ✅ `pf-runner-full/pf_tui.py` - TUI functionality (tests/test_pf_tui.py)
+- ✅ `pf-runner-full/pf_parser.py` - Parser functionality (tests/test_pf_parser.py)
 - ✅ Grammar and parsing - Comprehensive grammar tests
 - ✅ API functionality - API endpoint tests
 
@@ -118,7 +118,7 @@ Many utility and demo files don't have dedicated test files but are covered by i
 - `simple_syntax_validator.py` - Syntax validation utility
 
 #### Installation Scripts
-- `pf-runner/setup.py` - Installation configuration (tested via CI)
+- `pf-runner-full/setup.py` - Installation configuration (tested via CI)
 - Installation validated through CI/CD pipeline
 
 #### Tool Scripts
