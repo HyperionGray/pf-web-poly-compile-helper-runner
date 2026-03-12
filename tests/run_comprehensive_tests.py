@@ -43,8 +43,8 @@ class TestRunner:
         self.start_time = time.time()
         
         # Project paths
-        self.root_dir = Path(__file__).parent
-        self.pf_runner_dir = self.root_dir / "pf-runner"
+        self.root_dir = Path(__file__).resolve().parent.parent
+        self.pf_runner_dir = self.root_dir / "pf-runner-full"
         self.tests_dir = self.root_dir / "tests"
         
     def log(self, message: str, level: str = "INFO"):
@@ -147,7 +147,7 @@ class TestRunner:
         cmd = [
             "python", "-m", "pytest",
             str(self.tests_dir),
-            "--cov=pf-runner",
+            "--cov=pf-runner-full",
             "--cov-report=term-missing",
             "--cov-report=html:htmlcov",
             "--cov-report=xml:coverage.xml",
@@ -241,7 +241,7 @@ class TestRunner:
         security_commands = [
             (["npm", "run", "security:scan"], "Credential scan"),
             (["npm", "run", "security:deps"], "Dependency scan"),
-            (["python", "-m", "bandit", "-r", "pf-runner/", "-f", "json"], "Python security scan"),
+            (["python", "-m", "bandit", "-r", "pf-runner-full/", "-f", "json"], "Python security scan"),
             (["python", "-m", "safety", "check", "--json"], "Python dependency scan"),
         ]
         
@@ -273,8 +273,8 @@ class TestRunner:
         self.log("Running code quality checks...")
         
         quality_commands = [
-            (["python", "-m", "black", "--check", "--diff", "pf-runner/"], "Python formatting"),
-            (["python", "-m", "flake8", "pf-runner/", "--max-line-length=120"], "Python linting"),
+            (["python", "-m", "black", "--check", "--diff", "pf-runner-full/"], "Python formatting"),
+            (["python", "-m", "flake8", "pf-runner-full/", "--max-line-length=120"], "Python linting"),
             (["npx", "eslint", "tools/", "tests/", "--ext", ".js,.mjs,.ts"], "JavaScript linting"),
         ]
         
@@ -311,7 +311,7 @@ class TestRunner:
 import sys
 import os
 import time
-sys.path.insert(0, 'pf-runner')
+sys.path.insert(0, 'pf-runner-full')
 
 try:
     import pf_parser

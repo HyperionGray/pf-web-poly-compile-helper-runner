@@ -1,0 +1,150 @@
+# Security module
+# Access via: pf security <task>
+
+task usage
+  describe Show security module commands and preferred entrypoints
+  shell echo "Security module entrypoints:"
+  shell echo "  pf security install                          # Install/verify security module prerequisites"
+  shell echo "  pf security scan [url=<url>]                 # Main web security scan"
+  shell echo "  pf security scan-critical [url=<url>]        # Critical web findings only"
+  shell echo "  pf security fuzz [url=<url>] [type=<kind>]   # Web fuzzing"
+  shell echo "  pf security test-all [url=<url>]             # Combined scan + fuzz"
+  shell echo "  pf security checksec binary=<path>           # Binary hardening analysis"
+  shell echo "  pf security checksec-batch dir=<path>        # Directory-wide binary analysis"
+  shell echo "  pf security install-tools                    # Install supporting security helpers"
+  shell echo ""
+  shell echo "Legacy root commands like pf security-scan and pf checksec still exist as"
+  shell echo "compatibility wrappers, but prefer the module-local forms above."
+end
+task install
+  describe Install/verify security module prerequisites
+  shell pf "$PFY_FILE_PATH" install-tools
+end
+
+
+task scan url="" checks="" verbose=""
+  describe Run the main web security scan
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-scan url="${url}" checks="${checks}" verbose="${verbose}"
+end
+
+task scan-verbose url=""
+  describe Run the main web security scan with verbose output
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-scan-verbose url="${url}"
+end
+
+task scan-json url=""
+  describe Run the main web security scan with JSON output
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-scan-json url="${url}"
+end
+
+task scan-sqli url=""
+  describe Run SQL injection-focused web security scanning
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-scan-sqli url="${url}"
+end
+
+task scan-xss url=""
+  describe Run XSS-focused web security scanning
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-scan-xss url="${url}"
+end
+
+task scan-critical url=""
+  describe Run the critical vulnerability scan set
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-scan-critical url="${url}"
+end
+
+task fuzz url="" type="" delay="" verbose=""
+  describe Run the main web fuzzing flow
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-fuzz url="${url}" type="${type}" delay="${delay}" verbose="${verbose}"
+end
+
+task fuzz-verbose url=""
+  describe Run the main web fuzzing flow with verbose output
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-fuzz-verbose url="${url}"
+end
+
+task fuzz-sqli url=""
+  describe Run SQL injection-focused fuzzing
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-fuzz-sqli url="${url}"
+end
+
+task fuzz-xss url=""
+  describe Run XSS-focused fuzzing
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-fuzz-xss url="${url}"
+end
+
+task fuzz-traversal url=""
+  describe Run traversal-focused fuzzing
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-fuzz-traversal url="${url}"
+end
+
+task fuzz-all url=""
+  describe Run the full fuzzing suite
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-fuzz-all url="${url}"
+end
+
+task test-all url=""
+  describe Run the combined security scan and fuzz flow
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-test-all url="${url}"
+end
+
+task test-api url=""
+  describe Run API-focused security testing
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-test-api url="${url}"
+end
+
+task test-dev
+  describe Run security testing against the development server
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-test-dev
+end
+
+task check-headers url=""
+  describe Check security headers
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-check-headers url="${url}"
+end
+
+task check-csrf url=""
+  describe Check CSRF protections
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-check-csrf url="${url}"
+end
+
+task check-auth url=""
+  describe Check authentication and access control
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-check-auth url="${url}"
+end
+
+task report url=""
+  describe Generate the main security reports
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" security-report url="${url}"
+end
+
+task install-tools
+  describe Install or verify the supporting security tools
+  shell pf install-exploit-tools
+  shell pf install-fuzzing-tools
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" install-security-tools
+end
+
+task checksec binary=""
+  describe Analyze binary hardening and security features
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" checksec binary="${binary}"
+end
+
+task checksec-json binary=""
+  describe Analyze binary hardening and emit JSON
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" checksec-json binary="${binary}"
+end
+
+task checksec-batch dir="" verbose=""
+  describe Analyze all binaries in a directory
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" checksec-batch dir="${dir}" verbose="${verbose}"
+end
+
+task checksec-report dir="" output="" verbose=""
+  describe Generate a directory-wide security report
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" checksec-report dir="${dir}" output="${output}" verbose="${verbose}"
+end
+
+task checksec-demo
+  describe Run the binary security analysis demo
+  shell pf "$(dirname "$PFY_FILE_PATH")/vuln-hunting/Pfyfile.security.pf" checksec-demo
+end

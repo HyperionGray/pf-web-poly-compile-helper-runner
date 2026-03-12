@@ -63,14 +63,14 @@ tests/installation/test_installer_comprehensive.py::TestDirectExecution::test_di
 ### 2. Static Executable Tests (TestStaticExecutable)
 **Status**: ⏭️ Skipped (Static executable not built)
 
-Tests the pre-built static executable `pf-runner/pf-static`:
+Tests the pre-built static executable `pf-runner-full/pf-static`:
 - `test_static_exe_version` - Verifies version command
 - `test_static_exe_list` - Verifies task listing
 - `test_static_exe_run_task` - Verifies task execution
 
-**Note**: Tests are automatically skipped if `pf-runner/pf-static` doesn't exist. Build it first with:
+**Note**: Tests are automatically skipped if `pf-runner-full/pf-static` doesn't exist. Build it first with:
 ```bash
-cd pf-runner && make build
+cd pf-runner-full && make build
 ```
 
 ### 3. Static Installation Tests (TestStaticInstall)
@@ -89,38 +89,15 @@ Tests the `install-static.sh` installer:
 - Task execution
 
 ### 4. Native Installation Tests (TestNativeInstall)
-**Status**: ❌ Expected Failure (install.sh has known bugs)
+**Status**: ✅ Passing
 
-Tests the `install.sh` native installer:
+Tests the root `install.sh` native installer:
 - `test_install_native` - Verifies installation succeeds
 
-**Known Issues** (Marked as `xfail`):
-The native installer `install.sh` currently has several critical bugs:
-
-1. **Syntax Error at Line 284**: Unclosed heredoc
-   ```bash
-   write_wrapper() {
-     local pf_files="${PF_FILES_DIR:-${PREFIX}/lib/pf-files}"
-     log "Installing wrapper to ${PREFIX}/bin/pf"
-     cat > "${PREFIX}/bin/pf" <<EOF
-   # EOF is never provided, rest of file is inside heredoc
-   ```
-
-2. **Missing Functions**: The following functions are called but not defined:
-   - `check_prerequisites`
-   - `install_pf_runner`
-   - `validate_installation`
-
-3. **Uninitialized Variable**: `PREFIX_SET` variable is used but never initialized
-
-**Verification**:
-```bash
-$ bash -n install.sh
-install.sh: line 427: warning: here-document at line 284 delimited by end-of-file (wanted `EOF')
-install.sh: line 428: syntax error: unexpected end of file
-```
-
-**When Fixed**: Remove the `@pytest.mark.xfail` decorator from the test class to enable these tests.
+**Functionality Tested:**
+- Installation to a custom prefix with `--skip-deps`
+- Creation of the installed `pf` wrapper
+- Executable permissions on the installed binary
 
 ## Test Architecture
 
@@ -160,7 +137,7 @@ Each installer test class follows this pattern:
 
 ### Task Execution Testing
 
-Uses `pf-runner/test.pf` which contains:
+Uses `tests/fixtures/installer_test.pf` which contains:
 ```pf
 env name="test-app"
 
@@ -180,17 +157,13 @@ end
 
 ### ✅ What Works
 1. **Direct Execution**: Running `pf_main.py` directly works perfectly
-2. **Static Installer Syntax**: `install-static.sh` has no syntax errors
-3. **Test Files**: `test.pf` provides good test coverage for basic functionality
+2. **Native Installer**: `./install.sh --prefix <dir> --skip-deps` installs successfully
+3. **Test Files**: `tests/fixtures/installer_test.pf` provides good test coverage for basic functionality
 
-### ❌ What Needs Fixing
-1. **Native Installer**: `install.sh` needs to be repaired
-   - Fix the unclosed heredoc at line 284
-   - Implement missing functions
-   - Initialize PREFIX_SET variable
-
-2. **Static Executable**: Needs to be built for full test coverage
-   - Run `cd pf-runner && make build`
+### ⚠️ Remaining Gaps
+1. **Static Executable**: Needs to be built for full test coverage
+   - Run `cd pf-runner-full && make build`
+2. **Package-specific Coverage**: `.deb`, RPM, and PKGBUILD validation can still be expanded
 
 ### 📋 Future Enhancements
 
@@ -235,7 +208,7 @@ $ pytest tests/installation/test_installer_comprehensive.py -v
 platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0
 collecting ... collected 12 items                                                                                                      
 
-tests/installation/test_installer_comprehensive.py::TestNativeInstall::test_install_native XFAIL              [  8%]
+tests/installation/test_installer_comprehensive.py::TestNativeInstall::test_install_native PASSED             [  8%]
 tests/installation/test_installer_comprehensive.py::TestStaticInstall::test_install_static SKIPPED           [ 16%]
 tests/installation/test_installer_comprehensive.py::TestStaticInstall::test_static_version SKIPPED           [ 25%]
 tests/installation/test_installer_comprehensive.py::TestStaticInstall::test_static_list SKIPPED              [ 33%]
@@ -247,7 +220,7 @@ tests/installation/test_installer_comprehensive.py::TestDirectExecution::test_di
 tests/installation/test_installer_comprehensive.py::TestStaticExecutable::test_static_exe_version SKIPPED    [ 83%]
 tests/installation/test_installer_comprehensive.py::TestStaticExecutable::test_static_exe_list SKIPPED       [ 91%]
 tests/installation/test_installer_comprehensive.py::TestStaticExecutable::test_static_exe_run_task SKIPPED   [100%]
-
+============================================ 5 passed, 7 skipped in 1.5s =============================================
 ============================================ 4 passed, 7 skipped, 1 xfailed in 1.5s =============================================
 ```
 

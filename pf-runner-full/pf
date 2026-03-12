@@ -12,8 +12,11 @@ while [ -L "$_pf_self" ]; do
 done
 
 SCRIPT_DIR="$(cd "$(dirname "$_pf_self")" && pwd -P)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
 
+if [[ -x "${SCRIPT_DIR}/pf_universal" ]]; then
+  exec "${SCRIPT_DIR}/pf_universal" "$@"
+fi
+
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
 source "${SCRIPT_DIR}/pf_runtime.sh"
 pf_exec_runner "${SCRIPT_DIR}" "${ROOT_DIR}" "$@"
-

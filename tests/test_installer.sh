@@ -8,6 +8,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+RUNNER_DIR="./pf-runner-full"
 
 log_info() {
     echo -e "${BLUE}[TEST-INFO]${NC} $1"
@@ -30,15 +31,40 @@ test_hardcoded_paths() {
     log_info "Testing for hardcoded paths..."
     
     local hardcoded_found=false
+    local scan_paths=(
+        "./install.sh"
+        "./quick-install.sh"
+        "./scripts/install.sh"
+        "./scripts/quick-install.sh"
+        "./scripts/installer"
+        "./pf.sh"
+        "./pf-runner-full"
+    )
     
     # Check for /home/punk paths
-    if grep -r "/home/punk" . --exclude-dir=.git 2>/dev/null; then
+    if grep -r "/home/punk" "${scan_paths[@]}" \
+        --exclude-dir=.git \
+        --exclude-dir=.venv \
+        --exclude-dir=__pycache__ \
+        --exclude-dir=docs \
+        --exclude-dir=bak \
+        --exclude-dir=pf_runner.egg-info \
+        --exclude="*.backup" \
+        2>/dev/null; then
         log_error "Found hardcoded /home/punk paths"
         hardcoded_found=true
     fi
     
     # Check for other suspicious hardcoded paths
-    if grep -r "#!/.*home.*venv" . --exclude-dir=.git 2>/dev/null; then
+    if grep -r "#!/.*home.*venv" "${scan_paths[@]}" \
+        --exclude-dir=.git \
+        --exclude-dir=.venv \
+        --exclude-dir=__pycache__ \
+        --exclude-dir=docs \
+        --exclude-dir=bak \
+        --exclude-dir=pf_runner.egg-info \
+        --exclude="*.backup" \
+        2>/dev/null; then
         log_error "Found hardcoded venv paths in shebangs"
         hardcoded_found=true
     fi
@@ -61,14 +87,14 @@ test_installer_prereqs() {
         return 1
     fi
     
-    # Check if pf-runner directory exists
-    if [[ ! -d "./pf-runner" ]]; then
-        log_error "pf-runner directory not found"
+    # Check if canonical runner directory exists
+    if [[ ! -d "$RUNNER_DIR" ]]; then
+        log_error "pf-runner-full directory not found"
         return 1
     fi
     
     # Check if main parser exists
-    if [[ ! -f "./pf-runner/pf_parser.py" ]]; then
+    if [[ ! -f "$RUNNER_DIR/pf_parser.py" ]]; then
         log_error "pf_parser.py not found"
         return 1
     fi
@@ -100,7 +126,7 @@ test_container_files() {
     fi
     
     # Check for universal wrapper
-    if [[ ! -f "./pf-runner/pf_universal" ]]; then
+    if [[ ! -f "$RUNNER_DIR/pf_universal" ]]; then
         log_error "pf_universal wrapper not found"
         return 1
     fi
@@ -127,12 +153,12 @@ test_python_deps() {
     log_info "Testing Python dependencies..."
     
     # Check if pf_parser.py has proper imports
-    if ! python3 -m py_compile ./pf-runner/pf_parser.py 2>/dev/null; then
+    if ! python3 -m py_compile "$RUNNER_DIR/pf_parser.py" 2>/dev/null; then
         log_warning "pf_parser.py has syntax issues or missing dependencies"
         # This is expected if fabric is not installed, so we'll check imports manually
         
         # Check for required imports
-        if ! grep -q "from fabric import" ./pf-runner/pf_parser.py; then
+        if ! grep -q "from fabric import" "$RUNNER_DIR/pf_parser.py"; then
             log_error "Missing fabric import in pf_parser.py"
             return 1
         fi

@@ -1,0 +1,274 @@
+# PE execution module
+# Access via: pf pe <task>
+
+task usage
+  describe Show staged PE module commands and host file behavior
+  shell echo "PE module entrypoints:"
+  shell echo "  pf pe install                                # Install/verify PE module prerequisites"
+  shell echo "  pf pe build-all                              # Build the staged PE/VM images"
+  shell echo "  pf pe execute pe_file=/path/to/app.exe       # Run a Windows PE with explicit host input/output mounts"
+  shell echo "  pf pe execute-reactos pe_file=/path/to/app.exe"
+  shell echo "  pf pe execute-nano pe_file=/path/to/app.exe"
+  shell echo "  pf pe setup-vmkit                            # Prepare the VMKit-based runner"
+  shell echo "  pf pe run-vmkit pe=/path/to/app.exe          # Run via VMKit passthrough"
+  shell echo "  pf pe setup-reactos                          # Download/setup ReactOS assets"
+  shell echo "  pf pe run-reactos pe=/path/to/app.exe        # Run via the ReactOS flow"
+  shell echo "  pf pe execute-macos binary_file=/path/to/bin # Run a macOS binary in the staged QEMU flow"
+  shell echo ""
+  shell echo "Notes:"
+  shell echo "  - The staged PE execution tasks mount the specific host input path plus artifact/output directories."
+  shell echo "  - This module is intentionally standalone and does not leak always-available/root tasks into its listing."
+end
+task install
+  describe Install/verify PE module prerequisites
+  shell pf "$PFY_FILE_PATH" install-tools
+end
+
+task install-tools
+  describe Install or verify PE module prerequisites (VMKit and ReactOS assets)
+  shell pf "$PFY_FILE_PATH" setup-vmkit
+  shell pf "$PFY_FILE_PATH" setup-reactos
+end
+
+task build-all
+  describe Build the staged PE module images (Windows, ReactOS, macOS, VMKit)
+  shell pf "$PFY_FILE_PATH" build-windows-server
+  shell pf "$PFY_FILE_PATH" build-windows-nano
+  shell pf "$PFY_FILE_PATH" build-reactos
+  shell pf "$PFY_FILE_PATH" build-macos-qemu
+  shell pf "$PFY_FILE_PATH" build-vmkit
+end
+
+task build-windows-server
+  describe Build the Windows Server Core image used by the staged PE module
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-execution.pf" pe-build-windows-server
+end
+
+task build-windows-nano
+  describe Build the Windows Nano image used by the staged PE module
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-execution.pf" pe-build-windows-nano
+end
+
+task build-reactos
+  describe Build the ReactOS image used by the staged PE module
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-execution.pf" pe-build-reactos
+end
+
+task build-macos-qemu
+  describe Build the macOS QEMU image used by the staged PE module
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-execution.pf" pe-build-macos-qemu
+end
+
+task build-vmkit
+  describe Build the VMKit passthrough image used by the staged PE module
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-containers.pf" pe-build-vmkit
+end
+
+task execute pe_file=""
+  describe Execute a Windows PE using the default staged container flow
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-execution.pf" pe-execute pe_file="${pe_file}"
+end
+
+task execute-windows pe_file=""
+  describe Execute a Windows PE using the Windows Server Core staged flow
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-execution.pf" pe-execute-windows pe_file="${pe_file}"
+end
+
+task execute-nano pe_file=""
+  describe Execute a Windows PE using the Windows Nano staged flow
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-execution.pf" pe-execute-nano pe_file="${pe_file}"
+end
+
+task execute-reactos pe_file=""
+  describe Execute a Windows PE using the ReactOS staged flow
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-execution.pf" pe-execute-reactos pe_file="${pe_file}"
+end
+
+task prepare-windows
+  describe Prepare the staged Windows Server Core VM template
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-execution.pf" pe-prepare-windows
+end
+
+task prepare-windows-nano
+  describe Prepare the staged Windows Nano VM template
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-execution.pf" pe-prepare-windows-nano
+end
+
+task prepare-reactos
+  describe Prepare the staged ReactOS VM template
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-execution.pf" pe-prepare-reactos
+end
+
+task setup-vmkit
+  describe Set up the VMKit passthrough environment
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-containers.pf" pe-vmkit-setup
+end
+
+task run-vmkit pe=""
+  describe Run a PE file through the VMKit passthrough flow
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-containers.pf" pe-vmkit-run pe="${pe}"
+end
+
+task analyze-vmkit pe=""
+  describe Analyze a PE file through the VMKit passthrough flow
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-containers.pf" pe-vmkit-analyze pe="${pe}"
+end
+
+task shell-vmkit
+  describe Open a shell in the VMKit passthrough container
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-containers.pf" pe-vmkit-shell
+end
+
+task setup-reactos
+  describe Download and set up the ReactOS assets for the staged PE module
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-containers.pf" pe-reactos-setup
+end
+
+task run-reactos pe=""
+  describe Run a PE file through the ReactOS VM flow
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-containers.pf" pe-reactos-run pe="${pe}"
+end
+
+task analyze-reactos pe=""
+  describe Analyze a PE file through the ReactOS VM flow
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-containers.pf" pe-reactos-analyze pe="${pe}"
+end
+
+task shell-reactos
+  describe Open a shell in the ReactOS container
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-containers.pf" pe-reactos-shell
+end
+
+task execute-macos binary_file=""
+  describe Execute a macOS binary through the staged QEMU flow
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-execution.pf" macos-execute binary_file="${binary_file}"
+end
+
+task prepare-macos
+  describe Prepare the staged macOS VM template
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-execution.pf" macos-prepare
+end
+
+task setup-macos
+  describe Create the staged macOS disk image and environment
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-containers.pf" macos-setup
+end
+
+task run-macos
+  describe Start the staged macOS VM
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-containers.pf" macos-run
+end
+
+task run-macos-headless
+  describe Start the staged macOS VM in headless mode
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-containers.pf" macos-run-headless
+end
+
+task stop-macos
+  describe Stop the staged macOS VM
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    MODULE_DIR="$(cd "$(dirname "${PFY_FILE_PATH}")" && pwd)"
+    pf "$MODULE_DIR/multi-exec/Pfyfile.pe-containers.pf" macos-stop
+end

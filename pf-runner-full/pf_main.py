@@ -31,6 +31,7 @@ import traceback
 import difflib
 import shlex
 import textwrap
+import re
 from typing import List, Dict, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -44,6 +45,7 @@ if VENDOR_PATH.exists():
 from pf_parser import (
     get_alias_map,
     _find_pfyfile,
+    _resolve_pfyfile_reference,
     _load_pfy_source_with_includes,
     parse_pfyfile_text,
     Task,
@@ -343,13 +345,24 @@ class PfRunner:
     def _handle_list_command(self, args) -> int:
         """Handle the list command."""
         try:
-            direct_tasks, module_tasks = self._load_task_listing(args.file)
+            file_arg = args.file
+            target = getattr(args, "target", None)
+            if target and not file_arg:
+                resolved = _resolve_pfyfile_reference(target, start_dir=os.getcwd())
+                file_arg = resolved or target
 
-            if not direct_tasks and not module_tasks:
+            tasks_with_desc = list_dsl_tasks_with_desc(file_arg=file_arg)
+            
+            if args.subcommand:
+                # Filter tasks by subcommand
+                print(f"Tasks for {args.subcommand}:")
+                # This would need more sophisticated filtering
+                # For now, show all tasks
+            else:
                 print("Available tasks:")
                 print("  No tasks found.")
-                if args.file:
-                    print(f"\nNote: Using Pfyfile: {args.file}")
+                if file_arg:
+                    print(f"\nNote: Using Pfyfile: {file_arg}")
                     print("Check if the file exists and contains task definitions.")
                 else:
                     print("\nNote: No Pfyfile found in current directory or parent directories.")
@@ -377,25 +390,33 @@ class PfRunner:
 
             if direct_tasks:
                 print("\nCore tasks:")
-                self._print_task_entries(direct_tasks)
-
-            if module_tasks:
-                print("\nModules:")
-                for module_name, tasks in sorted(module_tasks.items()):
-                    print(f"  {module_name} ({self._format_task_count(len(tasks))})")
-
-            print(f"\nUsage: pf <task_name> [params...]")
-            print(f"       pf <module> <task_name> [params...]")
-            print(f"       pf list --subcommand <module>  # Show tasks in a module")
-            print(f"       pf help <task_name>            # Show help for a specific task")
-
+                for task_name, description, aliases in main_tasks:
+                    desc_text = f" - {description}" if description else ""
+                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
+                    print(f"  {task_name}{desc_text}{alias_text}")
+            
+            # Display categorized tasks
+            for category, tasks in sorted(categorized_tasks.items()):
+                print(f"\n{category.title()} tasks:")
+                for task_name, description, aliases in tasks:
+                    desc_text = f" - {description}" if description else ""
+                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
+                    print(f"  {task_name}{desc_text}{alias_text}")
+                    
+            # Show usage hint
+            print("\nUsage:")
+            print("  pf <task_name> [params...]")
+            print("  pf <module|file.pf>                # List tasks from a module/file")
+            print("  pf <module|file.pf> <task_name> [params...]")
+            print("  pf help <task_name>                # Show help for a specific task")
+            
             return 0
             
         except FileNotFoundError as e:
             # Specific error for missing file
             print(f"Error: Pfyfile not found: {e}", file=sys.stderr)
-            if args.file:
-                print(f"The specified file '{args.file}' does not exist.", file=sys.stderr)
+            if file_arg:
+                print(f"The specified file '{file_arg}' does not exist.", file=sys.stderr)
             else:
                 print("No Pfyfile found in current directory or parent directories.", file=sys.stderr)
             print("\nSuggestions:", file=sys.stderr)
@@ -466,11 +487,23 @@ class PfRunner:
     
     def _handle_run_command(self, args) -> int:
         """Handle the run command."""
-        if not hasattr(args, 'tasks') or not args.tasks:
+        task_args = list(getattr(args, 'tasks', []) or [])
+        if not hasattr(args, 'tasks') or not task_args:
             print("No tasks specified to run.", file=sys.stderr)
             return 1
+
+        if not args.file and task_args:
+            resolved = _resolve_pfyfile_reference(task_args[0], start_dir=os.getcwd())
+            if resolved:
+                args.file = resolved
+                task_args = task_args[1:]
+
+        if not task_args:
+            setattr(args, "target", None)
+            setattr(args, "subcommand", None)
+            return self._handle_list_command(args)
             
-        return self._execute_tasks(args, args.tasks)
+        return self._execute_tasks(args, task_args)
     
     def _handle_subcommand(self, args) -> int:
         """Handle a subcommand (from included file)."""
@@ -546,14 +579,20 @@ class PfRunner:
         """Parse task arguments into (task_name, lines, params, default_lang) tuples."""
         selected = []
         i = 0
+        task_name_lookup = self._build_task_name_lookup(valid_task_names)
         
         while i < len(task_args):
-            task_name = task_args[i]
+            resolved_name, consumed_tokens = self._consume_task_name_tokens(
+                task_args,
+                i,
+                valid_task_names,
+                task_name_lookup,
+            )
+            i += consumed_tokens
 
-            # Resolve/auto-correct task name when it is not an exact match
-            resolved_name = self._resolve_task_name(task_name, valid_task_names)
-            
-            i += 1
+            task_defaults: Dict[str, str] = {}
+            if resolved_name not in BUILTINS:
+                task_defaults = dict(dsl_tasks[resolved_name].params)
             
             # Parse parameters for this task
             cli_params: Dict[str, str] = {}
@@ -561,7 +600,7 @@ class PfRunner:
                 tok = task_args[i]
 
                 # Stop if the next token looks like a new task name
-                if tok in valid_task_names:
+                if self._find_task_name_match(tok, task_name_lookup):
                     break
 
                 # --key=value
@@ -574,7 +613,19 @@ class PfRunner:
                 # --key value (treat lone --key as boolean true)
                 if tok.startswith('--'):
                     key = tok[2:]
-                    if (i + 1) < len(task_args) and task_args[i + 1] not in valid_task_names and not task_args[i + 1].startswith('--'):
+                    next_tok = task_args[i + 1] if (i + 1) < len(task_args) else None
+                    should_consume_next = (
+                        next_tok is not None
+                        and not next_tok.startswith('--')
+                        and (
+                            key in task_defaults
+                            or (
+                                '=' not in next_tok
+                                and self._find_task_name_match(next_tok, task_name_lookup) is None
+                            )
+                        )
+                    )
+                    if should_consume_next:
                         value = task_args[i + 1]
                         i += 2
                     else:
@@ -609,10 +660,111 @@ class PfRunner:
         
         return selected
 
-    def _resolve_task_name(self, task_name: str, valid_task_names: set) -> str:
+    def _normalize_task_name_key(self, task_name: str) -> str:
+        """Normalize task names so spaces, underscores, and hyphens compare equivalently."""
+        lowered = task_name.strip().lower().replace("_", "-")
+        return re.sub(r"-+", "-", re.sub(r"\s+", "-", lowered)).strip("-")
+
+    def _build_task_name_lookup(self, valid_task_names: set) -> Dict[str, str]:
+        """Build a best-effort lookup for exact and normalized task names."""
+        lookup: Dict[str, str] = {}
+        ambiguous: set[str] = set()
+
+        for name in valid_task_names:
+            for key in {name, name.lower(), self._normalize_task_name_key(name)}:
+                if not key:
+                    continue
+                existing = lookup.get(key)
+                if existing is None:
+                    lookup[key] = name
+                elif existing != name:
+                    ambiguous.add(key)
+
+        for key in ambiguous:
+            lookup.pop(key, None)
+
+        return lookup
+
+    def _find_task_name_match(
+        self,
+        task_name: str,
+        task_name_lookup: Dict[str, str],
+    ) -> Optional[str]:
+        """Resolve exact/normalized task names without invoking fuzzy autocorrect."""
+        if task_name in task_name_lookup:
+            return task_name_lookup[task_name]
+        lowered = task_name.lower()
+        if lowered in task_name_lookup:
+            return task_name_lookup[lowered]
+        normalized = self._normalize_task_name_key(task_name)
+        if normalized in task_name_lookup:
+            return task_name_lookup[normalized]
+        return None
+
+    def _looks_like_param_token(self, token: str) -> bool:
+        """Return True when a token is clearly a CLI parameter instead of a task token."""
+        return token.startswith("--") or "=" in token
+
+    def _consume_task_name_tokens(
+        self,
+        task_args: List[str],
+        start_idx: int,
+        valid_task_names: set,
+        task_name_lookup: Dict[str, str],
+    ) -> Tuple[str, int]:
+        """
+        Resolve one task reference from the task-argument stream.
+
+        Supports compatibility forms like `pf this task` for `this-task` while
+        preserving plain multi-task syntax when the next token is clearly another task.
+        """
+        first_token = task_args[start_idx]
+        exact_single = self._find_task_name_match(first_token, task_name_lookup)
+
+        max_end = start_idx + 1
+        while max_end < len(task_args) and not self._looks_like_param_token(task_args[max_end]):
+            max_end += 1
+
+        best_multi_match: Optional[str] = None
+        best_multi_len = 0
+        for end_idx in range(max_end, start_idx + 1, -1):
+            if (end_idx - start_idx) < 2:
+                continue
+            candidate = " ".join(task_args[start_idx:end_idx])
+            resolved = self._find_task_name_match(candidate, task_name_lookup)
+            if resolved:
+                best_multi_match = resolved
+                best_multi_len = end_idx - start_idx
+                break
+
+        next_token_can_be_task = (
+            (start_idx + 1) < len(task_args)
+            and not self._looks_like_param_token(task_args[start_idx + 1])
+            and self._find_task_name_match(task_args[start_idx + 1], task_name_lookup) is not None
+        )
+
+        if best_multi_match and (exact_single is None or not next_token_can_be_task):
+            return best_multi_match, best_multi_len
+
+        if exact_single:
+            return exact_single, 1
+
+        if best_multi_match:
+            return best_multi_match, best_multi_len
+
+        return self._resolve_task_name(first_token, valid_task_names, task_name_lookup), 1
+
+    def _resolve_task_name(
+        self,
+        task_name: str,
+        valid_task_names: set,
+        task_name_lookup: Optional[Dict[str, str]] = None,
+    ) -> str:
         """Return a valid task name, applying autocorrect with user-controlled policy."""
-        if task_name in valid_task_names:
-            return task_name
+        task_name_lookup = task_name_lookup or self._build_task_name_lookup(valid_task_names)
+        matched = self._find_task_name_match(task_name, task_name_lookup)
+        if matched:
+            return matched
 
         mode = os.getenv("PF_AUTOCORRECT_MODE", "auto").lower()
         threshold = float(os.getenv("PF_AUTOCORRECT_THRESHOLD", "0.75"))
@@ -809,19 +961,24 @@ class PfRunner:
                                         ('env ', 'shell ', 'shell_lang ', 'default_lang ', 'describe ', 'task ', 'end')
                                     ):
                                         break
-                                    block_lines.append(next_line.lstrip())
+                                    block_lines.append(next_line)
                                     i += 1
-
-                                script_body = "\n".join(block_lines)
-                                shell_bin = "bash"
-                                lang_for_block = line_lang or shell_lang
-                                if lang_for_block in ("bash", "sh", "zsh", "dash", "ksh", "fish"):
-                                    shell_bin = "bash" if lang_for_block == "sh" else lang_for_block
-                                heredoc_cmd = f"{shell_bin} <<'PF_EOF'\n{script_body}\nPF_EOF"
-                                rc = _exec_line_fabric(
-                                    heredoc_cmd, connection, task_env, task_name,
-                                    args.sudo, args.sudo_user
-                                )
+                                script_body = textwrap.dedent("\n".join(block_lines)).strip("\n")
+                                lang_for_block = line_lang or shell_lang or implicit_lang
+                                if lang_for_block:
+                                    rendered_cmd, _lang = _render_polyglot_command(
+                                        lang_for_block, script_body, os.getcwd()
+                                    )
+                                    rc = _exec_line_fabric(
+                                        rendered_cmd, connection, task_env, task_name,
+                                        args.sudo, args.sudo_user
+                                    )
+                                else:
+                                    heredoc_cmd = f"bash <<'PF_EOF'\n{script_body}\nPF_EOF"
+                                    rc = _exec_line_fabric(
+                                        heredoc_cmd, connection, task_env, task_name,
+                                        args.sudo, args.sudo_user
+                                    )
                             elif "<<" in shell_cmd:
                                 delimiter, outfile, strip_tabs = _parse_heredoc_syntax(shell_cmd)
                                 if delimiter:
@@ -845,12 +1002,25 @@ class PfRunner:
                                     heredoc_content = "\n".join(heredoc_lines)
                                     if strip_tabs:
                                         heredoc_content = "\n".join(line.lstrip("\t") for line in heredoc_lines)
-                                    redir = f" > {outfile}" if outfile else ""
-                                    heredoc_cmd = f"{shell_cmd}{redir}\n{heredoc_content}\n{delimiter}"
-                                    rc = _exec_line_fabric(
-                                        heredoc_cmd, connection, task_env, task_name,
-                                        args.sudo, args.sudo_user
-                                    )
+                                    lang_for_heredoc = line_lang or shell_lang or implicit_lang
+                                    if lang_for_heredoc:
+                                        rendered_cmd, _lang = _render_polyglot_command(
+                                            lang_for_heredoc,
+                                            textwrap.dedent(heredoc_content).strip("\n"),
+                                            os.getcwd()
+                                        )
+                                        if outfile:
+                                            rendered_cmd = f"(\n{rendered_cmd}\n) > {shlex.quote(outfile)}"
+                                        rc = _exec_line_fabric(
+                                            rendered_cmd, connection, task_env, task_name,
+                                            args.sudo, args.sudo_user
+                                        )
+                                    else:
+                                        heredoc_cmd = f"{shell_cmd}\n{heredoc_content}\n{delimiter}"
+                                        rc = _exec_line_fabric(
+                                            heredoc_cmd, connection, task_env, task_name,
+                                            args.sudo, args.sudo_user
+                                        )
                                 else:
                                     rc = execute_shell_command(
                                         shell_cmd, task_env, args.sudo, args.sudo_user,
@@ -858,7 +1028,7 @@ class PfRunner:
                                     )
                             else:
                                 rendered_cmd = None
-                                lang_for_line = line_lang or shell_lang
+                                lang_for_line = line_lang or shell_lang or implicit_lang
                                 if lang_for_line:
                                     rendered_cmd, _lang = _render_polyglot_command(
                                         lang_for_line, shell_cmd, os.getcwd()

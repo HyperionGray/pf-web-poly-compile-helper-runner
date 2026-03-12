@@ -34,6 +34,11 @@ task module-install-help
   describe Show install entrypoints grouped by module
   shell echo " MODULE INSTALL SHORTCUTS"
   shell echo ""
+  shell echo "  pf web install                # Module-first web prerequisites"
+  shell echo "  pf security install           # Module-first security prerequisites"
+  shell echo "  pf pe install                 # Module-first PE prerequisites"
+  shell echo ""
+  shell echo "Root compatibility wrappers:"
   shell echo "  pf install-module-core        # Install pf runner to user prefix (~/.local)"
   shell echo "  pf install-module-debug       # Debug/RE toolchain (radare2, snowman, oryx, binsider)"
   shell echo "  pf install-module-exploit     # Exploit dev tools (pwntools, checksec, ropper, ROPgadget)"
@@ -78,6 +83,21 @@ end
 task install-module-containers
   describe Install quadlet files for containerized services
   shell pf quadlet-install
+end
+
+task install-module-web
+  describe Install or verify web module prerequisites
+  shell pf web install
+end
+
+task install-module-security
+  describe Install or verify security module prerequisites
+  shell pf security install
+end
+
+task install-module-pe
+  describe Install or verify PE module prerequisites
+  shell pf pe install
 end
 
 # Always-Available PF Tasks

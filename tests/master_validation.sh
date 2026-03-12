@@ -10,6 +10,9 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
+RUNNER_DIR="${REPO_ROOT}/pf-runner-full"
 
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -39,12 +42,12 @@ apply_fixes() {
     local fixes_applied=0
     
     # Fix 1: Hardcoded shebang in pf_parser.py
-    if [[ -f "pf-runner/pf_parser.py" ]]; then
-        local current_shebang=$(head -1 pf-runner/pf_parser.py)
+    if [[ -f "${RUNNER_DIR}/pf_parser.py" ]]; then
+        local current_shebang=$(head -1 "${RUNNER_DIR}/pf_parser.py")
         if [[ "$current_shebang" != "#!/usr/bin/env python3" ]]; then
             log_info "Fixing hardcoded shebang in pf_parser.py..."
-            cp pf-runner/pf_parser.py pf-runner/pf_parser.py.backup
-            sed -i '1s|^#!/.*|#!/usr/bin/env python3|' pf-runner/pf_parser.py
+            cp "${RUNNER_DIR}/pf_parser.py" "${RUNNER_DIR}/pf_parser.py.backup"
+            sed -i '1s|^#!/.*|#!/usr/bin/env python3|' "${RUNNER_DIR}/pf_parser.py"
             log_success "Fixed shebang: $current_shebang -> #!/usr/bin/env python3"
             fixes_applied=$((fixes_applied + 1))
         else
@@ -56,19 +59,19 @@ apply_fixes() {
     fi
     
     # Fix 2: Make scripts executable
-    if [[ -f "install.sh" ]]; then
-        chmod +x install.sh
+    if [[ -f "${REPO_ROOT}/install.sh" ]]; then
+        chmod +x "${REPO_ROOT}/install.sh"
         log_success "Made install.sh executable"
     fi
     
-    if [[ -f "pf-runner/pf_universal" ]]; then
-        chmod +x pf-runner/pf_universal
+    if [[ -f "${RUNNER_DIR}/pf_universal" ]]; then
+        chmod +x "${RUNNER_DIR}/pf_universal"
         log_success "Made pf_universal executable"
     fi
     
     # Fix 3: Check for other hardcoded paths
     log_info "Checking for remaining hardcoded paths..."
-    if grep -r "/home/punk" . --exclude-dir=.git --exclude="*.backup" 2>/dev/null; then
+    if grep -r "/home/punk" "${REPO_ROOT}" --exclude-dir=.git --exclude="*.backup" 2>/dev/null; then
         log_warning "Found additional hardcoded paths that may need fixing"
     else
         log_success "No additional hardcoded paths found"
@@ -84,8 +87,8 @@ run_native_tests() {
     log_header "Native Installer Tests"
     echo "======================"
     
-    if [[ -x "./test_native_installer.sh" ]]; then
-        if ./test_native_installer.sh; then
+    if [[ -x "${SCRIPT_DIR}/test_native_installer.sh" ]]; then
+        if "${SCRIPT_DIR}/test_native_installer.sh"; then
             log_success "Native installer tests passed"
             return 0
         else
@@ -120,14 +123,15 @@ generate_report() {
     
     # Repository status
     log_info "Repository Status:"
-    echo "  Location: $(pwd)"
-    echo "  install.sh: $(if [[ -x install.sh ]]; then echo 'Present and executable'; else echo 'Missing or not executable'; fi)"
-    echo "  pf-runner/: $(if [[ -d pf-runner ]]; then echo 'Present'; else echo 'Missing'; fi)"
+    echo "  Location: ${REPO_ROOT}"
+    echo "  install.sh: $(if [[ -x "${REPO_ROOT}/install.sh" ]]; then echo 'Present and executable'; else echo 'Missing or not executable'; fi)"
+    echo "  pf-runner-full/: $(if [[ -d "${RUNNER_DIR}" ]]; then echo 'Present'; else echo 'Missing'; fi)"
+    echo "  pf-runner/: $(if [[ -L "${REPO_ROOT}/pf-runner" ]]; then echo 'Compatibility symlink'; elif [[ -d "${REPO_ROOT}/pf-runner" ]]; then echo 'Present'; else echo 'Missing'; fi)"
     echo ""
     
     # Check shebang status
-    if [[ -f "pf-runner/pf_parser.py" ]]; then
-        local shebang=$(head -1 pf-runner/pf_parser.py)
+    if [[ -f "${RUNNER_DIR}/pf_parser.py" ]]; then
+        local shebang=$(head -1 "${RUNNER_DIR}/pf_parser.py")
         echo "  pf_parser.py shebang: $shebang"
     fi
     echo ""
@@ -180,10 +184,11 @@ main() {
     echo ""
     
     # Check if we're in the right directory
-    if [[ ! -f "install.sh" ]] || [[ ! -d "pf-runner" ]]; then
+    if [[ ! -f "${REPO_ROOT}/install.sh" ]] || [[ ! -d "${RUNNER_DIR}" ]]; then
         log_error "This script must be run from the repository root directory"
         exit 1
     fi
+    cd "${REPO_ROOT}"
     
     # Apply fixes
     if ! apply_fixes; then
@@ -194,7 +199,7 @@ main() {
     echo ""
     
     # Make native test script executable
-    chmod +x test_native_installer.sh 2>/dev/null || true
+    chmod +x "${SCRIPT_DIR}/test_native_installer.sh" 2>/dev/null || true
 
     # Run native tests
     local native_result=1

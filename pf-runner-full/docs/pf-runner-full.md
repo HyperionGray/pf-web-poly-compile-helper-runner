@@ -655,7 +655,7 @@ This project uses a modular task organization:
 - `pf-files/tests/Pfyfile.tests.pf` - Testing tasks (basic, integration, docs)
 - `pf-files/builds/Pfyfile.builds.pf` - Build and release tasks (validate, package, install)
 - `pf-files/cleanup/Pfyfile.cleanup.pf` - Cleanup and maintenance tasks
-- `pf-files/examples/base.pf`, `pf-files/tests/fixtures/test.pf` - Core functionality examples
+- `pf-files/examples/base.pf`, `tests/fixtures/installer_test.pf` - Core functionality examples
 - `scripts/` - Helper scripts (following no-long-commands rule)
 
 ## Quick Start Commands

@@ -1,0 +1,132 @@
+# Root compatibility wrappers for staged standalone modules
+
+task module-help
+  describe Show standalone module entrypoints and preferred root compatibility commands
+  shell echo "Standalone modules:"
+  shell echo "  pf web <task>       # Web dev/build/test module"
+  shell echo "  pf security <task>  # Security scan/fuzz/checksec module"
+  shell echo "  pf pe <task>        # PE and macOS execution module"
+  shell echo ""
+  shell echo "Module install entrypoints:"
+  shell echo "  pf web install       # Install/verify web module prerequisites"
+  shell echo "  pf security install  # Install/verify security module prerequisites"
+  shell echo "  pf pe install        # Install/verify PE module prerequisites"
+  shell echo ""
+  shell echo "Root compatibility wrappers still exist for a few common commands,"
+  shell echo "but prefer the module forms above for discovery and day-to-day use."
+end
+
+task web-dev dir="" port=""
+  describe Compatibility wrapper. Prefer `pf web api-server`
+  shell pf web api-server dir="${dir}" port="${port}"
+end
+
+task web-dev-static dir="" port=""
+  describe Compatibility wrapper. Prefer `pf web dev-static`
+  shell pf web dev-static dir="${dir}" port="${port}"
+end
+
+task api-server dir="" port=""
+  describe Compatibility wrapper. Prefer `pf web api-server`
+  shell pf web api-server dir="${dir}" port="${port}"
+end
+
+task web-test
+  describe Compatibility wrapper. Prefer `pf web test`
+  shell pf web test
+end
+
+task web-build-all-wasm
+  describe Compatibility wrapper. Prefer `pf web build-all-wasm`
+  shell pf web build-all-wasm
+end
+
+task web-build-all-asm
+  describe Compatibility wrapper. Prefer `pf web build-all-asm`
+  shell pf web build-all-asm
+end
+
+task web-build-all-llvm opt_level="" parallel=""
+  describe Compatibility wrapper. Prefer `pf web build-all-llvm`
+  shell pf web build-all-llvm opt_level="${opt_level}" parallel="${parallel}"
+end
+
+task web-toolchain-check
+  describe Compatibility wrapper. Prefer `pf web toolchain-check`
+  shell pf web toolchain-check
+end
+
+task security-help
+  describe Compatibility wrapper. Prefer `pf security usage`
+  shell pf security usage
+end
+
+task security-scan url="" checks="" verbose=""
+  describe Compatibility wrapper. Prefer `pf security scan`
+  shell pf security scan url="${url}" checks="${checks}" verbose="${verbose}"
+end
+
+task security-scan-critical url=""
+  describe Compatibility wrapper. Prefer `pf security scan-critical`
+  shell pf security scan-critical url="${url}"
+end
+
+task security-fuzz url="" type="" delay="" verbose=""
+  describe Compatibility wrapper. Prefer `pf security fuzz`
+  shell pf security fuzz url="${url}" type="${type}" delay="${delay}" verbose="${verbose}"
+end
+
+task security-test-all url=""
+  describe Compatibility wrapper. Prefer `pf security test-all`
+  shell pf security test-all url="${url}"
+end
+
+task checksec binary=""
+  describe Compatibility wrapper. Prefer `pf security checksec`
+  shell pf security checksec binary="${binary}"
+end
+
+task checksec-json binary=""
+  describe Compatibility wrapper. Prefer `pf security checksec-json`
+  shell pf security checksec-json binary="${binary}"
+end
+
+task install-security-tools
+  describe Compatibility wrapper. Prefer `pf security install-tools`
+  shell pf security install-tools
+end
+
+task pe-help
+  describe Compatibility wrapper. Prefer `pf pe usage`
+  shell pf pe usage
+end
+
+task pe-build-all
+  describe Compatibility wrapper. Prefer `pf pe build-all`
+  shell pf pe build-all
+end
+
+task pe-execute pe_file=""
+  describe Compatibility wrapper. Prefer `pf pe execute`
+  shell pf pe execute pe_file="${pe_file}"
+end
+
+task pe-execute-windows pe_file=""
+  describe Compatibility wrapper. Prefer `pf pe execute-windows`
+  shell pf pe execute-windows pe_file="${pe_file}"
+end
+
+task pe-execute-nano pe_file=""
+  describe Compatibility wrapper. Prefer `pf pe execute-nano`
+  shell pf pe execute-nano pe_file="${pe_file}"
+end
+
+task pe-execute-reactos pe_file=""
+  describe Compatibility wrapper. Prefer `pf pe execute-reactos`
+  shell pf pe execute-reactos pe_file="${pe_file}"
+end
+
+task macos-execute binary_file=""
+  describe Compatibility wrapper. Prefer `pf pe execute-macos`
+  shell pf pe execute-macos binary_file="${binary_file}"
+end

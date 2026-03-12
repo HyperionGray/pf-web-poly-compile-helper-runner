@@ -36,12 +36,12 @@ The script sources `emsdk_env.sh` from the first matching `$HOME/emsdk-*` direct
 
 1. Checks prerequisites (Python 3.8+, Git, pip)
 2. Installs system dependencies (unless `--skip-deps` is requested)
-3. Creates a per-prefix Python virtual environment (user installs only)
-4. Installs Python dependencies (fabric, lark, typer)
-5. Copies pf-runner into `${PREFIX}/lib/pf-runner`
+3. Copies pf-runner into `${PREFIX}/lib/pf-runner`
+4. Installs Python dependencies into `${PREFIX}/lib/pf-runner/vendor`
+5. Pins the wrapper to a stable Python interpreter instead of whichever venv is active in your shell
 6. Creates the `pf` executable wrapper in `${PREFIX}/bin`
 7. Deploys shell completions (bash/zsh) when possible
-8. Validates the native `pf` command (`pf list`, `pf --version`)
+8. Validates the native `pf` command (`pf list`, `pf --version`) even with an unrelated `VIRTUAL_ENV` active
 
 ## Installation Options
 
@@ -77,6 +77,13 @@ sudo ./install.sh
    pf --version
    pf list
    ```
+
+3. **Override the interpreter for source-tree runs if needed**:
+   ```bash
+   PF_PYTHON=/usr/bin/python3 ./pf.sh list
+   ```
+
+Installed `pf` no longer needs a per-project venv. It carries its runtime dependencies under `lib/pf-runner/vendor` and prefers a stable interpreter so an unrelated activated venv does not hijack the command.
 3. **Start using pf**:
    ```bash
    pf web-dev          # Start web development server
@@ -109,12 +116,12 @@ If you get Python import errors:
 
 1. **Reinstall with dependencies**:
    ```bash
-   ./install.sh --skip-deps  # Skip system deps if they're already installed
+   ./install.sh --prefix ~/.local --skip-deps
    ```
 
-2. **Manual dependency install**:
+2. **Check that the bundled vendor directory exists**:
    ```bash
-   pip3 install --user "fabric>=3.2,<4" "lark>=1.1.0"
+   ls -la ~/.local/lib/pf-runner/vendor
    ```
 
 ### Permission denied
@@ -144,7 +151,6 @@ sudo rm -f /usr/share/zsh/vendor-completions/_pf
 ```bash
 rm -f ~/.local/bin/pf
 rm -rf ~/.local/lib/pf-runner
-rm -rf ~/.local/lib/pf-runner-venv
 rm -f ~/.local/share/bash-completion/completions/pf
 rm -f ~/.zsh/completions/_pf
 ```

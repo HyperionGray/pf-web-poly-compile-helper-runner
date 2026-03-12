@@ -135,42 +135,48 @@ test_pf_functionality() {
 test_python_dependencies() {
     log_info "Testing Python dependencies..."
     
-    local venv_python="${TEST_PREFIX}/lib/pf-runner-venv/bin/python"
+    local vendor_dir="${TEST_PREFIX}/lib/pf-runner/vendor"
     
-    if [[ -f "$venv_python" ]]; then
-        log_info "Virtual environment found at ${TEST_PREFIX}/lib/pf-runner-venv"
-        
-        # Test fabric import
-        if ! "$venv_python" -c "import fabric" 2>/dev/null; then
-            log_error "fabric not installed in venv"
-            return 1
-        fi
-        
-        # Test lark import
-        if ! "$venv_python" -c "import lark" 2>/dev/null; then
-            log_error "lark not installed in venv"
-            return 1
-        fi
-        
-        log_success "All Python dependencies available in venv"
-    else
-        log_info "No venv found, checking system python..."
-        
-        # Test fabric import
-        if ! python3 -c "import fabric" 2>/dev/null; then
-            log_error "fabric not installed in system python"
-            return 1
-        fi
-        
-        # Test lark import
-        if ! python3 -c "import lark" 2>/dev/null; then
-            log_error "lark not installed in system python"
-            return 1
-        fi
-        
-        log_success "All Python dependencies available in system python"
+    if [[ ! -d "$vendor_dir" ]]; then
+        log_error "Bundled vendor directory not found at ${vendor_dir}"
+        return 1
     fi
+
+    if [[ -d "${TEST_PREFIX}/lib/pf-runner-venv" ]]; then
+        log_error "Legacy pf-runner-venv directory should not be created"
+        return 1
+    fi
+
+    if ! PYTHONPATH="$vendor_dir" python3 -c "import fabric, lark, typer, json5, rich" 2>/dev/null; then
+        log_error "Bundled vendor directory is missing required dependencies"
+        return 1
+    fi
+
+    log_success "Bundled Python dependencies are present in vendor/"
     
+    return 0
+}
+
+test_active_venv_resilience() {
+    log_info "Testing pf with an unrelated active venv in PATH..."
+
+    local pf_cmd="${TEST_PREFIX}/bin/pf"
+    local fake_venv="${TEST_DIR}/fake-venv"
+    mkdir -p "${fake_venv}/bin"
+
+    cat > "${fake_venv}/bin/python3" <<'EOF'
+#!/usr/bin/env bash
+echo "fake venv python3 should not be used" >&2
+exit 97
+EOF
+    chmod +x "${fake_venv}/bin/python3"
+
+    if ! VIRTUAL_ENV="${fake_venv}" PATH="${fake_venv}/bin:${PATH}" "${pf_cmd}" list >/dev/null 2>&1; then
+        log_error "pf broke when an unrelated venv was active"
+        return 1
+    fi
+
+    log_success "pf ignores unrelated active venv shims"
     return 0
 }
 
@@ -207,10 +213,11 @@ test_file_structure() {
         "${TEST_PREFIX}/bin/pf"
         "${TEST_PREFIX}/lib/pf-runner/pf_parser.py"
         "${TEST_PREFIX}/lib/pf-runner/Pfyfile.pf"
+        "${TEST_PREFIX}/lib/pf-runner/vendor"
     )
     
     for file in "${expected_files[@]}"; do
-        if [[ ! -f "$file" ]]; then
+        if [[ ! -e "$file" ]]; then
             log_error "Expected file not found: $file"
             return 1
         fi
@@ -262,6 +269,12 @@ run_all_tests() {
     fi
     
     if test_python_dependencies; then
+        passed=$((passed + 1))
+    else
+        failed=$((failed + 1))
+    fi
+    
+    if test_active_venv_resilience; then
         passed=$((passed + 1))
     else
         failed=$((failed + 1))

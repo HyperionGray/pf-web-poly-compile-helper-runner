@@ -114,9 +114,12 @@ def _find_pfyfile(
     start_dir: Optional[str] = None, file_arg: Optional[str] = None
 ) -> str:
     if file_arg:
+        resolved = _resolve_pfyfile_reference(file_arg, start_dir=start_dir)
+        if resolved:
+            return resolved
         if os.path.isabs(file_arg):
             return file_arg
-        return os.path.abspath(file_arg)
+        return os.path.abspath(os.path.join(start_dir or os.getcwd(), file_arg))
 
     # Allow empty env to fall back to default
     pf_env = os.environ.get("PFY_FILE") or ""
@@ -169,6 +172,108 @@ def _find_pfyfile(
             # Last resort: current working directory + default hint
             return os.path.join(os.getcwd(), alt_hints[0] if alt_hints else pf_hint)
         cur = parent
+
+
+def _resolve_pfyfile_reference(
+    file_arg: str, start_dir: Optional[str] = None
+) -> Optional[str]:
+    """
+    Resolve an explicit CLI/file reference to a concrete Pfyfile path.
+
+    Supports:
+    - Exact relative or absolute paths
+    - Omitting the `.pf` suffix (for example: `module` -> `module.pf`)
+    - Omitting the `Pfyfile.` prefix for module files under `pf-files/**`
+      (for example: `web` -> `pf-files/.../Pfyfile.web.pf`)
+    """
+    if not file_arg:
+        return None
+
+    raw = file_arg.strip()
+    if not raw:
+        return None
+
+    start_dir = os.path.abspath(start_dir or os.getcwd())
+    raw_dirname = os.path.dirname(raw)
+    raw_basename = os.path.basename(raw)
+    has_pf_suffix = raw_basename.endswith(".pf")
+    has_pfy_prefix = raw_basename.startswith("Pfyfile.")
+    candidates: List[str] = []
+
+    def add_candidate(path: str) -> None:
+        if not path:
+            return
+        normalized = (
+            os.path.normpath(path)
+            if os.path.isabs(path)
+            else os.path.normpath(os.path.join(start_dir, path))
+        )
+        if normalized not in candidates:
+            candidates.append(normalized)
+
+    add_candidate(raw)
+
+    if not has_pf_suffix:
+        add_candidate(f"{raw}.pf")
+        pfy_basename = (
+            raw_basename if has_pfy_prefix else f"Pfyfile.{raw_basename}.pf"
+        )
+        pfy_candidate = (
+            os.path.join(raw_dirname, pfy_basename) if raw_dirname else pfy_basename
+        )
+        add_candidate(pfy_candidate)
+
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return candidate
+
+    pf_files_root = _find_pf_files_root(start_dir)
+    if pf_files_root:
+        canonical_module_candidate: Optional[str] = None
+        if has_pf_suffix or has_pfy_prefix:
+            canonical_name = raw_basename
+        else:
+            canonical_name = f"Pfyfile.{raw_basename}.pf"
+        candidate_path = os.path.join(pf_files_root, canonical_name)
+        if os.path.isfile(candidate_path):
+            canonical_module_candidate = os.path.abspath(candidate_path)
+        lookup_names: List[str] = []
+        if has_pf_suffix or has_pfy_prefix:
+            lookup_names.append(raw_basename)
+        else:
+            lookup_names.extend(
+                [
+                    f"{raw_basename}.pf",
+                    f"Pfyfile.{raw_basename}.pf",
+                ]
+            )
+
+        matches: List[str] = []
+        index = _pf_files_index(pf_files_root)
+        for name in lookup_names:
+            matches.extend(index.get(name, []))
+
+        unique_matches = sorted(
+            {os.path.abspath(match) for match in matches},
+            key=lambda path: (
+                len(os.path.relpath(path, pf_files_root).split(os.sep)),
+                path,
+            ),
+        )
+        if unique_matches:
+            if canonical_module_candidate and canonical_module_candidate in unique_matches:
+                return canonical_module_candidate
+            if len(unique_matches) > 1:
+                print(
+                    f"[warn] Pfyfile reference '{file_arg}' is ambiguous; using: {unique_matches[0]}",
+                    file=sys.stderr,
+                )
+            return unique_matches[0]
+
+    if has_pf_suffix or has_pfy_prefix:
+        return candidates[0]
+
+    return None
 
 
 _PF_FILES_INDEX_CACHE: Dict[str, Dict[str, List[str]]] = {}
@@ -981,19 +1086,29 @@ def _expand_includes_from_text(
     )
 
 
+def _should_prepend_always_available(
+    file_arg: Optional[str], pfy_resolved: str
+) -> bool:
+    """Return True when the load target is the root/default entrypoint."""
+    if not file_arg:
+        return True
+    return os.path.basename(os.path.abspath(pfy_resolved)) == "Pfyfile.pf"
+
+
 def _load_pfy_source_with_includes(
     file_arg: Optional[str] = None,
 ) -> Tuple[str, Dict[str, str]]:
-    """Load Pfyfile with includes expanded, return (text, task_sources)
-    
-    Always includes the always-available Pfyfile which contains context-free
-    tasks that work from any directory (TUI, tool installation, etc.)
+    """Load Pfyfile with includes expanded, return (text, task_sources).
+
+    The always-available Pfyfile is prepended for the root/default entrypoint,
+    but explicit leaf module/file loads stay isolated to the requested surface.
     """
-    # Load always-available tasks first
     script_dir = os.path.dirname(os.path.abspath(__file__))
     # Prefer the caller's working tree over an adjacent pf-files folder shipped
     # alongside this module, so includes resolve within the active repo/project.
     pf_files_root = _find_pf_files_root(os.getcwd()) or _find_pf_files_root(script_dir)
+    pfy_resolved = _find_pfyfile(file_arg=file_arg)
+    prepend_always_available = _should_prepend_always_available(file_arg, pfy_resolved)
 
     always_available_candidates: List[str] = []
     if pf_files_root:
@@ -1018,7 +1133,7 @@ def _load_pfy_source_with_includes(
     
     always_available_text = ""
     always_available_sources = {}
-    if always_available_path and os.path.exists(always_available_path):
+    if prepend_always_available and always_available_path and os.path.exists(always_available_path):
         always_available_text = _read_text_file(always_available_path)
         # Expand includes within always-available file
         always_visited: set[str] = {os.path.abspath(always_available_path)}
@@ -1031,7 +1146,6 @@ def _load_pfy_source_with_includes(
         )
     
     # Now load the user's Pfyfile (or fallback)
-    pfy_resolved = _find_pfyfile(file_arg=file_arg)
     if os.path.exists(pfy_resolved):
         pf_files_root = _find_pf_files_root(os.path.dirname(os.path.abspath(pfy_resolved))) or pf_files_root
     if os.path.exists(pfy_resolved):
@@ -1051,14 +1165,13 @@ def _load_pfy_source_with_includes(
             pf_files_root=pf_files_root,
         )
         
-        # Merge task sources
-        combined_sources = {}
-        combined_sources.update(always_available_sources)
-        combined_sources.update(user_sources)
-        
-        # Combine texts: always-available first, then user's tasks
-        combined_text = always_available_text + "\n\n" + user_text
-        return combined_text, combined_sources
+        if prepend_always_available and always_available_text:
+            combined_sources = {}
+            combined_sources.update(always_available_sources)
+            combined_sources.update(user_sources)
+            combined_text = always_available_text + "\n\n" + user_text
+            return combined_text, combined_sources
+        return user_text, user_sources
     
     # No Pfyfile found
     # If user explicitly specified a file that doesn't exist, raise an error
@@ -1066,7 +1179,7 @@ def _load_pfy_source_with_includes(
         raise FileNotFoundError(f"Specified Pfyfile not found: {file_arg}")
     
     # Otherwise, return always-available tasks only (or PFY_EMBED if that doesn't exist)
-    if always_available_text:
+    if prepend_always_available and always_available_text:
         return always_available_text, always_available_sources
     return PFY_EMBED, {}
 
@@ -1133,6 +1246,8 @@ def _parse_task_definition(line: str) -> Tuple[str, Dict[str, str], List[str]]:
         )
 
     task_name = tokens[0]
+    if task_name.endswith(":"):
+        task_name = task_name[:-1]
     params: Dict[str, str] = {}
 
     # Parse parameter definitions (key=value pairs)
@@ -1567,6 +1682,28 @@ def parse_pfyfile_text(
         i += 1
     
     return tasks_dict
+
+
+def parse_pfyfile(file_arg: Optional[str] = None) -> Dict[str, Task]:
+    """Compatibility helper that parses tasks directly from a Pfyfile path."""
+    pfy_resolved = _find_pfyfile(file_arg=file_arg)
+    if file_arg and not os.path.exists(pfy_resolved):
+        raise FileNotFoundError(f"Specified Pfyfile not found: {file_arg}")
+    if not os.path.exists(pfy_resolved):
+        return {}
+
+    base_dir = os.path.dirname(os.path.abspath(pfy_resolved)) or "."
+    pf_files_root = _find_pf_files_root(base_dir)
+    visited: set[str] = {os.path.abspath(pfy_resolved)}
+    main_text = _read_text_file(pfy_resolved)
+    expanded_text, task_sources = _expand_includes_from_text(
+        main_text,
+        base_dir,
+        visited,
+        current_file=pfy_resolved,
+        pf_files_root=pf_files_root,
+    )
+    return parse_pfyfile_text(expanded_text, task_sources)
 
 
 def main(argv: List[str]) -> int:

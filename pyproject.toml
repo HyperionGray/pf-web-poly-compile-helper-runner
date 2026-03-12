@@ -68,7 +68,7 @@ exclude_dirs = ["tests", "fabric"]
 skips = ["B101", "B601"]  # Skip assert_used and shell_injection for DSL
 
 [tool.coverage.run]
-source = ["pf-runner"]
+source = ["pf-runner-full"]
 omit = [
     "*/tests/*",
     "*/test_*",

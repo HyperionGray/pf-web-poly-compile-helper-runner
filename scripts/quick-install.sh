@@ -29,6 +29,8 @@ log_warning() {
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1" >&2
 }
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
 
 # Detect OS
 detect_os() {
@@ -51,7 +53,23 @@ detect_os() {
 
 # Check if we're in the repo
 in_repo() {
-    [[ -f "scripts/install.sh" ]] && [[ -d "pf-runner" ]]
+    [[ -f "${REPO_ROOT}/install.sh" ]] && ([[ -d "${REPO_ROOT}/pf-runner-full" ]] || [[ -d "${REPO_ROOT}/pf-runner" ]])
+}
+
+find_repo_deb() {
+    local candidates=(
+        "${REPO_ROOT}/build-packages/deb/pf-runner_${PF_VERSION}.deb"
+        "${REPO_ROOT}/build-packages/deb/pf-runner_latest.deb"
+        "${REPO_ROOT}/deb/build/pf-runner_${PF_VERSION}.deb"
+    )
+    local candidate=""
+    for candidate in "${candidates[@]}"; do
+        if [[ -f "$candidate" ]]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+    return 1
 }
 
 # Main installation logic
@@ -68,18 +86,20 @@ main() {
     # If we're in the repo, use the local installer
     if in_repo; then
         log_info "Detected repository - using local installer"
+        cd "${REPO_ROOT}"
         
         # Check if we have a .deb package
-        if [[ "$os_type" == "debian" ]] && [[ -f "deb/build/pf-runner_${PF_VERSION}.deb" ]]; then
+        local deb_package=""
+        deb_package="$(find_repo_deb || true)"
+        if [[ "$os_type" == "debian" ]] && [[ -n "$deb_package" ]]; then
             log_info "Found .deb package - installing via dpkg"
             if [[ $EUID -eq 0 ]]; then
-                dpkg -i "deb/build/pf-runner_${PF_VERSION}.deb" || true
+                dpkg -i "$deb_package" || true
                 apt-get install -f -y
                 log_success "Installed pf-runner from .deb package"
             else
-                log_error ".deb installation requires sudo"
-                log_info "Run: sudo dpkg -i deb/build/pf-runner_${PF_VERSION}.deb && sudo apt-get install -f"
-                exit 1
+                log_warning ".deb installation requires sudo; falling back to user/native install"
+                ./install.sh --prefix ~/.local
             fi
         else
             # Use the standard native installer

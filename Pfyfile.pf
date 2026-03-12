@@ -1,0 +1,2 @@
+# Root compatibility Pfyfile that delegates to the categorized task tree.
+include pf-files/Pfyfile.pf
