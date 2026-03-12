@@ -47,7 +47,6 @@ from pf_parser import (
     _load_pfy_source_with_includes,
     parse_pfyfile_text,
     Task,
-    list_dsl_tasks_with_desc,
     _merge_env_hosts,
     _normalize_hosts,
     _parse_host,
@@ -118,6 +117,63 @@ class PfRunner:
                         global_env[k] = _interpolate(v, {}, global_env)
 
         return global_env
+
+    def _module_name_from_source_file(self, source_file: Optional[str]) -> Optional[str]:
+        """Convert a Pfyfile path into the matching module/subcommand name."""
+        if not source_file:
+            return None
+
+        basename = os.path.basename(source_file)
+        if not (basename.startswith("Pfyfile.") and basename.endswith(".pf")):
+            return None
+
+        module_name = basename[8:-3].replace("_", "-").lower()
+        if module_name in ("", "pf"):
+            return None
+        return module_name
+
+    def _format_task_count(self, task_count: int) -> str:
+        """Format a human-readable task count."""
+        noun = "task" if task_count == 1 else "tasks"
+        return f"{task_count} {noun}"
+
+    def _load_task_listing(
+        self, file_arg: Optional[str]
+    ) -> Tuple[List[Tuple[str, Optional[str], List[str]]], Dict[str, List[Tuple[str, Optional[str], List[str]]]]]:
+        """Load task metadata split into direct tasks and module tasks."""
+        dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
+        dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
+
+        resolved_pfyfile = _find_pfyfile(file_arg=file_arg)
+        main_pfyfile = (
+            os.path.abspath(resolved_pfyfile) if resolved_pfyfile and os.path.exists(resolved_pfyfile) else None
+        )
+
+        direct_tasks: List[Tuple[str, Optional[str], List[str]]] = []
+        module_tasks: Dict[str, List[Tuple[str, Optional[str], List[str]]]] = {}
+
+        for task_name, task in sorted(dsl_tasks.items()):
+            task_info = (task_name, task.description, task.aliases)
+            source_file = os.path.abspath(task.source_file) if task.source_file else None
+
+            if main_pfyfile and source_file == main_pfyfile:
+                direct_tasks.append(task_info)
+                continue
+
+            module_name = self._module_name_from_source_file(source_file)
+            if module_name:
+                module_tasks.setdefault(module_name, []).append(task_info)
+            else:
+                direct_tasks.append(task_info)
+
+        return direct_tasks, module_tasks
+
+    def _print_task_entries(self, tasks: List[Tuple[str, Optional[str], List[str]]]) -> None:
+        """Print task names with descriptions and aliases."""
+        for task_name, description, aliases in tasks:
+            desc_text = f" - {description}" if description else ""
+            alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
+            print(f"  {task_name}{desc_text}{alias_text}")
     
     def run_command(self, args: List[str]) -> int:
         """Run pf command with enhanced argument parsing and error handling."""
@@ -265,17 +321,10 @@ class PfRunner:
     def _handle_list_command(self, args) -> int:
         """Handle the list command."""
         try:
-            tasks_with_desc = list_dsl_tasks_with_desc(file_arg=args.file)
-            
-            if args.subcommand:
-                # Filter tasks by subcommand
-                print(f"Tasks for {args.subcommand}:")
-                # This would need more sophisticated filtering
-                # For now, show all tasks
-            else:
+            direct_tasks, module_tasks = self._load_task_listing(args.file)
+
+            if not direct_tasks and not module_tasks:
                 print("Available tasks:")
-                
-            if not tasks_with_desc:
                 print("  No tasks found.")
                 if args.file:
                     print(f"\nNote: Using Pfyfile: {args.file}")
@@ -286,41 +335,38 @@ class PfRunner:
                         "Create pf-files/Pfyfile.pf (recommended) or Pfyfile.pf, or specify one with: pf -f <path> list"
                     )
                 return 0
-                
-            # Group tasks by category if possible
-            main_tasks = []
-            categorized_tasks = {}
-            
-            for task_name, description, aliases in tasks_with_desc:
-                # Simple categorization based on task name patterns
-                if any(prefix in task_name for prefix in ['web-', 'build-', 'install-', 'test-']):
-                    category = task_name.split('-')[0]
-                    if category not in categorized_tasks:
-                        categorized_tasks[category] = []
-                    categorized_tasks[category].append((task_name, description, aliases))
-                else:
-                    main_tasks.append((task_name, description, aliases))
-            
-            # Display main tasks first
-            if main_tasks:
+
+            if args.subcommand:
+                tasks = module_tasks.get(args.subcommand, [])
+                if not tasks:
+                    print(f"No tasks found for module '{args.subcommand}'.", file=sys.stderr)
+                    if module_tasks:
+                        available_modules = ", ".join(sorted(module_tasks))
+                        print(f"Available modules: {available_modules}", file=sys.stderr)
+                    return 1
+
+                print(f"Tasks for {args.subcommand}:")
+                self._print_task_entries(tasks)
+                print(f"\nUsage: pf {args.subcommand} <task_name> [params...]")
+                print(f"       pf help <task_name>  # Show help for a specific task")
+                return 0
+
+            print("Available tasks:")
+
+            if direct_tasks:
                 print("\nCore tasks:")
-                for task_name, description, aliases in main_tasks:
-                    desc_text = f" - {description}" if description else ""
-                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
-                    print(f"  {task_name}{desc_text}{alias_text}")
-            
-            # Display categorized tasks
-            for category, tasks in sorted(categorized_tasks.items()):
-                print(f"\n{category.title()} tasks:")
-                for task_name, description, aliases in tasks:
-                    desc_text = f" - {description}" if description else ""
-                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
-                    print(f"  {task_name}{desc_text}{alias_text}")
-                    
-            # Show usage hint
-            print(f"\nUsage: pf run <task_name> [params...]")
-            print(f"       pf help <task_name>  # Show help for specific task")
-            
+                self._print_task_entries(direct_tasks)
+
+            if module_tasks:
+                print("\nModules:")
+                for module_name, tasks in sorted(module_tasks.items()):
+                    print(f"  {module_name} ({self._format_task_count(len(tasks))})")
+
+            print(f"\nUsage: pf <task_name> [params...]")
+            print(f"       pf <module> <task_name> [params...]")
+            print(f"       pf list --subcommand <module>  # Show tasks in a module")
+            print(f"       pf help <task_name>            # Show help for a specific task")
+
             return 0
             
         except FileNotFoundError as e:
