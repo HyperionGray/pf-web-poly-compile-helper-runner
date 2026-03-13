@@ -55,6 +55,7 @@ dev_setup_main() {
   if [[ "${DEV_SETUP_SKIP_TESTS}" != "true" ]]; then
     dev_setup_run_initial_tests
   fi
+  dev_setup_cleanup_generated_files
   dev_setup_display_summary
 }
 
