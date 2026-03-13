@@ -38,9 +38,9 @@ dev_setup_check_system_requirements() {
     exit 1
   fi
 
-  if ! python3 -m venv --help >/dev/null 2>&1; then
-    log_error "python3-venv support is required but not available"
-    printf '%s\n' "Ubuntu/Debian: sudo apt update && sudo apt install python3-venv"
+  if ! python3 -m pip --version >/dev/null 2>&1; then
+    log_error "python3 -m pip is required but not available"
+    printf '%s\n' "Ubuntu/Debian: sudo apt update && sudo apt install python3-pip"
     exit 1
   fi
 

@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+dev_setup_create_python_venv() {
+  if [[ -x "$(dev_setup_python_bin)" ]]; then
+    return 0
+  fi
+
+  rm -rf "${PF_DEV_VENV}"
+
+  if python3 -m venv "${PF_DEV_VENV}" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  log_warning "python3 -m venv failed; falling back to virtualenv"
+  python3 -m pip install --user virtualenv >/dev/null || die "Failed to install virtualenv fallback"
+  python3 -m virtualenv "${PF_DEV_VENV}" >/dev/null || die "Failed to create virtual environment at ${PF_DEV_VENV}"
+}
+
 dev_setup_python_bin() {
   printf '%s\n' "${PF_DEV_VENV}/bin/python"
 }
@@ -14,9 +30,7 @@ dev_setup_pip_install() {
 dev_setup_install_python_dependencies() {
   log_info "Preparing Python virtual environment..."
 
-  if [[ ! -d "${PF_DEV_VENV}" ]]; then
-    python3 -m venv "${PF_DEV_VENV}" || die "Failed to create virtual environment at ${PF_DEV_VENV}"
-  fi
+  dev_setup_create_python_venv
 
   if [[ ! -x "$(dev_setup_python_bin)" ]]; then
     die "Python virtual environment is missing its interpreter: ${PF_DEV_VENV}"
