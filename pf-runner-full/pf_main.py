@@ -344,22 +344,34 @@ class PfRunner:
     
     def _handle_list_command(self, args) -> int:
         """Handle the list command."""
+        file_arg = args.file
         try:
-            file_arg = args.file
             target = getattr(args, "target", None)
             if target and not file_arg:
                 resolved = _resolve_pfyfile_reference(target, start_dir=os.getcwd())
                 file_arg = resolved or target
 
-            tasks_with_desc = list_dsl_tasks_with_desc(file_arg=file_arg)
-            
-            if args.subcommand:
-                # Filter tasks by subcommand
-                print(f"Tasks for {args.subcommand}:")
-                # This would need more sophisticated filtering
-                # For now, show all tasks
-            else:
-                print("Available tasks:")
+            direct_tasks, module_tasks = self._load_task_listing(file_arg)
+            requested_module = (getattr(args, "subcommand", None) or "").strip().lower()
+
+            if requested_module:
+                tasks = module_tasks.get(requested_module, [])
+                if not tasks:
+                    print(f"No tasks found for module '{args.subcommand}'.", file=sys.stderr)
+                    if module_tasks:
+                        available_modules = ", ".join(sorted(module_tasks))
+                        print(f"Available modules: {available_modules}", file=sys.stderr)
+                    return 1
+
+                print(f"Tasks for {requested_module}:")
+                self._print_task_entries(tasks)
+                print(f"\nUsage: pf {requested_module} <task_name> [params...]")
+                print("       pf help <task_name>  # Show help for a specific task")
+                return 0
+
+            total_tasks = len(direct_tasks) + sum(len(tasks) for tasks in module_tasks.values())
+            print("Available tasks:")
+            if total_tasks == 0:
                 print("  No tasks found.")
                 if file_arg:
                     print(f"\nNote: Using Pfyfile: {file_arg}")
@@ -371,47 +383,22 @@ class PfRunner:
                     )
                 return 0
 
-            if args.subcommand:
-                tasks = module_tasks.get(args.subcommand, [])
-                if not tasks:
-                    print(f"No tasks found for module '{args.subcommand}'.", file=sys.stderr)
-                    if module_tasks:
-                        available_modules = ", ".join(sorted(module_tasks))
-                        print(f"Available modules: {available_modules}", file=sys.stderr)
-                    return 1
-
-                print(f"Tasks for {args.subcommand}:")
-                self._print_task_entries(tasks)
-                print(f"\nUsage: pf {args.subcommand} <task_name> [params...]")
-                print(f"       pf help <task_name>  # Show help for a specific task")
-                return 0
-
-            print("Available tasks:")
-
             if direct_tasks:
                 print("\nCore tasks:")
-                for task_name, description, aliases in main_tasks:
-                    desc_text = f" - {description}" if description else ""
-                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
-                    print(f"  {task_name}{desc_text}{alias_text}")
-            
-            # Display categorized tasks
-            for category, tasks in sorted(categorized_tasks.items()):
-                print(f"\n{category.title()} tasks:")
-                for task_name, description, aliases in tasks:
-                    desc_text = f" - {description}" if description else ""
-                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
-                    print(f"  {task_name}{desc_text}{alias_text}")
-                    
-            # Show usage hint
+                self._print_task_entries(direct_tasks)
+
+            if module_tasks:
+                print("\nModules:")
+                for module_name, tasks in sorted(module_tasks.items()):
+                    print(f"  {module_name} ({self._format_task_count(len(tasks))})")
+
             print("\nUsage:")
             print("  pf <task_name> [params...]")
             print("  pf <module|file.pf>                # List tasks from a module/file")
             print("  pf <module|file.pf> <task_name> [params...]")
             print("  pf help <task_name>                # Show help for a specific task")
-            
+
             return 0
-            
         except FileNotFoundError as e:
             # Specific error for missing file
             print(f"Error: Pfyfile not found: {e}", file=sys.stderr)

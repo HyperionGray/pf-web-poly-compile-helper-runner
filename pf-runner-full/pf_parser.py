@@ -169,6 +169,9 @@ def _find_pfyfile(
                     return paths[0]
         parent = os.path.dirname(cur)
         if parent == cur:
+            runtime_default = os.environ.get("PFY_DEFAULT_FILE") or ""
+            if runtime_default and os.path.isfile(runtime_default):
+                return runtime_default
             # Last resort: current working directory + default hint
             return os.path.join(os.getcwd(), alt_hints[0] if alt_hints else pf_hint)
         cur = parent
@@ -1153,8 +1156,8 @@ def _load_pfy_source_with_includes(
         global PFY_ROOT
         PFY_ROOT = base_dir
         # Export Pfyfile location for shell tasks so they can resolve repo-relative paths
-        os.environ.setdefault("PFY_ROOT", PFY_ROOT)
-        os.environ.setdefault("PFY_FILE_PATH", pfy_resolved)
+        os.environ["PFY_ROOT"] = PFY_ROOT
+        os.environ["PFY_FILE_PATH"] = pfy_resolved
         visited: set[str] = {os.path.abspath(pfy_resolved)}
         main_text = _read_text_file(pfy_resolved)
         user_text, user_sources = _expand_includes_from_text(

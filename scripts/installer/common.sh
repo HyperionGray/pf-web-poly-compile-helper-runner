@@ -182,6 +182,19 @@ installer_check_permissions() {
 
 installer_update_path_info() {
   local bin_dir="${PREFIX}/bin"
+  bin_dir="$(pf_abs_path "$bin_dir")"
+
+  if [[ ! -d "$bin_dir" ]]; then
+    log_warning "Install bin directory was not found at: ${bin_dir}"
+    log_info "Attempting to create missing bin directory..."
+    if ! mkdir -p "$bin_dir" >/dev/null 2>&1; then
+      run_as_root mkdir -p "$bin_dir"
+    fi
+  fi
+
+  if [[ ! -d "$bin_dir" ]]; then
+    die "Installation completed but bin directory is unavailable: ${bin_dir}"
+  fi
 
   if [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
     log_success "Installed to a system prefix: ${bin_dir}"

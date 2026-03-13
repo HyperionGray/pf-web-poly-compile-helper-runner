@@ -91,9 +91,9 @@ pf_export_runtime_env() {
   local vendor_path=""
   local vendor=""
 
-  if [[ -z "${PFY_FILE:-}" && -f "$default_pfy" ]]; then
-    export PFY_FILE="$default_pfy"
-    export PFY_ROOT="$pfy_root"
+  if [[ -f "$default_pfy" && -z "${PFY_DEFAULT_FILE:-}" ]]; then
+    export PFY_DEFAULT_FILE="$default_pfy"
+    export PFY_DEFAULT_ROOT="$pfy_root"
   fi
 
   while IFS= read -r vendor; do

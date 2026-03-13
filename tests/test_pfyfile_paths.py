@@ -3,12 +3,13 @@
 Path/layout guardrails for Pfyfiles.
 
 This repo convention is:
-  - No Pfyfile*.pf at repo root
-  - Real Pfyfiles live under pf-files/ (organized by category)
+  - Canonical Pfyfiles live under pf-files/ (organized by category)
+  - A root Pfyfile.pf compatibility entrypoint is allowed if it delegates to pf-files/Pfyfile.pf
+  - No additional root-level Pfyfile*.pf files are allowed
 
 This test is intentionally dependency-free (stdlib only) and should catch:
   - Broken/missing include targets
-  - Accidental re-introduction of root-level Pfyfiles
+  - Unexpected root-level Pfyfiles
 """
 
 from __future__ import annotations
@@ -104,12 +105,59 @@ def main() -> int:
     print(f"📁 Repo root: {repo_root}")
 
     root_pfyfiles = sorted(repo_root.glob("Pfyfile*.pf"))
-    if root_pfyfiles:
-        print("❌ Found root-level Pfyfiles (expected none):")
-        for path in root_pfyfiles:
+    compatibility_entry = repo_root / "Pfyfile.pf"
+    unexpected_root_pfyfiles = [path for path in root_pfyfiles if path != compatibility_entry]
+
+    if unexpected_root_pfyfiles:
+        print("❌ Found unexpected root-level Pfyfiles:")
+        for path in unexpected_root_pfyfiles:
             print(f"  - {path.relative_to(repo_root)}")
         return 1
-    print("✅ No root-level Pfyfiles found")
+
+    if compatibility_entry.exists():
+        content = compatibility_entry.read_text(encoding="utf-8", errors="replace")
+        if "include pf-files/Pfyfile.pf" not in content:
+            print("❌ Root compatibility Pfyfile does not delegate to pf-files/Pfyfile.pf")
+            return 1
+        print("✅ Root compatibility Pfyfile delegates to pf-files/Pfyfile.pf")
+    else:
+        print("✅ No root compatibility Pfyfile found")
+
+    legacy_multi_exec = repo_root / "pf-files" / "multi-exec"
+    if legacy_multi_exec.exists():
+        print("🔁 Validating legacy multi-exec compatibility shims")
+        expected_shims = {
+            "Pfyfile.pe-containers.pf": "include ../mult-exec/Pfyfile.pe-containers.pf",
+            "Pfyfile.pe-execution.pf": "include ../mult-exec/Pfyfile.pe-execution.pf",
+        }
+        actual_legacy_files = sorted(path.name for path in legacy_multi_exec.glob("Pfyfile*.pf"))
+        if actual_legacy_files != sorted(expected_shims):
+            print("❌ Legacy multi-exec directory contains unexpected files:")
+            for name in actual_legacy_files:
+                print(f"  - {name}")
+            return 1
+
+        for name, include_line in expected_shims.items():
+            shim_path = legacy_multi_exec / name
+            shim_text = shim_path.read_text(encoding="utf-8", errors="replace")
+            if include_line not in shim_text:
+                print(f"❌ Legacy shim does not delegate to canonical mult-exec file: {shim_path.relative_to(repo_root)}")
+                return 1
+            if "task " in shim_text:
+                print(f"❌ Legacy shim contains task definitions instead of delegating cleanly: {shim_path.relative_to(repo_root)}")
+                return 1
+
+        print("✅ Legacy multi-exec compatibility shims delegate to mult-exec")
+
+    pe_module = repo_root / "pf-files" / "Pfyfile.pe.pf"
+    pe_module_text = pe_module.read_text(encoding="utf-8", errors="replace")
+    if 'pf "$MODULE_DIR/mult-exec/Pfyfile.pe-containers.pf" pe-reactos-run pe="${pe_file}"' not in pe_module_text:
+        print("❌ PE module wrapper does not dispatch execute-reactos through the canonical mult-exec ReactOS task")
+        return 1
+    if 'pf "$MODULE_DIR/multi-exec/' in pe_module_text:
+        print("❌ PE module wrapper still references the stale multi-exec path")
+        return 1
+    print("✅ PE module wrapper dispatches through the canonical mult-exec tasks")
 
     required = [
         repo_root / "pf-files" / "Pfyfile.pf",

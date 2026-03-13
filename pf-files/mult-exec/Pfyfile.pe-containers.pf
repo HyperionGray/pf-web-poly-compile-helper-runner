@@ -49,32 +49,31 @@ task pe-vmkit-setup
   describe Set up VMKit environment with VM images
   shell_lang bash
   shell |
-    echo "Setting up VMKit environment..."
-    podman run --rm -it \
-      -v ${PWD}/vmkit-images:/vmkit/images \
-      localhost/pf-pe-vmkit:latest \
-      vmkit-create.sh --all-the-passthru
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    "$ROOT/scripts/pe/vmkit-setup.sh"
 end
 
 task pe-vmkit-run pe=""
   describe Run PE file in VMKit lightweight VM
   shell_lang bash
   shell |
+    RUNTIME="${CONTAINER_RT:-podman}"
+    IMAGE="localhost/pf-pe-vmkit:latest"
     if [ -z "${pe}" ]; then
       echo "Usage: pf pe-vmkit-run pe=/path/to/file.exe"
+      exit 1
+    fi
+    if ! "${RUNTIME}" image exists "${IMAGE}" >/dev/null 2>&1; then
+      echo "[error] VMKit PE image not found."
+      echo "Build it first: pf pe build-vmkit"
       exit 1
     fi
     
     PE_DIR=$(dirname "${pe}")
     PE_FILE=$(basename "${pe}")
+    mkdir -p "${PWD}/vmkit-images" "${PWD}/pe-output"
     
-    podman run --rm -it \
-      --device /dev/kvm \
-      -v ${PWD}/vmkit-images:/vmkit/images \
-      -v ${PE_DIR}:/vmkit/pe-input \
-      -v ${PWD}/pe-output:/vmkit/pe-output \
-      localhost/pf-pe-vmkit:latest \
-      vmkit-run.sh "/vmkit/pe-input/${PE_FILE}"
+    "${RUNTIME}" run --rm --device /dev/kvm -v "${PWD}/vmkit-images:/vmkit/images" -v "${PE_DIR}:/vmkit/pe-input" -v "${PWD}/pe-output:/vmkit/pe-output" "${IMAGE}" vmkit-run.sh "/vmkit/pe-input/${PE_FILE}"
 end
 
 task pe-vmkit-analyze pe=""
@@ -113,28 +112,26 @@ end
 task pe-reactos-setup
   describe Download and set up ReactOS for PE execution
   shell_lang bash
-  shell set -euo pipefail; echo "Setting up ReactOS..."; mkdir -p reactos-images; podman run --rm -v "${PWD}/reactos-images:/reactos/images" localhost/pf-pe-reactos:latest setup-reactos.sh
+  shell |
+    set -euo pipefail
+    RUNTIME="${CONTAINER_RT:-podman}"
+    IMAGE="localhost/pf-pe-reactos:latest"
+    if ! "${RUNTIME}" image exists "${IMAGE}" >/dev/null 2>&1; then
+      echo "[error] ReactOS PE image not found."
+      echo "Build it first: pf pe build-reactos"
+      exit 1
+    fi
+    echo "Setting up ReactOS..."
+    mkdir -p reactos-images
+    "${RUNTIME}" run --rm -v "${PWD}/reactos-images:/reactos/images" "${IMAGE}" setup-reactos.sh
 end
 
 task pe-reactos-run pe=""
   describe Run PE file in ReactOS VM
   shell_lang bash
   shell |
-    if [ -z "${pe}" ]; then
-      echo "Usage: pf pe-reactos-run pe=/path/to/file.exe"
-      exit 1
-    fi
-    
-    PE_DIR=$(dirname "${pe}")
-    PE_FILE=$(basename "${pe}")
-    
-    podman run --rm \
-      --device /dev/kvm \
-      -v ${PWD}/reactos-images:/reactos/images \
-      -v ${PE_DIR}:/reactos/pe-input \
-      -v ${PWD}/pe-output:/reactos/pe-output \
-      localhost/pf-pe-reactos:latest \
-      run-pe.sh "/reactos/pe-input/${PE_FILE}"
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    "$ROOT/scripts/pe/reactos-run.sh" "${pe}"
 end
 
 task pe-reactos-analyze pe=""

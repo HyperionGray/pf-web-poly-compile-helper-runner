@@ -12,6 +12,9 @@ PF_RUNNER_DIR="${REPO_ROOT}/pf-runner-full"
 if [[ ! -d "$PF_RUNNER_DIR" && -d "${REPO_ROOT}/pf-runner" ]]; then
   PF_RUNNER_DIR="${REPO_ROOT}/pf-runner"
 fi
+if [[ ! -d "$PF_RUNNER_DIR" && -f "${REPO_ROOT}/pf_main.py" && -f "${REPO_ROOT}/pf_runtime.sh" ]]; then
+  PF_RUNNER_DIR="${REPO_ROOT}"
+fi
 PF_TASKS_DIR="${REPO_ROOT}/pf-files"
 if [[ ! -d "$PF_TASKS_DIR" && -d "${PF_RUNNER_DIR}/pf-files" ]]; then
   PF_TASKS_DIR="${PF_RUNNER_DIR}/pf-files"

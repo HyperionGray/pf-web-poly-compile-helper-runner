@@ -192,7 +192,7 @@ installer_install_pf_runner() {
         cp -R "${REPO_ROOT}/${dir}" "${PREFIX}/lib/pf-runner/"
       fi
     done
-    for file in docker-compose.yml docker-compose.gpu.yml podman-compose.yml podman-compose.gpu.yml tools-capabilities.json package.json package-lock.json playwright.config.ts requirements.txt pyproject.toml; do
+    for file in docker-compose.yml docker-compose.gpu.yml podman-compose.yml podman-compose.gpu.yml tools-capabilities.json package.json package-lock.json playwright.config.ts requirements.txt pyproject.toml install.sh quick-install.sh; do
       if [[ -f "${REPO_ROOT}/${file}" ]]; then
         cp "${REPO_ROOT}/${file}" "${PREFIX}/lib/pf-runner/"
       fi
