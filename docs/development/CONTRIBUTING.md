@@ -52,18 +52,17 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
    ./install.sh --prefix ~/.local
    ```
 
-5. **Install development dependencies**:
+5. **Set up the development environment**:
    ```bash
-   # Install Node.js dependencies
-   npm install
-   npx playwright install
-   
-   # Install Python dependencies
-   pip install -r requirements.txt
+   ./setup_dev_environment.sh
    ```
+   This creates a repo-local virtual environment in `.venv-dev/`, installs the
+   editable `pf-runner-full` package plus Python test dependencies, installs
+   Node.js dependencies, and downloads Playwright browsers.
 
 6. **Verify your setup**:
    ```bash
+   source .venv-dev/bin/activate
    pf --version
    pf list
    ```

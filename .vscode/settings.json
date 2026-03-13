@@ -1,5 +1,5 @@
 {
-    "python.defaultInterpreterPath": "python3",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv-dev/bin/python",
     "python.linting.enabled": true,
     "python.linting.flake8Enabled": true,
     "python.linting.pylintEnabled": true,

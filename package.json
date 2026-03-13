@@ -8,6 +8,7 @@
     "test": "tests"
   },
   "scripts": {
+    "setup:dev": "bash ./setup_dev_environment.sh",
     "build": "bash scripts/validate-build.sh",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
