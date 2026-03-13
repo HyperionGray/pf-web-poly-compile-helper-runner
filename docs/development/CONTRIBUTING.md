@@ -64,7 +64,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
    ```bash
    source .venv-dev/bin/activate
    pf --version
-   pf list
+   pf --help
    ```
 
 ## How to Contribute

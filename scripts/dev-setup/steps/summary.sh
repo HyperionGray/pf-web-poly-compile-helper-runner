@@ -10,7 +10,7 @@ dev_setup_display_summary() {
   printf '%s\n' "Next steps:"
   printf '%s\n' "  - source ${PF_DEV_VENV}/bin/activate"
   printf '%s\n' "  - pf --version"
-  printf '%s\n' "  - pf list"
+  printf '%s\n' "  - pf --help"
   printf '%s\n' "  - npm run test:unit"
   printf '%s\n' "  - python -m pytest tests/test_pf_parser.py -q"
 }

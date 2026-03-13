@@ -10,7 +10,7 @@ dev_setup_run_initial_tests() {
 
   if [[ -x "${pf_bin}" ]]; then
     "${pf_bin}" --version >/dev/null || log_warning "pf --version failed (non-critical)"
-    "${pf_bin}" list >/dev/null || log_warning "pf list failed (non-critical)"
+    "${pf_bin}" --help >/dev/null || log_warning "pf --help failed (non-critical)"
   else
     log_warning "pf CLI was not installed into ${PF_DEV_VENV}/bin"
   fi
