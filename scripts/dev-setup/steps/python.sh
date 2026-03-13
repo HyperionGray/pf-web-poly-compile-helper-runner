@@ -1,20 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+dev_setup_has_working_pip() {
+  local python_bin
+  python_bin="$(dev_setup_python_bin)"
+  [[ -x "${python_bin}" ]] || return 1
+  "${python_bin}" -m pip --version >/dev/null 2>&1
+}
+
 dev_setup_create_python_venv() {
-  if [[ -x "$(dev_setup_python_bin)" ]]; then
+  if dev_setup_has_working_pip; then
     return 0
   fi
 
   rm -rf "${PF_DEV_VENV}"
 
-  if python3 -m venv "${PF_DEV_VENV}" >/dev/null 2>&1; then
+  if python3 -m venv "${PF_DEV_VENV}" >/dev/null 2>&1 && dev_setup_has_working_pip; then
     return 0
   fi
+
+  rm -rf "${PF_DEV_VENV}"
 
   log_warning "python3 -m venv failed; falling back to virtualenv"
   python3 -m pip install --user virtualenv >/dev/null || die "Failed to install virtualenv fallback"
   python3 -m virtualenv "${PF_DEV_VENV}" >/dev/null || die "Failed to create virtual environment at ${PF_DEV_VENV}"
+  dev_setup_has_working_pip || die "Created ${PF_DEV_VENV}, but pip is still unavailable"
 }
 
 dev_setup_python_bin() {
