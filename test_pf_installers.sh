@@ -104,7 +104,7 @@ test_installer() {
             
             # Show last few lines of error
             echo "  Last 10 lines of output:"
-            tail -10 /tmp/install_${task_name}.log | sed 's/^/    /'
+            tail -10 "$TEST_PREFIX/install_${task_name}.log" | sed 's/^/    /'
         fi
     fi
     
