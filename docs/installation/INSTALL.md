@@ -14,6 +14,9 @@ The quick installer applies the native workflow, selects the right prefix, and i
 
 If you prefer to run the installer directly, call:
 ```bash
+# Preflight checks only (no install changes)
+./install.sh --check
+
 # System-wide install (requires sudo)
 sudo ./install.sh
 
@@ -57,6 +60,9 @@ sudo ./install.sh
 
 # Skip system dependency installation (when dependencies are already satisfied)
 ./install.sh --skip-deps
+
+# Run readiness checks without changing the system
+./install.sh --check --skip-deps --prefix ~/.local
 
 # Show help page
 ./install.sh --help
@@ -156,6 +162,7 @@ For detailed workflows, scripting, or container references, see the relevant doc
 ## Getting Help
 
 - **Installation issues**: Run `./install.sh --help`
+- **Readiness checks**: Run `./install.sh --check`
 - **Usage help**: Run `pf --help` or `pf list`
 - **Documentation**: See `README.md` and `docs/` directory
 - **Interactive help**: Run `pf tui` for the interactive interface

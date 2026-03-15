@@ -51,7 +51,7 @@ detect_os() {
 
 # Check if we're in the repo
 in_repo() {
-    [[ -f "scripts/install.sh" ]] && [[ -d "pf-runner" ]]
+    [[ -f "scripts/install.sh" ]] && ([[ -d "pf-runner-full" ]] || [[ -d "pf-runner" ]])
 }
 
 # Main installation logic

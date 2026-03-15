@@ -30,6 +30,7 @@ OPTIONS:
                             ${DEFAULT_PREFIX_USER} for user installs
 
   --skip-deps       Skip installing system dependencies (native mode)
+  --check           Run preflight checks only (no install changes)
   --help, -h        Show this help message
 EOF
 }
@@ -91,6 +92,10 @@ installer_parse_args() {
         ;;
       --skip-deps)
         SKIP_DEPS=true
+        shift
+        ;;
+      --check)
+        CHECK_ONLY=true
         shift
         ;;
       --skip-build)

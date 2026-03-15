@@ -9,6 +9,9 @@ __pf_installer_main_loaded() { :; }
 INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${INSTALLER_DIR}/../.." && pwd)"
 PF_RUNNER_DIR="${REPO_ROOT}/pf-runner"
+if [[ -d "${REPO_ROOT}/pf-runner-full" ]]; then
+  PF_RUNNER_DIR="${REPO_ROOT}/pf-runner-full"
+fi
 
 source "${INSTALLER_DIR}/common.sh"
 source "${INSTALLER_DIR}/config.sh"
@@ -42,6 +45,54 @@ installer_normalize_settings() {
   fi
 }
 
+installer_run_preflight_checks() {
+  log_info "Running preflight checks only (--check). No files will be installed."
+  log_info "Mode: ${MODE}"
+  log_info "Install prefix: ${PREFIX}"
+
+  if [[ "$MODE" == "container" ]]; then
+    installer_check_container_runtime
+    log_success "Container runtime available: ${CONTAINER_RT}"
+    log_info "Container image name: ${CONTAINER_IMAGE}"
+    if [[ "$SKIP_BUILD" == true ]]; then
+      log_info "Container image build step will be skipped (--skip-build)"
+    fi
+  else
+    installer_check_prerequisites
+    log_success "Native prerequisites available (python3, git, pip)"
+    if [[ "$SKIP_DEPS" == true ]]; then
+      log_info "System dependency installation will be skipped (--skip-deps)"
+    else
+      log_info "System dependency target OS: $(detect_os)"
+    fi
+  fi
+
+  if [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
+    if [[ "$(id -u 2>/dev/null || echo 1)" -ne 0 ]]; then
+      log_warning "Installing to ${PREFIX} will require root privileges."
+      log_info "When ready, run with sudo."
+    else
+      log_success "Current user has root privileges for ${PREFIX}."
+    fi
+  fi
+
+  printf '\n'
+  log_success "Preflight checks passed."
+  log_info "When ready, run:"
+
+  local cmd="./install.sh --mode ${MODE} --prefix ${PREFIX}"
+  if [[ "$MODE" == "container" ]]; then
+    cmd="${cmd} --runtime ${CONTAINER_RT}"
+    if [[ "$SKIP_BUILD" == true ]]; then
+      cmd="${cmd} --skip-build"
+    fi
+  elif [[ "$SKIP_DEPS" == true ]]; then
+    cmd="${cmd} --skip-deps"
+  fi
+
+  printf '%s\n' "  ${cmd}"
+}
+
 installer_main() {
   installer_parse_args "$@"
 
@@ -58,6 +109,12 @@ installer_main() {
   fi
 
   installer_normalize_settings
+
+  if [[ "$CHECK_ONLY" == true ]]; then
+    installer_run_preflight_checks
+    return 0
+  fi
+
   installer_check_permissions
 
   if [[ "$MODE" == "container" ]]; then
@@ -77,6 +134,7 @@ installer_main() {
     printf '\n'
     log_success "pf-runner container installation completed successfully!"
     installer_update_path_info
+    installer_print_post_install_guidance "container"
     return 0
   fi
 
@@ -93,6 +151,7 @@ installer_main() {
   printf '\n'
   log_success "pf-runner native installation completed successfully!"
   installer_update_path_info
+  installer_print_post_install_guidance "native"
   return 0
 }
 

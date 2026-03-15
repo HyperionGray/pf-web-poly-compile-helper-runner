@@ -192,3 +192,25 @@ installer_update_path_info() {
   log_info "If you don't want to modify shell settings, run pf via full path:"
   log_info "  ${bin_dir}/pf"
 }
+
+installer_print_post_install_guidance() {
+  local mode="${1:-native}"
+  local pf_cmd="${PREFIX}/bin/pf"
+
+  printf '\n'
+  log_info "Post-install quickstart:"
+  if [[ "$PREFIX" != "/usr/local" && "$PREFIX" != "/usr"* ]]; then
+    log_info "If needed for this shell session: export PATH=\"${PREFIX}/bin:\$PATH\""
+  fi
+
+  printf '%s\n' "  1. ${pf_cmd} --version"
+  printf '%s\n' "  2. ${pf_cmd} list"
+
+  if [[ "$mode" == "container" ]]; then
+    printf '%s\n' "  3. ${pf_cmd} --help"
+  else
+    printf '%s\n' "  3. ${pf_cmd} install-help || ${pf_cmd} --help"
+  fi
+
+  printf '%s\n' "  4. See docs/installation/INSTALL.md for additional options"
+}
