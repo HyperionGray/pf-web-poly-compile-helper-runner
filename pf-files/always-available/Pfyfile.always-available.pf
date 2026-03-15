@@ -12,6 +12,8 @@ task category-installation-help
   shell echo " INSTALLATION & SETUP CATEGORY"
   shell echo ""
   shell echo "Tool Installation:"
+  shell echo "  pf install                  # Install/reinstall pf runner"
+  shell echo "  pf install-summary          # Show installed/missing tool categories"
   shell echo "  pf install-exploit-tools     # Install all exploit development tools"
   shell echo "  pf install-checksec          # Install checksec binary protection checker"
   shell echo "  pf install-pwntools          # Install pwntools Python library"
@@ -34,6 +36,7 @@ task module-install-help
   describe Show install entrypoints grouped by module
   shell echo " MODULE INSTALL SHORTCUTS"
   shell echo ""
+  shell echo "  pf install-summary            # Current install status + recommended next steps"
   shell echo "  pf install-module-core        # Install pf runner to user prefix (~/.local)"
   shell echo "  pf install-module-debug       # Debug/RE toolchain (radare2, snowman, oryx, binsider)"
   shell echo "  pf install-module-exploit     # Exploit dev tools (pwntools, checksec, ropper, ROPgadget)"

@@ -28,6 +28,12 @@ task install
   bash "${PFY_ROOT:-.}/install.sh" ${args:-}
 end
 
+task install-summary
+  describe Show install/tooling summary and suggested next commands
+  shell_lang bash
+  bash "${PFY_ROOT:-.}/scripts/installer/install-summary.sh"
+end
+
 task install-smoke-test
   describe Install pf-runner into a temp prefix and run basic checks
   shell_lang bash

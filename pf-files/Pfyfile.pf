@@ -252,31 +252,17 @@ missing = [c for c in reqs if shutil.which(c) is None]
 if missing: print('[ERR] Missing toolchain components:', ' '.join(missing)); print('Install hints:'); print('  - emcc/emsdk: https://emscripten.org/docs/getting_started/downloads.html'); print('  - wasm-pack: https://rustwasm.github.io/wasm-pack/installer/')
 else: print('[OK] Web toolchain ready:', ', '.join(reqs))
 PY
- end
-
-    if [ -n "$DEB" ] && [ -f "$DEB" ] && command -v dpkg >/dev/null 2>&1; then
-      echo "[install] Installing pf from deb: $DEB (deb controls prefix)"
-      sudo dpkg -i "$DEB" || { echo "[install] Fixing deps..."; sudo apt-get -f install -y && sudo dpkg -i "$DEB"; }
-      exit 0
-    fi
-
-    if [ ! -x "$INSTALLER" ]; then
-      echo "[ERR] canonical installer not found at $INSTALLER" >&2
-      echo "      Build it with: pf build-packages (or consult build-packages/pf-runner-1.0.0)" >&2
-      exit 127
-    fi
-
-    echo "Installing to prefix=$prefix using $INSTALLER"
-    if [ "$(id -u)" -ne 0 ] && [ "$prefix" = "/usr/local" ]; then
-      sudo "$INSTALLER" --prefix "$prefix"
-    else
-      "$INSTALLER" --prefix "$prefix"
-    fi
 end
 
 task install-help
   describe Show install task choices (simplified)
-  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
+  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-summary         # Show installed/missing tool categories" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
+end
+
+task install-summary [alias install-status]
+  describe Show install/tooling summary and suggested next commands
+  shell_lang bash
+  shell bash "${PFY_ROOT:-.}/scripts/installer/install-summary.sh"
 end
 
 task install-all

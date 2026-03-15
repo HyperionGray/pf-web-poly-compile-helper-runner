@@ -254,6 +254,20 @@ Users now get:
 
 ---
 
+## Follow-up Implemented (2026-03-15)
+
+✅ Added `pf install-summary` (alias: `pf install-status`) to provide:
+- Core runtime health (pf/python/dependency modules)
+- Category-by-category installer readiness (exploit, injection, debug, fuzzing, package tooling)
+- Suggested next install commands for missing categories
+
+Implementation details:
+- New script: `/scripts/installer/install-summary.sh`
+- Wired tasks: `/pf-files/Pfyfile.pf`, `/pf/core/Pfyfile.repo.pf`
+- Updated command docs: `/docs/README.md`
+
+---
+
 ## Conclusion
 
 ✅ **All requested work completed successfully**

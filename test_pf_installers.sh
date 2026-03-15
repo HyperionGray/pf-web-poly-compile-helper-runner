@@ -141,6 +141,8 @@ echo ""
 
 test_help_output "category-installation-help"
 test_help_output "install-help"
+log_info "Testing install summary status task..."
+test_installer "install-summary"
 
 #
 # Test individual installers (safe/fast ones first)

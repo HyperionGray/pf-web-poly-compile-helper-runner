@@ -694,6 +694,7 @@ After initial installation, you can also use pf tasks:
 pf install       # Re-run installation
 pf install-web   # Alias to install
 pf install-base  # Alias to install
+pf install-summary  # Show installed/missing tool categories
 ```
 
 #### Native Installation (Alternative)
