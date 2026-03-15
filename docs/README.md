@@ -637,6 +637,7 @@ Once pf is installed, you can use these tasks:
 pf install       # Re-run installation
 pf install-web   # Alias to install (for web development)
 pf install-base  # Alias to install (for compatibility)
+pf install-doctor # Verify post-install readiness and next steps
 ```
 
 ### What Gets Installed?
@@ -1187,6 +1188,7 @@ npx playwright show-report
 - **🎯 SUBCOMMANDS Guide**: See [`SUBCOMMANDS.md`](SUBCOMMANDS.md) - **Organize your tasks!** Complete guide to subcommands and task organization
 - **🔥 SMART WORKFLOWS Guide**: See [`SMART-WORKFLOWS.md`](SMART-WORKFLOWS.md) - **NEW!** Powerful tool combinations for efficient workflows
 - **⚡ ALWAYS-ON TASKS Guide**: See [`ALWAYS-ON-TASKS.md`](ALWAYS-ON-TASKS.md) - **NEW!** System-wide tasks available from any directory
+- **🩺 Installer Doctor**: See [`docs/INSTALLER_DOCTOR.md`](docs/INSTALLER_DOCTOR.md) - Post-install readiness checks and remediation guidance
 - **pf-runner Documentation**: See [`../pf-runner/README.md`](../pf-runner/README.md) for comprehensive pf runner documentation
 - **REST API Guide**: See [`REST-API.md`](REST-API.md) for complete API documentation and examples
 - **Fuzzing & Sanitizers Guide**: See [`FUZZING.md`](FUZZING.md) for fuzzing, AFL++, and sanitizer documentation

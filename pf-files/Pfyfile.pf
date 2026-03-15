@@ -276,7 +276,20 @@ end
 
 task install-help
   describe Show install task choices (simplified)
-  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
+  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer" "  pf install-doctor          # Verify post-install readiness and guidance"
+end
+
+task install-doctor strict="false"
+  describe Check post-install tool readiness and suggest next steps
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    if [ "${strict}" = "true" ]; then
+      bash "$ROOT/scripts/installer/install-doctor.sh" --strict
+    else
+      bash "$ROOT/scripts/installer/install-doctor.sh"
+    fi
 end
 
 task install-all
@@ -372,10 +385,4 @@ task sync-demo
   shell echo "  Excludes: sync src=./ dest=/backup/ excludes=[\"*.log\",\"*.tmp\"] delete dry"
   shell echo "  From file: sync src=./ dest=/backup/ exclude_file=.rsync-exclude"
   shell echo "See pf-runner/SYNC.md for full documentation"
-end
-
-task thing
-     describe "Do python instead"
-     shell_lang
-     print("I'm a python script!")
 end

@@ -167,6 +167,9 @@ test_installer "install-checksec" "checksec"
 log_info "Testing git filter repo..."
 test_installer "install-git-filter-repo"
 
+log_info "Testing installer doctor..."
+test_installer "install-doctor"
+
 # Module installers
 log_info "Skipping module installers (require system permissions)..."
 log_skip "Module installers require system permissions - skipping"

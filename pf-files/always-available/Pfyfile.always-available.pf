@@ -27,6 +27,9 @@ task category-installation-help
   shell echo "  pf install-snowman           # Install Snowman decompiler"
   shell echo ""
   shell echo "System Setup:"
+  shell echo "  pf install                   # Install pf (system or user prefix)"
+  shell echo "  pf install-smoke-test        # Run installer smoke test"
+  shell echo "  pf install-doctor            # Verify post-install tool readiness"
 end
 
 # Module-oriented install entrypoints (improves discoverability)
@@ -191,6 +194,15 @@ task pkg-matrix
     set -euo pipefail
     ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
     node "$ROOT/tools/package-manager.mjs" matrix
+end
+
+task pkg-help
+  describe Show package manager tool help
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    node "$ROOT/tools/package-manager.mjs" --help
 end
 
 # --
@@ -430,21 +442,6 @@ task debug-tools-help
   shell echo "  • Ghidra    - https://github.com/NationalSecurityAgency/ghidra"
 end
 
-# --
-# Smart Workflows - Help & Verification
-# --
-
-task smart-help
-  describe Show help for smart workflows
-  shell echo "Smart Workflows Help:"
-  shell echo "  pf smart-verify-tools          # Verify all tools are working"
-  shell echo ""
-  shell echo "Context-Dependent Tasks (require project files):"
-  shell echo "  pf smart-detect target=<target>    # Detect target type"
-  shell echo "  pf smart-analyze target=<target>   # Analyze target"
-  shell echo "  pf checksec-unified binary=<file>  # Security analysis"
-end
-
 # Enhanced Workflow Tasks (these require parameters but are general enough to be always available)
 task autopwn
   describe Complete binary exploitation: analysis + vulnerability discovery + exploit generation (binary=path/to/binary)
@@ -540,29 +537,6 @@ task category-system-help
 end
 
 # System Monitoring Tools
-task run-rustnet
-  describe Run rustnet network monitor
-  shell echo " Running rustnet..."
-  shell rustnet
-end
-
-task run-sysz
-  describe Run sysz systemd unit viewer
-  shell echo "  Running sysz..."
-  shell sysz
-end
-
-# Package Management Help
-task pkg-help
-  describe Show package manager tool help
-  shell_lang bash
-  shell |
-    set -euo pipefail
-    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-    node "$ROOT/tools/package-manager.mjs" --help
-end
-
-# System Information
 task debug-check-podman
   describe Show podman visibility from inside pf container
   shell command -v podman || echo "podman not in PATH"
@@ -663,72 +637,6 @@ task sync-demo
   shell echo "  Excludes: sync src=./ dest=/backup/ excludes=[\"*.log\",\"*.tmp\"] delete dry"
   shell echo "  From file: sync src=./ dest=/backup/ exclude_file=.rsync-exclude"
   shell echo "See pf-runner/SYNC.md for full documentation"
-end
-task smart-verify-tools
-  describe Verify all tools are working correctly
-  shell echo " Verifying installed tools..."
-  shell echo ""
-  shell echo "Checking Python..."
-  shell python3 --version || echo "[ERR] Python 3 not found"
-  shell echo ""
-  shell echo "Checking Node.js..."
-  shell node --version || echo "[ERR] Node.js not found"
-  shell echo ""
-  shell echo "Checking pf installation..."
-  shell command -v pf >/dev/null 2>&1 && echo "OK pf installed" || echo "[ERR] pf not found in PATH"
-  shell echo ""
-  shell echo "Run 'pf check-debug-tools' for detailed tool status"
-end
-
-# --
-# Package Management - OS Level Tasks
-# --
-
-task pkg-formats
-  describe Show available package formats on this system
-  shell echo " Available Package Formats"
-  shell echo ""
-  shell echo "Checking installed package managers..."
-  shell command -v dpkg >/dev/null 2>&1 && echo "  OK dpkg (Debian/Ubuntu .deb)" || echo "  NO dpkg"
-  shell command -v rpm >/dev/null 2>&1 && echo "  OK rpm (Red Hat/Fedora .rpm)" || echo "  NO rpm"
-  shell command -v flatpak >/dev/null 2>&1 && echo "  OK flatpak (.flatpak)" || echo "  NO flatpak"
-  shell command -v snap >/dev/null 2>&1 && echo "  OK snap (.snap)" || echo "  NO snap"
-  shell command -v pacman >/dev/null 2>&1 && echo "  OK pacman (Arch .pkg.tar.zst)" || echo "  NO pacman"
-  shell echo ""
-  shell echo "Context-dependent package conversion tasks are available in project directories."
-end
-
-task pkg-matrix
-  describe Show conversion compatibility matrix
-  shell echo " Package Format Conversion Matrix"
-  shell echo ""
-  shell echo "From →      │ .deb │ .rpm │ .flatpak │ .snap │ .pkg.tar.zst"
-  shell echo "────────────┼──────┼──────┼──────────┼───────┼──────────────"
-  shell echo ".deb        │  -   │  OK   │    OK     │   OK   │      OK"
-  shell echo ".rpm        │  OK   │  -   │    OK     │   OK   │      OK"
-  shell echo ".flatpak    │  OK   │  OK   │    -     │   OK   │      OK"
-  shell echo ".snap       │  OK   │  OK   │    OK     │   -   │      OK"
-  shell echo ".pkg.tar.zst│  OK   │  OK   │    OK     │   OK   │      -"
-  shell echo ""
-  shell echo "Note: All conversions use .deb as the hub format"
-  shell echo "Context-dependent conversion tasks are available in project directories."
-end
-
-task pkg-help
-  describe Show package manager tool help
-  shell echo " Package Manager Tools"
-  shell echo ""
-  shell echo "Available commands:"
-  shell echo "  pf pkg-formats             - Show available package formats"
-  shell echo "  pf pkg-matrix              - Show conversion compatibility"
-  shell echo "  pf install-pkg-tools       - Install package conversion tools"
-  shell echo "  pf install-flatpak         - Install Flatpak"
-  shell echo "  pf install-snap            - Install Snapd"
-  shell echo ""
-  shell echo "Context-dependent tasks (require project files):"
-  shell echo "  pf pkg-convert source=<file> target=<format>"
-  shell echo "  pf pkg-info package=<file>"
-  shell echo "  pf pkg-deps package=<file> target=<format>"
 end
 
 # --

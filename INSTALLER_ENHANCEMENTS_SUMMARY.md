@@ -10,6 +10,12 @@ The issue requested to "test all installers again please" and ensure users have 
 
 ## What Was Done
 
+### 0. Follow-up Cleanup + Verification Feature (Mar 2026) ✅
+- Added **`pf install-doctor`** for post-install environment verification with remediation hints
+- Added **strict mode** support for CI-style checks (`pf install-doctor strict=true`)
+- Removed stale/placeholder task overrides that were shadowing working implementations
+- Removed duplicate task definitions in always-available/security task files to reduce drift
+
 ### 1. Base PF-Runner Installers Fixed ✅
 - **Fixed install-static.sh**: Corrected path from `pf-runner/pf-static` to `pf-runner-full/pf-static`
 - **Added build-static target**: Created Makefile target to build static executable using PyInstaller

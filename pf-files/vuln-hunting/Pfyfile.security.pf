@@ -255,22 +255,6 @@ task install-security-tools
   shell echo "Documentation: docs/SECURITY-TESTING.md"
 end
 
-# ============================================================================
-# Binary Security Analysis Tasks (checksec implementation)
-# ============================================================================
-
-task checksec
-  describe Analyze binary security features (RELRO, Stack Canary, NX, PIE, etc.)
-  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf checksec binary=/path/to/binary" && exit 1)
-  shell python3 tools/security/checksec.py ${binary}
-end
-
-task checksec-json
-  describe Analyze binary security features and output JSON
-  shell test -n "${binary}" || (echo "Error: binary parameter required. Usage: pf checksec-json binary=/path/to/binary" && exit 1)
-  shell python3 tools/security/checksec.py --json ${binary}
-end
-
 task checksec-batch
   describe Analyze all binaries in a directory
   shell test -n "${dir}" || (echo "Error: dir parameter required. Usage: pf checksec-batch dir=/path/to/directory" && exit 1)
