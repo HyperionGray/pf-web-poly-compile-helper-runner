@@ -18,6 +18,39 @@ import pytest
 # Get repository root
 REPO_ROOT = Path(__file__).parent.parent.parent.absolute()
 PF_RUNNER_DIR = REPO_ROOT / "pf-runner-full"
+SAFE_TASK_CANDIDATES = [
+    "category-help",
+    "install-help",
+    "always-available-help",
+    "smart-help",
+    "debug-help",
+    "pkg-help",
+    "os-help",
+    "git-help",
+]
+
+
+def extract_task_names(list_output):
+    """Extract task names from `pf list` output."""
+    tasks = []
+    for line in list_output.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.endswith("tasks:"):
+            continue
+        if " - " not in stripped:
+            continue
+        task_name = stripped.split(" - ", 1)[0].strip()
+        if task_name:
+            tasks.append(task_name)
+    return tasks
+
+
+def select_safe_task(task_names):
+    """Select a non-destructive task suitable for smoke execution."""
+    for candidate in SAFE_TASK_CANDIDATES:
+        if candidate in task_names:
+            return candidate
+    return None
 
 
 class InstallerTest:
@@ -60,8 +93,13 @@ class InstallerTest:
     
     def test_run_simple_task(self):
         """Test that pf can run a simple built-in task"""
-        result = self.run_command([str(self.pf_executable), "run", "smoke"], cwd=PF_RUNNER_DIR)
-        assert result.returncode == 0, f"pf run smoke failed: {result.stderr}"
+        list_result = self.run_command([str(self.pf_executable), "list"], cwd=PF_RUNNER_DIR)
+        tasks = extract_task_names(list_result.stdout)
+        task = select_safe_task(tasks)
+        assert task is not None, "No safe smoke task found in `pf list` output"
+
+        result = self.run_command([str(self.pf_executable), "run", task], cwd=PF_RUNNER_DIR)
+        assert result.returncode == 0, f"pf run {task} failed: {result.stderr}"
         return True
 
 
@@ -198,8 +236,18 @@ class TestDirectExecution:
     
     def test_direct_run_task(self):
         """Test that pf_main.py can run tasks"""
+        list_result = subprocess.run(
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "list"],
+            cwd=PF_RUNNER_DIR,
+            capture_output=True,
+            text=True
+        )
+        assert list_result.returncode == 0, f"List command failed: {list_result.stderr}"
+        task = select_safe_task(extract_task_names(list_result.stdout))
+        assert task is not None, "No safe smoke task found in `pf list` output"
+
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "run", "smoke"],
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "run", task],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
@@ -208,14 +256,24 @@ class TestDirectExecution:
     
     def test_direct_parameter_passing(self):
         """Test task help lookup in direct execution"""
+        list_result = subprocess.run(
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "list"],
+            cwd=PF_RUNNER_DIR,
+            capture_output=True,
+            text=True
+        )
+        assert list_result.returncode == 0, f"List command failed: {list_result.stderr}"
+        task = select_safe_task(extract_task_names(list_result.stdout))
+        assert task is not None, "No safe smoke task found in `pf list` output"
+
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "help", "smoke"],
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "help", task],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
         )
         assert result.returncode == 0, f"Task help lookup failed: {result.stderr}"
-        assert "smoke" in result.stdout.lower(), "Task help output missing task name"
+        assert task in result.stdout.lower(), "Task help output missing task name"
 
 
 @pytest.mark.integration  
@@ -254,8 +312,18 @@ class TestStaticExecutable:
     
     def test_static_exe_run_task(self, static_exe):
         """Test that pf-static can run tasks"""
+        list_result = subprocess.run(
+            [str(static_exe), "list"],
+            cwd=PF_RUNNER_DIR,
+            capture_output=True,
+            text=True
+        )
+        assert list_result.returncode == 0, f"List command failed: {list_result.stderr}"
+        task = select_safe_task(extract_task_names(list_result.stdout))
+        assert task is not None, "No safe smoke task found in `pf list` output"
+
         result = subprocess.run(
-            [str(static_exe), "run", "smoke"],
+            [str(static_exe), "run", task],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
