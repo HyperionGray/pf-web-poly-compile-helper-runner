@@ -12,6 +12,8 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+NATIVE_INSTALLER="$REPO_ROOT/install.sh"
+NATIVE_INSTALLER_IMPL="$REPO_ROOT/scripts/install.sh"
 TEST_PFY="$REPO_ROOT/pf-runner-full/pf-files/tests/fixtures/test.pf"
 TEST_DIR="/tmp/installer-round3-tests-$$"
 TESTS_PASSED=0
@@ -56,7 +58,7 @@ echo ""
 log_test "Test 1: Verify installer syntax and bashisms"
 
 # Test install.sh syntax
-if bash -n "$REPO_ROOT/install.sh" 2>/dev/null; then
+if bash -n "$NATIVE_INSTALLER" 2>/dev/null; then
     log_success "install.sh: Syntax check passed"
 else
     log_error "install.sh: Syntax errors detected"
@@ -70,28 +72,28 @@ else
 fi
 
 # Test heredoc support in installers
-if grep -q "cat.*<<" "$REPO_ROOT/install.sh"; then
+if grep -q "cat.*<<" "$NATIVE_INSTALLER_IMPL"; then
     log_success "install.sh: Heredoc support detected"
 else
     log_error "install.sh: No heredoc usage found"
 fi
 
 # Test semicolon usage
-if grep -q ";" "$REPO_ROOT/install.sh"; then
+if grep -q ";" "$NATIVE_INSTALLER_IMPL"; then
     log_success "install.sh: Semicolon usage detected"
 else
     log_error "install.sh: No semicolon usage found"
 fi
 
 # Test && usage
-if grep -q "&&" "$REPO_ROOT/install.sh"; then
+if grep -q "&&" "$NATIVE_INSTALLER_IMPL"; then
     log_success "install.sh: && operator usage detected"
 else
     log_error "install.sh: No && operator usage found"
 fi
 
 # Test proper quoting
-if grep -q '"\$' "$REPO_ROOT/install.sh"; then
+if grep -q '"\$' "$NATIVE_INSTALLER_IMPL"; then
     log_success "install.sh: Proper variable quoting detected"
 else
     log_error "install.sh: No proper variable quoting found"
@@ -107,7 +109,7 @@ log_test "Test 2: Native installation (install.sh)"
 NATIVE_PREFIX="$TEST_DIR/native-install"
 log_info "Installing to: $NATIVE_PREFIX"
 
-if "$REPO_ROOT/install.sh" --prefix "$NATIVE_PREFIX" --skip-deps >/dev/null 2>&1; then
+if "$NATIVE_INSTALLER" --prefix "$NATIVE_PREFIX" --skip-deps >/dev/null 2>&1; then
     log_success "Native installation completed"
     
     # Verify installation structure
@@ -205,7 +207,7 @@ echo ""
 log_test "Test 4: Installer help and options"
 
 # Test install.sh help
-if "$REPO_ROOT/install.sh" --help >/dev/null 2>&1; then
+if "$NATIVE_INSTALLER" --help >/dev/null 2>&1; then
     log_success "install.sh --help works"
 else
     log_error "install.sh --help failed"
