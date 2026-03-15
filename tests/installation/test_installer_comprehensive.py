@@ -36,17 +36,17 @@ def assert_pf_basics(pf_executable: Path):
     assert "pf" in version.stdout.lower(), "Version output missing 'pf'"
 
     list_result = run_command(
-        [str(pf_executable), str(PF_RUNNER_DIR / "test.pf"), "list"],
+        [str(pf_executable), "-f", str(PF_RUNNER_DIR / "test.pf"), "list"],
         cwd=PF_RUNNER_DIR,
     )
     assert list_result.returncode == 0, f"pf list failed: {list_result.stderr}"
-    assert "hello" in list_result.stdout.lower(), "hello task not found"
+    assert "smoke" in list_result.stdout.lower(), "smoke task not found"
 
-    hello_result = run_command(
-        [str(pf_executable), str(PF_RUNNER_DIR / "test.pf"), "hello"],
+    smoke_result = run_command(
+        [str(pf_executable), "-f", str(PF_RUNNER_DIR / "test.pf"), "smoke"],
         cwd=PF_RUNNER_DIR,
     )
-    assert hello_result.returncode == 0, f"pf hello failed: {hello_result.stderr}"
+    assert smoke_result.returncode == 0, f"pf smoke failed: {smoke_result.stderr}"
 
 
 @pytest.mark.integration
@@ -60,15 +60,15 @@ class TestDirectExecution:
 
     def test_direct_list(self):
         result = run_command(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "list"],
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "-f", "test.pf", "list"],
             cwd=PF_RUNNER_DIR,
         )
         assert result.returncode == 0, f"List failed: {result.stderr}"
-        assert "hello" in result.stdout.lower(), "hello task not found"
+        assert "smoke" in result.stdout.lower(), "smoke task not found"
 
     def test_direct_run_task(self):
         result = run_command(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "hello"],
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "-f", "test.pf", "smoke"],
             cwd=PF_RUNNER_DIR,
         )
         assert result.returncode == 0, f"Task execution failed: {result.stderr}"

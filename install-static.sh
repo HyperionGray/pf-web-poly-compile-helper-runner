@@ -249,7 +249,8 @@ run_verification() {
 
     "$pf_bin" -V >/dev/null
     if [[ -f "$TEST_PF" ]]; then
-        "$pf_bin" "$TEST_PF" list >/dev/null
+        "$pf_bin" -f "$TEST_PF" list >/dev/null
+        "$pf_bin" -f "$TEST_PF" smoke >/dev/null
     fi
 
     log_success "Verification passed"
