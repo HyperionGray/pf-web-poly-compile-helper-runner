@@ -81,7 +81,9 @@ log_info "Cleaning repository artifacts (all=${all}, dry_run=${dry_run})"
 remove_paths "Removed common artifacts" \
   .coverage .coverage.* coverage.xml htmlcov \
   .pytest_cache __pycache__ \
-  test-results playwright-report tui-test-report.json
+  test-results playwright-report tui-test-report.json \
+  .smart_target_info.json .enhanced_target_info.json \
+  fuzz_results.json crash_analysis.json
 
 if [[ "$all" == true ]]; then
   remove_paths "Removed additional caches" \

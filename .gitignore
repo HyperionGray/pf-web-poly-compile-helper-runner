@@ -43,6 +43,12 @@ playwright-report/
 test-report.json
 *.test-report.json
 
+# Runtime-generated workflow/fuzzing artifacts
+.smart_target_info.json
+.enhanced_target_info.json
+fuzz_results.json
+crash_analysis.json
+
 # CodeQL artifacts
 _codeql_*
 
