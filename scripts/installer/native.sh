@@ -54,6 +54,7 @@ installer_setup_python_env() {
   log_info "Setting up Python environment..."
 
   local venv_dir=""
+  local using_venv=false
   if [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
     venv_dir=""
   else
@@ -62,13 +63,27 @@ installer_setup_python_env() {
 
   if [[ -n "$venv_dir" ]]; then
     mkdir -p "${PREFIX}/lib"
-    python3 -m venv "$venv_dir"
-    # shellcheck disable=SC1091
-    source "${venv_dir}/bin/activate"
-    python3 -m pip install --upgrade pip
+    if python3 -m venv "$venv_dir"; then
+      # shellcheck disable=SC1091
+      source "${venv_dir}/bin/activate"
+      python3 -m pip install --upgrade pip
+      using_venv=true
+    else
+      log_warning "python3 -m venv failed; falling back to user-site pip installs"
+      rm -rf "$venv_dir"
+    fi
   fi
 
-  python3 -m pip install --upgrade "fabric>=3.2,<4" "lark" "typer" "json5" "rich"
+  if [[ "$using_venv" == true ]]; then
+    python3 -m pip install --upgrade "fabric>=3.2,<4" "lark" "typer" "json5" "rich"
+    return 0
+  fi
+
+  if [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
+    python3 -m pip install --upgrade "fabric>=3.2,<4" "lark" "typer" "json5" "rich"
+  else
+    python3 -m pip install --user --upgrade "fabric>=3.2,<4" "lark" "typer" "json5" "rich"
+  fi
 }
 
 installer_install_pf_runner() {

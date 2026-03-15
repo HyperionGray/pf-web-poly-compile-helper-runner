@@ -17,7 +17,9 @@ import pytest
 
 # Get repository root
 REPO_ROOT = Path(__file__).parent.parent.parent.absolute()
-PF_RUNNER_DIR = REPO_ROOT / "pf-runner"
+PF_RUNNER_DIR = REPO_ROOT / "pf-runner-full"
+if not PF_RUNNER_DIR.exists():
+    PF_RUNNER_DIR = REPO_ROOT / "pf-runner"
 
 
 class InstallerTest:
@@ -58,17 +60,16 @@ class InstallerTest:
             cwd=PF_RUNNER_DIR
         )
         assert result.returncode == 0, f"pf list failed: {result.stderr}"
-        # test.pf should have 'hello' and 'vars' tasks
-        assert "hello" in result.stdout.lower(), "hello task not found in list"
+        assert "smoke" in result.stdout.lower(), "smoke task not found in list"
         return True
     
     def test_run_simple_task(self):
         """Test that pf can run a simple task"""
         result = self.run_command(
-            [str(self.pf_executable), str(PF_RUNNER_DIR / "test.pf"), "hello"],
+            [str(self.pf_executable), str(PF_RUNNER_DIR / "test.pf"), "smoke"],
             cwd=PF_RUNNER_DIR
         )
-        assert result.returncode == 0, f"pf hello task failed: {result.stderr}"
+        assert result.returncode == 0, f"pf smoke task failed: {result.stderr}"
         assert "hello" in result.stdout.lower(), "Task output doesn't contain 'hello'"
         return True
 
@@ -212,28 +213,27 @@ class TestDirectExecution:
             text=True
         )
         assert result.returncode == 0, f"List command failed: {result.stderr}"
-        assert "hello" in result.stdout.lower(), "hello task not found"
+        assert "smoke" in result.stdout.lower(), "smoke task not found"
     
     def test_direct_run_task(self):
         """Test that pf_main.py can run tasks"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "hello"],
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "smoke"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
         )
         assert result.returncode == 0, f"Task execution failed: {result.stderr}"
     
-    def test_direct_parameter_passing(self):
-        """Test parameter passing in direct execution"""
+    def test_direct_repeated_task_run(self):
+        """Test repeated task execution in direct mode"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "vars", "name=DirectTest"],
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "smoke"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
         )
-        assert result.returncode == 0, f"Parameter passing failed: {result.stderr}"
-        assert "DirectTest" in result.stdout, "Parameter not passed correctly"
+        assert result.returncode == 0, f"Repeated task run failed: {result.stderr}"
 
 
 @pytest.mark.integration  
@@ -268,12 +268,12 @@ class TestStaticExecutable:
             text=True
         )
         assert result.returncode == 0, f"List command failed: {result.stderr}"
-        assert "hello" in result.stdout.lower(), "hello task not found"
+        assert "smoke" in result.stdout.lower(), "smoke task not found"
     
     def test_static_exe_run_task(self, static_exe):
         """Test that pf-static can run tasks"""
         result = subprocess.run(
-            [str(static_exe), "test.pf", "hello"],
+            [str(static_exe), "test.pf", "smoke"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True

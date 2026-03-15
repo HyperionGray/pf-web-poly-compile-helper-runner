@@ -8,7 +8,10 @@ __pf_installer_main_loaded() { :; }
 
 INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${INSTALLER_DIR}/../.." && pwd)"
-PF_RUNNER_DIR="${REPO_ROOT}/pf-runner"
+PF_RUNNER_DIR="${REPO_ROOT}/pf-runner-full"
+if [[ ! -d "${PF_RUNNER_DIR}" && -d "${REPO_ROOT}/pf-runner" ]]; then
+  PF_RUNNER_DIR="${REPO_ROOT}/pf-runner"
+fi
 
 source "${INSTALLER_DIR}/common.sh"
 source "${INSTALLER_DIR}/config.sh"
@@ -103,7 +106,7 @@ installer_main() {
   printf '%s\n\n' "=============================="
 
   if [[ ! -d "$PF_RUNNER_DIR" ]]; then
-    die "pf-runner directory not found at ${PF_RUNNER_DIR}. Run from repository root."
+    die "pf-runner source directory not found (checked pf-runner-full and pf-runner). Run from repository root."
   fi
 
   installer_normalize_settings

@@ -136,25 +136,24 @@ if [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
   fi
 fi
 
-STATIC_EXEC=""
-if ! STATIC_EXEC="$(resolve_static_executable)"; then
-  log_error "Could not find pf-static executable."
-  log_info "Checked:"
-  for candidate in "${STATIC_CANDIDATES[@]}"; do
-    log_info "  - ${candidate}"
-  done
-  log_info "Build static binary with:"
-  log_info "  cd pf-runner-full && make build-static"
-  exit 1
-fi
-
 LIB_DIR="${PREFIX}/lib/pf-runner"
 BIN_DIR="${PREFIX}/bin"
 TARGET="${BIN_DIR}/pf"
+STATIC_EXEC=""
+if STATIC_EXEC="$(resolve_static_executable)"; then
+  :
+else
+  STATIC_EXEC=""
+fi
 
 if [[ "$DRY_RUN" == true ]]; then
   log_info "Dry run mode enabled. No files will be modified."
-  log_info "Static executable source: ${STATIC_EXEC}"
+  if [[ -n "$STATIC_EXEC" ]]; then
+    log_info "Static executable source: ${STATIC_EXEC}"
+  else
+    log_warning "Static executable not found yet."
+    log_info "Build with: cd pf-runner-full && make build-static"
+  fi
   log_info "Would create directories:"
   log_info "  ${LIB_DIR}"
   log_info "  ${BIN_DIR}"
@@ -164,6 +163,17 @@ if [[ "$DRY_RUN" == true ]]; then
     log_info "Suggested PATH line: $(path_export_line "${BIN_DIR}")"
   fi
   exit 0
+fi
+
+if [[ -z "$STATIC_EXEC" ]]; then
+  log_error "Could not find pf-static executable."
+  log_info "Checked:"
+  for candidate in "${STATIC_CANDIDATES[@]}"; do
+    log_info "  - ${candidate}"
+  done
+  log_info "Build static binary with:"
+  log_info "  cd pf-runner-full && make build-static"
+  exit 1
 fi
 
 printf '%s\n' "pf-runner Static Installer"
