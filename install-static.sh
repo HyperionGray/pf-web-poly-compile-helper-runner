@@ -189,15 +189,18 @@ if [[ ":$PATH:" != *":${BIN_DIR}:"* ]]; then
     echo ""
     echo "    export PATH=\"${BIN_DIR}:\$PATH\""
     echo ""
+    PF_CMD="${BIN_DIR}/pf"
 else
     log_success "Installation directory is already in PATH"
+    PF_CMD="pf"
 fi
 
 echo ""
 log_success "🎉 Installation completed successfully!"
 echo ""
 log_info "Next steps:"
-echo "  1. Try: pf --version"
-echo "  2. Try: pf list"
+echo "  1. Try: ${PF_CMD} --version"
+echo "  2. Try: ${PF_CMD} list"
+echo "  3. Run: ${PF_CMD} install-doctor"
 echo ""
 log_success "Happy task running! 🚀"

@@ -11,6 +11,17 @@ task category-installation-help
   describe Show help for Installation & Setup category
   shell echo " INSTALLATION & SETUP CATEGORY"
   shell echo ""
+  shell echo "Core Installation:"
+  shell echo "  pf install                   # Install pf (default prefix: /usr/local)"
+  shell echo "  pf install prefix=~/.local   # User-local install without sudo"
+  shell echo "  pf install-doctor            # Verify install health and show fixes"
+  shell echo "  pf install-smoke-test        # Minimal end-to-end installer test"
+  shell echo ""
+  shell echo "Installer Helpers:"
+  shell echo "  pf install-help              # Short install command reference"
+  shell echo "  pf module-install-help       # Module-oriented installer shortcuts"
+  shell echo "  pf install-all               # Install pf + core tool bundles"
+  shell echo ""
   shell echo "Tool Installation:"
   shell echo "  pf install-exploit-tools     # Install all exploit development tools"
   shell echo "  pf install-checksec          # Install checksec binary protection checker"
@@ -27,6 +38,95 @@ task category-installation-help
   shell echo "  pf install-snowman           # Install Snowman decompiler"
   shell echo ""
   shell echo "System Setup:"
+  shell echo "  pf install-tui-deps          # Install rich/textual dependencies for TUI"
+  shell echo "  pf install-pkg-tools         # Install package conversion helpers"
+  shell echo "  pf install-injection-tools   # Install patchelf/nasm/binaryen/wabt"
+  shell echo "  pf rest-install              # Install REST API systemd unit"
+  shell echo ""
+  shell echo "Tip: Run 'pf install-doctor' after any install to validate PATH and deps."
+end
+
+task install-doctor
+  describe Verify pf installation health and print actionable fixes
+  shell_lang bash
+  shell |
+    set -u
+    FAILURES=0
+    WARNINGS=0
+
+    echo "PF Installation Doctor"
+    echo "======================"
+    echo ""
+
+    if command -v pf >/dev/null 2>&1; then
+      echo "[OK] pf is available in PATH: $(command -v pf)"
+    else
+      echo "[ERR] pf is not in PATH"
+      echo "      Fix: run 'pf install prefix=~/.local' or './install.sh --prefix ~/.local'"
+      FAILURES=$((FAILURES + 1))
+    fi
+
+    if command -v python3 >/dev/null 2>&1; then
+      echo "[OK] python3 detected: $(python3 --version 2>&1)"
+    else
+      echo "[ERR] python3 is missing"
+      echo "      Fix: install Python 3.8+ and rerun installer."
+      FAILURES=$((FAILURES + 1))
+    fi
+
+    if command -v python3 >/dev/null 2>&1; then
+      if python3 - <<'PY' >/tmp/pf-install-doctor-modules.log 2>&1
+import importlib.util
+mods = ["fabric", "lark", "typer"]
+missing = [m for m in mods if importlib.util.find_spec(m) is None]
+if missing:
+    print("missing:" + ",".join(missing))
+    raise SystemExit(1)
+print("ok")
+PY
+      then
+        echo "[OK] Required Python modules are importable (fabric, lark, typer)"
+      else
+        echo "[ERR] Missing Python modules detected"
+        cat /tmp/pf-install-doctor-modules.log 2>/dev/null | sed 's/^/      /'
+        echo "      Fix: pip3 install --user \"fabric>=3.2,<4\" \"lark>=1.1.0\" \"typer>=0.12\""
+        FAILURES=$((FAILURES + 1))
+      fi
+      rm -f /tmp/pf-install-doctor-modules.log
+    fi
+
+    if [ "${EUID:-$(id -u)}" -ne 0 ]; then
+      case ":$PATH:" in
+        *":$HOME/.local/bin:"*) echo "[OK] \$HOME/.local/bin is present in PATH" ;;
+        *)
+          echo "[WARN] \$HOME/.local/bin is not present in PATH"
+          echo "       Fix: add 'export PATH=\"\$HOME/.local/bin:\$PATH\"' to your shell profile."
+          WARNINGS=$((WARNINGS + 1))
+          ;;
+      esac
+    fi
+
+    if command -v pf >/dev/null 2>&1; then
+      if pf --version >/dev/null 2>&1 && pf list >/dev/null 2>&1; then
+        echo "[OK] pf runtime checks passed (pf --version, pf list)"
+      else
+        echo "[ERR] pf command is present but runtime checks failed"
+        echo "      Fix: rerun installer and inspect dependency output."
+        FAILURES=$((FAILURES + 1))
+      fi
+    fi
+
+    echo ""
+    echo "Summary: failures=${FAILURES}, warnings=${WARNINGS}"
+    if [ "$FAILURES" -eq 0 ]; then
+      echo "[OK] Installation health check passed."
+      [ "$WARNINGS" -eq 0 ] || echo "[WARN] Non-fatal issues detected. Address warnings for best experience."
+      exit 0
+    fi
+
+    echo "[ERR] Installation health check failed."
+    echo "      Next steps: run 'pf install-help' and re-run 'pf install'."
+    exit 1
 end
 
 # Module-oriented install entrypoints (improves discoverability)

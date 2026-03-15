@@ -84,6 +84,16 @@ sudo ./install.sh
    pf tui              # Launch interactive TUI
    ```
 
+### Run the installation doctor
+
+After install, run a quick health check:
+
+```bash
+pf install-doctor
+```
+
+This verifies `pf` is on `PATH`, checks required Python modules (`fabric`, `lark`, `typer`), runs `pf --version`/`pf list`, and prints exact fix commands when something is missing.
+
 ## Troubleshooting
 
 ### Command not found: pf
@@ -156,6 +166,7 @@ For detailed workflows, scripting, or container references, see the relevant doc
 ## Getting Help
 
 - **Installation issues**: Run `./install.sh --help`
+- **Installation diagnostics**: Run `pf install-doctor`
 - **Usage help**: Run `pf --help` or `pf list`
 - **Documentation**: See `README.md` and `docs/` directory
 - **Interactive help**: Run `pf tui` for the interactive interface
