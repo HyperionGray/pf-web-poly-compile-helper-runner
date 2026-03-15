@@ -11,7 +11,7 @@ This repository provides **TWO** officially supported installation methods for p
 The native installer sets up pf-runner directly on your system with Python dependencies.
 
 **Requirements:**
-- Python 3.8 or higher
+- Python 3.10 or higher
 - pip
 - Git
 
@@ -26,10 +26,13 @@ sudo ./install.sh
 
 # Skip system dependency installation
 ./install.sh --prefix ~/.local --skip-deps
+
+# Preview actions without making changes
+./install.sh --prefix ~/.local --dry-run
 ```
 
 **What it does:**
-- Checks prerequisites (Python 3.8+, Git, pip)
+- Checks prerequisites (Python 3.10+, Git, pip)
 - Installs system dependencies (optional)
 - Sets up Python virtual environment (for user installs)
 - Installs Python dependencies (lark, fabric, typer)
@@ -40,7 +43,7 @@ sudo ./install.sh
 **Pros:**
 - Full-featured installation
 - Python dependencies properly managed
-- Works on all systems with Python 3.8+
+- Works on all systems with Python 3.10+
 
 **Cons:**
 - Requires Python and build tools
@@ -98,17 +101,17 @@ The simplest method - just copy a pre-built static executable.
 **Build the static executable (one time):**
 
 ```bash
-cd pf-runner
+cd pf-runner-full
 # Install PyInstaller if needed
 pip install --user pyinstaller "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12"
-# Build
-make build
+# Build static executable
+make build-static
 ```
 
 Or build manually:
 
 ```bash
-cd pf-runner
+cd pf-runner-full
 python3 -m PyInstaller --onefile pf_main.py
 cp dist/pf_main pf-static
 ```
@@ -121,6 +124,9 @@ sudo ./install-static.sh
 
 # User install (no sudo required)
 ./install-static.sh --prefix ~/.local
+
+# Preview static installation actions
+./install-static.sh --prefix ~/.local --dry-run
 ```
 
 **What it does:**
@@ -204,7 +210,7 @@ source ~/.bashrc
 
 ### "Python version too old"
 
-Upgrade to Python 3.8 or higher, or use the static executable method.
+Upgrade to Python 3.10 or higher, or use the static executable method.
 
 ### "PyInstaller not found"
 

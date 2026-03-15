@@ -136,14 +136,14 @@ if "$REPO_ROOT/install.sh" --prefix "$NATIVE_PREFIX" --skip-deps >/dev/null 2>&1
     fi
     
     # Test task listing
-    if cd "$REPO_ROOT/pf-runner" && "$NATIVE_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
+    if cd "$REPO_ROOT/pf-runner-full" && "$NATIVE_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
         log_success "pf list works"
     else
         log_error "pf list failed"
     fi
     
     # Test task execution
-    if cd "$REPO_ROOT/pf-runner" && "$NATIVE_PREFIX/bin/pf" test.pf hello >/dev/null 2>&1; then
+    if cd "$REPO_ROOT/pf-runner-full" && "$NATIVE_PREFIX/bin/pf" test.pf hello >/dev/null 2>&1; then
         log_success "pf task execution works"
     else
         log_error "pf task execution failed"
@@ -160,10 +160,10 @@ echo ""
 log_test "Test 3: Static installation (install-static.sh)"
 
 # Check if static executable exists
-STATIC_EXE="$REPO_ROOT/pf-runner/pf-static"
+STATIC_EXE="$REPO_ROOT/pf-runner-full/pf-static"
 if [[ ! -f "$STATIC_EXE" ]]; then
     log_info "Static executable not built, skipping static installation test"
-    log_info "Build with: cd pf-runner && make build"
+    log_info "Build with: cd pf-runner-full && make build-static"
 else
     STATIC_PREFIX="$TEST_DIR/static-install"
     log_info "Installing to: $STATIC_PREFIX"
@@ -186,7 +186,7 @@ else
         fi
         
         # Test task listing
-        if cd "$REPO_ROOT/pf-runner" && "$STATIC_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
+        if cd "$REPO_ROOT/pf-runner-full" && "$STATIC_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
             log_success "Static pf list works"
         else
             log_error "Static pf list failed"

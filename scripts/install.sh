@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# install.sh - Cohesive installer for pf-runner (package-first with container and native fallback)
-# Usage: ./install.sh [--mode package|container|native] [--runtime podman|docker] [--image NAME] [--prefix PATH] [--skip-deps] [--skip-build] [--no-wrapper] [--help]
+# install.sh - Native installer for pf-runner
+# Usage: ./install.sh [--prefix PATH] [--skip-deps] [--dry-run] [--help]
 
 set -euo pipefail
 
@@ -8,7 +8,7 @@ set -euo pipefail
 DEFAULT_PREFIX_NATIVE="/usr/local"
 DEFAULT_PREFIX_USER="${HOME:-/usr/local}/.local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PF_RUNNER_DIR="${SCRIPT_DIR}/pf-runner"
+PF_RUNNER_DIR=""
 
 # Colors for output
 RED='\033[0;31m'
@@ -21,7 +21,13 @@ NC='\033[0m' # No Color
 PREFIX=""
 PREFIX_SET=false
 SKIP_DEPS=false
+DRY_RUN=false
 SHOW_HELP=false
+MODE="native"
+RUNTIME=""
+IMAGE=""
+SKIP_BUILD=false
+NO_WRAPPER=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -37,6 +43,42 @@ while [[ $# -gt 0 ]]; do
             ;;
         --skip-deps)
             SKIP_DEPS=true
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --mode)
+            MODE="$2"
+            shift 2
+            ;;
+        --mode=*)
+            MODE="${1#*=}"
+            shift
+            ;;
+        --runtime)
+            RUNTIME="$2"
+            shift 2
+            ;;
+        --runtime=*)
+            RUNTIME="${1#*=}"
+            shift
+            ;;
+        --image)
+            IMAGE="$2"
+            shift 2
+            ;;
+        --image=*)
+            IMAGE="${1#*=}"
+            shift
+            ;;
+        --skip-build)
+            SKIP_BUILD=true
+            shift
+            ;;
+        --no-wrapper)
+            NO_WRAPPER=true
             shift
             ;;
         --help|-h)
@@ -62,6 +104,12 @@ USAGE:
 OPTIONS:
     --prefix PATH     Install prefix (default: ${DEFAULT_PREFIX_NATIVE} when run as root, ${DEFAULT_PREFIX_USER} otherwise)
     --skip-deps       Skip installing system dependencies (assumes they are already present)
+    --dry-run         Show planned actions without changing the system
+    --mode MODE       Compatibility flag (accepted; native flow is used)
+    --runtime NAME    Compatibility flag (accepted; ignored by native flow)
+    --image NAME      Compatibility flag (accepted; ignored by native flow)
+    --skip-build      Compatibility flag (accepted; ignored by native flow)
+    --no-wrapper      Compatibility flag (accepted; ignored by native flow)
     --help, -h        Show this help message
 
 EXAMPLES:
@@ -73,6 +121,9 @@ EXAMPLES:
 
     # Skip dependency installation (when dependencies already satisfied)
     ./install.sh --skip-deps
+
+    # Preview installation actions without making changes
+    ./install.sh --prefix ~/.local --dry-run
 
 WHAT THIS SCRIPT DOES:
     1. Checks prerequisites (Python 3.10+, Git, pip)
@@ -107,6 +158,68 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
+resolve_pf_runner_dir() {
+    local candidates=(
+        "${SCRIPT_DIR}/../pf-runner-full"
+        "${SCRIPT_DIR}/../pf-runner"
+        "${SCRIPT_DIR}/pf-runner-full"
+        "${SCRIPT_DIR}/pf-runner"
+    )
+
+    local candidate
+    for candidate in "${candidates[@]}"; do
+        if [[ -f "${candidate}/pf_main.py" ]]; then
+            PF_RUNNER_DIR="$(cd "${candidate}" && pwd)"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+show_effective_configuration() {
+    log_info "Installer configuration:"
+    echo "  - prefix: ${PREFIX}"
+    echo "  - skip-deps: ${SKIP_DEPS}"
+    echo "  - dry-run: ${DRY_RUN}"
+    echo "  - source dir: ${PF_RUNNER_DIR}"
+}
+
+show_dry_run_plan() {
+    echo ""
+    log_info "Dry-run mode enabled. No changes were made."
+    log_info "Planned actions:"
+    echo "  1. Verify prerequisites (Python 3.10+, Git, pip)"
+    if [[ "$SKIP_DEPS" == false ]]; then
+        echo "  2. Install system dependencies for: $(detect_os)"
+    else
+        echo "  2. Skip system dependency installation (--skip-deps)"
+    fi
+    echo "  3. Prepare Python environment (venv for user install)"
+    echo "  4. Copy pf-runner files into: ${PREFIX}/lib/pf-runner"
+    echo "  5. Install wrapper executable at: ${PREFIX}/bin/pf"
+    echo "  6. Install shell completions when destination directories exist"
+    echo "  7. Validate installed command with: ${PREFIX}/bin/pf list"
+}
+
+warn_compatibility_flags() {
+    if [[ "${MODE}" != "native" ]]; then
+        log_warning "--mode=${MODE} requested; proceeding with native installation flow."
+    fi
+    if [[ -n "${RUNTIME}" ]]; then
+        log_warning "--runtime=${RUNTIME} is ignored by native installer."
+    fi
+    if [[ -n "${IMAGE}" ]]; then
+        log_warning "--image=${IMAGE} is ignored by native installer."
+    fi
+    if [[ "${SKIP_BUILD}" == true ]]; then
+        log_warning "--skip-build is ignored by native installer."
+    fi
+    if [[ "${NO_WRAPPER}" == true ]]; then
+        log_warning "--no-wrapper is ignored by native installer."
+    fi
+}
+
 normalize_settings() {
     if [[ "$PREFIX_SET" == false ]]; then
         if [[ $EUID -eq 0 ]]; then
@@ -121,6 +234,10 @@ normalize_settings() {
 check_permissions() {
     if [[ "$PREFIX" == "/usr/local" ]] || [[ "$PREFIX" == "/usr"* ]]; then
         if [[ $EUID -ne 0 ]]; then
+            if [[ "$DRY_RUN" == true ]]; then
+                log_warning "Dry-run: installation to ${PREFIX} would require root privileges."
+                return 0
+            fi
             log_error "Installation to ${PREFIX} requires root privileges."
             log_info "Try: sudo ./install.sh --prefix ${PREFIX}"
             log_info "Or use a user installation: ./install.sh --prefix ~/.local"
@@ -187,6 +304,12 @@ check_prerequisites() {
 install_system_deps() {
     if [[ "$SKIP_DEPS" == true ]]; then
         log_info "Skipping system dependency installation (--skip-deps)"
+        return 0
+    fi
+
+    if [[ $EUID -ne 0 ]]; then
+        log_warning "Not running as root; skipping system dependency installation."
+        log_info "Re-run with sudo (or use --skip-deps) if system packages are missing."
         return 0
     fi
     
@@ -394,20 +517,27 @@ main() {
     echo "=============================="
     echo ""
     
-    # Check if we're in the right directory
-    if [[ ! -d "$PF_RUNNER_DIR" ]]; then
-        log_error "pf-runner directory not found at $PF_RUNNER_DIR"
-        log_info "Please run this script from the repository root directory"
+    normalize_settings
+    warn_compatibility_flags
+
+    if ! resolve_pf_runner_dir; then
+        log_error "Could not locate pf-runner source directory."
+        log_info "Expected a directory containing pf_main.py near ${SCRIPT_DIR}."
         exit 1
     fi
-    
-    normalize_settings
+
+    show_effective_configuration
 
     # Check permissions
     check_permissions
 
-    # Native installation steps
+    # Prerequisite checks apply to both normal and dry-run modes.
     check_prerequisites
+
+    if [[ "$DRY_RUN" == true ]]; then
+        show_dry_run_plan
+        exit 0
+    fi
 
     if [[ "$SKIP_DEPS" == false ]]; then
         install_system_deps

@@ -4,10 +4,6 @@ Comprehensive installer test suite for pf-runner.
 
 Tests all installation methods and verifies both installation success
 and post-installation functionality.
-
-NOTE: As of the test creation date, install.sh has known syntax errors and
-missing functions. Tests for native installation are marked as xfail until
-the installer is fixed. This test suite will help validate once it's repaired.
 """
 
 import os
@@ -21,7 +17,7 @@ import pytest
 
 # Get repository root
 REPO_ROOT = Path(__file__).parent.parent.parent.absolute()
-PF_RUNNER_DIR = REPO_ROOT / "pf-runner"
+PF_RUNNER_DIR = REPO_ROOT / "pf-runner-full"
 
 
 class InstallerTest:
@@ -78,16 +74,8 @@ class InstallerTest:
 
 
 @pytest.mark.integration
-@pytest.mark.xfail(reason="install.sh currently has syntax errors and missing functions")
 class TestNativeInstall:
-    """Test native installation method (install.sh)
-    
-    NOTE: Currently marked as xfail because install.sh has known issues:
-    - Missing EOF for heredoc at line 284  
-    - Missing functions: check_prerequisites, install_pf_runner, validate_installation
-    - Uninitialized variable: PREFIX_SET
-    
-    These tests will pass once install.sh is fixed."""
+    """Test native installation method (install.sh)."""
     
     @pytest.fixture(scope="class")
     def test_environment(self):

@@ -51,7 +51,7 @@ detect_os() {
 
 # Check if we're in the repo
 in_repo() {
-    [[ -f "scripts/install.sh" ]] && [[ -d "pf-runner" ]]
+    [[ -f "scripts/install.sh" ]] && [[ -d "pf-runner-full" ]]
 }
 
 # Main installation logic
@@ -69,6 +69,9 @@ main() {
     if in_repo; then
         log_info "Detected repository - using local installer"
         
+        local repo_root
+        repo_root="$(pwd)"
+
         # Check if we have a .deb package
         if [[ "$os_type" == "debian" ]] && [[ -f "deb/build/pf-runner_${PF_VERSION}.deb" ]]; then
             log_info "Found .deb package - installing via dpkg"
@@ -84,6 +87,7 @@ main() {
         else
             # Use the standard native installer
             log_info "Using standard installer"
+            cd "$repo_root"
             if [[ $EUID -eq 0 ]]; then
                 ./install.sh
             else
