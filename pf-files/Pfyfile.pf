@@ -151,6 +151,12 @@ task dev-setup
   bash "${PFY_ROOT:-.}/setup_dev_environment.sh"
 end
 
+task dev-setup
+  describe Set up the repo-local development environment
+  shell_lang bash
+  bash "${PFY_ROOT:-.}/setup_dev_environment.sh"
+end
+
 task install-all
   describe Install pf plus core tool categories
   shell pf install
