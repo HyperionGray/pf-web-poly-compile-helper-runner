@@ -24,6 +24,27 @@ pf --version
 pf list
 ```
 
+### Recommended Preflight + Verification Workflow
+
+Use these pf tasks to reduce installer surprises and confirm everything works:
+
+```bash
+# 1) Check dependencies and privilege expectations
+pf install-preflight
+
+# 2) Install (system-wide or user-local)
+pf install
+# or:
+pf install prefix=~/.local
+
+# 3) Verify command availability and task listing
+pf install-verify
+# or if you installed to a custom prefix:
+pf install-verify prefix=~/.local
+```
+
+If preflight warns about `sudo` prompts, use `prefix=~/.local` for a non-root install.
+
 ### Container Installation
 
 For users who prefer containerized execution:

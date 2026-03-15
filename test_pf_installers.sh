@@ -139,6 +139,17 @@ echo ""
 test_help_output "category-installation-help"
 test_help_output "install-help"
 
+log_test "Checking install-help includes new workflow tasks"
+TOTAL_TESTS=$((TOTAL_TESTS + 1))
+if run_pf "install-help" 2>&1 | grep -q "install-preflight" && run_pf "install-help" 2>&1 | grep -q "install-verify"; then
+    log_success "install-help includes install-preflight/install-verify"
+    PASSED_TESTS=$((PASSED_TESTS + 1))
+else
+    log_error "install-help missing install-preflight/install-verify entries"
+    FAILED_TESTS=$((FAILED_TESTS + 1))
+    FAILED_INSTALLERS+=("install-help (missing install-preflight/install-verify)")
+fi
+
 #
 # Test individual installers (safe/fast ones first)
 #
@@ -149,6 +160,9 @@ echo ""
 
 # Note: Many installers require sudo or specific system dependencies
 # We'll test them but expect some to skip or fail
+
+log_info "Testing installer preflight checks..."
+test_installer "install-preflight"
 
 log_info "Testing injection tools installer..."
 test_installer "install-injection-tools" "patchelf"

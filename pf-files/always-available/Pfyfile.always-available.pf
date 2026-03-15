@@ -12,6 +12,10 @@ task category-installation-help
   shell echo " INSTALLATION & SETUP CATEGORY"
   shell echo ""
   shell echo "Tool Installation:"
+  shell echo "  pf install-preflight        # Validate dependencies and sudo readiness"
+  shell echo "  pf install                  # Install pf runner (default /usr/local)"
+  shell echo "  pf install prefix=~/.local  # Install without sudo"
+  shell echo "  pf install-verify           # Verify pf command after installation"
   shell echo "  pf install-exploit-tools     # Install all exploit development tools"
   shell echo "  pf install-checksec          # Install checksec binary protection checker"
   shell echo "  pf install-pwntools          # Install pwntools Python library"
@@ -27,6 +31,12 @@ task category-installation-help
   shell echo "  pf install-snowman           # Install Snowman decompiler"
   shell echo ""
   shell echo "System Setup:"
+  shell echo "  pf install-tui-deps          # Install dependencies for interactive TUI"
+  shell echo "  pf install-pkg-tools         # Install package conversion tools"
+  shell echo "  pf install-flatpak           # Install Flatpak package manager"
+  shell echo "  pf install-snap              # Install Snap package manager"
+  shell echo "  pf rest-install              # Install REST API systemd service"
+  shell echo "  pf install-git-filter-repo   # Install git history cleanup tool"
 end
 
 # Module-oriented install entrypoints (improves discoverability)
