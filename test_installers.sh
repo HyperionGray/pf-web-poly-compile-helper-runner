@@ -60,17 +60,17 @@ test_pf_wrapper() {
     fi
     log_info "${test_name}: pf -V works"
 
-    if ! PF_PYTHON="$RUNNER_PYTHON" "$pf_cmd" "${PF_RUNNER_DIR}/test.pf" list >/dev/null 2>&1; then
+    if ! (cd "$PF_RUNNER_DIR" && PF_PYTHON="$RUNNER_PYTHON" "$pf_cmd" -f test.pf list >/dev/null 2>&1); then
         log_error "${test_name}: pf list failed"
         return 1
     fi
     log_info "${test_name}: pf list works"
 
-    if ! PF_PYTHON="$RUNNER_PYTHON" "$pf_cmd" "${PF_RUNNER_DIR}/test.pf" hello >/dev/null 2>&1; then
-        log_error "${test_name}: pf hello failed"
+    if ! (cd "$PF_RUNNER_DIR" && PF_PYTHON="$RUNNER_PYTHON" "$pf_cmd" -f test.pf run smoke >/dev/null 2>&1); then
+        log_error "${test_name}: pf smoke failed"
         return 1
     fi
-    log_info "${test_name}: pf hello task works"
+    log_info "${test_name}: pf smoke task works"
 
     log_success "${test_name}: All tests passed"
 }
@@ -89,9 +89,10 @@ log_success "Installer assets found"
 echo ""
 
 log_test "Test 2: Direct pf_main.py execution"
-if "$RUNNER_PYTHON" "${PF_RUNNER_DIR}/pf_main.py" -V >/dev/null 2>&1 && \
-   "$RUNNER_PYTHON" "${PF_RUNNER_DIR}/pf_main.py" "${PF_RUNNER_DIR}/test.pf" list >/dev/null 2>&1 && \
-   "$RUNNER_PYTHON" "${PF_RUNNER_DIR}/pf_main.py" "${PF_RUNNER_DIR}/test.pf" hello >/dev/null 2>&1; then
+if (cd "$PF_RUNNER_DIR" && \
+    "$RUNNER_PYTHON" "${PF_RUNNER_DIR}/pf_main.py" -V >/dev/null 2>&1 && \
+    "$RUNNER_PYTHON" "${PF_RUNNER_DIR}/pf_main.py" -f test.pf list >/dev/null 2>&1 && \
+    "$RUNNER_PYTHON" "${PF_RUNNER_DIR}/pf_main.py" -f test.pf run smoke >/dev/null 2>&1); then
     log_success "Direct execution works"
 else
     log_error "Direct execution failed"
