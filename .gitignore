@@ -43,6 +43,10 @@ playwright-report/
 *-test-report.json
 test-report.json
 *.test-report.json
+fuzz_results.json
+crash_analysis.json
+in/
+out/
 
 # CodeQL artifacts
 _codeql_*
