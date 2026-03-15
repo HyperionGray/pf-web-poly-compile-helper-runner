@@ -201,16 +201,16 @@ task smart-exploit-chain [alias sec]
   shell echo "💥 Phase 2: Exploit Development"
   shell if [ -f "${target}" ]; then
   shell   pf rop-find-gadgets binary="${target}" limit=10
-  shell   pf create-exploit-template binary="${target}" type="${vuln_type:-buffer_overflow}"
+  shell   if [ "${vuln_type:-auto}" = "auto" ]; then pf create-exploit-template binary="${target}" type=buffer_overflow; else pf create-exploit-template binary="${target}" type="${vuln_type}"; fi
   shell else
   shell   echo "Web exploit payload generation..."
-  shell   pf security-fuzz url="${target}" type="${vuln_type:-sqli}"
+  shell   if [ "${vuln_type:-auto}" = "auto" ]; then pf security-fuzz url="${target}" type=sqli; else pf security-fuzz url="${target}" type="${vuln_type}"; fi
   shell fi
   shell echo ""
   
   # Phase 3: Payload Generation
   shell echo "🎯 Phase 3: Payload Generation"
-  shell pf generate-shellcode arch="${arch:-x64}" type="${payload_type:-reverse_shell}"
+  shell if [ "${payload_type:-reverse_shell}" = "exit" ]; then pf pwn-shellcode arch="${arch:-amd64}" no_shell=true; else pf pwn-shellcode arch="${arch:-amd64}"; fi
   shell echo ""
   
   shell echo "✅ Exploit chain building complete!"

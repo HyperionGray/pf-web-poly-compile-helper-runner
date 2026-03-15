@@ -78,6 +78,32 @@ pf smart-exploit binary=./target --technique=rop_chain
 - Shellcode generation with multiple architectures
 - Intelligent technique selection
 
+### ⛓️ `pf smart-exploit-chain` (alias: `pf sec`)
+**Exploit-chain orchestration for binary and web targets**
+
+```bash
+# Auto-detect target type and vulnerability mode
+pf smart-exploit-chain target=./vulnerable
+pf sec target=http://localhost:8080
+
+# Override vulnerability mode explicitly
+pf smart-exploit-chain target=./vulnerable vuln_type=format_string
+pf smart-exploit-chain target=http://localhost:8080 vuln_type=xss
+
+# Generate exit shellcode payload scaffold
+pf smart-exploit-chain target=./vulnerable payload_type=exit arch=amd64
+```
+
+**What it does:**
+1. Detects whether `target` is a local file or URL.
+2. Runs discovery (`checksec/debug` for binaries, `security-scan` for web targets).
+3. Builds exploit prep (`rop-find-gadgets` + template generation for binaries, fuzz payload generation for web).
+4. Generates shellcode scaffold via `pf pwn-shellcode` (defaults to `amd64`, supports `payload_type=exit`).
+
+**Auto-default behavior:**
+- `vuln_type=auto` maps to `buffer_overflow` for binaries.
+- `vuln_type=auto` maps to `sqli` for web targets.
+
 ### 🚀 `pf smart-fuzz`
 **Adaptive fuzzing that detects target type and uses optimal strategy**
 
