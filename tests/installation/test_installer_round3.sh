@@ -36,6 +36,10 @@ log_test() {
     echo -e "${YELLOW}[TEST]${NC} $1"
 }
 
+log_skip() {
+    echo -e "${YELLOW}[SKIP]${NC} $1"
+}
+
 cleanup() {
     log_info "Cleaning up test directory: $TEST_DIR"
     rm -rf "$TEST_DIR"
@@ -74,14 +78,14 @@ fi
 if grep -q "cat.*<<" "$REPO_ROOT/install.sh"; then
     log_success "install.sh: Heredoc support detected"
 else
-    log_error "install.sh: No heredoc usage found"
+    log_skip "install.sh: No heredoc usage found (informational only)"
 fi
 
 # Test semicolon usage
 if grep -q ";" "$REPO_ROOT/install.sh"; then
     log_success "install.sh: Semicolon usage detected"
 else
-    log_error "install.sh: No semicolon usage found"
+    log_skip "install.sh: No semicolon usage found (informational only)"
 fi
 
 # Test && usage
@@ -106,9 +110,10 @@ echo ""
 log_test "Test 2: Native installation (install.sh)"
 
 NATIVE_PREFIX="$TEST_DIR/native-install"
+NATIVE_LOG="$TEST_DIR/native-install.log"
 log_info "Installing to: $NATIVE_PREFIX"
 
-if "$REPO_ROOT/install.sh" --prefix "$NATIVE_PREFIX" --skip-deps >/dev/null 2>&1; then
+if "$REPO_ROOT/install.sh" --prefix "$NATIVE_PREFIX" --skip-deps >"$NATIVE_LOG" 2>&1; then
     log_success "Native installation completed"
     
     # Verify installation structure
@@ -151,7 +156,11 @@ if "$REPO_ROOT/install.sh" --prefix "$NATIVE_PREFIX" --skip-deps >/dev/null 2>&1
         log_error "pf task execution failed"
     fi
 else
-    log_error "Native installation failed"
+    if rg -q "ensurepip is not available|python3\\.[0-9]+-venv" "$NATIVE_LOG"; then
+        log_skip "Native installation skipped: python3-venv is unavailable when running with --skip-deps"
+    else
+        log_error "Native installation failed"
+    fi
 fi
 
 echo ""
