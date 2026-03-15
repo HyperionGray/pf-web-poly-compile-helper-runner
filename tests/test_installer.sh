@@ -148,6 +148,26 @@ test_installer_help() {
     fi
 }
 
+# Test 4b: Validate preflight check mode
+test_installer_check_only() {
+    log_info "Testing installer preflight mode (--check-only)..."
+
+    local help_output=""
+    help_output="$(./install.sh --help 2>/dev/null || true)"
+    if [[ "$help_output" != *"--check-only"* ]]; then
+        log_error "Installer help does not document --check-only"
+        return 1
+    fi
+
+    if ./install.sh --check-only --skip-deps >/dev/null 2>&1; then
+        log_success "Installer preflight mode works"
+        return 0
+    fi
+
+    log_error "Installer preflight mode failed"
+    return 1
+}
+
 # Test 5: Check Python dependencies in pf_parser.py
 test_python_deps() {
     log_info "Testing Python dependencies..."
@@ -217,6 +237,12 @@ main() {
     fi
     
     if test_installer_help; then
+        tests_passed=$((tests_passed + 1))
+    else
+        tests_failed=$((tests_failed + 1))
+    fi
+
+    if test_installer_check_only; then
         tests_passed=$((tests_passed + 1))
     else
         tests_failed=$((tests_failed + 1))

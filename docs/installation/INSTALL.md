@@ -58,6 +58,9 @@ sudo ./install.sh
 # Skip system dependency installation (when dependencies are already satisfied)
 ./install.sh --skip-deps
 
+# Preflight only: verify prerequisites and exit
+./install.sh --check-only
+
 # Show help page
 ./install.sh --help
 ```
@@ -84,7 +87,7 @@ sudo ./install.sh
    ```
 
 Installed `pf` no longer needs a per-project venv. It carries its runtime dependencies under `lib/pf-runner/vendor` and prefers a stable interpreter so an unrelated activated venv does not hijack the command.
-3. **Start using pf**:
+4. **Start using pf**:
    ```bash
    pf web-dev          # Start web development server
    pf autobuild        # Auto-detect and build your project
@@ -116,7 +119,7 @@ If you get Python import errors:
 
 1. **Reinstall with dependencies**:
    ```bash
-   ./install.sh --prefix ~/.local --skip-deps
+   ./install.sh --prefix ~/.local
    ```
 
 2. **Check that the bundled vendor directory exists**:

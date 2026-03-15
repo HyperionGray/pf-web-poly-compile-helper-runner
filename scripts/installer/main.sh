@@ -49,6 +49,34 @@ installer_normalize_settings() {
   fi
 }
 
+installer_run_preflight_checks() {
+  if [[ "$MODE" == "container" ]]; then
+    installer_check_container_runtime
+    log_success "Container runtime is available: ${CONTAINER_RT}"
+
+    if [[ "$SKIP_BUILD" == true ]]; then
+      if installer_image_exists "${CONTAINER_IMAGE}"; then
+        log_success "Container image is available locally: ${CONTAINER_IMAGE}"
+      else
+        die "--skip-build was requested, but image '${CONTAINER_IMAGE}' is missing. Build it first or remove --skip-build."
+      fi
+    else
+      [[ -f "${REPO_ROOT}/containers/dockerfiles/Dockerfile.base" ]] || die "Missing container definition: containers/dockerfiles/Dockerfile.base"
+      [[ -f "${REPO_ROOT}/containers/dockerfiles/Dockerfile.pf-runner" ]] || die "Missing container definition: containers/dockerfiles/Dockerfile.pf-runner"
+      log_success "Container build definitions are present"
+    fi
+    return 0
+  fi
+
+  installer_check_prerequisites
+  log_success "Native prerequisites are available"
+  if [[ "$SKIP_DEPS" == true ]]; then
+    log_info "System dependency installation check skipped (--skip-deps)"
+  else
+    log_info "Detected OS family: $(detect_os)"
+  fi
+}
+
 installer_main() {
   installer_parse_args "$@"
 
@@ -65,6 +93,16 @@ installer_main() {
   fi
 
   installer_normalize_settings
+  if [[ "$CHECK_ONLY" == true ]]; then
+    log_info "Running preflight checks only (--check-only)"
+    if [[ "$MODE" != "container" ]] && [[ "$(id -u 2>/dev/null || echo 1)" -ne 0 ]] && [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
+      log_warning "Installing to ${PREFIX} would require root privileges"
+    fi
+    installer_run_preflight_checks
+    log_success "Preflight checks passed. Re-run without --check-only to perform installation."
+    return 0
+  fi
+
   installer_check_permissions
 
   if [[ "$MODE" == "container" ]]; then

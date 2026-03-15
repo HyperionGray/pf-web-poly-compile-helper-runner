@@ -30,6 +30,7 @@ Each report includes:
 ## Recent Reviews
 
 - [2025-12-25](CICD-REVIEW-2025-12-25.md) - All systems passing ✅
+- [Installer testing archive](installer-testing/) - Historical installer enhancement and validation reports
 
 ## How to Use These Reports
 

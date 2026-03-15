@@ -14,6 +14,18 @@ NC='\033[0m'
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PF_FILE="${REPO_ROOT}/pf-files/Pfyfile.pf"
 TEST_PREFIX=$(mktemp -d /tmp/pf-installer-test.XXXXXX)
+TEST_LOG_DIR="${TEST_PREFIX}/logs"
+KEEP_TEST_ARTIFACTS="${KEEP_TEST_ARTIFACTS:-false}"
+
+cleanup() {
+    if [[ "$KEEP_TEST_ARTIFACTS" == "true" ]]; then
+        echo "[INFO] Keeping test artifacts at: $TEST_PREFIX"
+        return 0
+    fi
+    rm -rf "$TEST_PREFIX"
+}
+
+trap cleanup EXIT
 
 if [[ -f "${REPO_ROOT}/pf-runner-full/pf_main.py" ]]; then
     PF_DIR="${REPO_ROOT}/pf-runner-full"
@@ -94,7 +106,8 @@ test_installer() {
     log_test "Testing: $task_name"
     
     # Try running the installer (capture output)
-    if timeout 600 python3 "$PF_DIR/pf_main.py" -f "$PF_FILE" "$task_name" prefix="$TEST_PREFIX" >/tmp/install_${task_name}.log 2>&1; then
+    local task_log="${TEST_LOG_DIR}/install_${task_name}.log"
+    if timeout 600 python3 "$PF_DIR/pf_main.py" -f "$PF_FILE" "$task_name" prefix="$TEST_PREFIX" >"$task_log" 2>&1; then
         log_success "Installer completed: $task_name"
         
         # Verify installation if we have something to check
@@ -147,7 +160,7 @@ test_installer() {
             
             # Show last few lines of error
             echo "  Last 10 lines of output:"
-            tail -10 "$TEST_PREFIX/install_${task_name}.log" | sed 's/^/    /'
+            tail -10 "$task_log" | sed 's/^/    /'
         fi
     fi
     
@@ -170,6 +183,7 @@ test_help_output() {
 }
 
 mkdir -p "$TEST_PREFIX"
+mkdir -p "$TEST_LOG_DIR"
 
 echo "========================================"
 echo "PF Task Installer Test Suite"

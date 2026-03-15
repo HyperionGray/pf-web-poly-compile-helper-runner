@@ -17,7 +17,7 @@ The issue requested to "test all installers again please" and ensure users have 
 
 ### 2. Comprehensive Testing Framework Created ✅
 - Created `test_pf_installers.sh` - comprehensive test script for installer tasks
-- Created `PF_INSTALLER_TEST_REPORT.md` - detailed test report from initial testing
+- Created `docs/reviews/installer-testing/PF_INSTALLER_TEST_REPORT.md` - detailed test report from initial testing
 - Tested 5 key installer tasks to establish baseline quality
 
 ### 3. Installer Documentation Enhanced (12 Installers) ✅
@@ -152,7 +152,7 @@ end
 
 ### Test Infrastructure
 12. `/test_pf_installers.sh` - New comprehensive test script
-13. `/PF_INSTALLER_TEST_REPORT.md` - Test results documentation
+13. `/docs/reviews/installer-testing/PF_INSTALLER_TEST_REPORT.md` - Test results documentation
 
 ---
 

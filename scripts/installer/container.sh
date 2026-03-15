@@ -37,7 +37,16 @@ installer_check_container_runtime() {
 }
 
 installer_image_exists() {
-  "${CONTAINER_RT}" image exists "$1" >/dev/null 2>&1
+  local image_ref="$1"
+  if [[ "${CONTAINER_RT}" == "podman" ]]; then
+    podman image exists "$image_ref" >/dev/null 2>&1
+    return $?
+  fi
+  if [[ "${CONTAINER_RT}" == "docker" ]]; then
+    docker image inspect "$image_ref" >/dev/null 2>&1
+    return $?
+  fi
+  "${CONTAINER_RT}" image inspect "$image_ref" >/dev/null 2>&1
 }
 
 installer_build_container_images() {
