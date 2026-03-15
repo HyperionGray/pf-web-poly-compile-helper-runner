@@ -26,6 +26,12 @@ sudo ./install.sh
 
 # Skip system dependency installation
 ./install.sh --prefix ~/.local --skip-deps
+
+# Preview actions without making changes
+./install.sh --dry-run --prefix ~/.local
+
+# Auto-update your shell profile with PATH guidance
+./install.sh --prefix ~/.local --write-shell-profile
 ```
 
 **What it does:**
@@ -36,6 +42,7 @@ sudo ./install.sh
 - Copies pf-runner files to installation directory
 - Creates pf executable wrapper
 - Installs shell completions
+- Provides shell-specific PATH guidance (optional auto-write with `--write-shell-profile`)
 
 **Pros:**
 - Full-featured installation
@@ -98,17 +105,17 @@ The simplest method - just copy a pre-built static executable.
 **Build the static executable (one time):**
 
 ```bash
-cd pf-runner
+cd pf-runner-full
 # Install PyInstaller if needed
 pip install --user pyinstaller "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12"
 # Build
-make build
+make build-static
 ```
 
 Or build manually:
 
 ```bash
-cd pf-runner
+cd pf-runner-full
 python3 -m PyInstaller --onefile pf_main.py
 cp dist/pf_main pf-static
 ```

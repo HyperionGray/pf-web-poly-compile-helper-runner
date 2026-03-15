@@ -42,6 +42,55 @@ installer_normalize_settings() {
   fi
 }
 
+installer_print_dry_run_plan() {
+  log_info "Dry run mode enabled. No files or packages will be modified."
+  log_info "Mode: ${MODE}"
+  log_info "Prefix: ${PREFIX}"
+
+  if [[ "$MODE" == "container" ]]; then
+    if [[ "${CONTAINER_RT_SET}" == true ]]; then
+      log_info "Container runtime (explicit): ${CONTAINER_RT}"
+    else
+      log_info "Container runtime (auto-detected at runtime): ${CONTAINER_RT}"
+    fi
+    log_info "Container image: ${CONTAINER_IMAGE}"
+    if [[ "$SKIP_BUILD" == true ]]; then
+      log_info "Would skip image build (--skip-build)"
+    else
+      log_info "Would build base and runner container images"
+    fi
+
+    if [[ "$NO_WRAPPER" == true ]]; then
+      log_info "Would skip wrapper install (--no-wrapper)"
+    else
+      log_info "Would install pf wrapper to ${PREFIX}/bin/pf"
+    fi
+  else
+    if [[ "$SKIP_DEPS" == true ]]; then
+      log_info "Would skip OS dependency installation (--skip-deps)"
+    else
+      log_info "Would install OS dependencies (apt/dnf/yum/pacman as available)"
+    fi
+    log_info "Would set up Python environment and install pf-runner to ${PREFIX}/lib/pf-runner"
+    log_info "Would install executable wrapper to ${PREFIX}/bin/pf"
+
+    if [[ "$PREFIX" != "/usr/local" && "$PREFIX" != "/usr"* ]]; then
+      local bin_dir="${PREFIX}/bin"
+      local shell_name=""
+      shell_name="$(installer_detect_shell_name)"
+      local profile_path=""
+      profile_path="$(installer_detect_shell_profile)"
+      local export_line=""
+      export_line="$(installer_path_export_line "$bin_dir" "$shell_name")"
+      log_info "Suggested PATH update: ${export_line}"
+      log_info "Suggested profile: ${profile_path}"
+      if [[ "${WRITE_SHELL_PROFILE}" == true ]]; then
+        log_info "Would append PATH update automatically (--write-shell-profile)"
+      fi
+    fi
+  fi
+}
+
 installer_main() {
   installer_parse_args "$@"
 
@@ -58,6 +107,10 @@ installer_main() {
   fi
 
   installer_normalize_settings
+  if [[ "$DRY_RUN" == true ]]; then
+    installer_print_dry_run_plan
+    return 0
+  fi
   installer_check_permissions
 
   if [[ "$MODE" == "container" ]]; then

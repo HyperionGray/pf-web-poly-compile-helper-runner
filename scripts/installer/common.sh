@@ -180,6 +180,86 @@ installer_check_permissions() {
   fi
 }
 
+installer_detect_shell_name() {
+  local shell_path="${SHELL:-}"
+  if [[ -z "$shell_path" ]]; then
+    printf '%s\n' "sh"
+    return 0
+  fi
+  basename "$shell_path"
+}
+
+installer_detect_shell_profile() {
+  if [[ "${SHELL_PROFILE_SET:-false}" == true && -n "${SHELL_PROFILE:-}" ]]; then
+    printf '%s\n' "${SHELL_PROFILE}"
+    return 0
+  fi
+
+  local home=""
+  home="$(pf_home_dir)"
+  local shell_name=""
+  shell_name="$(installer_detect_shell_name)"
+
+  case "$shell_name" in
+    zsh)
+      printf '%s\n' "${home}/.zshrc"
+      ;;
+    bash)
+      if [[ -f "${home}/.bashrc" || ! -f "${home}/.bash_profile" ]]; then
+        printf '%s\n' "${home}/.bashrc"
+      else
+        printf '%s\n' "${home}/.bash_profile"
+      fi
+      ;;
+    fish)
+      printf '%s\n' "${home}/.config/fish/config.fish"
+      ;;
+    ksh)
+      printf '%s\n' "${home}/.kshrc"
+      ;;
+    *)
+      printf '%s\n' "${home}/.profile"
+      ;;
+  esac
+}
+
+installer_path_export_line() {
+  local bin_dir="$1"
+  local shell_name="$2"
+
+  if [[ "$shell_name" == "fish" ]]; then
+    printf '%s\n' "set -gx PATH \"${bin_dir}\" \$PATH"
+  else
+    printf '%s\n' "export PATH=\"${bin_dir}:\$PATH\""
+  fi
+}
+
+installer_maybe_write_shell_profile() {
+  local bin_dir="$1"
+  [[ "${WRITE_SHELL_PROFILE:-false}" == true ]] || return 0
+
+  local shell_name=""
+  shell_name="$(installer_detect_shell_name)"
+  local profile_path=""
+  profile_path="$(installer_detect_shell_profile)"
+  local export_line=""
+  export_line="$(installer_path_export_line "$bin_dir" "$shell_name")"
+
+  if [[ -f "$profile_path" ]] && grep -Fqx "$export_line" "$profile_path" 2>/dev/null; then
+    log_success "PATH update already present in ${profile_path}"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$profile_path")"
+  {
+    printf '\n# Added by pf-runner installer\n'
+    printf '%s\n' "$export_line"
+  } >> "$profile_path"
+
+  log_success "Added PATH update to ${profile_path}"
+  log_info "Reload with: source ${profile_path}"
+}
+
 installer_update_path_info() {
   local bin_dir="${PREFIX}/bin"
 
@@ -188,7 +268,27 @@ installer_update_path_info() {
     return 0
   fi
 
-  log_warning "Ensure your shell can find: ${bin_dir}"
-  log_info "If you don't want to modify shell settings, run pf via full path:"
+  if [[ ":${PATH:-}:" == *":${bin_dir}:"* ]]; then
+    log_success "Installation directory is already in PATH: ${bin_dir}"
+    return 0
+  fi
+
+  local shell_name=""
+  shell_name="$(installer_detect_shell_name)"
+  local profile_path=""
+  profile_path="$(installer_detect_shell_profile)"
+  local export_line=""
+  export_line="$(installer_path_export_line "$bin_dir" "$shell_name")"
+
+  log_warning "Installation directory is not in PATH: ${bin_dir}"
+  log_info "Add this line to ${profile_path}:"
+  log_info "  ${export_line}"
+  log_info "Or run pf directly:"
   log_info "  ${bin_dir}/pf"
+
+  if [[ "${WRITE_SHELL_PROFILE:-false}" == true ]]; then
+    installer_maybe_write_shell_profile "$bin_dir"
+  else
+    log_info "Tip: rerun with --write-shell-profile to apply this automatically."
+  fi
 }

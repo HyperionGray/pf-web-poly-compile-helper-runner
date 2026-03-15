@@ -30,6 +30,11 @@ OPTIONS:
                             ${DEFAULT_PREFIX_USER} for user installs
 
   --skip-deps       Skip installing system dependencies (native mode)
+  --dry-run         Print planned actions without making changes
+  --write-shell-profile
+                   Append PATH update to detected shell profile
+  --shell-profile PATH
+                   Override shell profile path used with --write-shell-profile
   --help, -h        Show this help message
 EOF
 }
@@ -91,6 +96,24 @@ installer_parse_args() {
         ;;
       --skip-deps)
         SKIP_DEPS=true
+        shift
+        ;;
+      --dry-run)
+        DRY_RUN=true
+        shift
+        ;;
+      --write-shell-profile)
+        WRITE_SHELL_PROFILE=true
+        shift
+        ;;
+      --shell-profile)
+        SHELL_PROFILE="$(pf_abs_path "${2:-}")"
+        SHELL_PROFILE_SET=true
+        shift 2
+        ;;
+      --shell-profile=*)
+        SHELL_PROFILE="$(pf_abs_path "${1#*=}")"
+        SHELL_PROFILE_SET=true
         shift
         ;;
       --skip-build)
