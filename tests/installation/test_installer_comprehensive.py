@@ -54,21 +54,20 @@ class InstallerTest:
     def test_list_tasks(self):
         """Test that pf can list tasks"""
         result = self.run_command(
-            [str(self.pf_executable), str(PF_RUNNER_DIR / "test.pf"), "list"],
+            [str(self.pf_executable), "-f", str(PF_RUNNER_DIR / "test.pf"), "list"],
             cwd=PF_RUNNER_DIR
         )
         assert result.returncode == 0, f"pf list failed: {result.stderr}"
-        # test.pf should have 'hello' and 'vars' tasks
-        assert "hello" in result.stdout.lower(), "hello task not found in list"
+        assert "smoke" in result.stdout.lower(), "smoke task not found in list"
         return True
     
     def test_run_simple_task(self):
         """Test that pf can run a simple task"""
         result = self.run_command(
-            [str(self.pf_executable), str(PF_RUNNER_DIR / "test.pf"), "hello"],
+            [str(self.pf_executable), "-f", str(PF_RUNNER_DIR / "test.pf"), "smoke"],
             cwd=PF_RUNNER_DIR
         )
-        assert result.returncode == 0, f"pf hello task failed: {result.stderr}"
+        assert result.returncode == 0, f"pf smoke task failed: {result.stderr}"
         assert "hello" in result.stdout.lower(), "Task output doesn't contain 'hello'"
         return True
 
@@ -199,18 +198,18 @@ class TestDirectExecution:
     def test_direct_list(self):
         """Test that pf_main.py can list tasks"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "list"],
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "-f", "test.pf", "list"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
         )
         assert result.returncode == 0, f"List command failed: {result.stderr}"
-        assert "hello" in result.stdout.lower(), "hello task not found"
+        assert "smoke" in result.stdout.lower(), "smoke task not found"
     
     def test_direct_run_task(self):
         """Test that pf_main.py can run tasks"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "hello"],
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "-f", "test.pf", "smoke"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
@@ -219,14 +218,26 @@ class TestDirectExecution:
     
     def test_direct_parameter_passing(self):
         """Test parameter passing in direct execution"""
-        result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "vars", "name=DirectTest"],
-            cwd=PF_RUNNER_DIR,
-            capture_output=True,
-            text=True
+        temp_dir = Path(tempfile.mkdtemp(prefix="pf-test-params-"))
+        temp_file = temp_dir / "params.pf"
+        temp_file.write_text(
+            '#!lang:bash\n\n'
+            'task vars name="default"\n'
+            '  shell echo "${name}"\n'
+            'end\n',
+            encoding="utf-8",
         )
-        assert result.returncode == 0, f"Parameter passing failed: {result.stderr}"
-        assert "DirectTest" in result.stdout, "Parameter not passed correctly"
+        try:
+            result = subprocess.run(
+                ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "-f", str(temp_file), "vars", "name=DirectTest"],
+                cwd=PF_RUNNER_DIR,
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 0, f"Parameter passing failed: {result.stderr}"
+            assert "DirectTest" in result.stdout, "Parameter not passed correctly"
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 @pytest.mark.integration  
@@ -255,18 +266,18 @@ class TestStaticExecutable:
     def test_static_exe_list(self, static_exe):
         """Test that pf-static can list tasks"""
         result = subprocess.run(
-            [str(static_exe), "test.pf", "list"],
+            [str(static_exe), "-f", "test.pf", "list"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
         )
         assert result.returncode == 0, f"List command failed: {result.stderr}"
-        assert "hello" in result.stdout.lower(), "hello task not found"
+        assert "smoke" in result.stdout.lower(), "smoke task not found"
     
     def test_static_exe_run_task(self, static_exe):
         """Test that pf-static can run tasks"""
         result = subprocess.run(
-            [str(static_exe), "test.pf", "hello"],
+            [str(static_exe), "-f", "test.pf", "smoke"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
