@@ -172,18 +172,22 @@ if "$REPO_ROOT/install-static.sh" --prefix "$STATIC_PREFIX" >/dev/null 2>&1; the
         log_error "pf executable not found"
     fi
 
-    # Test executable
-    if "$STATIC_PREFIX/bin/pf" -V >/dev/null 2>&1; then
-        log_success "Static pf -V works"
-    else
-        log_error "Static pf -V failed"
-    fi
+    if python3 -c "import lark, fabric, typer" >/dev/null 2>&1; then
+        # Test executable
+        if "$STATIC_PREFIX/bin/pf" -V >/dev/null 2>&1; then
+            log_success "Static pf -V works"
+        else
+            log_error "Static pf -V failed"
+        fi
 
-    # Test task listing
-    if cd "$REPO_ROOT/pf-runner-full" && "$STATIC_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
-        log_success "Static pf list works"
+        # Test task listing
+        if cd "$REPO_ROOT/pf-runner-full" && "$STATIC_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
+            log_success "Static pf list works"
+        else
+            log_error "Static pf list failed"
+        fi
     else
-        log_error "Static pf list failed"
+        log_info "Skipping static runtime checks (missing lark/fabric/typer dependencies)"
     fi
 
     # Verify diagnostic mode

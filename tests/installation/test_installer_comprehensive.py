@@ -38,6 +38,16 @@ def _resolve_pf_runner_dir():
 PF_RUNNER_DIR = _resolve_pf_runner_dir()
 
 
+def _runtime_dependencies_available():
+    """Whether local Python can import modules required by install-static wrapper."""
+    result = subprocess.run(
+        ["python3", "-c", "import lark, fabric, typer"],
+        capture_output=True,
+        text=True
+    )
+    return result.returncode == 0
+
+
 class InstallerTest:
     """Base class for installer tests"""
     
@@ -176,6 +186,7 @@ class TestStaticInstall:
         
         # Store for other tests
         test_environment["pf_executable"] = pf_path
+        test_environment["runtime_dependencies_available"] = _runtime_dependencies_available()
 
     def test_static_verify_only(self, test_environment):
         """Test installer verification-only mode"""
@@ -199,6 +210,8 @@ class TestStaticInstall:
     
     def test_static_version(self, test_environment):
         """Test version command works"""
+        if not test_environment.get("runtime_dependencies_available", False):
+            pytest.skip("Skipping runtime check: lark/fabric/typer not installed")
         pf_path = test_environment["pf_executable"]
         tester = InstallerTest(test_environment["test_dir"])
         tester.pf_executable = pf_path
@@ -206,6 +219,8 @@ class TestStaticInstall:
     
     def test_static_list(self, test_environment):
         """Test list command works"""
+        if not test_environment.get("runtime_dependencies_available", False):
+            pytest.skip("Skipping runtime check: lark/fabric/typer not installed")
         pf_path = test_environment["pf_executable"]
         tester = InstallerTest(test_environment["test_dir"])
         tester.pf_executable = pf_path
@@ -213,6 +228,8 @@ class TestStaticInstall:
     
     def test_static_run_task(self, test_environment):
         """Test running a task works"""
+        if not test_environment.get("runtime_dependencies_available", False):
+            pytest.skip("Skipping runtime check: lark/fabric/typer not installed")
         pf_path = test_environment["pf_executable"]
         tester = InstallerTest(test_environment["test_dir"])
         tester.pf_executable = pf_path
