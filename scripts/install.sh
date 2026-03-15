@@ -8,7 +8,15 @@ set -euo pipefail
 DEFAULT_PREFIX_NATIVE="/usr/local"
 DEFAULT_PREFIX_USER="${HOME:-/usr/local}/.local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PF_RUNNER_DIR="${SCRIPT_DIR}/pf-runner"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+if [[ -d "${REPO_ROOT}/pf-runner-full" ]]; then
+    PF_RUNNER_DIR="${REPO_ROOT}/pf-runner-full"
+elif [[ -d "${REPO_ROOT}/pf-runner" ]]; then
+    PF_RUNNER_DIR="${REPO_ROOT}/pf-runner"
+else
+    PF_RUNNER_DIR="${REPO_ROOT}/pf-runner-full"
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -397,7 +405,7 @@ main() {
     # Check if we're in the right directory
     if [[ ! -d "$PF_RUNNER_DIR" ]]; then
         log_error "pf-runner directory not found at $PF_RUNNER_DIR"
-        log_info "Please run this script from the repository root directory"
+        log_info "Expected installer assets under ${REPO_ROOT}"
         exit 1
     fi
     
