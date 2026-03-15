@@ -293,27 +293,38 @@ task install-prereq-check
   shell_lang bash
   shell |
     set -euo pipefail
-    python3 - <<'PY'
-import shutil
-required = ["python3", "git"]
-recommended = ["pip3", "curl", "node"]
-missing_required = [cmd for cmd in required if shutil.which(cmd) is None]
-print("Required tools:")
-for cmd in required:
-    status = "OK" if shutil.which(cmd) else "MISSING"
-    print(f"  - {cmd}: {status}")
-print("")
-print("Recommended tools:")
-for cmd in recommended:
-    status = "OK" if shutil.which(cmd) else "MISSING"
-    print(f"  - {cmd}: {status}")
-if missing_required:
-    print("")
-    print("[ERR] Missing required prerequisites:", ", ".join(missing_required))
-    raise SystemExit(1)
-print("")
-print("[OK] Required prerequisites are present.")
-PY
+    required=(python3 git)
+    recommended=(pip3 curl node)
+    missing_required=()
+
+    echo "Required tools:"
+    for cmd in "${required[@]}"; do
+      if command -v "$cmd" >/dev/null 2>&1; then
+        echo "  - $cmd: OK"
+      else
+        echo "  - $cmd: MISSING"
+        missing_required+=("$cmd")
+      fi
+    done
+
+    echo ""
+    echo "Recommended tools:"
+    for cmd in "${recommended[@]}"; do
+      if command -v "$cmd" >/dev/null 2>&1; then
+        echo "  - $cmd: OK"
+      else
+        echo "  - $cmd: MISSING"
+      fi
+    done
+
+    if [ "${#missing_required[@]}" -gt 0 ]; then
+      echo ""
+      echo "[ERR] Missing required prerequisites: ${missing_required[*]}" >&2
+      exit 1
+    fi
+
+    echo ""
+    echo "[OK] Required prerequisites are present."
 end
 
 task install-verify prefix="/usr/local"
@@ -334,16 +345,16 @@ task install-verify prefix="/usr/local"
     echo "[verify] Using pf binary: $PF_BIN"
     "$PF_BIN" --version
     HELP_OUT="$("$PF_BIN" help 2>&1 || true)"
-    PF_HELP_OUTPUT="$HELP_OUT" python3 - <<'PY'
-import os
-help_out = os.environ.get("PF_HELP_OUTPUT", "")
-needles = ["install", "help", "usage"]
-if any(token in help_out.lower() for token in needles):
-    print("[OK] Help text is available after install.")
-else:
-    print("[ERR] Help text did not include expected guidance.")
-    raise SystemExit(1)
-PY
+    HELP_OUT_LOWER="$(printf '%s' "$HELP_OUT" | tr '[:upper:]' '[:lower:]')"
+    case "$HELP_OUT_LOWER" in
+      *install*|*help*|*usage*)
+        echo "[OK] Help text is available after install."
+        ;;
+      *)
+        echo "[ERR] Help text did not include expected guidance." >&2
+        exit 1
+        ;;
+    esac
     echo "[OK] Install verification passed."
 end
 

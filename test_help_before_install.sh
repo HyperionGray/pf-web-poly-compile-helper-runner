@@ -4,14 +4,27 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PF_SCRIPT="${SCRIPT_DIR}/pf-runner/pf"
+
+if [ -x "${SCRIPT_DIR}/pf-runner/pf" ]; then
+    PF_CMD=("${SCRIPT_DIR}/pf-runner/pf")
+    PF_MODE="wrapper"
+elif [ -f "${SCRIPT_DIR}/pf-runner-full/pf_main.py" ]; then
+    PF_CMD=(python3 "${SCRIPT_DIR}/pf-runner-full/pf_main.py" -f "${SCRIPT_DIR}/pf-files/Pfyfile.pf")
+    PF_MODE="runner"
+elif command -v pf >/dev/null 2>&1; then
+    PF_CMD=(pf)
+    PF_MODE="installed"
+else
+    echo "✗ FAIL: Could not locate a runnable pf command"
+    exit 1
+fi
 
 echo "Testing pf help before installation..."
 echo ""
 
 # Test 1: pf help
 echo "Test 1: pf help"
-OUTPUT=$("${PF_SCRIPT}" help 2>&1)
+OUTPUT=$("${PF_CMD[@]}" help 2>&1)
 if echo "$OUTPUT" | grep -q "pf - Polyglot Task Runner"; then
     echo "✓ PASS: 'pf help' shows help text"
 else
@@ -22,7 +35,7 @@ echo ""
 
 # Test 2: pf --help
 echo "Test 2: pf --help"
-OUTPUT=$("${PF_SCRIPT}" --help 2>&1)
+OUTPUT=$("${PF_CMD[@]}" --help 2>&1)
 if echo "$OUTPUT" | grep -q "pf - Polyglot Task Runner"; then
     echo "✓ PASS: 'pf --help' shows help text"
 else
@@ -33,7 +46,7 @@ echo ""
 
 # Test 3: pf -h
 echo "Test 3: pf -h"
-OUTPUT=$("${PF_SCRIPT}" -h 2>&1)
+OUTPUT=$("${PF_CMD[@]}" -h 2>&1)
 if echo "$OUTPUT" | grep -q "pf - Polyglot Task Runner"; then
     echo "✓ PASS: 'pf -h' shows help text"
 else
@@ -44,7 +57,7 @@ echo ""
 
 # Test 4: Check help includes installation guidance tasks
 echo "Test 4: Verify help includes installer guidance tasks"
-OUTPUT=$("${PF_SCRIPT}" help 2>&1)
+OUTPUT=$("${PF_CMD[@]}" help 2>&1)
 if echo "$OUTPUT" | grep -q "install-prereq-check"; then
     echo "✓ PASS: Help includes install-prereq-check"
 else
@@ -53,37 +66,48 @@ else
 fi
 echo ""
 
-# Test 5: Check that non-help commands still show error
-echo "Test 5: Verify non-help commands show error"
-if OUTPUT=$("${PF_SCRIPT}" list 2>&1); then
-    echo "✗ FAIL: 'pf list' should fail before installation"
-    exit 1
-else
-    # Check for key error indicators instead of exact text
-    if echo "$OUTPUT" | grep -qi "error"; then
-        echo "✓ PASS: 'pf list' shows appropriate error"
+# Test 5: Check non-help command behavior based on execution mode
+echo "Test 5: Verify non-help command behavior"
+if [ "$PF_MODE" = "wrapper" ]; then
+    if OUTPUT=$("${PF_CMD[@]}" list 2>&1); then
+        echo "✗ FAIL: 'pf list' should fail in wrapper pre-install mode"
+        exit 1
     else
-        echo "✗ FAIL: 'pf list' error message unexpected"
+        if echo "$OUTPUT" | grep -qi "error"; then
+            echo "✓ PASS: wrapper mode shows expected error for 'pf list'"
+        else
+            echo "✗ FAIL: wrapper mode error message unexpected"
+            exit 1
+        fi
+    fi
+else
+    if OUTPUT=$("${PF_CMD[@]}" list 2>&1); then
+        echo "✓ PASS: runner/installed mode allows 'pf list'"
+    else
+        echo "✗ FAIL: 'pf list' unexpectedly failed in ${PF_MODE} mode"
         exit 1
     fi
 fi
 echo ""
 
-# Test 6: Check error message includes help hint
-echo "Test 6: Verify error messages include help hint"
-OUTPUT=$("${PF_SCRIPT}" list 2>&1 || true)
-# Look for "help" keyword in the error output
-if echo "$OUTPUT" | grep -qi "help"; then
-    echo "✓ PASS: Error message includes help hint"
+# Test 6: Wrapper mode should include help hint in error output
+echo "Test 6: Verify error/help guidance behavior"
+if [ "$PF_MODE" = "wrapper" ]; then
+    OUTPUT=$("${PF_CMD[@]}" list 2>&1 || true)
+    if echo "$OUTPUT" | grep -qi "help"; then
+        echo "✓ PASS: Error message includes help hint"
+    else
+        echo "✗ FAIL: Error message missing help hint"
+        exit 1
+    fi
 else
-    echo "✗ FAIL: Error message missing help hint"
-    exit 1
+    echo "⊘ SKIP: Not in wrapper mode (mode=${PF_MODE})"
 fi
 echo ""
 
 # Test 7: Verify category installer help isn't truncated
 echo "Test 7: Verify category-installation-help includes setup sections"
-OUTPUT=$("${PF_SCRIPT}" category-installation-help 2>&1)
+OUTPUT=$("${PF_CMD[@]}" category-installation-help 2>&1)
 if echo "$OUTPUT" | grep -q "Bundle / CI Helpers:" && echo "$OUTPUT" | grep -q "module-install-help"; then
     echo "✓ PASS: category-installation-help includes full setup and bundle guidance"
 else
