@@ -629,6 +629,28 @@ What this does:
 2. Copies pf-runner library to `/usr/lib/pf-runner` (or your prefix)
 3. Creates `pf` executable in `/usr/bin` (or your prefix/bin)
 
+### Lightweight Source Install (install-static.sh)
+
+If you want a minimal source-copy install without running container setup, use:
+
+```bash
+# User install (no sudo)
+./install-static.sh --prefix ~/.local
+
+# Run post-install smoke verification
+./install-static.sh --prefix ~/.local --verify
+```
+
+What this does:
+1. Copies `pf-runner-full/*.py` and `pf-runner-full/pf.lark` to `<prefix>/lib/pf-runner`
+2. Creates `<prefix>/bin/pf` wrapper
+3. Optionally runs `pf -V` and task-list smoke checks when `--verify` is used
+
+Notes:
+- Python dependencies are still required on the host:
+  `pip install 'lark>=1.1.0' 'fabric>=3.2,<4' 'typer>=0.12'`
+- This installer is useful for local testing and custom-prefix installs.
+
 ### Using pf Tasks (After Initial Install)
 
 Once pf is installed, you can use these tasks:

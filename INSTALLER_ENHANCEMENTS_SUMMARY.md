@@ -20,6 +20,12 @@ The issue requested to "test all installers again please" and ensure users have 
 - Created `PF_INSTALLER_TEST_REPORT.md` - detailed test report from initial testing
 - Tested 5 key installer tasks to establish baseline quality
 
+### 2b. Follow-up Installer Cleanup and Verification Feature ✅
+- Added `--verify` flag to `install-static.sh` for post-install smoke checks
+- Fixed unfinished installer logic (`PF_RUNNER_FULL_DIR` usage) that could break source installs
+- Made root `test_installers.sh` portable by removing hardcoded CI paths
+- Removed duplicate/obsolete test blocks and aligned tests to `pf-runner-full/test.pf`
+
 ### 3. Installer Documentation Enhanced (12 Installers) ✅
 
 All enhanced installers now follow the **install-checksec best practice pattern**:
