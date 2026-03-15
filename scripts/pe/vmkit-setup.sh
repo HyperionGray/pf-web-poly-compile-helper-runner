@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/common.sh"
 
-RUNTIME="${CONTAINER_RT:-podman}"
+RUNTIME="$(pe_container_runtime)"
 IMAGE="localhost/pf-pe-vmkit:latest"
 WORKDIR="${PWD}"
+pe_require_image "${RUNTIME}" "${IMAGE}" "pf pe build-vmkit"
 
-if ! "${RUNTIME}" image exists "${IMAGE}" >/dev/null 2>&1; then
-  echo "[error] VMKit PE image not found."
-  echo "Build it first: pf pe build-vmkit"
-  exit 1
-fi
+VMKIT_IMAGE_DIR="$(pe_ensure_dir "${WORKDIR}/vmkit-images")"
 
-mkdir -p "${WORKDIR}/vmkit-images"
-
-exec "${RUNTIME}" run --rm \
-  -v "${WORKDIR}/vmkit-images:/vmkit/images" \
+exec "${RUNTIME}" run --rm --pull=never \
+  -v "${VMKIT_IMAGE_DIR}:/vmkit/images" \
   "${IMAGE}" \
   vmkit-create.sh --all-the-passthru

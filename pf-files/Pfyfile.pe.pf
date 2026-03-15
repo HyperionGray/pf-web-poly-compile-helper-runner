@@ -4,7 +4,12 @@
 task usage
   describe Show staged PE module commands and host file behavior
   shell echo "PE module entrypoints:"
-  shell echo "  pf pe install                                # Install/verify PE module prerequisites"
+  shell echo "  pf pe install                                # Install the ReactOS quick-start path"
+  shell echo "  pf pe install-reactos                        # Install/build/setup the ReactOS PE path"
+  shell echo "  pf pe install-windows-server                 # Build + prepare the Windows Server Core path"
+  shell echo "  pf pe install-windows-nano                   # Build + prepare the Windows Nano path"
+  shell echo "  pf pe install-vmkit                          # Build + set up the VMKit path"
+  shell echo "  pf pe install-all                            # Install all PE-focused Windows/ReactOS/VMKit paths"
   shell echo "  pf pe build-all                              # Build the staged PE/VM images"
   shell echo "  pf pe execute pe_file=/path/to/app.exe       # Run a Windows PE with explicit host input/output mounts"
   shell echo "  pf pe execute-reactos pe_file=/path/to/app.exe"
@@ -20,14 +25,45 @@ task usage
   shell echo "  - This module is intentionally standalone and does not leak always-available/root tasks into its listing."
 end
 task install
-  describe Install/verify PE module prerequisites
+  describe Install/verify the PE module ReactOS quick-start path
   shell pf "$PFY_FILE_PATH" install-tools
 end
 
 task install-tools
   describe Install or verify the ReactOS PE execution prerequisites (quick-start path)
+  shell pf "$PFY_FILE_PATH" install-reactos
+end
+
+task install-reactos
+  describe Build and set up the ReactOS PE execution path
   shell pf "$PFY_FILE_PATH" build-reactos
   shell pf "$PFY_FILE_PATH" setup-reactos
+end
+
+task install-windows-server
+  describe Build and prepare the Windows Server Core PE execution path
+  shell pf "$PFY_FILE_PATH" build-windows-server
+  shell pf "$PFY_FILE_PATH" prepare-windows
+end
+
+task install-windows-nano
+  describe Build and prepare the Windows Nano PE execution path
+  shell pf "$PFY_FILE_PATH" build-windows-nano
+  shell pf "$PFY_FILE_PATH" prepare-windows-nano
+end
+
+task install-vmkit
+  describe Build and set up the VMKit PE execution path
+  shell pf "$PFY_FILE_PATH" build-vmkit
+  shell pf "$PFY_FILE_PATH" setup-vmkit
+end
+
+task install-all
+  describe Build and set up the Windows Server, Windows Nano, ReactOS, and VMKit PE paths
+  shell pf "$PFY_FILE_PATH" install-windows-server
+  shell pf "$PFY_FILE_PATH" install-windows-nano
+  shell pf "$PFY_FILE_PATH" install-reactos
+  shell pf "$PFY_FILE_PATH" install-vmkit
 end
 
 task build-all
@@ -139,7 +175,7 @@ task prepare-windows-nano
 end
 
 task prepare-reactos
-  describe Prepare the staged ReactOS VM template
+  describe Prepare the staged ReactOS image assets
   shell_lang bash
   shell |
     set -euo pipefail

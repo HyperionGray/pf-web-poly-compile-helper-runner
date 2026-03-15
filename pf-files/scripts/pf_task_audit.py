@@ -170,8 +170,8 @@ def main(argv: List[str]) -> int:
     ap.add_argument("--exclude", default="", help="Skip tasks matching this regex")
     ap.add_argument(
         "--out-dir",
-        default=str(repo_root / "pf-files" / "task-audit"),
-        help="Output directory (default: pf-files/task-audit)",
+        default=str(repo_root / "bak" / "task-audit"),
+        help="Output directory (default: bak/task-audit)",
     )
     args = ap.parse_args(argv)
 

@@ -295,6 +295,25 @@ ANALYZE
 
 RUN chmod +x /reactos/scripts/analyze-pe.sh
 
+RUN cat > /usr/local/bin/pf-prepare-reactos << 'PREPARE'
+#!/bin/bash
+setup-reactos.sh
+PREPARE
+
+RUN chmod +x /usr/local/bin/pf-prepare-reactos
+
+RUN cat > /usr/local/bin/pf-execute-pe-reactos << 'EXECUTE'
+#!/bin/bash
+PE_FILE="$1"
+if [ -z "$PE_FILE" ]; then
+    echo "Usage: pf-execute-pe-reactos <pe-file>"
+    exit 1
+fi
+run-pe.sh "$PE_FILE"
+EXECUTE
+
+RUN chmod +x /usr/local/bin/pf-execute-pe-reactos
+
 # Create help script
 RUN cat > /reactos/scripts/pf-pe-help.sh << 'HELP'
 #!/bin/bash

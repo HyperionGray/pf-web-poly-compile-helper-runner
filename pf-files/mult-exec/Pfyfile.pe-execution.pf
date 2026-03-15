@@ -21,7 +21,8 @@ task pe-build-windows-server
   shell |
     set -euo pipefail
     ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-    podman build -t localhost/pf-pe-windows-server:latest -f "$ROOT/containers/dockerfiles/Dockerfile.pe-windows-server" "$ROOT"
+    RUNTIME="${CONTAINER_RT:-podman}"
+    "${RUNTIME}" build -t localhost/pf-pe-windows-server:latest -f "$ROOT/containers/dockerfiles/Dockerfile.pe-windows-server" "$ROOT"
 end
 
 task pe-build-windows-nano
@@ -30,7 +31,8 @@ task pe-build-windows-nano
   shell |
     set -euo pipefail
     ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-    podman build -t localhost/pf-pe-windows-nano:latest -f "$ROOT/containers/dockerfiles/Dockerfile.pe-windows-nano" "$ROOT"
+    RUNTIME="${CONTAINER_RT:-podman}"
+    "${RUNTIME}" build -t localhost/pf-pe-windows-nano:latest -f "$ROOT/containers/dockerfiles/Dockerfile.pe-windows-nano" "$ROOT"
 end
 
 task pe-build-reactos
@@ -39,7 +41,8 @@ task pe-build-reactos
   shell |
     set -euo pipefail
     ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-    podman build -t localhost/pf-pe-reactos:latest -f "$ROOT/containers/dockerfiles/Dockerfile.pe-reactos" "$ROOT"
+    RUNTIME="${CONTAINER_RT:-podman}"
+    "${RUNTIME}" build -t localhost/pf-pe-reactos:latest -f "$ROOT/containers/dockerfiles/Dockerfile.pe-reactos" "$ROOT"
 end
 
 task pe-build-macos-qemu
@@ -48,7 +51,8 @@ task pe-build-macos-qemu
   shell |
     set -euo pipefail
     ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-    podman build -t localhost/pf-macos-qemu:latest -f "$ROOT/containers/dockerfiles/Dockerfile.os-macos-qemu" "$ROOT"
+    RUNTIME="${CONTAINER_RT:-podman}"
+    "${RUNTIME}" build -t localhost/pf-macos-qemu:latest -f "$ROOT/containers/dockerfiles/Dockerfile.os-macos-qemu" "$ROOT"
 end
 
 # ==========================================
@@ -59,98 +63,32 @@ task pe-execute pe_file=""
   describe Execute Windows PE file using default container (Windows Server Core)
   shell_lang bash
   shell |
-    if [ -z "${pe_file}" ]; then
-        echo "Usage: pf pe-execute pe_file=<path-to-pe-file>"
-        echo "Execute Windows PE file in isolated VM environment"
-        exit 1
-    fi
-    
-    if [ ! -f "${pe_file}" ]; then
-        echo "Error: PE file not found: ${pe_file}"
-        exit 1
-    fi
-    
-    echo "Executing PE file: ${pe_file}"
-    podman run --rm -it \
-        --privileged \
-        --device /dev/kvm:/dev/kvm \
-        --volume $(pwd):/workspace \
-        --volume /tmp:/tmp \
-        localhost/pf-pe-windows-server:latest \
-        pf-execute-pe "/workspace/${pe_file}"
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    "${ROOT}/scripts/pe/windows-server-run.sh" "${pe_file}"
 end
 
 task pe-execute-windows pe_file=""
   describe Execute Windows PE file using Windows Server Core container
   shell_lang bash
   shell |
-    if [ -z "${pe_file}" ]; then
-        echo "Usage: pf pe-execute-windows pe_file=<path-to-pe-file>"
-        exit 1
-    fi
-    
-    if [ ! -f "${pe_file}" ]; then
-        echo "Error: PE file not found: ${pe_file}"
-        exit 1
-    fi
-    
-    echo "Executing PE file in Windows Server Core: ${pe_file}"
-    podman run --rm -it \
-        --privileged \
-        --device /dev/kvm:/dev/kvm \
-        --volume $(pwd):/workspace \
-        --volume /tmp:/tmp \
-        localhost/pf-pe-windows-server:latest \
-        pf-execute-pe "/workspace/${pe_file}"
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    "${ROOT}/scripts/pe/windows-server-run.sh" "${pe_file}"
 end
 
 task pe-execute-nano pe_file=""
   describe Execute Windows PE file using Windows Server Nano container
   shell_lang bash
   shell |
-    if [ -z "${pe_file}" ]; then
-        echo "Usage: pf pe-execute-nano pe_file=<path-to-pe-file>"
-        echo "Requires a Nano Server VHDX (set NANOSERVER_VHD_URL or mount to /opt/windows-images)."
-        exit 1
-    fi
-    
-    if [ ! -f "${pe_file}" ]; then
-        echo "Error: PE file not found: ${pe_file}"
-        exit 1
-    fi
-    
-    echo "Executing PE file in Windows Server Nano: ${pe_file}"
-    podman run --rm -it \
-        --privileged \
-        --device /dev/kvm:/dev/kvm \
-        --volume $(pwd):/workspace \
-        --volume /tmp:/tmp \
-        localhost/pf-pe-windows-nano:latest \
-        pf-execute-pe-nano "/workspace/${pe_file}"
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    "${ROOT}/scripts/pe/windows-nano-run.sh" "${pe_file}"
 end
 
 task pe-execute-reactos pe_file=""
   describe Execute Windows PE file using ReactOS container
   shell_lang bash
   shell |
-    if [ -z "${pe_file}" ]; then
-        echo "Usage: pf pe-execute-reactos pe_file=<path-to-pe-file>"
-        exit 1
-    fi
-    
-    if [ ! -f "${pe_file}" ]; then
-        echo "Error: PE file not found: ${pe_file}"
-        exit 1
-    fi
-    
-    echo "Executing PE file in ReactOS: ${pe_file}"
-    podman run --rm -it \
-        --privileged \
-        --device /dev/kvm:/dev/kvm \
-        --volume $(pwd):/workspace \
-        --volume /tmp:/tmp \
-        localhost/pf-pe-reactos:latest \
-        pf-execute-pe-reactos "/workspace/${pe_file}"
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    "${ROOT}/scripts/pe/reactos-run.sh" "${pe_file}"
 end
 
 # ==========================================
@@ -203,40 +141,24 @@ task pe-prepare-windows
   describe Prepare Windows Server Core VM template
   shell_lang bash
   shell |
-    echo "Preparing Windows Server Core VM template..."
-    podman run --rm -it \
-        --privileged \
-        --volume $(pwd):/workspace \
-        --volume /tmp:/tmp \
-        localhost/pf-pe-windows-server:latest \
-        pf-prepare-windows
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    "${ROOT}/scripts/pe/windows-server-prepare.sh"
 end
 
 task pe-prepare-windows-nano
   describe Prepare Windows Server Nano VM template (requires Nano VHDX)
   shell_lang bash
   shell |
-    echo "Preparing Windows Server Nano VM template..."
-    echo "Reminder: set NANOSERVER_VHD_URL or mount a Nano VHDX into ./windows-images before running."
-    podman run --rm -it \
-        --privileged \
-        --volume $(pwd):/workspace \
-        --volume /tmp:/tmp \
-        localhost/pf-pe-windows-nano:latest \
-        pf-prepare-windows-nano
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    "${ROOT}/scripts/pe/windows-nano-prepare.sh"
 end
 
 task pe-prepare-reactos
-  describe Prepare ReactOS VM template
+  describe Prepare ReactOS image assets
   shell_lang bash
   shell |
-    echo "Preparing ReactOS VM template..."
-    podman run --rm -it \
-        --privileged \
-        --volume $(pwd):/workspace \
-        --volume /tmp:/tmp \
-        localhost/pf-pe-reactos:latest \
-        pf-prepare-reactos
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    "${ROOT}/scripts/pe/reactos-setup.sh"
 end
 
 task macos-prepare

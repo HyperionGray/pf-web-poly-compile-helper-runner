@@ -1,11 +1,68 @@
 bfg**
 **.lzma
-**tar.gz
+**.tar.gz
 **.tar
+**.zip
 **.code-workspace
-**bak/**
+
+# Curated archives under bak/ are tracked; ignore only local shell metadata there.
+**/.bish-index
+.bish.**
+.bish**
+**/**.bish.*
+
+# Editor temporary and backup files
+*.log
+*~
+*.swp
+*.swo
+*.swn
+.#*
+\#*\#
+*.bak
+*.tmp
+
+# Python caches, coverage, and local environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+venv
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.egg-info/
+
+# Node / frontend artifacts
+node_modules/
+test-results/
+playwright-report/
+*-test-report.json
+test-report.json
+*.test-report.json
+tui-test-report.json
+
+# Generated reports and analysis artifacts
+fuzz_results.json
+fuzz_results*.json
+checksec_reports/
+pe-output/
+
+# CodeQL artifacts
+_codeql_*
+
 # Build artifacts
+build/
+debian/build/
+build-packages/
 build-packages/**/target/
+pf-runner/build/
+pf-runner/dist/
+pf-runner/*.spec
 demos/**/web/wasm/**/pkg/
 demos/**/web/wasm/**/*.js
 demos/**/web/wasm/**/*.wasm
@@ -32,49 +89,5 @@ demos/practice-binaries/integer-overflow/int_overflow
 demos/practice-binaries/race-condition/toctou_race
 demos/practice-binaries/command-injection/cmd_injection
 
-node_modules/
-venv/
-*.log
-
-# Test artifacts
-test-results/
-playwright-report/
-*-test-report.json
-test-report.json
-*.test-report.json
-
-# CodeQL artifacts
-_codeql_*
-
-# pf-runner build artifacts
-pf-runner/build/
-pf-runner/dist/
-pf-runner/*.spec
-
-# Root-level build directory for all build artifacts
-build/
-
-# Debian package build artifacts
-debian/build/
-build-packages/
-
-# Container artifacts (don't commit built images or runtime data)
-# Note: Dockerfiles and quadlet configs ARE committed
+# Container/runtime scratch files
 pfail.fail.pf
-__pycache__/
-
-# Editor temporary and backup files
-*~
-*.swp
-*.swo
-*.swn
-.#*
-\#*\#
-*.bak
-*.tmp
-venv/
-venv
-**.zip
-.bish.**
-.bish**
-**/**.bish.*
