@@ -17,11 +17,16 @@ TEST_PREFIX="/tmp/pf-installer-test-$(date +%s)"
 
 if [[ -f "${REPO_ROOT}/pf-runner-full/pf_main.py" ]]; then
     PF_DIR="${REPO_ROOT}/pf-runner-full"
-elif [[ -f "${REPO_ROOT}/build-packages/deb/pf-runner-1.0.0/pf-runner/pf_main.py" ]]; then
-    PF_DIR="${REPO_ROOT}/build-packages/deb/pf-runner-1.0.0/pf-runner"
 else
-    echo "Could not locate pf_main.py for installer tests" >&2
-    exit 1
+    PF_MAIN_PATH="$(find "${REPO_ROOT}/build-packages/deb" -maxdepth 2 -type f -path "*/pf-runner/pf_main.py" -print -quit 2>/dev/null)"
+    PF_DIR=""
+    if [[ -n "${PF_MAIN_PATH}" ]]; then
+        PF_DIR="$(dirname "${PF_MAIN_PATH}")"
+    fi
+    if [[ -z "${PF_DIR}" ]]; then
+        echo "Could not locate pf_main.py for installer tests" >&2
+        exit 1
+    fi
 fi
 
 # Track results

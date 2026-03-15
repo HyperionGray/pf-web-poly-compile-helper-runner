@@ -152,7 +152,7 @@ task install-injection-tools
   shell patchelf --version 2>/dev/null || echo "  patchelf: NOT installed"
   shell nasm -version 2>/dev/null || echo "  nasm: NOT installed"
   shell wasm-opt --version 2>/dev/null || echo "  binaryen: NOT installed"
-  shell wasm2c --version 2>/dev/null || echo "  wabt: NOT installed"
+  shell wat2wasm --version 2>/dev/null || echo "  wabt: NOT installed"
 end
 
 # ============================================================================
