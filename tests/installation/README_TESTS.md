@@ -63,14 +63,14 @@ tests/installation/test_installer_comprehensive.py::TestDirectExecution::test_di
 ### 2. Static Executable Tests (TestStaticExecutable)
 **Status**: ⏭️ Skipped (Static executable not built)
 
-Tests the pre-built static executable `pf-runner/pf-static`:
+Tests the pre-built static executable `pf-runner-full/pf-static` (or legacy fallback `pf-runner/pf-static`):
 - `test_static_exe_version` - Verifies version command
 - `test_static_exe_list` - Verifies task listing
 - `test_static_exe_run_task` - Verifies task execution
 
-**Note**: Tests are automatically skipped if `pf-runner/pf-static` doesn't exist. Build it first with:
+**Note**: Tests are automatically skipped if no `pf-static` binary is present. Build it first with:
 ```bash
-cd pf-runner && make build
+cd pf-runner-full && make build-static
 ```
 
 ### 3. Static Installation Tests (TestStaticInstall)
@@ -184,13 +184,8 @@ end
 3. **Test Files**: `test.pf` provides good test coverage for basic functionality
 
 ### ❌ What Needs Fixing
-1. **Native Installer**: `install.sh` needs to be repaired
-   - Fix the unclosed heredoc at line 284
-   - Implement missing functions
-   - Initialize PREFIX_SET variable
-
-2. **Static Executable**: Needs to be built for full test coverage
-   - Run `cd pf-runner && make build`
+1. **Static Executable**: Needs to be built for full test coverage
+   - Run `cd pf-runner-full && make build-static`
 
 ### 📋 Future Enhancements
 

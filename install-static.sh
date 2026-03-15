@@ -1,207 +1,190 @@
 #!/usr/bin/env bash
-# install-static.sh - Install pf-runner (Python-based, no build required)
-# Usage: ./install-static.sh [--prefix PATH]
+# install-static.sh - Install prebuilt pf static executable.
 
 set -euo pipefail
 
-# Configuration
-DEFAULT_PREFIX="/usr/local"
-DEFAULT_PREFIX_USER="${HOME}/.local"
+DEFAULT_PREFIX_NATIVE="/usr/local"
+DEFAULT_PREFIX_USER="${HOME:-/tmp}/.local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATIC_EXEC="${SCRIPT_DIR}/pf-runner-full/pf-static"
 
-# Colors
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-NC='\033[0m'
+STATIC_CANDIDATES=(
+  "${SCRIPT_DIR}/pf-runner-full/pf-static"
+  "${SCRIPT_DIR}/pf-runner/pf-static"
+)
 
-# Parse arguments
 PREFIX=""
 PREFIX_SET=false
+DRY_RUN=false
 SHOW_HELP=false
 
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --prefix)
-            PREFIX="$2"
-            PREFIX_SET=true
-            shift 2
-            ;;
-        --prefix=*)
-            PREFIX="${1#*=}"
-            PREFIX_SET=true
-            shift
-            ;;
-        --help|-h)
-            SHOW_HELP=true
-            shift
-            ;;
-        *)
-            echo -e "${RED}Error: Unknown option $1${NC}" >&2
-            SHOW_HELP=true
-            shift
-            ;;
-    esac
-done
+log_info() { printf '%s\n' "[INFO] $*"; }
+log_success() { printf '%s\n' "[SUCCESS] $*"; }
+log_warning() { printf '%s\n' "[WARNING] $*" >&2; }
+log_error() { printf '%s\n' "[ERROR] $*" >&2; }
 
 show_help() {
-    cat << EOF
-pf-runner Installer (No Build Required)
+  cat <<'EOF'
+pf-runner Static Installer
 
 USAGE:
-    ./install-static.sh [OPTIONS]
+  ./install-static.sh [OPTIONS]
 
 OPTIONS:
-    --prefix PATH     Install prefix (default: /usr/local or ~/.local)
-    --help, -h        Show this help message
+  --prefix PATH     Install prefix (default: /usr/local as root, ~/.local otherwise)
+  --dry-run         Show planned actions without modifying files
+  --help, -h        Show this help message
 
 EXAMPLES:
-    # System-wide install (requires sudo)
-    sudo ./install-static.sh
+  sudo ./install-static.sh
+  ./install-static.sh --prefix ~/.local
+  ./install-static.sh --dry-run --prefix ~/.local
 
-    # User install (no sudo required)
-    ./install-static.sh --prefix ~/.local
-
-WHAT THIS DOES:
-    Installs pf-runner from source without requiring any build step.
-    Copies the pf-runner-full directory and creates a wrapper script.
-    No Python dependencies are installed - you need to install them separately
-    or use the Makefile in pf-runner-full.
-
+NOTES:
+  This installer expects a prebuilt static executable (pf-static).
+  Build one with:
+    cd pf-runner-full
+    make build-static
 EOF
 }
+
+resolve_static_executable() {
+  local candidate=""
+  for candidate in "${STATIC_CANDIDATES[@]}"; do
+    if [[ -f "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+detect_shell_profile() {
+  local shell_name
+  shell_name="$(basename "${SHELL:-sh}")"
+  case "$shell_name" in
+    zsh) printf '%s\n' "${HOME:-/tmp}/.zshrc" ;;
+    bash)
+      if [[ -f "${HOME:-/tmp}/.bashrc" || ! -f "${HOME:-/tmp}/.bash_profile" ]]; then
+        printf '%s\n' "${HOME:-/tmp}/.bashrc"
+      else
+        printf '%s\n' "${HOME:-/tmp}/.bash_profile"
+      fi
+      ;;
+    fish) printf '%s\n' "${HOME:-/tmp}/.config/fish/config.fish" ;;
+    *) printf '%s\n' "${HOME:-/tmp}/.profile" ;;
+  esac
+}
+
+path_export_line() {
+  local bin_dir="$1"
+  local shell_name
+  shell_name="$(basename "${SHELL:-sh}")"
+  if [[ "$shell_name" == "fish" ]]; then
+    printf '%s\n' "set -gx PATH \"${bin_dir}\" \$PATH"
+  else
+    printf '%s\n' "export PATH=\"${bin_dir}:\$PATH\""
+  fi
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --prefix)
+      PREFIX="${2:-}"
+      PREFIX_SET=true
+      shift 2
+      ;;
+    --prefix=*)
+      PREFIX="${1#*=}"
+      PREFIX_SET=true
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN=true
+      shift
+      ;;
+    --help|-h)
+      SHOW_HELP=true
+      shift
+      ;;
+    *)
+      log_error "Unknown option: $1"
+      SHOW_HELP=true
+      shift
+      ;;
+  esac
+done
 
 if [[ "$SHOW_HELP" == true ]]; then
-    show_help
-    exit 0
+  show_help
+  exit 0
 fi
 
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1" >&2
-}
-
-# Set default prefix
 if [[ "$PREFIX_SET" == false ]]; then
-    if [[ $EUID -eq 0 ]]; then
-        PREFIX="$DEFAULT_PREFIX"
-    else
-        PREFIX="$DEFAULT_PREFIX_USER"
-    fi
+  if [[ "$(id -u 2>/dev/null || echo 1)" -eq 0 ]]; then
+    PREFIX="$DEFAULT_PREFIX_NATIVE"
+  else
+    PREFIX="$DEFAULT_PREFIX_USER"
+  fi
 fi
 
-# Check permissions
-if [[ "$PREFIX" == "/usr/local" ]] || [[ "$PREFIX" == "/usr"* ]]; then
-    if [[ $EUID -ne 0 ]]; then
-        log_error "Installation to ${PREFIX} requires root privileges."
-        log_info "Try: sudo ./install-static.sh"
-        log_info "Or use user installation: ./install-static.sh --prefix ~/.local"
-        exit 1
-    fi
-fi
-
-# Check if static executable exists
-if [[ ! -f "$STATIC_EXEC" ]]; then
-    log_error "Static executable not found at $STATIC_EXEC"
-    log_info "Please build it first by running:"
-    log_info "  cd pf-runner-full && make build-static"
-    log_info ""
-    log_info "This will create a standalone executable using PyInstaller."
+if [[ "$PREFIX" == "/usr/local" || "$PREFIX" == "/usr"* ]]; then
+  if [[ "$(id -u 2>/dev/null || echo 1)" -ne 0 ]]; then
+    log_error "Installation to ${PREFIX} requires root privileges."
+    log_info "Try: sudo ./install-static.sh"
+    log_info "Or use user installation: ./install-static.sh --prefix ~/.local"
     exit 1
+  fi
 fi
 
-echo -e "${BLUE}pf-runner Installer${NC}"
-echo "===================="
-echo ""
+STATIC_EXEC=""
+if ! STATIC_EXEC="$(resolve_static_executable)"; then
+  log_error "Could not find pf-static executable."
+  log_info "Checked:"
+  for candidate in "${STATIC_CANDIDATES[@]}"; do
+    log_info "  - ${candidate}"
+  done
+  log_info "Build static binary with:"
+  log_info "  cd pf-runner-full && make build-static"
+  exit 1
+fi
 
-log_info "Installing pf-runner from source..."
-
-# Create directories
 LIB_DIR="${PREFIX}/lib/pf-runner"
 BIN_DIR="${PREFIX}/bin"
-mkdir -p "$LIB_DIR" "$BIN_DIR"
+TARGET="${BIN_DIR}/pf"
 
-# Copy pf-runner-full directory
-log_info "Copying pf-runner files to $LIB_DIR"
-
-# Copy Python files
-if ! cp -r "$PF_RUNNER_FULL_DIR"/*.py "$LIB_DIR/" 2>/dev/null; then
-    log_error "Failed to copy Python files from $PF_RUNNER_FULL_DIR"
-    exit 1
+if [[ "$DRY_RUN" == true ]]; then
+  log_info "Dry run mode enabled. No files will be modified."
+  log_info "Static executable source: ${STATIC_EXEC}"
+  log_info "Would create directories:"
+  log_info "  ${LIB_DIR}"
+  log_info "  ${BIN_DIR}"
+  log_info "Would install executable to: ${TARGET}"
+  if [[ "$PREFIX" != "/usr/local" && "$PREFIX" != "/usr"* ]] && [[ ":${PATH:-}:" != *":${BIN_DIR}:"* ]]; then
+    log_info "Suggested profile: $(detect_shell_profile)"
+    log_info "Suggested PATH line: $(path_export_line "${BIN_DIR}")"
+  fi
+  exit 0
 fi
 
-# Copy grammar file (required)
-if [[ ! -f "$PF_RUNNER_FULL_DIR/pf.lark" ]]; then
-    log_error "Required file pf.lark not found in $PF_RUNNER_FULL_DIR"
-    exit 1
-fi
-cp "$PF_RUNNER_FULL_DIR/pf.lark" "$LIB_DIR/"
+printf '%s\n' "pf-runner Static Installer"
+printf '%s\n\n' "=========================="
 
-# Copy egg-info if it exists (optional)
-if [[ -d "$PF_RUNNER_FULL_DIR/pf_runner.egg-info" ]]; then
-    cp -r "$PF_RUNNER_FULL_DIR/pf_runner.egg-info" "$LIB_DIR/"
-fi
+mkdir -p "${LIB_DIR}" "${BIN_DIR}"
+install -m 0755 "${STATIC_EXEC}" "${TARGET}"
 
-# Create pf wrapper executable
-cat > "${BIN_DIR}/pf" << 'EOF'
-#!/usr/bin/env python3
-# pf - Wrapper for pf-runner
-import sys
-import os
-from pathlib import Path
+log_success "Installed static pf executable to ${TARGET}"
 
-# Add library directory to path
-lib_dir = Path(__file__).parent.parent / "lib" / "pf-runner"
-sys.path.insert(0, str(lib_dir))
-
-# Import and run pf_main
-try:
-    import pf_main
-    exit_code = pf_main.main(sys.argv[1:])
-    # Handle None return value (treat as success)
-    sys.exit(exit_code if exit_code is not None else 0)
-except ImportError as e:
-    print(f"ERROR: Could not import pf_main from {lib_dir}", file=sys.stderr)
-    print(f"Error: {e}", file=sys.stderr)
-    print("", file=sys.stderr)
-    print("Make sure Python dependencies are installed:", file=sys.stderr)
-    print("  pip install 'lark>=1.1.0' 'fabric>=3.2,<4' 'typer>=0.12'", file=sys.stderr)
-    sys.exit(1)
-EOF
-chmod +x "${BIN_DIR}/pf"
-
-log_success "pf-runner installed to ${LIB_DIR}"
-log_success "pf executable installed to ${BIN_DIR}/pf"
-
-# Check if in PATH
-if [[ ":$PATH:" != *":${BIN_DIR}:"* ]]; then
-    log_warning "The installation directory ${BIN_DIR} is not in your PATH"
-    log_info "Add the following to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
-    echo ""
-    echo "    export PATH=\"${BIN_DIR}:\$PATH\""
-    echo ""
-else
-    log_success "Installation directory is already in PATH"
+if [[ "$PREFIX" != "/usr/local" && "$PREFIX" != "/usr"* ]]; then
+  if [[ ":${PATH:-}:" != *":${BIN_DIR}:"* ]]; then
+    log_warning "Installation directory is not in PATH: ${BIN_DIR}"
+    log_info "Add this line to $(detect_shell_profile):"
+    log_info "  $(path_export_line "${BIN_DIR}")"
+  else
+    log_success "Installation directory is already in PATH: ${BIN_DIR}"
+  fi
 fi
 
-echo ""
-log_success "🎉 Installation completed successfully!"
-echo ""
 log_info "Next steps:"
-echo "  1. Try: pf --version"
-echo "  2. Try: pf list"
-echo ""
-log_success "Happy task running! 🚀"
+log_info "  1. Run: ${TARGET} --version"
+log_info "  2. Run: ${TARGET} list"
+log_success "Static installation completed."

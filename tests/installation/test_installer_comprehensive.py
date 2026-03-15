@@ -4,10 +4,6 @@ Comprehensive installer test suite for pf-runner.
 
 Tests all installation methods and verifies both installation success
 and post-installation functionality.
-
-NOTE: As of the test creation date, install.sh has known syntax errors and
-missing functions. Tests for native installation are marked as xfail until
-the installer is fixed. This test suite will help validate once it's repaired.
 """
 
 import os
@@ -78,16 +74,10 @@ class InstallerTest:
 
 
 @pytest.mark.integration
-@pytest.mark.xfail(reason="install.sh currently has syntax errors and missing functions")
 class TestNativeInstall:
     """Test native installation method (install.sh)
     
-    NOTE: Currently marked as xfail because install.sh has known issues:
-    - Missing EOF for heredoc at line 284  
-    - Missing functions: check_prerequisites, install_pf_runner, validate_installation
-    - Uninitialized variable: PREFIX_SET
-    
-    These tests will pass once install.sh is fixed."""
+    Tests are expected to pass on a healthy installer."""
     
     @pytest.fixture(scope="class")
     def test_environment(self):
@@ -130,9 +120,17 @@ class TestStaticInstall:
     @pytest.fixture(scope="class")
     def test_environment(self):
         """Set up test environment"""
-        # First check if static executable exists
-        static_exe = PF_RUNNER_DIR / "pf-static"
-        if not static_exe.exists():
+        # First check if static executable exists in a supported location
+        static_candidates = [
+            REPO_ROOT / "pf-runner-full" / "pf-static",
+            REPO_ROOT / "pf-runner" / "pf-static",
+        ]
+        static_exe = None
+        for candidate in static_candidates:
+            if candidate.exists():
+                static_exe = candidate
+                break
+        if static_exe is None:
             pytest.skip("Static executable not built (pf-static not found)")
         
         test_dir = tempfile.mkdtemp(prefix="pf-test-static-")

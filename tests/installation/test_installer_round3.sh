@@ -160,10 +160,16 @@ echo ""
 log_test "Test 3: Static installation (install-static.sh)"
 
 # Check if static executable exists
-STATIC_EXE="$REPO_ROOT/pf-runner/pf-static"
-if [[ ! -f "$STATIC_EXE" ]]; then
+STATIC_EXE=""
+if [[ -f "$REPO_ROOT/pf-runner-full/pf-static" ]]; then
+    STATIC_EXE="$REPO_ROOT/pf-runner-full/pf-static"
+elif [[ -f "$REPO_ROOT/pf-runner/pf-static" ]]; then
+    STATIC_EXE="$REPO_ROOT/pf-runner/pf-static"
+fi
+
+if [[ -z "$STATIC_EXE" ]]; then
     log_info "Static executable not built, skipping static installation test"
-    log_info "Build with: cd pf-runner && make build"
+    log_info "Build with: cd pf-runner-full && make build-static"
 else
     STATIC_PREFIX="$TEST_DIR/static-install"
     log_info "Installing to: $STATIC_PREFIX"
