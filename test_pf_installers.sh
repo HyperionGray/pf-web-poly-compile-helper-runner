@@ -13,7 +13,7 @@ NC='\033[0m'
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PF_FILE="${REPO_ROOT}/pf-files/Pfyfile.pf"
-TEST_PREFIX="/tmp/pf-installer-test-$(date +%s)"
+TEST_PREFIX=$(mktemp -d /tmp/pf-installer-test.XXXXXX)
 
 if [[ -f "${REPO_ROOT}/pf-runner-full/pf_main.py" ]]; then
     PF_DIR="${REPO_ROOT}/pf-runner-full"
