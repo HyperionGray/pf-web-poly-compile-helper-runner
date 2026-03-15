@@ -35,7 +35,7 @@ wasm-opt --version 2>/dev/null || echo "  binaryen: NOT installed"
 wat2wasm --version 2>/dev/null || echo "  wabt: NOT installed"
 
 echo ""
-echo "✅ Binary injection tools installed successfully!"
+echo "[OK] Binary injection tools installed successfully!"
 echo ""
 echo "USAGE EXAMPLES:"
 echo "  pf compile-c-shared-lib source=code.c output=lib.so"
