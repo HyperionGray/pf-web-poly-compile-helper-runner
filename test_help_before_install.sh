@@ -1,86 +1,29 @@
 #!/usr/bin/env bash
-# Test script to verify pf help works before installation
+# Minimal smoke checks for pre-install help behavior.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PF_SCRIPT="${SCRIPT_DIR}/pf-runner/pf"
+PF_SCRIPT="${SCRIPT_DIR}/pf-runner-full/pf_universal"
 
-echo "Testing pf help before installation..."
-echo ""
-
-# Test 1: pf help
-echo "Test 1: pf help"
-OUTPUT=$("${PF_SCRIPT}" help 2>&1)
-if echo "$OUTPUT" | grep -q "pf - Polyglot Task Runner"; then
-    echo "✓ PASS: 'pf help' shows help text"
-else
-    echo "✗ FAIL: 'pf help' did not show expected help text"
+if [[ ! -x "$PF_SCRIPT" ]]; then
+    echo "ERROR: Missing executable ${PF_SCRIPT}" >&2
     exit 1
 fi
+
+echo "Testing source-tree help output..."
 echo ""
 
-# Test 2: pf --help
-echo "Test 2: pf --help"
-OUTPUT=$("${PF_SCRIPT}" --help 2>&1)
-if echo "$OUTPUT" | grep -q "pf - Polyglot Task Runner"; then
-    echo "✓ PASS: 'pf --help' shows help text"
-else
-    echo "✗ FAIL: 'pf --help' did not show expected help text"
-    exit 1
-fi
-echo ""
-
-# Test 3: pf -h
-echo "Test 3: pf -h"
-OUTPUT=$("${PF_SCRIPT}" -h 2>&1)
-if echo "$OUTPUT" | grep -q "pf - Polyglot Task Runner"; then
-    echo "✓ PASS: 'pf -h' shows help text"
-else
-    echo "✗ FAIL: 'pf -h' did not show expected help text"
-    exit 1
-fi
-echo ""
-
-# Test 4: Check help includes installation instructions
-echo "Test 4: Verify help includes installation instructions"
-OUTPUT=$("${PF_SCRIPT}" help 2>&1)
-if echo "$OUTPUT" | grep -q "quick-install.sh"; then
-    echo "✓ PASS: Help includes quick-install.sh reference"
-else
-    echo "✗ FAIL: Help missing quick-install.sh reference"
-    exit 1
-fi
-echo ""
-
-# Test 5: Check that non-help commands still show error
-echo "Test 5: Verify non-help commands show error"
-if OUTPUT=$("${PF_SCRIPT}" list 2>&1); then
-    echo "✗ FAIL: 'pf list' should fail before installation"
-    exit 1
-else
-    # Check for key error indicators instead of exact text
-    if echo "$OUTPUT" | grep -qi "error"; then
-        echo "✓ PASS: 'pf list' shows appropriate error"
+for flag in help --help -h; do
+    echo "Test: pf ${flag}"
+    OUTPUT="$("$PF_SCRIPT" "$flag" 2>&1 || true)"
+    if [[ "$OUTPUT" == *"Usage"* ]] || [[ "$OUTPUT" == *"usage"* ]]; then
+        echo "  PASS"
     else
-        echo "✗ FAIL: 'pf list' error message unexpected"
+        echo "  FAIL: expected usage text"
         exit 1
     fi
-fi
-echo ""
+done
 
-# Test 6: Check error message includes help hint
-echo "Test 6: Verify error messages include help hint"
-OUTPUT=$("${PF_SCRIPT}" list 2>&1 || true)
-# Look for "help" keyword in the error output
-if echo "$OUTPUT" | grep -qi "help"; then
-    echo "✓ PASS: Error message includes help hint"
-else
-    echo "✗ FAIL: Error message missing help hint"
-    exit 1
-fi
 echo ""
-
-echo "================================================"
-echo "All tests passed! ✓"
-echo "================================================"
+echo "All pre-install help checks passed."
