@@ -84,6 +84,23 @@ sudo ./install.sh
    pf tui              # Launch interactive TUI
    ```
 
+### Installer validation commands
+
+Use these tasks to validate installer readiness and post-install state:
+
+```bash
+# Before installing bundles: check host prerequisites
+pf install-prereqs-check
+
+# After installation: verify core + optional toolchain presence
+pf install-verify
+
+# CI/strict mode: fail when optional installer bundles are missing
+pf install-verify strict=true
+```
+
+If tools are missing, `install-verify` prints matching installer tasks (exploit, injection, debug, fuzzing) so users can remediate quickly.
+
 ## Troubleshooting
 
 ### Command not found: pf

@@ -27,6 +27,11 @@ task category-installation-help
   shell echo "  pf install-snowman           # Install Snowman decompiler"
   shell echo ""
   shell echo "System Setup:"
+  shell echo "  pf install-help              # Show high-level install entrypoints"
+  shell echo "  pf module-install-help       # Show install shortcuts by module"
+  shell echo "  pf install-prereqs-check     # Validate host prerequisites before install"
+  shell echo "  pf install-verify            # Verify installed tools and suggest next steps"
+  shell echo "  pf install-smoke-test        # Minimal install + command smoke test"
 end
 
 # Module-oriented install entrypoints (improves discoverability)
@@ -78,6 +83,175 @@ end
 task install-module-containers
   describe Install quadlet files for containerized services
   shell pf quadlet-install
+end
+
+task install-prereqs-check
+  describe Check host prerequisites before running installer tasks
+  shell_lang bash
+  shell |
+    set -euo pipefail
+
+    missing_required=()
+    missing_optional=()
+
+    check_required() {
+      local cmd="$1"
+      local label="$2"
+      if command -v "$cmd" >/dev/null 2>&1; then
+        echo "  [OK] $label ($cmd)"
+      else
+        echo "  [NO] $label ($cmd)"
+        missing_required+=("$cmd")
+      fi
+    }
+
+    check_optional() {
+      local cmd="$1"
+      local label="$2"
+      if command -v "$cmd" >/dev/null 2>&1; then
+        echo "  [OK] $label ($cmd)"
+      else
+        echo "  [NO] $label ($cmd)"
+        missing_optional+=("$cmd")
+      fi
+    }
+
+    detect_pkg_manager() {
+      if command -v apt-get >/dev/null 2>&1; then
+        echo "apt-get"
+      elif command -v dnf >/dev/null 2>&1; then
+        echo "dnf"
+      elif command -v pacman >/dev/null 2>&1; then
+        echo "pacman"
+      elif command -v zypper >/dev/null 2>&1; then
+        echo "zypper"
+      elif command -v brew >/dev/null 2>&1; then
+        echo "brew"
+      else
+        echo ""
+      fi
+    }
+
+    pkg_manager="$(detect_pkg_manager)"
+
+    echo "INSTALLER PREREQUISITES CHECK"
+    echo ""
+    [ -n "$pkg_manager" ] && echo "Detected package manager: $pkg_manager" || echo "Detected package manager: none"
+    echo ""
+    echo "Required:"
+    check_required bash "Shell runtime"
+    check_required git "Git"
+    check_required python3 "Python 3"
+    check_required curl "HTTP client"
+    echo ""
+    echo "Optional but recommended:"
+    check_optional node "Node.js runtime"
+    check_optional pipx "Python app isolation"
+    check_optional podman "Container runtime"
+    check_optional docker "Container runtime"
+    echo ""
+
+    if [ "${#missing_required[@]}" -gt 0 ]; then
+      echo "[ERR] Missing required prerequisites: ${missing_required[*]}"
+      echo ""
+      case "$pkg_manager" in
+        apt-get) echo "Install example: sudo apt-get update && sudo apt-get install -y git python3 curl bash" ;;
+        dnf) echo "Install example: sudo dnf install -y git python3 curl bash" ;;
+        pacman) echo "Install example: sudo pacman -S --needed git python curl bash" ;;
+        zypper) echo "Install example: sudo zypper install -y git python3 curl bash" ;;
+        brew) echo "Install example: brew install git python curl bash" ;;
+        *) echo "Install git/python3/curl/bash using your system package manager, then rerun this check." ;;
+      esac
+      exit 1
+    fi
+
+    echo "[OK] All required prerequisites are installed."
+    if [ "${#missing_optional[@]}" -gt 0 ]; then
+      echo "Optional tools not found: ${missing_optional[*]}"
+    fi
+    echo ""
+    echo "Next steps:"
+    echo "  pf install"
+    echo "  pf install-verify"
+end
+
+task install-verify strict=false
+  describe Verify installed tooling and provide guided next steps (strict=true fails on missing optional tools)
+  shell_lang bash
+  shell |
+    set -euo pipefail
+
+    strict_mode="${strict:-false}"
+    missing_required=()
+    missing_optional=()
+
+    check_required() {
+      local cmd="$1"
+      local label="$2"
+      if command -v "$cmd" >/dev/null 2>&1; then
+        echo "  [OK] $label ($cmd)"
+      else
+        echo "  [NO] $label ($cmd)"
+        missing_required+=("$cmd")
+      fi
+    }
+
+    check_optional() {
+      local cmd="$1"
+      local label="$2"
+      if command -v "$cmd" >/dev/null 2>&1; then
+        echo "  [OK] $label ($cmd)"
+      else
+        echo "  [NO] $label ($cmd)"
+        missing_optional+=("$cmd")
+      fi
+    }
+
+    echo "POST-INSTALL VERIFICATION"
+    echo ""
+    echo "Core runtime checks:"
+    check_required pf "pf runner"
+    check_required python3 "Python 3"
+    check_required git "Git"
+    echo ""
+    echo "Installer bundle checks:"
+    check_optional checksec "Exploit tool"
+    check_optional ROPgadget "Exploit tool"
+    check_optional ropper "Exploit tool"
+    check_optional patchelf "Injection tool"
+    check_optional nasm "Injection tool"
+    check_optional gdb "Debugger"
+    check_optional lldb "Debugger"
+    check_optional r2 "Reverse engineering tool"
+    check_optional afl-fuzz "Fuzzer"
+    echo ""
+
+    if [ "${#missing_required[@]}" -gt 0 ]; then
+      echo "[ERR] Missing required runtime tools: ${missing_required[*]}"
+      exit 1
+    fi
+
+    if [ "${#missing_optional[@]}" -gt 0 ]; then
+      echo "Missing optional tools: ${missing_optional[*]}"
+      echo ""
+      echo "Suggested install tasks:"
+      echo "  pf install-exploit-tools"
+      echo "  pf install-injection-tools"
+      echo "  pf install-all-debug-tools"
+      echo "  pf install-fuzzing-tools"
+      if [ "$strict_mode" = "true" ]; then
+        echo ""
+        echo "[ERR] strict=true and optional tools are missing."
+        exit 1
+      fi
+    fi
+
+    echo "[OK] Verification completed."
+    echo ""
+    echo "Follow-up commands:"
+    echo "  pf check-debug-tools"
+    echo "  pf exploit-test-tools"
+    echo "  pf smart-verify-tools"
 end
 
 # Always-Available PF Tasks
