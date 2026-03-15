@@ -276,7 +276,143 @@ end
 
 task install-help
   describe Show install task choices (simplified)
-  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
+  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-prereq-check    # Validate installer prerequisites on this host" "  pf install-verify          # Check post-install tool availability" "  pf install-smoke-test      # Minimal CI smoke of installer"
+end
+
+task install-prereq-check
+  describe Validate required prerequisites before running installer tasks
+  shell_lang bash
+  shell |
+    set -euo pipefail
+
+    has() { command -v "$1" >/dev/null 2>&1; }
+    ok() { printf '[OK] %s\n' "$1"; }
+    warn() { printf '[WARN] %s\n' "$1"; }
+
+    missing_critical=0
+    os="$(uname -s)"
+
+    echo "Installer prerequisite check"
+    echo "==========================="
+    echo "OS: ${os}"
+    echo ""
+
+    if [ "$os" = "Linux" ]; then
+      if has apt-get || has dnf || has pacman || has zypper; then
+        ok "Detected supported Linux package manager"
+      else
+        warn "No supported package manager found (expected one of: apt-get, dnf, pacman, zypper)"
+      fi
+    elif [ "$os" = "Darwin" ]; then
+      if has brew; then
+        ok "Homebrew is available"
+      else
+        warn "Homebrew not found; install from https://brew.sh/"
+      fi
+    else
+      warn "Unsupported OS for automated installer tasks: ${os}"
+    fi
+
+    if has bash; then
+      ok "bash is installed"
+    else
+      warn "bash is missing"
+      missing_critical=1
+    fi
+
+    if has python3; then
+      ok "python3 is installed ($(python3 --version 2>/dev/null | awk '{print $2}'))"
+    else
+      warn "python3 is missing (required for pf task execution)"
+      missing_critical=1
+    fi
+
+    if has git; then
+      ok "git is installed"
+    else
+      warn "git is missing (needed by some installers and workflows)"
+      missing_critical=1
+    fi
+
+    if has curl || has wget; then
+      ok "download utility available (curl/wget)"
+    else
+      warn "Neither curl nor wget is available"
+      missing_critical=1
+    fi
+
+    if has sudo; then
+      ok "sudo available for system-level installs"
+    else
+      warn "sudo not available (use user-prefix installs like prefix=~/.local)"
+    fi
+
+    echo ""
+    if [ "$missing_critical" -eq 0 ]; then
+      ok "Prerequisite check passed. You can run installer tasks."
+    else
+      echo "[ERR] One or more critical prerequisites are missing."
+      echo "      Install missing tools, then rerun: pf install-prereq-check"
+      exit 1
+    fi
+end
+
+task install-verify
+  describe Verify pf/runtime dependencies and common installer-provided tools
+  shell_lang bash
+  shell |
+    set -euo pipefail
+
+    check_cmd() {
+      local cmd="$1"
+      local label="$2"
+      if command -v "$cmd" >/dev/null 2>&1; then
+        echo "[OK] ${label}: $(command -v "$cmd")"
+      else
+        echo "[MISSING] ${label} (${cmd})"
+      fi
+    }
+
+    echo "Post-install verification"
+    echo "========================"
+    echo ""
+    echo "Core runtime:"
+    check_cmd python3 "Python runtime"
+    check_cmd pf "pf command"
+    echo ""
+
+    echo "Python libraries:"
+    if python3 - <<'PY'
+import importlib
+mods = ("fabric", "lark", "typer")
+missing = [m for m in mods if importlib.util.find_spec(m) is None]
+if missing:
+    print("[MISSING] Python modules:", ", ".join(missing))
+    raise SystemExit(1)
+print("[OK] Python modules: fabric, lark, typer")
+PY
+    then
+      :
+    else
+      echo "  Install with: python3 -m pip install --user \"fabric>=3.2,<4\" \"lark>=1.1.0\" \"typer>=0.12\""
+    fi
+    echo ""
+
+    echo "Common installer tools:"
+    check_cmd checksec "checksec"
+    check_cmd patchelf "patchelf"
+    check_cmd nasm "nasm"
+    check_cmd wasm-opt "binaryen (wasm-opt)"
+    check_cmd wat2wasm "wabt (wat2wasm)"
+    check_cmd ROPgadget "ROPgadget"
+    check_cmd ropper "ropper"
+    check_cmd gdb "GDB"
+    check_cmd lldb "LLDB"
+    echo ""
+
+    echo "If tools are missing, run:"
+    echo "  pf install-help"
+    echo "  pf category-installation-help"
 end
 
 task install-all
@@ -335,7 +471,7 @@ print(root)
 PY
     }
 
-    ROOT="${PF_ROOT:-$(pwd)}"
+    ROOT="${PF_ROOT:-$(find_root)}"
     DEB="$(ls -1 "$ROOT"/build-packages/deb/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
     INSTALLER="$ROOT/build-packages/pf-runner-1.0.0/install.sh"
     if [ -n "$DEB" ] && [ -f "$DEB" ] && command -v dpkg >/dev/null 2>&1; then

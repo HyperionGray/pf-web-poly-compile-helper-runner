@@ -241,11 +241,11 @@ All installers:
 
 ## Test Script
 
-A comprehensive test script is available at `test_installers.sh` that automates all the tests documented here.
+A comprehensive test script is available at `test_pf_installers.sh` (canonical) with `test_installers.sh` kept as a compatibility wrapper.
 
 **Run Tests**:
 ```bash
-./test_installers.sh
+./test_pf_installers.sh
 ```
 
 The script tests:

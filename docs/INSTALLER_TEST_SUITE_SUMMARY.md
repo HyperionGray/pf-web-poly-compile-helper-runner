@@ -153,7 +153,7 @@ This test suite complements existing testing infrastructure:
 |------|------|----------|---------|
 | **New** Python Suite | Python/pytest | `tests/installation/test_installer_comprehensive.py` | Comprehensive automated testing |
 | Existing Bash Tests | Bash | `tests/installation/test-native-install.sh` | Native installation testing |
-| Root Test Script | Bash | `test_installers.sh` | All installers overview |
+| Root Test Script | Bash | `test_pf_installers.sh` (via `test_installers.sh` wrapper) | All installers overview |
 | Documentation | Markdown | `DEEP_INSTALLER_TESTING.md` | Manual test results |
 
 ## Benefits of the New Test Suite

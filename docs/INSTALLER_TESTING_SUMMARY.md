@@ -124,7 +124,7 @@ All installers are working correctly!
 ## Deliverables
 
 ### 1. Automated Test Suite
-**File**: `test_installers.sh`
+**File**: `test_pf_installers.sh` (canonical), `test_installers.sh` (compatibility wrapper)
 - Automated testing of all installers
 - Tests installation, version, list, task execution
 - Verifies package structures

@@ -13,6 +13,9 @@ For users who just installed Ubuntu and want to get pf-runner working immediatel
 git clone <repository-url>
 cd pf-web-poly-compile-helper-runner
 
+# Optional: preflight checks before installation
+python3 pf-runner-full/pf_main.py -f pf-files/Pfyfile.pf install-prereq-check
+
 # Install natively (system-wide, requires sudo)
 sudo ./install.sh
 
@@ -22,6 +25,9 @@ sudo ./install.sh
 # Test the installation
 pf --version
 pf list
+
+# Optional: post-install verification summary
+pf install-verify
 ```
 
 ### Container Installation
@@ -49,6 +55,9 @@ pf list
 ### Overview
 
 The installer validation system consists of several test scripts that ensure both native and container installations work correctly without any assumptions about the user's environment.
+
+> Canonical installer-task integration script: `./test_pf_installers.sh`  
+> Backward-compatible wrapper: `./test_installers.sh`
 
 ### Test Scripts
 

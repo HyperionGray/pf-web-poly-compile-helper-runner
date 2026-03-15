@@ -218,7 +218,7 @@ This test suite complements existing installation tests:
 
 - **Existing**: `tests/installation/test-native-install.sh` (Bash-based)
 - **New**: `tests/installation/test_installer_comprehensive.py` (Python-based)
-- **Existing**: `test_installers.sh` (Root-level comprehensive bash tests)
+- **Existing**: `test_pf_installers.sh` (Root-level comprehensive bash tests; `test_installers.sh` is a wrapper)
 
 The Python-based suite provides:
 - Better integration with pytest framework

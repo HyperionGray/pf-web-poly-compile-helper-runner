@@ -8,6 +8,29 @@ The issue requested to "test all installers again please" and ensure users have 
 
 ---
 
+## Follow-up Improvements (Mar 2026) ✅
+
+To keep installer workflows maintainable and reduce onboarding friction, the following improvements were added:
+
+1. **New pre-install diagnostics task**: `pf install-prereq-check`
+   - Verifies OS/package-manager compatibility and required tools (`bash`, `python3`, `git`, `curl/wget`, `sudo` availability).
+   - Fails with actionable guidance when critical prerequisites are missing.
+
+2. **New post-install verification task**: `pf install-verify`
+   - Verifies core runtime (`python3`, `pf`) and Python module dependencies (`fabric`, `lark`, `typer`).
+   - Checks common installer-provided tools (e.g., `checksec`, `patchelf`, `nasm`, `wasm-opt`, `wat2wasm`, `ROPgadget`, `ropper`, `gdb`, `lldb`).
+   - Prints focused next-step commands when tools are missing.
+
+3. **Installer help output updated**
+   - `pf install-help` now includes both diagnostics tasks for faster discovery.
+   - `pf category-installation-help` now has a completed **System Setup** section (previously truncated/incomplete).
+
+4. **Test script cleanup**
+   - `test_installers.sh` is now a compatibility wrapper.
+   - `test_pf_installers.sh` is the single canonical installer test implementation to prevent drift.
+
+---
+
 ## What Was Done
 
 ### 1. Base PF-Runner Installers Fixed ✅
