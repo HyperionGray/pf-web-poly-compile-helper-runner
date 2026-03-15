@@ -61,20 +61,20 @@ tests/installation/test_installer_comprehensive.py::TestDirectExecution::test_di
 ```
 
 ### 2. Static Executable Tests (TestStaticExecutable)
-**Status**: ⏭️ Skipped (Static executable not built)
+**Status**: ⏭️ Optional (skipped when `pf-static` has not been built)
 
-Tests the pre-built static executable `pf-runner/pf-static`:
+Tests the pre-built static executable `pf-runner-full/pf-static`:
 - `test_static_exe_version` - Verifies version command
 - `test_static_exe_list` - Verifies task listing
 - `test_static_exe_run_task` - Verifies task execution
 
-**Note**: Tests are automatically skipped if `pf-runner/pf-static` doesn't exist. Build it first with:
+**Note**: Tests are automatically skipped if `pf-runner-full/pf-static` doesn't exist. Build it first with:
 ```bash
-cd pf-runner && make build
+cd pf-runner-full && make build-static
 ```
 
 ### 3. Static Installation Tests (TestStaticInstall)
-**Status**: ⏭️ Skipped (Static executable not built)
+**Status**: ✅ Active
 
 Tests the `install-static.sh` installer:
 - `test_install_static` - Verifies installation succeeds
@@ -153,14 +153,14 @@ Each installer test class follows this pattern:
 
 ### Functionality Validation
 - ✅ `pf -V` returns version information
-- ✅ `pf list` shows available tasks
-- ✅ `pf <task>` executes tasks successfully
-- ✅ `pf <task> param=value` passes parameters correctly
+- ✅ `pf -f <fixture> list` shows available tasks
+- ✅ `pf -f <fixture> run <task>` executes tasks successfully
+- ✅ `pf -f <fixture> run <task> param=value` passes parameters correctly
 - ✅ `pf --help` displays usage information
 
 ### Task Execution Testing
 
-Uses `pf-runner/test.pf` which contains:
+Uses `pf-runner-full/pf-files/tests/fixtures/test.pf` which contains:
 ```pf
 env name="test-app"
 
@@ -179,9 +179,9 @@ end
 ## Findings and Recommendations
 
 ### ✅ What Works
-1. **Direct Execution**: Running `pf_main.py` directly works perfectly
-2. **Static Installer Syntax**: `install-static.sh` has no syntax errors
-3. **Test Files**: `test.pf` provides good test coverage for basic functionality
+1. **Direct Execution**: Running `pf_main.py` directly with `-f` works
+2. **Static Installer Coverage**: `install-static.sh` can be validated without a prebuilt `pf-static`
+3. **Fixture Coverage**: The sample fixture provides good test coverage for basic functionality
 
 ### ❌ What Needs Fixing
 1. **Native Installer**: `install.sh` needs to be repaired
@@ -189,8 +189,8 @@ end
    - Implement missing functions
    - Initialize PREFIX_SET variable
 
-2. **Static Executable**: Needs to be built for full test coverage
-   - Run `cd pf-runner && make build`
+2. **Static Executable**: Needs to be built for direct binary coverage
+   - Run `cd pf-runner-full && make build-static`
 
 ### 📋 Future Enhancements
 
@@ -236,10 +236,10 @@ platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0
 collecting ... collected 12 items                                                                                                      
 
 tests/installation/test_installer_comprehensive.py::TestNativeInstall::test_install_native XFAIL              [  8%]
-tests/installation/test_installer_comprehensive.py::TestStaticInstall::test_install_static SKIPPED           [ 16%]
-tests/installation/test_installer_comprehensive.py::TestStaticInstall::test_static_version SKIPPED           [ 25%]
-tests/installation/test_installer_comprehensive.py::TestStaticInstall::test_static_list SKIPPED              [ 33%]
-tests/installation/test_installer_comprehensive.py::TestStaticInstall::test_static_run_task SKIPPED          [ 41%]
+tests/installation/test_installer_comprehensive.py::TestStaticInstall::test_install_static PASSED            [ 16%]
+tests/installation/test_installer_comprehensive.py::TestStaticInstall::test_static_version PASSED            [ 25%]
+tests/installation/test_installer_comprehensive.py::TestStaticInstall::test_static_list PASSED               [ 33%]
+tests/installation/test_installer_comprehensive.py::TestStaticInstall::test_static_run_task PASSED           [ 41%]
 tests/installation/test_installer_comprehensive.py::TestDirectExecution::test_direct_version PASSED          [ 50%]
 tests/installation/test_installer_comprehensive.py::TestDirectExecution::test_direct_list PASSED             [ 58%]
 tests/installation/test_installer_comprehensive.py::TestDirectExecution::test_direct_run_task PASSED         [ 66%]
@@ -248,15 +248,15 @@ tests/installation/test_installer_comprehensive.py::TestStaticExecutable::test_s
 tests/installation/test_installer_comprehensive.py::TestStaticExecutable::test_static_exe_list SKIPPED       [ 91%]
 tests/installation/test_installer_comprehensive.py::TestStaticExecutable::test_static_exe_run_task SKIPPED   [100%]
 
-============================================ 4 passed, 7 skipped, 1 xfailed in 1.5s =============================================
+============================================ 8 passed, 3 skipped, 1 xfailed in 2.1s =============================================
 ```
 
 ## Conclusion
 
 This comprehensive test suite successfully:
-1. ✅ Validates direct pf_main.py execution
-2. ⏭️ Provides framework for testing static installations (ready when built)
-3. ❌ Identifies critical bugs in install.sh (documented and marked as xfail)
+1. ✅ Validates direct `pf_main.py` execution against the maintained fixture file
+2. ✅ Validates the current `install-static.sh` flow end to end
+3. ❌ Identifies critical bugs in `install.sh` (documented and marked as xfail)
 
 The test suite is ready for CI/CD integration and will automatically validate when the native installer is fixed.
 
@@ -264,7 +264,7 @@ The test suite is ready for CI/CD integration and will automatically validate wh
 
 1. **For Developers**: Fix install.sh bugs identified in this document
 2. **For CI/CD**: Integrate these tests into the build pipeline
-3. **For Maintainers**: Build static executable to enable full test coverage
+3. **For Maintainers**: Build `pf-runner-full/pf-static` to enable direct binary coverage
 4. **For Testing**: Add additional test cases as installers are improved
 
 ---
