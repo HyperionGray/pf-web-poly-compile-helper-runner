@@ -116,14 +116,14 @@ cd "$REPO_ROOT"
 # Install dependencies if requested
 if [[ "$INSTALL_DEPS" == true ]]; then
     log_info "Installing test dependencies..."
-    python3 -m pip install -q pytest lark fabric typer json5
+    python3 -m pip install -q pytest pytest-cov lark fabric typer json5
     log_success "Dependencies installed"
 fi
 
 # Check if pytest is available
 if ! python3 -m pytest --version >/dev/null 2>&1; then
     log_warning "pytest not found. Installing..."
-    python3 -m pip install -q pytest
+    python3 -m pip install -q pytest pytest-cov
 fi
 
 # Check if pf-runner dependencies are available

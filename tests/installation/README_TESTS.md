@@ -22,7 +22,7 @@ The tests validate:
 ## Prerequisites
 
 ```bash
-python3 -m pip install pytest lark fabric typer json5
+python3 -m pip install pytest pytest-cov lark fabric typer json5
 ```
 
 ## Run Tests
