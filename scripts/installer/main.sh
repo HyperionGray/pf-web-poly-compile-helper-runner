@@ -58,6 +58,17 @@ installer_main() {
   fi
 
   installer_normalize_settings
+
+  if [[ "$SHOW_POST_INSTALL_HELP" == true ]]; then
+    installer_show_post_install_help
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" == true ]]; then
+    installer_show_dry_run_plan
+    return 0
+  fi
+
   installer_check_permissions
 
   if [[ "$MODE" == "container" ]]; then
@@ -77,6 +88,7 @@ installer_main() {
     printf '\n'
     log_success "pf-runner container installation completed successfully!"
     installer_update_path_info
+    installer_show_post_install_help
     return 0
   fi
 
@@ -93,6 +105,7 @@ installer_main() {
   printf '\n'
   log_success "pf-runner native installation completed successfully!"
   installer_update_path_info
+  installer_show_post_install_help
   return 0
 }
 

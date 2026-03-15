@@ -24,6 +24,9 @@ OPTIONS:
   --skip-build      Skip container image build (assumes images exist)
   --build-only      Build container images only (skip wrapper install)
   --no-wrapper      Skip installing the pf wrapper (container mode)
+  --dry-run         Print planned actions only (no changes applied)
+  --post-install-help
+                    Show post-install usage guidance and exit
 
   --prefix PATH     Install prefix
                    Default: ${DEFAULT_PREFIX_NATIVE} for root,
@@ -91,6 +94,14 @@ installer_parse_args() {
         ;;
       --skip-deps)
         SKIP_DEPS=true
+        shift
+        ;;
+      --dry-run)
+        DRY_RUN=true
+        shift
+        ;;
+      --post-install-help|--next-steps)
+        SHOW_POST_INSTALL_HELP=true
         shift
         ;;
       --skip-build)

@@ -192,3 +192,80 @@ installer_update_path_info() {
   log_info "If you don't want to modify shell settings, run pf via full path:"
   log_info "  ${bin_dir}/pf"
 }
+
+installer_show_post_install_help() {
+  local bin_dir="${PREFIX}/bin"
+  local pf_cmd="${bin_dir}/pf"
+
+  printf '\n'
+  log_info "Post-install usage guidance"
+  printf '%s\n' "---------------------------"
+
+  if [[ "${MODE}" == "container" ]]; then
+    log_info "Container mode selected"
+    log_info "Wrapper command: ${pf_cmd}"
+    log_info "Configured runtime: ${CONTAINER_RT}"
+    log_info "Try:"
+    log_info "  ${pf_cmd} --help"
+    log_info "  ${pf_cmd} list"
+  else
+    log_info "Native/package mode selected"
+    log_info "Executable path: ${pf_cmd}"
+    log_info "Try:"
+    log_info "  ${pf_cmd} --help"
+    log_info "  ${pf_cmd} list"
+  fi
+
+  log_info "Installer help:"
+  log_info "  ./install.sh --help"
+  printf '\n'
+}
+
+installer_show_dry_run_plan() {
+  local os_type=""
+  os_type="$(detect_os)"
+
+  printf '\n'
+  log_info "Dry-run plan (no files will be modified)"
+  printf '%s\n' "----------------------------------------"
+  log_info "Mode: ${MODE}"
+  log_info "Prefix: ${PREFIX}"
+  log_info "Detected OS: ${os_type}"
+
+  if [[ "${PREFIX}" == "/usr/local" || "${PREFIX}" == /usr/* ]]; then
+    if [[ "$(id -u 2>/dev/null || echo 1)" -ne 0 ]]; then
+      log_warning "System prefix selected; real install would require root privileges"
+    else
+      log_info "System prefix selected and running as root"
+    fi
+  fi
+
+  if [[ "${MODE}" == "container" ]]; then
+    if command_exists "${CONTAINER_RT}"; then
+      log_info "Container runtime check: found '${CONTAINER_RT}'"
+    else
+      log_warning "Container runtime check: '${CONTAINER_RT}' not found in PATH"
+    fi
+    if [[ "${SKIP_BUILD}" == true ]]; then
+      log_info "Step: skip image build (--skip-build)"
+    else
+      log_info "Step: build images '${BASE_IMAGE_DEFAULT}' and '${CONTAINER_IMAGE}'"
+    fi
+    if [[ "${NO_WRAPPER}" == true ]]; then
+      log_info "Step: skip wrapper install (--no-wrapper)"
+    else
+      log_info "Step: install wrapper to ${PREFIX}/bin/pf"
+    fi
+  else
+    log_info "Step: check native prerequisites (python3, git, pip)"
+    if [[ "${SKIP_DEPS}" == true ]]; then
+      log_info "Step: skip system dependencies (--skip-deps)"
+    else
+      log_info "Step: install system dependencies for ${os_type}"
+    fi
+    log_info "Step: set up Python environment"
+    log_info "Step: install pf-runner to ${PREFIX}/lib/pf-runner"
+  fi
+
+  installer_show_post_install_help
+}

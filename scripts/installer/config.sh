@@ -20,6 +20,8 @@ PREFIX=""
 PREFIX_SET=false
 SKIP_DEPS=false
 SHOW_HELP=false
+SHOW_POST_INSTALL_HELP=false
+DRY_RUN=false
 
 CONTAINER_RT="podman"
 CONTAINER_RT_SET=false

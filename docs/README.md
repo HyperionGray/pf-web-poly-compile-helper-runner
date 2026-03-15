@@ -50,6 +50,21 @@ sudo dpkg -i build-packages/deb/pf-runner_latest.deb || sudo apt-get -f install 
 # or: ./build-packages/build-packages.sh --install deb --version 1.0.1
 ```
 
+**Install from source tree (native/container):**
+
+```bash
+# Preview actions only (no changes)
+./install.sh --dry-run --mode native --prefix ~/.local
+
+# Run installer
+./install.sh --mode native --prefix ~/.local
+
+# Print next-step guidance at any time
+./install.sh --post-install-help --mode native --prefix ~/.local
+```
+
+See `docs/installation/INSTALLER_CLI_OPTIONS.md` for full installer CLI details.
+
 Pyproject/pip installs are deprecated; use the packaged installer to get all deps, completions, and service units in one shot.
 
 > Canonical layout: `pf-runner-full/` is the source of truth and builds the .deb. The older `pf-runner/` tree has been removed to avoid confusion.
