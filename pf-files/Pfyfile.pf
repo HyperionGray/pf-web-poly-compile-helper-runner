@@ -98,7 +98,25 @@ end
 
 task install-help
   describe Show install task choices (simplified)
-  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
+  shell printf '%s\n' "Install options:" "  pf install                           # Native install (default /usr/local)" "  pf install prefix=~/.local           # Install to custom prefix (no sudo needed)" "  pf install-prerequisites profile=core # Check install prerequisites before install" "  pf install-verify profile=core        # Verify installation after install" "  pf install-all                       # pf install + tooling bundles" "  pf install-smoke-test                # Minimal CI smoke of installer"
+end
+
+task install-prerequisites profile=core
+  describe Check installer prerequisites for a profile (core|web|exploit|debug|fuzzing|all)
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    ROOT="${PF_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    bash "$ROOT/scripts/installer/check-prerequisites.sh" "${profile:-core}"
+end
+
+task install-verify profile=core
+  describe Verify post-install commands for a profile (core|web|exploit|debug|fuzzing|all)
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    ROOT="${PF_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    bash "$ROOT/scripts/installer/verify-installation.sh" "${profile:-core}"
 end
 
 task dev-setup
@@ -200,10 +218,4 @@ task sync-demo
   shell echo "  Excludes: sync src=./ dest=/backup/ excludes=[\"*.log\",\"*.tmp\"] delete dry"
   shell echo "  From file: sync src=./ dest=/backup/ exclude_file=.rsync-exclude"
   shell echo "See pf-runner/SYNC.md for full documentation"
-end
-
-task thing
-     describe "Do python instead"
-     shell_lang
-     print("I'm a python script!")
 end

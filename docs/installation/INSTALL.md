@@ -69,6 +69,23 @@ sudo ./install.sh
 - **Python 3.8+** with pip (`python3 -m ensurepip`)
 - **Build tools** (`gcc`, `make`, `curl`) for compiling dependencies
 
+## PF task preflight and verification
+
+Use these tasks to check your environment before and after installation:
+
+```bash
+# Verify required commands before installation
+pf install-prerequisites profile=core
+
+# Install pf
+pf install prefix=~/.local
+
+# Verify the installed command and selected toolchain profile
+pf install-verify profile=core
+```
+
+Supported profiles: `core`, `web`, `exploit`, `debug`, `fuzzing`, `all`.
+
 ## After Installation
 
 1. **Restart your shell** or run: `source ~/.bashrc`
@@ -84,7 +101,7 @@ sudo ./install.sh
    ```
 
 Installed `pf` no longer needs a per-project venv. It carries its runtime dependencies under `lib/pf-runner/vendor` and prefers a stable interpreter so an unrelated activated venv does not hijack the command.
-3. **Start using pf**:
+4. **Start using pf**:
    ```bash
    pf web-dev          # Start web development server
    pf autobuild        # Auto-detect and build your project
