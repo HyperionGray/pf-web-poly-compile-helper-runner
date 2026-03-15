@@ -8,7 +8,7 @@ set -euo pipefail
 DEFAULT_PREFIX="/usr/local"
 DEFAULT_PREFIX_USER="${HOME}/.local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATIC_EXEC="${SCRIPT_DIR}/pf-runner-full/pf-static"
+PF_RUNNER_FULL_DIR="${SCRIPT_DIR}/pf-runner-full"
 
 # Colors
 GREEN='\033[0;32m'
@@ -113,13 +113,9 @@ if [[ "$PREFIX" == "/usr/local" ]] || [[ "$PREFIX" == "/usr"* ]]; then
     fi
 fi
 
-# Check if static executable exists
-if [[ ! -f "$STATIC_EXEC" ]]; then
-    log_error "Static executable not found at $STATIC_EXEC"
-    log_info "Please build it first by running:"
-    log_info "  cd pf-runner-full && make build-static"
-    log_info ""
-    log_info "This will create a standalone executable using PyInstaller."
+# Check if pf-runner-full directory exists
+if [[ ! -d "$PF_RUNNER_FULL_DIR" ]]; then
+    log_error "pf-runner source directory not found at $PF_RUNNER_FULL_DIR"
     exit 1
 fi
 

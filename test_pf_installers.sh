@@ -12,9 +12,17 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PF_DIR="${REPO_ROOT}/build-packages/deb/pf-runner-1.0.0/pf-runner"
 PF_FILE="${REPO_ROOT}/pf-files/Pfyfile.pf"
 TEST_PREFIX="/tmp/pf-installer-test-$(date +%s)"
+
+if [[ -f "${REPO_ROOT}/pf-runner-full/pf_main.py" ]]; then
+    PF_DIR="${REPO_ROOT}/pf-runner-full"
+elif [[ -f "${REPO_ROOT}/build-packages/deb/pf-runner-1.0.0/pf-runner/pf_main.py" ]]; then
+    PF_DIR="${REPO_ROOT}/build-packages/deb/pf-runner-1.0.0/pf-runner"
+else
+    echo "Could not locate pf_main.py for installer tests" >&2
+    exit 1
+fi
 
 # Track results
 TOTAL_TESTS=0
@@ -22,8 +30,8 @@ PASSED_TESTS=0
 FAILED_TESTS=0
 SKIPPED_TESTS=0
 
-declare -a FAILED_INSTALLERS
-declare -a SKIPPED_INSTALLERS
+declare -a FAILED_INSTALLERS=()
+declare -a SKIPPED_INSTALLERS=()
 
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -45,11 +53,6 @@ log_test() {
     echo -e "${YELLOW}[TEST]${NC} $1"
 }
 
-# Run PF command
-run_pf() {
-    python3 "$PF_DIR/pf_main.py" -f "$PF_FILE" "$@"
-}
-
 # Test if a command/binary exists
 check_command() {
     command -v "$1" >/dev/null 2>&1
@@ -66,7 +69,7 @@ test_installer() {
     log_test "Testing: $task_name"
     
     # Try running the installer (capture output)
-    if timeout 600 run_pf "$task_name" prefix="$TEST_PREFIX" >/tmp/install_${task_name}.log 2>&1; then
+    if timeout 600 python3 "$PF_DIR/pf_main.py" -f "$PF_FILE" "$task_name" prefix="$TEST_PREFIX" >/tmp/install_${task_name}.log 2>&1; then
         log_success "Installer completed: $task_name"
         
         # Verify installation if we have something to check
@@ -109,7 +112,7 @@ test_help_output() {
     
     log_test "Testing help: $task_name"
     
-    if run_pf "$task_name" 2>&1 | grep -qiE 'usage|help|instruction|example|test commands|test:'; then
+    if python3 "$PF_DIR/pf_main.py" -f "$PF_FILE" "$task_name" 2>&1 | grep -qiE 'usage|help|instruction|example|test commands|test:'; then
         log_success "Help output present: $task_name"
         return 0
     else
