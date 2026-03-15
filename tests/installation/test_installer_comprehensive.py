@@ -23,6 +23,7 @@ import pytest
 REPO_ROOT = Path(__file__).parent.parent.parent.absolute()
 PF_RUNNER_FULL_DIR = REPO_ROOT / "pf-runner-full"
 PF_RUNNER_DIR = PF_RUNNER_FULL_DIR
+TEST_PF_FILE = PF_RUNNER_FULL_DIR / "pf-files" / "tests" / "fixtures" / "test.pf"
 
 
 class InstallerTest:
@@ -59,18 +60,18 @@ class InstallerTest:
     def test_list_tasks(self):
         """Test that pf can list tasks"""
         result = self.run_command(
-            [str(self.pf_executable), str(PF_RUNNER_DIR / "test.pf"), "list"],
+            [str(self.pf_executable), "-f", str(TEST_PF_FILE), "list"],
             cwd=PF_RUNNER_DIR
         )
         assert result.returncode == 0, f"pf list failed: {result.stderr}"
-        # test.pf should have 'hello' and 'vars' tasks
+        # fixture test file includes 'hello' and 'vars'
         assert "hello" in result.stdout.lower(), "hello task not found in list"
         return True
     
     def test_run_simple_task(self):
         """Test that pf can run a simple task"""
         result = self.run_command(
-            [str(self.pf_executable), str(PF_RUNNER_DIR / "test.pf"), "hello"],
+            [str(self.pf_executable), "-f", str(TEST_PF_FILE), "run", "hello"],
             cwd=PF_RUNNER_DIR
         )
         assert result.returncode == 0, f"pf hello task failed: {result.stderr}"
@@ -209,7 +210,7 @@ class TestDirectExecution:
     def test_direct_list(self):
         """Test that pf_main.py can list tasks"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "list"],
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "-f", str(TEST_PF_FILE), "list"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
@@ -220,7 +221,7 @@ class TestDirectExecution:
     def test_direct_run_task(self):
         """Test that pf_main.py can run tasks"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "hello"],
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "-f", str(TEST_PF_FILE), "run", "hello"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
@@ -230,7 +231,15 @@ class TestDirectExecution:
     def test_direct_parameter_passing(self):
         """Test parameter passing in direct execution"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "vars", "name=DirectTest"],
+            [
+                "python3",
+                str(PF_RUNNER_DIR / "pf_main.py"),
+                "-f",
+                str(TEST_PF_FILE),
+                "run",
+                "vars",
+                "name=DirectTest",
+            ],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
