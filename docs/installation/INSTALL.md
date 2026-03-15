@@ -21,6 +21,14 @@ sudo ./install.sh
 ./install.sh --prefix ~/.local
 ```
 
+For task-based installs through pf, run a prerequisite pass first:
+```bash
+pf install-prereq-check
+pf install prefix=~/.local
+pf install-smoke-test
+```
+`install-prereq-check` validates required binaries and warns when package artifacts are missing.
+
 ### Running the WebAssembly toolchain tasks
 
 Tasks such as `web-toolchain-check`, `web-build-c-wasm`, and `web-build-fortran-wasm` require the Emscripten SDK and related binaries in `PATH`. If you installed emsdk under `$HOME/emsdk-*`, run them through the helper:

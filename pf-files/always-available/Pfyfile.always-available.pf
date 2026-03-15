@@ -11,6 +11,12 @@ task category-installation-help
   describe Show help for Installation & Setup category
   shell echo " INSTALLATION & SETUP CATEGORY"
   shell echo ""
+  shell echo "Core Installation:"
+  shell echo "  pf install-prereq-check     # Validate install prerequisites and artifacts"
+  shell echo "  pf install                  # Install pf from packaged artifacts"
+  shell echo "  pf install prefix=~/.local  # Install without sudo"
+  shell echo "  pf install-smoke-test       # Minimal post-install verification"
+  shell echo ""
   shell echo "Tool Installation:"
   shell echo "  pf install-exploit-tools     # Install all exploit development tools"
   shell echo "  pf install-checksec          # Install checksec binary protection checker"
@@ -27,6 +33,11 @@ task category-installation-help
   shell echo "  pf install-snowman           # Install Snowman decompiler"
   shell echo ""
   shell echo "System Setup:"
+  shell echo "  pf module-install-help       # Module-oriented installer entrypoints"
+  shell echo "  pf install-module-core       # Install core pf runner into ~/.local"
+  shell echo "  pf install-module-debug      # Install debug/RE toolchain"
+  shell echo "  pf install-module-exploit    # Install exploit dev toolchain"
+  shell echo "  pf install-module-fuzzing    # Install fuzzing toolchain"
 end
 
 # Module-oriented install entrypoints (improves discoverability)
