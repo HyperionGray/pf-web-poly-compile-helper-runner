@@ -28,6 +28,75 @@ task install
   bash "${PFY_ROOT:-.}/install.sh" ${args:-}
 end
 
+task install-preflight
+  describe Validate prerequisites before running installer tasks
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    missing=0
+    check_cmd() {
+      local cmd="$1"
+      local hint="$2"
+      if command -v "$cmd" >/dev/null 2>&1; then
+        echo "[OK] $cmd available"
+      else
+        echo "[ERR] $cmd missing ($hint)"
+        missing=$((missing + 1))
+      fi
+    }
+
+    echo "INSTALLER PREFLIGHT CHECK"
+    check_cmd bash "required for installer scripts"
+    check_cmd python3 "required for pf runtime"
+
+    if [ "$(id -u)" -ne 0 ]; then
+      if command -v sudo >/dev/null 2>&1; then
+        if sudo -n true 2>/dev/null; then
+          echo "[OK] sudo available (non-interactive)"
+        else
+          echo "[WARN] sudo requires a password prompt for privileged installs"
+        fi
+      else
+        echo "[WARN] sudo not found (use --prefix ~/.local for user installs)"
+      fi
+    fi
+
+    if [ "$missing" -gt 0 ]; then
+      echo "[ERR] Preflight failed with $missing missing requirement(s)."
+      exit 1
+    fi
+
+    echo "[OK] Preflight checks passed."
+end
+
+task install-verify prefix=""
+  describe Verify pf installation and command availability
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    PF_BIN=""
+    if [ -n "${prefix}" ] && [ -x "${prefix}/bin/pf" ]; then
+      PF_BIN="${prefix}/bin/pf"
+      echo "[OK] using pf from prefix: ${PF_BIN}"
+    elif command -v pf >/dev/null 2>&1; then
+      PF_BIN="$(command -v pf)"
+      echo "[OK] using pf from PATH: ${PF_BIN}"
+    else
+      echo "[ERR] pf not found in PATH and prefix did not contain an executable."
+      echo "      Re-run install with: pf install --prefix ~/.local"
+      exit 1
+    fi
+
+    "$PF_BIN" --version
+    "$PF_BIN" list >/dev/null
+    echo "[OK] install verification passed."
+end
+
+task install-help
+  describe Show install task choices
+  shell printf '%s\n' "Install options:" "  pf install-preflight         # Check dependencies/sudo readiness first" "  pf install                   # Native install (default /usr/local)" "  pf install --prefix ~/.local # Install to custom prefix (no sudo needed)" "  pf install-verify            # Verify pf command and task listing after install" "  pf install-smoke-test        # Minimal CI smoke of installer"
+end
+
 task install-smoke-test
   describe Install pf-runner into a temp prefix and run basic checks
   shell_lang bash

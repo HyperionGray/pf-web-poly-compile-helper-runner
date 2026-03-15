@@ -12,9 +12,24 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PF_DIR="${REPO_ROOT}/build-packages/deb/pf-runner-1.0.0/pf-runner"
 PF_FILE="${REPO_ROOT}/pf-files/Pfyfile.pf"
 TEST_PREFIX="/tmp/pf-installer-test-$(date +%s)"
+
+PF_MAIN=""
+for candidate in \
+    "${REPO_ROOT}/pf-runner-full/pf_main.py" \
+    "${REPO_ROOT}/build-packages/deb/pf-runner-1.0.0/pf-runner/pf_main.py"
+do
+    if [[ -f "$candidate" ]]; then
+        PF_MAIN="$candidate"
+        break
+    fi
+done
+
+if [[ -z "$PF_MAIN" ]]; then
+    echo "[ERR] Unable to locate pf_main.py for tests" >&2
+    exit 1
+fi
 
 # Track results
 TOTAL_TESTS=0
@@ -47,7 +62,7 @@ log_test() {
 
 # Run PF command
 run_pf() {
-    python3 "$PF_DIR/pf_main.py" -f "$PF_FILE" "$@"
+    python3 "$PF_MAIN" -f "$PF_FILE" "$@"
 }
 
 # Test if a command/binary exists
@@ -125,7 +140,7 @@ echo "PF Task Installer Test Suite"
 echo "========================================"
 echo ""
 log_info "Test prefix: $TEST_PREFIX"
-log_info "Using PF from: $PF_DIR"
+log_info "Using PF from: $PF_MAIN"
 echo ""
 
 #
