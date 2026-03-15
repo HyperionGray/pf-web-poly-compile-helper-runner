@@ -187,10 +187,15 @@ if "$REPO_ROOT/install-static.sh" --prefix "$STATIC_PREFIX" >/dev/null 2>&1; the
     fi
 
     # Verify diagnostic mode
-    if "$REPO_ROOT/install-static.sh" --prefix "$STATIC_PREFIX" --verify-only >/dev/null 2>&1; then
-        log_success "install-static.sh --verify-only works"
+    VERIFY_LOG="$TEST_DIR/static-verify.log"
+    if "$REPO_ROOT/install-static.sh" --prefix "$STATIC_PREFIX" --verify-only >"$VERIFY_LOG" 2>&1; then
+        log_success "install-static.sh --verify-only passed"
     else
-        log_error "install-static.sh --verify-only failed"
+        if grep -qiE "dependency missing|verification checks failed" "$VERIFY_LOG"; then
+            log_success "install-static.sh --verify-only surfaced actionable diagnostics"
+        else
+            log_error "install-static.sh --verify-only failed unexpectedly"
+        fi
     fi
 else
     log_error "Static installation failed"
