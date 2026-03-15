@@ -62,6 +62,18 @@ sudo ./install.sh
 ./install.sh --help
 ```
 
+## Feature Installer Scripts (`scripts/`)
+
+Feature-level installers now support a consistent CLI:
+
+```bash
+./scripts/injection/install-injection-tools.sh --help
+./scripts/gitops/install-pr-tools.sh --dry-run
+./scripts/gitops/install-git-filter-repo.sh --dry-run
+```
+
+See `docs/installation/INSTALLER_SCRIPT_FLAGS.md` for full details.
+
 ## Prerequisites
 
 - **Linux** (Ubuntu/Debian/Fedora/Arch) or **macOS**
