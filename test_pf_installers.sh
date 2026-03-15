@@ -12,8 +12,8 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PF_DIR="${REPO_ROOT}/build-packages/deb/pf-runner-1.0.0/pf-runner"
-PF_FILE="${REPO_ROOT}/pf-files/Pfyfile.pf"
+PF_DIR="${PF_DIR:-${REPO_ROOT}/pf-runner-full}"
+PF_FILE="${PF_FILE:-${REPO_ROOT}/pf-files/Pfyfile.pf}"
 TEST_PREFIX="/tmp/pf-installer-test-$(date +%s)"
 
 # Track results
@@ -49,6 +49,16 @@ log_test() {
 run_pf() {
     python3 "$PF_DIR/pf_main.py" -f "$PF_FILE" "$@"
 }
+
+if [[ ! -f "$PF_DIR/pf_main.py" ]]; then
+    log_error "pf_main.py not found at $PF_DIR/pf_main.py"
+    exit 1
+fi
+
+if [[ ! -f "$PF_FILE" ]]; then
+    log_error "Pfyfile not found at $PF_FILE"
+    exit 1
+fi
 
 # Test if a command/binary exists
 check_command() {

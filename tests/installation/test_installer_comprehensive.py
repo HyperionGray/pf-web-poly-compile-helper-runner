@@ -21,7 +21,7 @@ import pytest
 
 # Get repository root
 REPO_ROOT = Path(__file__).parent.parent.parent.absolute()
-PF_RUNNER_DIR = REPO_ROOT / "pf-runner"
+PF_RUNNER_DIR = REPO_ROOT / "pf-runner-full"
 
 
 class InstallerTest:

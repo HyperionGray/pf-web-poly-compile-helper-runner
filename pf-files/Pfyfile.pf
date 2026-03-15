@@ -276,7 +276,7 @@ end
 
 task install-help
   describe Show install task choices (simplified)
-  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
+  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Build and smoke-test the static installer"
 end
 
 task install-all
@@ -336,22 +336,24 @@ PY
     }
 
     ROOT="${PF_ROOT:-$(pwd)}"
-    DEB="$(ls -1 "$ROOT"/build-packages/deb/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
-    INSTALLER="$ROOT/build-packages/pf-runner-1.0.0/install.sh"
-    if [ -n "$DEB" ] && [ -f "$DEB" ] && command -v dpkg >/dev/null 2>&1; then
-      echo "[install-smoke-test] Installing pf from deb: $DEB"
-      sudo dpkg -i "$DEB" || { echo "[install-smoke-test] Fixing deps..."; sudo apt-get -f install -y && sudo dpkg -i "$DEB"; }
-    else
-      if [ ! -x "$INSTALLER" ]; then
-        echo "[ERR] canonical installer not found at $INSTALLER" >&2
-        echo "      Build it with: pf build-packages (or consult build-packages/pf-runner-1.0.0)" >&2
-        exit 127
-      fi
-      "$INSTALLER" --prefix "$PREFIX" --skip-deps
+    STATIC_INSTALLER="$ROOT/install-static.sh"
+    STATIC_EXEC="$ROOT/pf-runner-full/pf-static"
+
+    if [ ! -x "$STATIC_INSTALLER" ]; then
+      echo "[ERR] static installer not found at $STATIC_INSTALLER" >&2
+      exit 127
     fi
 
+    if [ ! -x "$STATIC_EXEC" ]; then
+      echo "[install-smoke-test] Building pf-static from current tree..."
+      make -C "$ROOT/pf-runner-full" build-static
+    fi
+
+    echo "[install-smoke-test] Installing pf with $STATIC_INSTALLER"
+    "$STATIC_INSTALLER" --prefix "$PREFIX"
+
     PATH="$PREFIX/bin:$PATH" pf --version
-    PATH="$PREFIX/bin:$PATH" pf list >/dev/null
+    PATH="$PREFIX/bin:$PATH" pf "$ROOT/pf-runner-full/test.pf" list >/dev/null
 
     echo "install-smoke-test passed at $PREFIX"
 end
