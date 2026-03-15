@@ -20,9 +20,20 @@ import pytest
 
 # Get repository root
 REPO_ROOT = Path(__file__).parent.parent.parent.absolute()
-PF_RUNNER_DIR = REPO_ROOT / "pf-runner"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 TOOLS_DIR = REPO_ROOT / "tools"
+
+
+def _detect_runner_dir() -> Path:
+    """Return the active runner directory for this repo layout."""
+    for candidate in ("pf-runner-full", "pf-runner"):
+        candidate_dir = REPO_ROOT / candidate
+        if (candidate_dir / "pf_main.py").exists():
+            return candidate_dir
+    raise FileNotFoundError("Could not find pf_main.py in pf-runner-full/ or pf-runner/")
+
+
+PF_RUNNER_DIR = _detect_runner_dir()
 
 
 def get_pf_tasks():

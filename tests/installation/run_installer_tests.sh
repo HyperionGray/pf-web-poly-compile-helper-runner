@@ -143,8 +143,9 @@ done
 
 if [[ -n "$MISSING_DEPS" ]]; then
     log_warning "Missing dependencies:$MISSING_DEPS"
-    log_info "Install with: pip install$MISSING_DEPS"
-    log_info "Or run with: $0 --install-deps"
+    log_info "Installing missing dependencies..."
+    python3 -m pip install -q $MISSING_DEPS
+    log_success "Installed missing dependencies:$MISSING_DEPS"
 fi
 
 # Run tests
