@@ -291,7 +291,10 @@ end
 
 task install-all-debug-tools
   describe Install all debugging and RE tools (including Snowman)
-  shell echo " Installing all debugging tools..."
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║         INSTALLING ALL DEBUGGING TOOLS                    ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
+  shell echo ""
   shell echo "This may take several minutes..."
   shell echo ""
   shell pf install-oryx
@@ -301,10 +304,23 @@ task install-all-debug-tools
   shell if command -v r2 >/dev/null 2>&1; then echo "radare2 already installed"; else pf install-radare2; fi
   shell pf install-snowman
   shell echo ""
-  shell echo "OK All debugging tools installed!"
+  shell echo "╔════════════════════════════════════════════════════════════╗"
+  shell echo "║         ALL DEBUGGING TOOLS INSTALLED                     ║"
+  shell echo "╚════════════════════════════════════════════════════════════╝"
   shell echo ""
-  shell echo "Note: Ghidra requires manual installation. Run: pf install-ghidra"
-  shell echo "Note: Binary Ninja is commercial software. Run: pf install-binaryninja-info"
+  shell echo "USAGE EXAMPLES:"
+  shell echo "  pf run-oryx binary=/path/to/file      # Explore binary with oryx TUI"
+  shell echo "  pf run-binsider binary=/path/to/file  # Analyze binary with binsider TUI"
+  shell echo "  pf run-snowman binary=/path/to/file   # Decompile binary with Snowman"
+  shell echo "  pf run-rustnet                        # Monitor network traffic"
+  shell echo "  pf run-sysz                           # View systemd units"
+  shell echo ""
+  shell echo "CHECK STATUS:"
+  shell echo "  pf check-debug-tools  # Check which tools are installed"
+  shell echo ""
+  shell echo "ADDITIONAL TOOLS:"
+  shell echo "  pf install-ghidra  # Install Ghidra NSA RE suite (large download)"
+  shell echo "  pf install-binaryninja-info  # Info on Binary Ninja (commercial)"
 end
 
 task check-debug-tools

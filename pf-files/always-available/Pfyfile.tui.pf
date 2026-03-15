@@ -110,7 +110,14 @@ end
 task install-tui-deps
   describe Install TUI dependencies (rich library)
   shell python3 -m pip install --user --break-system-packages rich || pip3 install --user --break-system-packages rich
-  shell echo "TUI dependencies installed"
+  shell echo "[OK] TUI dependencies installed successfully!"
+  shell echo ""
+  shell echo "USAGE:"
+  shell echo "  pf tui  # Launch interactive TUI"
+  shell echo "  pf tui-with-file file=custom.pf  # Launch with specific file"
+  shell echo ""
+  shell echo "TEST:"
+  shell echo "  python3 -c 'import rich; print(rich.__version__)'"
 end
 
 task tui-help
