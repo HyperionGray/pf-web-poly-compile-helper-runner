@@ -63,6 +63,26 @@ check_command() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Test if a package is installed (supports multiple package managers)
+package_installed() {
+    local pkg="$1"
+
+    if command -v dpkg >/dev/null 2>&1; then
+        dpkg -s "$pkg" >/dev/null 2>&1
+    elif command -v rpm >/dev/null 2>&1; then
+        rpm -q "$pkg" >/dev/null 2>&1
+    elif command -v pacman >/dev/null 2>&1; then
+        pacman -Q "$pkg" >/dev/null 2>&1
+    elif command -v apk >/dev/null 2>&1; then
+        apk info -e "$pkg" >/dev/null 2>&1
+    elif command -v zypper >/dev/null 2>&1; then
+        zypper search --installed-only "^${pkg}$" >/dev/null 2>&1
+    else
+        # No known package manager found; treat as not installed
+        return 1
+    fi
+}
+
 # Test an installer task
 test_installer() {
     local task_name="$1"
@@ -81,15 +101,38 @@ test_installer() {
         if [[ -n "$expected_binary" ]]; then
             if check_command "$expected_binary" || [ -x "$TEST_PREFIX/bin/$expected_binary" ]; then
                 log_success "Verified binary: $expected_binary"
-                PASSED_TESTS=$((PASSED_TESTS + 1))
+
+                if [[ -n "$expected_package" ]]; then
+                    if package_installed "$expected_package"; then
+                        log_success "Verified package: $expected_package"
+                        PASSED_TESTS=$((PASSED_TESTS + 1))
+                    else
+                        log_error "Expected package not installed: $expected_package"
+                        FAILED_TESTS=$((FAILED_TESTS + 1))
+                        FAILED_INSTALLERS+=("$task_name (package not installed: $expected_package)")
+                    fi
+                else
+                    PASSED_TESTS=$((PASSED_TESTS + 1))
+                fi
             else
                 log_error "Binary not found: $expected_binary"
                 FAILED_TESTS=$((FAILED_TESTS + 1))
                 FAILED_INSTALLERS+=("$task_name (binary not found: $expected_binary)")
             fi
         else
-            # No specific verification - assume success
-            PASSED_TESTS=$((PASSED_TESTS + 1))
+            if [[ -n "$expected_package" ]]; then
+                if package_installed "$expected_package"; then
+                    log_success "Verified package: $expected_package"
+                    PASSED_TESTS=$((PASSED_TESTS + 1))
+                else
+                    log_error "Expected package not installed: $expected_package"
+                    FAILED_TESTS=$((FAILED_TESTS + 1))
+                    FAILED_INSTALLERS+=("$task_name (package not installed: $expected_package)")
+                fi
+            else
+                # No specific verification - assume success
+                PASSED_TESTS=$((PASSED_TESTS + 1))
+            fi
         fi
     else
         local exit_code=$?
