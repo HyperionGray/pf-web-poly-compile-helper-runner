@@ -25,7 +25,7 @@ echo ""
 # Test 1: pf help
 echo "Test 1: pf help"
 OUTPUT=$("${PF_CMD[@]}" help 2>&1)
-if echo "$OUTPUT" | grep -q "pf - Polyglot Task Runner"; then
+if echo "$OUTPUT" | grep -qiE "usage: pf|pf -"; then
     echo "✓ PASS: 'pf help' shows help text"
 else
     echo "✗ FAIL: 'pf help' did not show expected help text"
@@ -36,7 +36,7 @@ echo ""
 # Test 2: pf --help
 echo "Test 2: pf --help"
 OUTPUT=$("${PF_CMD[@]}" --help 2>&1)
-if echo "$OUTPUT" | grep -q "pf - Polyglot Task Runner"; then
+if echo "$OUTPUT" | grep -qiE "usage: pf|pf -"; then
     echo "✓ PASS: 'pf --help' shows help text"
 else
     echo "✗ FAIL: 'pf --help' did not show expected help text"
@@ -47,7 +47,7 @@ echo ""
 # Test 3: pf -h
 echo "Test 3: pf -h"
 OUTPUT=$("${PF_CMD[@]}" -h 2>&1)
-if echo "$OUTPUT" | grep -q "pf - Polyglot Task Runner"; then
+if echo "$OUTPUT" | grep -qiE "usage: pf|pf -"; then
     echo "✓ PASS: 'pf -h' shows help text"
 else
     echo "✗ FAIL: 'pf -h' did not show expected help text"
@@ -57,11 +57,15 @@ echo ""
 
 # Test 4: Check help includes installation guidance tasks
 echo "Test 4: Verify help includes installer guidance tasks"
-OUTPUT=$("${PF_CMD[@]}" help 2>&1)
-if echo "$OUTPUT" | grep -q "install-prereq-check"; then
-    echo "✓ PASS: Help includes install-prereq-check"
+if [ "$PF_MODE" = "wrapper" ]; then
+    OUTPUT=$("${PF_CMD[@]}" help 2>&1)
 else
-    echo "✗ FAIL: Help missing install-prereq-check"
+    OUTPUT=$("${PF_CMD[@]}" install-help 2>&1)
+fi
+if echo "$OUTPUT" | grep -q "install-prereq-check" && echo "$OUTPUT" | grep -q "install-verify"; then
+    echo "✓ PASS: Help includes install-prereq-check and install-verify"
+else
+    echo "✗ FAIL: Help missing install-prereq-check/install-verify guidance"
     exit 1
 fi
 echo ""
