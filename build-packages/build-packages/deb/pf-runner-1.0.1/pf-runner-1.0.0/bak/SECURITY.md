@@ -1,1 +1,0 @@
-docs/security/SECURITY.md
