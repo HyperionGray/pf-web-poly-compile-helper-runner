@@ -87,33 +87,16 @@ sudo apt-get install -f
 
 ---
 
-### 3. Static Executable (install-static.sh)
+### 3. Lightweight Source Install (install-static.sh)
 
-The simplest method - just copy a pre-built static executable.
+This installer performs a lightweight source install from `pf-runner-full/` and
+creates a `pf` wrapper script. No build step is required.
 
 **Requirements:**
-- Linux x86_64 system
-- No Python or build tools needed!
+- Python 3
+- pip (only needed if dependencies are missing)
 
-**Build the static executable (one time):**
-
-```bash
-cd pf-runner
-# Install PyInstaller if needed
-pip install --user pyinstaller "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12"
-# Build
-make build
-```
-
-Or build manually:
-
-```bash
-cd pf-runner
-python3 -m PyInstaller --onefile pf_main.py
-cp dist/pf_main pf-static
-```
-
-**Install the static executable:**
+**Install with install-static.sh:**
 
 ```bash
 # System-wide install (requires sudo)
@@ -121,29 +104,35 @@ sudo ./install-static.sh
 
 # User install (no sudo required)
 ./install-static.sh --prefix ~/.local
+
+# Install and run verification checks
+./install-static.sh --prefix ~/.local --verify
+
+# Verify an existing install (no changes)
+./install-static.sh --prefix ~/.local --verify-only
 ```
 
 **What it does:**
-- Copies the pre-built static pf executable to your bin directory
-- No dependencies, no compilation, just copy!
+- Copies Python sources from `pf-runner-full/` into `<prefix>/lib/pf-runner`
+- Creates `<prefix>/bin/pf` wrapper
+- Optionally validates the install and dependency health with `--verify`
+- Does not auto-install Python dependencies by default
 
 **Pros:**
 - Simplest installation
-- No runtime dependencies
 - Fast installation
-- Single 16MB executable
+- No build tooling required
 
 **Cons:**
-- Requires pre-building the executable
-- Larger file size (~16MB)
-- Linux x86_64 only
+- Python dependencies (lark/fabric/typer) must be present
+- Not a fully isolated package install like `.deb`
 
 ---
 
 ## Which Method Should I Use?
 
 - **Use .deb Package** (Recommended) if you're on Ubuntu/Debian and want system package manager integration and automatic updates
-- **Use Static Executable** (Recommended) if you want the simplest installation with no dependencies on non-Debian systems
+- **Use Lightweight Source Install** (`install-static.sh`) if you want a quick install from repo sources without package tooling
 - **Use Native Install** if you're developing pf-runner or need a customizable installation
 
 ## Verification
@@ -206,11 +195,16 @@ source ~/.bashrc
 
 Upgrade to Python 3.8 or higher, or use the static executable method.
 
-### "PyInstaller not found"
+### "Could not import pf_main" or dependency import errors
 
-Install it:
+Install required Python modules:
 ```bash
-pip install --user pyinstaller
+python3 -m pip install --user "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12"
+```
+
+Then re-run installer verification:
+```bash
+./install-static.sh --prefix ~/.local --verify-only
 ```
 
 ---

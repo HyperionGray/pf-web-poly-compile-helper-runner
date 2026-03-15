@@ -42,6 +42,10 @@ playwright-report/
 *-test-report.json
 test-report.json
 *.test-report.json
+.enhanced_target_info.json
+.smart_target_info.json
+fuzz_results.json
+crash_analysis.json
 
 # CodeQL artifacts
 _codeql_*

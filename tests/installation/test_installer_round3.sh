@@ -136,14 +136,14 @@ if "$REPO_ROOT/install.sh" --prefix "$NATIVE_PREFIX" --skip-deps >/dev/null 2>&1
     fi
     
     # Test task listing
-    if cd "$REPO_ROOT/pf-runner" && "$NATIVE_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
+    if cd "$REPO_ROOT/pf-runner-full" && "$NATIVE_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
         log_success "pf list works"
     else
         log_error "pf list failed"
     fi
     
     # Test task execution
-    if cd "$REPO_ROOT/pf-runner" && "$NATIVE_PREFIX/bin/pf" test.pf hello >/dev/null 2>&1; then
+    if cd "$REPO_ROOT/pf-runner-full" && "$NATIVE_PREFIX/bin/pf" test.pf hello >/dev/null 2>&1; then
         log_success "pf task execution works"
     else
         log_error "pf task execution failed"
@@ -159,41 +159,41 @@ echo ""
 # ============================================================================
 log_test "Test 3: Static installation (install-static.sh)"
 
-# Check if static executable exists
-STATIC_EXE="$REPO_ROOT/pf-runner/pf-static"
-if [[ ! -f "$STATIC_EXE" ]]; then
-    log_info "Static executable not built, skipping static installation test"
-    log_info "Build with: cd pf-runner && make build"
-else
-    STATIC_PREFIX="$TEST_DIR/static-install"
-    log_info "Installing to: $STATIC_PREFIX"
-    
-    if "$REPO_ROOT/install-static.sh" --prefix "$STATIC_PREFIX" >/dev/null 2>&1; then
-        log_success "Static installation completed"
-        
-        # Verify installation
-        if [[ -x "$STATIC_PREFIX/bin/pf" ]]; then
-            log_success "pf static executable installed"
-        else
-            log_error "pf static executable not found"
-        fi
-        
-        # Test static executable
-        if "$STATIC_PREFIX/bin/pf" -V >/dev/null 2>&1; then
-            log_success "Static pf -V works"
-        else
-            log_error "Static pf -V failed"
-        fi
-        
-        # Test task listing
-        if cd "$REPO_ROOT/pf-runner" && "$STATIC_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
-            log_success "Static pf list works"
-        else
-            log_error "Static pf list failed"
-        fi
+STATIC_PREFIX="$TEST_DIR/static-install"
+log_info "Installing to: $STATIC_PREFIX"
+
+if "$REPO_ROOT/install-static.sh" --prefix "$STATIC_PREFIX" >/dev/null 2>&1; then
+    log_success "Static installation completed"
+
+    # Verify installation
+    if [[ -x "$STATIC_PREFIX/bin/pf" ]]; then
+        log_success "pf executable installed"
     else
-        log_error "Static installation failed"
+        log_error "pf executable not found"
     fi
+
+    # Test executable
+    if "$STATIC_PREFIX/bin/pf" -V >/dev/null 2>&1; then
+        log_success "Static pf -V works"
+    else
+        log_error "Static pf -V failed"
+    fi
+
+    # Test task listing
+    if cd "$REPO_ROOT/pf-runner-full" && "$STATIC_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
+        log_success "Static pf list works"
+    else
+        log_error "Static pf list failed"
+    fi
+
+    # Verify diagnostic mode
+    if "$REPO_ROOT/install-static.sh" --prefix "$STATIC_PREFIX" --verify-only >/dev/null 2>&1; then
+        log_success "install-static.sh --verify-only works"
+    else
+        log_error "install-static.sh --verify-only failed"
+    fi
+else
+    log_error "Static installation failed"
 fi
 
 echo ""
@@ -302,7 +302,7 @@ if [[ $TESTS_FAILED -eq 0 ]]; then
     echo ""
     echo "Installation methods validated:"
     echo "  ✓ install.sh (native installation)"
-    echo "  ✓ install-static.sh (static executable)"
+    echo "  ✓ install-static.sh (lightweight source install)"
     echo ""
     echo "Bashisms validated:"
     echo "  ✓ Heredocs"

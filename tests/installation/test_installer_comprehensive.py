@@ -21,7 +21,21 @@ import pytest
 
 # Get repository root
 REPO_ROOT = Path(__file__).parent.parent.parent.absolute()
-PF_RUNNER_DIR = REPO_ROOT / "pf-runner"
+
+
+def _resolve_pf_runner_dir():
+    """Prefer canonical runner directory, with fallback for older layouts."""
+    candidates = [
+        REPO_ROOT / "pf-runner-full",
+        REPO_ROOT / "pf-runner",
+    ]
+    for candidate in candidates:
+        if (candidate / "pf_main.py").exists():
+            return candidate
+    raise FileNotFoundError("Could not locate pf_main.py in pf-runner directories")
+
+
+PF_RUNNER_DIR = _resolve_pf_runner_dir()
 
 
 class InstallerTest:
@@ -125,16 +139,11 @@ class TestNativeInstall:
 
 @pytest.mark.integration
 class TestStaticInstall:
-    """Test static executable installation method (install-static.sh)"""
+    """Test lightweight source installation method (install-static.sh)"""
     
     @pytest.fixture(scope="class")
     def test_environment(self):
         """Set up test environment"""
-        # First check if static executable exists
-        static_exe = PF_RUNNER_DIR / "pf-static"
-        if not static_exe.exists():
-            pytest.skip("Static executable not built (pf-static not found)")
-        
         test_dir = tempfile.mkdtemp(prefix="pf-test-static-")
         install_prefix = Path(test_dir) / "install"
         
@@ -167,6 +176,17 @@ class TestStaticInstall:
         
         # Store for other tests
         test_environment["pf_executable"] = pf_path
+
+    def test_static_verify_only(self, test_environment):
+        """Test installer verification-only mode"""
+        install_prefix = test_environment["install_prefix"]
+        result = subprocess.run(
+            [str(REPO_ROOT / "install-static.sh"), "--prefix", str(install_prefix), "--verify-only"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True
+        )
+        assert result.returncode == 0, f"Verification failed: {result.stderr}"
     
     def test_static_version(self, test_environment):
         """Test version command works"""
@@ -236,51 +256,6 @@ class TestDirectExecution:
         )
         assert result.returncode == 0, f"Parameter passing failed: {result.stderr}"
         assert "DirectTest" in result.stdout, "Parameter not passed correctly"
-
-
-@pytest.mark.integration  
-class TestStaticExecutable:
-    """Test static executable directly (if it exists)"""
-    
-    @pytest.fixture(scope="class")
-    def static_exe(self):
-        """Get static executable path"""
-        static_path = PF_RUNNER_DIR / "pf-static"
-        if not static_path.exists():
-            pytest.skip("Static executable not built")
-        return static_path
-    
-    def test_static_exe_version(self, static_exe):
-        """Test that pf-static -V works"""
-        result = subprocess.run(
-            [str(static_exe), "-V"],
-            cwd=PF_RUNNER_DIR,
-            capture_output=True,
-            text=True
-        )
-        assert result.returncode == 0, f"Static executable failed: {result.stderr}"
-        assert "pf" in result.stdout.lower(), "Version output doesn't contain 'pf'"
-    
-    def test_static_exe_list(self, static_exe):
-        """Test that pf-static can list tasks"""
-        result = subprocess.run(
-            [str(static_exe), "test.pf", "list"],
-            cwd=PF_RUNNER_DIR,
-            capture_output=True,
-            text=True
-        )
-        assert result.returncode == 0, f"List command failed: {result.stderr}"
-        assert "hello" in result.stdout.lower(), "hello task not found"
-    
-    def test_static_exe_run_task(self, static_exe):
-        """Test that pf-static can run tasks"""
-        result = subprocess.run(
-            [str(static_exe), "test.pf", "hello"],
-            cwd=PF_RUNNER_DIR,
-            capture_output=True,
-            text=True
-        )
-        assert result.returncode == 0, f"Task execution failed: {result.stderr}"
 
 
 if __name__ == "__main__":

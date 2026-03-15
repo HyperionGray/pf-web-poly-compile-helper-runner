@@ -20,19 +20,20 @@ import pytest
 
 # Get repository root
 REPO_ROOT = Path(__file__).parent.parent.parent.absolute()
-PF_RUNNER_DIR = REPO_ROOT / "pf-runner"
+PF_RUNNER_DIR = REPO_ROOT / "pf-runner-full"
+PF_FILE = REPO_ROOT / "pf-files" / "Pfyfile.pf"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 TOOLS_DIR = REPO_ROOT / "tools"
 
 
 def get_pf_tasks():
     """Get list of all available pf tasks"""
-    pf_static = PF_RUNNER_DIR / "pf-static"
-    if not pf_static.exists():
-        pytest.skip("pf-static not built")
+    pf_main = PF_RUNNER_DIR / "pf_main.py"
+    if not pf_main.exists():
+        pytest.skip("pf_main.py not available in pf-runner-full")
     
     result = subprocess.run(
-        [str(pf_static), "list"],
+        ["python3", str(pf_main), "-f", str(PF_FILE), "list"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True
