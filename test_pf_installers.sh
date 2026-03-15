@@ -60,7 +60,7 @@ log_test() {
 
 # Test if a command/binary exists
 check_command() {
-    command -v "$1" >/dev/null 2>&1
+    command -v "$1" >/dev/null 2>&1 || [ -x "$HOME/.local/bin/$1" ]
 }
 
 # Test an installer task
