@@ -58,6 +58,10 @@ build/
 # Debian package build artifacts
 debian/build/
 build-packages/
+build-packages/build-packages/
+
+# Stale archived duplicate snapshots
+third-party/archive/src-duplicate-*/
 
 # Container artifacts (don't commit built images or runtime data)
 # Note: Dockerfiles and quadlet configs ARE committed

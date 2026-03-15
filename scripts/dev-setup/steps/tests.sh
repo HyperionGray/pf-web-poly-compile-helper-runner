@@ -1,19 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-dev_setup_cleanup_generated_files() {
-  rm -f .coverage coverage.xml
-  rm -rf htmlcov
-
-  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    git restore --quiet \
-      pf-runner-full/pf_runner.egg-info/PKG-INFO \
-      pf-runner-full/pf_runner.egg-info/SOURCES.txt \
-      pf-runner-full/pf_runner.egg-info/requires.txt \
-      >/dev/null 2>&1 || true
-  fi
-}
-
 dev_setup_run_initial_tests() {
   log_info "Running initial smoke tests..."
 

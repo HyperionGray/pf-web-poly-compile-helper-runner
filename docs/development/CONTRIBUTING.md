@@ -60,12 +60,28 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
    editable `pf-runner-full` package plus Python test dependencies, installs
    Node.js dependencies, and downloads Playwright browsers.
 
+   Useful setup options:
+   ```bash
+   ./setup_dev_environment.sh --skip-node          # Python-only bootstrap
+   ./setup_dev_environment.sh --skip-playwright    # Skip browser downloads
+   ./setup_dev_environment.sh --skip-tests         # Skip smoke tests
+   ./setup_dev_environment.sh --venv /tmp/pf-venv  # Custom venv path
+   ./setup_dev_environment.sh --help               # Show full option list
+   ```
+
 6. **Verify your setup**:
    ```bash
    source .venv-dev/bin/activate
    pf --version
    pf --help
    ```
+
+7. **Optional repository hygiene cleanup**:
+   ```bash
+   ./setup_dev_environment.sh --cleanup-only --deep-clean
+   ```
+   Use this mode when you only want to clean generated artifacts and remove
+   known stale nested duplicate directories.
 
 ## How to Contribute
 

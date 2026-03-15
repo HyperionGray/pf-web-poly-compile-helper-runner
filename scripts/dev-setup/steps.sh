@@ -13,6 +13,8 @@ source "${DEV_SETUP_DIR}/steps/node.sh"
 source "${DEV_SETUP_DIR}/steps/git.sh"
 # shellcheck source=steps/configs.sh
 source "${DEV_SETUP_DIR}/steps/configs.sh"
+# shellcheck source=steps/cleanup.sh
+source "${DEV_SETUP_DIR}/steps/cleanup.sh"
 # shellcheck source=steps/tests.sh
 source "${DEV_SETUP_DIR}/steps/tests.sh"
 # shellcheck source=steps/summary.sh
