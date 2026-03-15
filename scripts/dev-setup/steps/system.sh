@@ -2,6 +2,7 @@
 set -euo pipefail
 
 dev_setup_check_system_requirements() {
+  local skip_node="${1:-false}"
   log_info "Checking system requirements..."
 
   local missing=()
@@ -12,16 +13,30 @@ dev_setup_check_system_requirements() {
     missing+=("python3")
   fi
 
-  if command_exists node; then
-    log_success "Node.js $(node --version) found"
-  else
-    missing+=("node")
-  fi
+  if [[ "${skip_node}" == "true" ]]; then
+    if command_exists node; then
+      log_info "Node.js $(node --version) found (optional in --skip-node mode)"
+    else
+      log_info "Node.js check skipped (--skip-node)"
+    fi
 
-  if command_exists npm; then
-    log_success "npm $(npm --version) found"
+    if command_exists npm; then
+      log_info "npm $(npm --version) found (optional in --skip-node mode)"
+    else
+      log_info "npm check skipped (--skip-node)"
+    fi
   else
-    missing+=("npm")
+    if command_exists node; then
+      log_success "Node.js $(node --version) found"
+    else
+      missing+=("node")
+    fi
+
+    if command_exists npm; then
+      log_success "npm $(npm --version) found"
+    else
+      missing+=("npm")
+    fi
   fi
 
   if command_exists git; then

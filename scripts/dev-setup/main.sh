@@ -13,6 +13,8 @@ source "${DEV_SETUP_DIR}/steps.sh"
 
 DEV_SETUP_SKIP_PLAYWRIGHT="false"
 DEV_SETUP_SKIP_TESTS="false"
+DEV_SETUP_SKIP_NODE="false"
+DEV_SETUP_CHECK_ONLY="false"
 
 dev_setup_parse_args() {
   while [[ $# -gt 0 ]]; do
@@ -26,9 +28,23 @@ dev_setup_parse_args() {
         DEV_SETUP_SKIP_PLAYWRIGHT="true"
         shift
         ;;
+      --skip-node)
+        DEV_SETUP_SKIP_NODE="true"
+        DEV_SETUP_SKIP_PLAYWRIGHT="true"
+        shift
+        ;;
       --skip-tests)
         DEV_SETUP_SKIP_TESTS="true"
         shift
+        ;;
+      --check-only)
+        DEV_SETUP_CHECK_ONLY="true"
+        DEV_SETUP_SKIP_TESTS="true"
+        shift
+        ;;
+      --help|-h)
+        dev_setup_print_usage
+        exit 0
         ;;
       *)
         die "Unknown option: $1"
@@ -44,11 +60,23 @@ dev_setup_main() {
 
   dev_setup_print_header
 
-  dev_setup_check_system_requirements
+  dev_setup_check_system_requirements "${DEV_SETUP_SKIP_NODE}"
+  if [[ "${DEV_SETUP_CHECK_ONLY}" == "true" ]]; then
+    log_success "Preflight checks passed (--check-only). No changes were made."
+    return 0
+  fi
+
   dev_setup_install_python_dependencies
-  dev_setup_install_node_dependencies
-  if [[ "${DEV_SETUP_SKIP_PLAYWRIGHT}" != "true" ]]; then
+  if [[ "${DEV_SETUP_SKIP_NODE}" != "true" ]]; then
+    dev_setup_install_node_dependencies
+  else
+    log_info "Skipping Node.js dependency installation (--skip-node)"
+  fi
+
+  if [[ "${DEV_SETUP_SKIP_PLAYWRIGHT}" != "true" ]] && [[ "${DEV_SETUP_SKIP_NODE}" != "true" ]]; then
     dev_setup_install_playwright_browsers
+  elif [[ "${DEV_SETUP_SKIP_PLAYWRIGHT}" == "true" ]]; then
+    log_info "Skipping Playwright browser installation (--skip-playwright)"
   fi
   dev_setup_setup_git_hooks
   dev_setup_create_dev_configs

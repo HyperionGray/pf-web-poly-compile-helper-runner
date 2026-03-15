@@ -60,6 +60,15 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
    editable `pf-runner-full` package plus Python test dependencies, installs
    Node.js dependencies, and downloads Playwright browsers.
 
+   Useful setup modes:
+   ```bash
+   # Verify prerequisites only (no installs or file changes)
+   ./setup_dev_environment.sh --check-only
+
+   # Python-only setup for CLI/parser work
+   ./setup_dev_environment.sh --skip-node --skip-tests
+   ```
+
 6. **Verify your setup**:
    ```bash
    source .venv-dev/bin/activate

@@ -36,7 +36,9 @@ dev_setup_run_initial_tests() {
     log_info "No Python tests detected; skipping"
   fi
 
-  if [[ -f "package.json" ]]; then
+  if [[ "${DEV_SETUP_SKIP_NODE:-false}" == "true" ]]; then
+    log_info "Skipping Node.js unit tests (--skip-node)"
+  elif [[ -f "package.json" ]]; then
     npm run test:unit --silent || log_warning "Node.js unit tests failed (non-critical)"
   fi
 }
