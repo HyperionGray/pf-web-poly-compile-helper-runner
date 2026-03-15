@@ -30,6 +30,26 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
+show_help() {
+    cat << EOF
+pf-runner quick installer
+
+USAGE:
+  ./quick-install.sh [INSTALLER_OPTIONS]
+
+DESCRIPTION:
+  Automatically selects and runs a suitable installer workflow.
+  Any provided options are forwarded to install.sh.
+
+EXAMPLES:
+  ./quick-install.sh
+  ./quick-install.sh --prefix ~/.local
+  ./quick-install.sh --skip-deps
+  ./quick-install.sh --help
+
+EOF
+}
+
 # Detect OS
 detect_os() {
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -54,8 +74,31 @@ in_repo() {
     [[ -f "scripts/install.sh" ]] && [[ -d "pf-runner" ]]
 }
 
+has_prefix_arg() {
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            --prefix|--prefix=*)
+                return 0
+                ;;
+        esac
+    done
+    return 1
+}
+
 # Main installation logic
 main() {
+    local install_args=("$@")
+
+    for arg in "${install_args[@]}"; do
+        case "$arg" in
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+        esac
+    done
+
     log_info "🚀 pf-runner One-Command Installer"
     echo ""
     
@@ -85,9 +128,13 @@ main() {
             # Use the standard native installer
             log_info "Using standard installer"
             if [[ $EUID -eq 0 ]]; then
-                ./install.sh
+                ./install.sh "${install_args[@]}"
             else
-                ./install.sh --prefix ~/.local
+                if has_prefix_arg "${install_args[@]}"; then
+                    ./install.sh "${install_args[@]}"
+                else
+                    ./install.sh --prefix ~/.local "${install_args[@]}"
+                fi
             fi
         fi
     else
@@ -112,9 +159,13 @@ main() {
         # Run the installer based on available tools
         log_info "Running native installer"
         if [[ $EUID -eq 0 ]]; then
-            ./install.sh
+            ./install.sh "${install_args[@]}"
         else
-            ./install.sh --prefix ~/.local
+            if has_prefix_arg "${install_args[@]}"; then
+                ./install.sh "${install_args[@]}"
+            else
+                ./install.sh --prefix ~/.local "${install_args[@]}"
+            fi
         fi
         
         log_info "Cleaning up temporary directory"
