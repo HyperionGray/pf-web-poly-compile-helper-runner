@@ -4,7 +4,14 @@ set -euo pipefail
 dev_setup_cleanup_generated_files() {
   log_info "Cleaning generated development artifacts..."
 
-  rm -f .coverage .coverage.* coverage.xml test-report.json tui-test-report.json
+  rm -f .coverage .coverage.* coverage.xml
+  local report_file=""
+  for report_file in test-report.json tui-test-report.json; do
+    if git ls-files --error-unmatch "${report_file}" >/dev/null 2>&1; then
+      continue
+    fi
+    rm -f "${report_file}"
+  done
   rm -rf htmlcov .pytest_cache
 
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
