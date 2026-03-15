@@ -11,7 +11,8 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-REPO_ROOT="/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$SCRIPT_DIR"
 TEST_DIR="/tmp/installer-tests"
 
 log_info() {
@@ -86,7 +87,7 @@ echo ""
 #
 log_test "Test 2: Install-static.sh (custom prefix)"
 cd "$REPO_ROOT"
-./install-static.sh --prefix "$TEST_DIR/static-install" >/dev/null 2>&1
+./install-static.sh --prefix "$TEST_DIR/static-install" --self-test >/dev/null 2>&1
 test_pf_executable "Static install" "$TEST_DIR/static-install/bin/pf"
 echo ""
 
@@ -100,18 +101,9 @@ log_info "See: sudo dpkg -i build-packages/deb/pf-runner_latest.deb"
 echo ""
 
 #
-# Test 4: Static install with custom prefix
+# Test 4: Makefile install-local
 #
-log_test "Test 4: Static install (custom prefix)"
-cd "$REPO_ROOT"
-./install-static.sh --prefix "$TEST_DIR/static-install" >/dev/null 2>&1
-test_pf_executable "Static install" "$TEST_DIR/static-install/bin/pf"
-echo ""
-
-#
-# Test 5: Makefile install-local
-#
-log_test "Test 5: Makefile install-local"
+log_test "Test 4: Makefile install-local"
 # Verify the symlinks were created earlier
 if [ -L "$HOME/.local/bin/pf" ]; then
     log_success "Makefile install-local created symlink"
@@ -121,9 +113,9 @@ fi
 echo ""
 
 #
-# Test 6: Shell completions
+# Test 5: Shell completions
 #
-log_test "Test 6: Shell completions"
+log_test "Test 5: Shell completions"
 if [ -f "/etc/bash_completion.d/pf" ]; then
     log_success "Bash completion installed"
 else
@@ -138,9 +130,9 @@ fi
 echo ""
 
 #
-# Test 7: Debian package structure
+# Test 6: Debian package structure
 #
-log_test "Test 7: Debian package"
+log_test "Test 6: Debian package"
 DEB_FILE="$REPO_ROOT/debian/build/pf-runner_1.0.0.deb"
 if [ -f "$DEB_FILE" ]; then
     log_success "Debian package exists"

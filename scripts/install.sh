@@ -8,7 +8,8 @@ set -euo pipefail
 DEFAULT_PREFIX_NATIVE="/usr/local"
 DEFAULT_PREFIX_USER="${HOME:-/usr/local}/.local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PF_RUNNER_DIR="${SCRIPT_DIR}/pf-runner"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PF_RUNNER_DIR="${REPO_ROOT}/pf-runner"
 
 # Colors for output
 RED='\033[0;31m'
@@ -435,7 +436,7 @@ main() {
         echo "  1. Restart your shell or run: source ~/.bashrc"
         echo "  2. Try: pf --version"
         echo "  3. Try: pf list"
-        echo "  4. Read the documentation: cat docs/README.md"
+        echo "  4. Read the documentation: cat ${REPO_ROOT}/docs/README.md"
         echo ""
         log_success "Happy task running! 🚀"
     else

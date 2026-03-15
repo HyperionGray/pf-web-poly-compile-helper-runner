@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install-static.sh - Install pf-runner (Python-based, no build required)
+# install-static.sh - Install pf-runner source runtime (no build required)
 # Usage: ./install-static.sh [--prefix PATH]
 
 set -euo pipefail
@@ -8,7 +8,7 @@ set -euo pipefail
 DEFAULT_PREFIX="/usr/local"
 DEFAULT_PREFIX_USER="${HOME}/.local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATIC_EXEC="${SCRIPT_DIR}/pf-runner-full/pf-static"
+PF_RUNNER_FULL_DIR="${SCRIPT_DIR}/pf-runner-full"
 
 # Colors
 GREEN='\033[0;32m'
@@ -21,6 +21,7 @@ NC='\033[0m'
 PREFIX=""
 PREFIX_SET=false
 SHOW_HELP=false
+SELF_TEST=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -36,6 +37,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --help|-h)
             SHOW_HELP=true
+            shift
+            ;;
+        --self-test)
+            SELF_TEST=true
             shift
             ;;
         *)
@@ -55,6 +60,7 @@ USAGE:
 
 OPTIONS:
     --prefix PATH     Install prefix (default: /usr/local or ~/.local)
+    --self-test       Run post-install smoke tests (pf -V, pf --help, pf list)
     --help, -h        Show this help message
 
 EXAMPLES:
@@ -66,9 +72,9 @@ EXAMPLES:
 
 WHAT THIS DOES:
     Installs pf-runner from source without requiring any build step.
-    Copies the pf-runner-full directory and creates a wrapper script.
-    No Python dependencies are installed - you need to install them separately
-    or use the Makefile in pf-runner-full.
+    Copies runtime files from pf-runner-full and creates a wrapper script.
+    No Python dependencies are installed - you need to install them separately.
+    Use --self-test to validate the install immediately after deployment.
 
 EOF
 }
@@ -113,13 +119,23 @@ if [[ "$PREFIX" == "/usr/local" ]] || [[ "$PREFIX" == "/usr"* ]]; then
     fi
 fi
 
-# Check if static executable exists
-if [[ ! -f "$STATIC_EXEC" ]]; then
-    log_error "Static executable not found at $STATIC_EXEC"
-    log_info "Please build it first by running:"
-    log_info "  cd pf-runner-full && make build-static"
-    log_info ""
-    log_info "This will create a standalone executable using PyInstaller."
+# Check if source runtime exists
+if [[ ! -d "$PF_RUNNER_FULL_DIR" ]]; then
+    log_error "pf-runner-full directory not found at $PF_RUNNER_FULL_DIR"
+    log_info "Please run this script from the repository root directory."
+    exit 1
+fi
+
+# Required source files
+for required_file in pf_main.py pf.lark; do
+    if [[ ! -f "$PF_RUNNER_FULL_DIR/$required_file" ]]; then
+        log_error "Required source file not found: $PF_RUNNER_FULL_DIR/$required_file"
+        exit 1
+    fi
+done
+
+if [[ ! -d "$PF_RUNNER_FULL_DIR/pf-files" ]]; then
+    log_error "Required task directory not found: $PF_RUNNER_FULL_DIR/pf-files"
     exit 1
 fi
 
@@ -144,11 +160,10 @@ if ! cp -r "$PF_RUNNER_FULL_DIR"/*.py "$LIB_DIR/" 2>/dev/null; then
 fi
 
 # Copy grammar file (required)
-if [[ ! -f "$PF_RUNNER_FULL_DIR/pf.lark" ]]; then
-    log_error "Required file pf.lark not found in $PF_RUNNER_FULL_DIR"
-    exit 1
-fi
 cp "$PF_RUNNER_FULL_DIR/pf.lark" "$LIB_DIR/"
+
+# Copy default task files (required for pf list/help discovery)
+cp -r "$PF_RUNNER_FULL_DIR/pf-files" "$LIB_DIR/"
 
 # Copy egg-info if it exists (optional)
 if [[ -d "$PF_RUNNER_FULL_DIR/pf_runner.egg-info" ]]; then
@@ -160,7 +175,6 @@ cat > "${BIN_DIR}/pf" << 'EOF'
 #!/usr/bin/env python3
 # pf - Wrapper for pf-runner
 import sys
-import os
 from pathlib import Path
 
 # Add library directory to path
@@ -183,8 +197,44 @@ except ImportError as e:
 EOF
 chmod +x "${BIN_DIR}/pf"
 
+run_self_test() {
+    local pf_cmd="${BIN_DIR}/pf"
+    local test_dir
+
+    log_info "Running post-install self-test..."
+
+    if ! "$pf_cmd" -V >/dev/null 2>&1; then
+        log_error "Self-test failed: pf -V"
+        return 1
+    fi
+
+    if ! "$pf_cmd" --help >/dev/null 2>&1; then
+        log_error "Self-test failed: pf --help"
+        return 1
+    fi
+
+    test_dir="$(mktemp -d)"
+    if ! (cd "$test_dir" && "$pf_cmd" list >/dev/null 2>&1); then
+        rm -rf "$test_dir"
+        log_error "Self-test failed: pf list"
+        return 1
+    fi
+    rm -rf "$test_dir"
+
+    log_success "Self-test passed (pf -V, pf --help, pf list)"
+}
+
 log_success "pf-runner installed to ${LIB_DIR}"
 log_success "pf executable installed to ${BIN_DIR}/pf"
+
+if [[ "$SELF_TEST" == true ]]; then
+    if ! run_self_test; then
+        log_error "Installation completed, but self-test failed."
+        log_info "Install dependencies manually if needed:"
+        log_info "  pip install 'lark>=1.1.0' 'fabric>=3.2,<4' 'typer>=0.12'"
+        exit 1
+    fi
+fi
 
 # Check if in PATH
 if [[ ":$PATH:" != *":${BIN_DIR}:"* ]]; then
