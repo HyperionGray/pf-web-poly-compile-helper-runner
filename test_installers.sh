@@ -67,8 +67,8 @@ run_pf_smoke() {
         return 1
     fi
 
-    if ! "${pf_cmd[@]}" "$TEST_PF_FILE" hello >/dev/null 2>&1; then
-        log_error "${mode}: hello task failed"
+    if ! "${pf_cmd[@]}" "$TEST_PF_FILE" smoke >/dev/null 2>&1; then
+        log_error "${mode}: smoke task failed"
         return 1
     fi
 
