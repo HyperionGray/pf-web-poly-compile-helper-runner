@@ -148,7 +148,8 @@ distclean: clean
 
 build-static: setup-venv
 	@echo "Building static executable with PyInstaller..."
-	@$(PIP) install pyinstaller >/dev/null 2>&1
+	@echo "Installing PyInstaller into $(VENV_DIR)..."
+	@$(PIP) install pyinstaller
 	@$(REPO_VENV) -m PyInstaller --onefile --name pf-static pf_main.py
 	@if [ -f dist/pf-static ]; then \
 		mv dist/pf-static .; \

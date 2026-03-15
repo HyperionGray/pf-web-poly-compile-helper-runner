@@ -27,6 +27,22 @@ task category-installation-help
   shell echo "  pf install-snowman           # Install Snowman decompiler"
   shell echo ""
   shell echo "System Setup:"
+  shell echo "  pf install                   # Install pf-runner to /usr/local or a chosen prefix"
+  shell echo "  pf install prefix=~/.local   # Install pf-runner without sudo"
+  shell echo "  pf install-help              # Show core installer usage and quick choices"
+  shell echo "  pf install-smoke-test        # Run the minimal installer verification flow"
+  shell echo ""
+  shell echo "Services & Integration:"
+  shell echo "  pf rest-install              # Install the REST API systemd service"
+  shell echo "  pf quadlet-install           # Install quadlet files for Podman/systemd"
+  shell echo "  pf install-tui-deps          # Install TUI dependencies (rich)"
+  shell echo ""
+  shell echo "Module Shortcuts:"
+  shell echo "  pf module-install-help       # Show grouped installer entrypoints"
+  shell echo "  pf install-module-core       # Install pf-runner to ~/.local by default"
+  shell echo "  pf install-module-debug      # Install the debugging / RE toolchain"
+  shell echo "  pf install-module-exploit    # Install exploit development tooling"
+  shell echo "  pf install-module-rest       # Install the REST API service unit"
 end
 
 # Module-oriented install entrypoints (improves discoverability)

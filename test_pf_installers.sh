@@ -114,14 +114,29 @@ test_installer() {
 # Test installer help messages
 test_help_output() {
     local task_name="$1"
-    
+    local output_file="/tmp/help_${task_name}.log"
+
     log_test "Testing help: $task_name"
-    
-    if python3 "$PF_DIR/pf_main.py" -f "$PF_FILE" "$task_name" 2>&1 | grep -qiE 'usage|help|instruction|example|test commands|test:'; then
+
+    if ! python3 "$PF_DIR/pf_main.py" -f "$PF_FILE" "$task_name" >"$output_file" 2>&1; then
+        log_error "Help command failed: $task_name"
+        sed -n '1,20p' "$output_file" | sed 's/^/    /'
+        return 1
+    fi
+
+    if grep -qiE 'usage|help|instruction|example|test commands|test:' "$output_file"; then
+        if [[ "$task_name" == "category-installation-help" ]]; then
+            if ! grep -q "pf install-module-core" "$output_file" || ! grep -q "pf quadlet-install" "$output_file"; then
+                log_error "Installation help looks truncated: $task_name"
+                sed -n '1,40p' "$output_file" | sed 's/^/    /'
+                return 1
+            fi
+        fi
         log_success "Help output present: $task_name"
         return 0
     else
         log_error "Help output missing: $task_name"
+        sed -n '1,20p' "$output_file" | sed 's/^/    /'
         return 1
     fi
 }
