@@ -443,6 +443,8 @@ class UnifiedReportGenerator:
     
     def _create_exploit_template(self, opportunity: Dict) -> str:
         """Create exploit template for an opportunity"""
+        techniques = opportunity.get('techniques', [])
+        techniques_literal = json.dumps(techniques, indent=2)
         template = f"""#!/usr/bin/env python3
 \"\"\"
 Exploit Template for {opportunity['target']}
@@ -456,18 +458,62 @@ import struct
 # Target information
 TARGET = "{opportunity['target']}"
 EXPLOIT_TYPE = "{opportunity['type']}"
+SUGGESTED_TECHNIQUES = {techniques_literal}
+
+def build_candidate_payloads():
+    \"\"\"Generate starter payload ideas from suggested techniques.\"\"\"
+    payloads = []
+
+    if "stack_overflow" in SUGGESTED_TECHNIQUES or "rop_chain" in SUGGESTED_TECHNIQUES:
+        payloads.append({{
+            "name": "stack_overflow_probe",
+            "payload": b"A" * 120 + struct.pack("<Q", 0x4141414141414141),
+            "notes": "Adjust offset and return address using crash data"
+        }})
+
+    if "format_string_exploit" in SUGGESTED_TECHNIQUES:
+        payloads.append({{
+            "name": "format_string_probe",
+            "payload": b"%p.%p.%p.%p.%p",
+            "notes": "Use leaked pointers to derive base addresses"
+        }})
+
+    if "command_injection_exploit" in SUGGESTED_TECHNIQUES:
+        payloads.append({{
+            "name": "command_injection_probe",
+            "payload": b";id",
+            "notes": "Validate shell metacharacter handling safely"
+        }})
+
+    if not payloads:
+        payloads.append({{
+            "name": "connectivity_probe",
+            "payload": b"PING",
+            "notes": "Confirm transport path before exploit development"
+        }})
+
+    return payloads
+
+
+def print_payload_plan(payloads):
+    print("🧪 Candidate payload plan:")
+    for idx, item in enumerate(payloads, 1):
+        print(f"  {{idx}}. {{item['name']}}")
+        print(f"     bytes: {{item['payload']!r}}")
+        print(f"     notes: {{item['notes']}}")
 
 def main():
     print(f"🎯 Exploit template for {{TARGET}}")
     print(f"📋 Type: {{EXPLOIT_TYPE}}")
     print("⚠️  Risk Score: {opportunity['risk_score']}/10")
+    print("Suggested techniques:", ", ".join(SUGGESTED_TECHNIQUES) if SUGGESTED_TECHNIQUES else "none")
     print()
-    
-    # TODO: Implement specific exploit based on findings
-    # Suggested techniques: {', '.join(opportunity.get('techniques', []))}
-    
-    print("⚠️  This is a template - implement specific exploit logic")
-    print("📚 Refer to the security assessment report for details")
+
+    payloads = build_candidate_payloads()
+    print_payload_plan(payloads)
+
+    print("\\n⚠️  This scaffold is for authorized testing only.")
+    print("📚 Use report evidence to refine offsets, gadgets, and target transport.")
 
 if __name__ == '__main__':
     main()

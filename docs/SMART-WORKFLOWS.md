@@ -69,7 +69,8 @@ pf smart-exploit binary=./target --technique=rop_chain
 3. Generates exploit template with pwntools
 4. Finds ROP gadgets (if applicable)
 5. Generates shellcode for target architecture
-6. Creates working exploit framework
+6. Creates a runnable exploit starter with payload builders and dry-run transport checks
+7. Honors `--technique` overrides while preserving recommended fallback techniques
 
 **Tool Integration:**
 - Unified checksec for security analysis
@@ -77,6 +78,11 @@ pf smart-exploit binary=./target --technique=rop_chain
 - ROPgadget integration for ROP chains
 - Shellcode generation with multiple architectures
 - Intelligent technique selection
+
+**Generated template behavior (new):**
+- Includes `build_payload(...)` and `run_exploit(...)` helpers out of the box
+- Supports quick runtime tuning with pwntools args (`OFFSET=...`, `RET=0x...`, `INTERACTIVE=1`)
+- Provides safe dry-run output previews before sending payloads to a target
 
 ### 🚀 `pf smart-fuzz`
 **Adaptive fuzzing that detects target type and uses optimal strategy**
