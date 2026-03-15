@@ -13,6 +13,23 @@ source "${DEV_SETUP_DIR}/steps.sh"
 
 DEV_SETUP_SKIP_PLAYWRIGHT="false"
 DEV_SETUP_SKIP_TESTS="false"
+DEV_SETUP_CLEANUP_ONLY="false"
+DEV_SETUP_PRUNE_CACHES="false"
+DEV_SETUP_MODE="full"
+
+dev_setup_print_usage() {
+  cat <<'EOF'
+Usage: ./setup_dev_environment.sh [options]
+
+Options:
+  --venv <path>         Use a custom virtual environment path
+  --skip-playwright     Skip Playwright browser installation
+  --skip-tests          Skip initial smoke tests
+  --cleanup-only        Run cleanup steps only (no dependency install)
+  --prune-caches        Remove additional local caches/artifacts
+  -h, --help            Show this help message
+EOF
+}
 
 dev_setup_parse_args() {
   while [[ $# -gt 0 ]]; do
@@ -30,6 +47,19 @@ dev_setup_parse_args() {
         DEV_SETUP_SKIP_TESTS="true"
         shift
         ;;
+      --cleanup-only)
+        DEV_SETUP_CLEANUP_ONLY="true"
+        DEV_SETUP_MODE="cleanup"
+        shift
+        ;;
+      --prune-caches)
+        DEV_SETUP_PRUNE_CACHES="true"
+        shift
+        ;;
+      -h|--help)
+        dev_setup_print_usage
+        exit 0
+        ;;
       *)
         die "Unknown option: $1"
         ;;
@@ -43,6 +73,13 @@ dev_setup_main() {
   dev_setup_parse_args "$@"
 
   dev_setup_print_header
+
+  if [[ "${DEV_SETUP_CLEANUP_ONLY}" == "true" ]]; then
+    log_info "Running cleanup-only mode"
+    dev_setup_cleanup_generated_files
+    dev_setup_display_summary
+    return 0
+  fi
 
   dev_setup_check_system_requirements
   dev_setup_install_python_dependencies

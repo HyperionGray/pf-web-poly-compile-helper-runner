@@ -34,6 +34,8 @@ demos/practice-binaries/command-injection/cmd_injection
 
 node_modules/
 venv/
+.venv/
+**/.venv/
 .venv-dev/
 *.log
 
@@ -63,6 +65,10 @@ build-packages/
 # Note: Dockerfiles and quadlet configs ARE committed
 pfail.fail.pf
 __pycache__/
+**/__pycache__/
+**/.pytest_cache/
+*.py[cod]
+.DS_Store
 
 # Editor temporary and backup files
 *~

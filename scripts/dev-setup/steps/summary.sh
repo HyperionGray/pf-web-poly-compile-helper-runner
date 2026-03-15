@@ -2,6 +2,16 @@
 set -euo pipefail
 
 dev_setup_display_summary() {
+  if [[ "${DEV_SETUP_MODE:-full}" == "cleanup" ]]; then
+    log_success "Repository cleanup complete"
+    printf '%s\n' ""
+    printf '%s\n' "Cleanup options used:"
+    printf '%s\n' "  - prune caches: ${DEV_SETUP_PRUNE_CACHES:-false}"
+    printf '%s\n' ""
+    printf '%s\n' "Tip: run ./setup_dev_environment.sh to perform full setup."
+    return 0
+  fi
+
   log_success "Development environment setup complete"
   printf '%s\n' ""
   printf '%s\n' "Virtual environment:"
