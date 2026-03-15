@@ -262,7 +262,19 @@ end
 task install-summary [alias install-status]
   describe Show install/tooling summary and suggested next commands
   shell_lang bash
-  shell bash "${PFY_ROOT:-.}/scripts/installer/install-summary.sh"
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -z "$ROOT" ]; then
+      if [ -n "${PFY_ROOT:-}" ] && [ -d "${PFY_ROOT}/scripts" ]; then
+        ROOT="${PFY_ROOT}"
+      elif [ -n "${PFY_ROOT:-}" ] && [ -d "${PFY_ROOT}/../scripts" ]; then
+        ROOT="$(cd "${PFY_ROOT}/.." && pwd)"
+      else
+        ROOT="$(pwd)"
+      fi
+    fi
+    bash "${ROOT}/scripts/installer/install-summary.sh"
 end
 
 task install-all
