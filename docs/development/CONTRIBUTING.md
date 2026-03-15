@@ -60,6 +60,18 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
    editable `pf-runner-full` package plus Python test dependencies, installs
    Node.js dependencies, and downloads Playwright browsers.
 
+   Useful setup flags:
+   ```bash
+   # Skip browser download and smoke tests
+   ./setup_dev_environment.sh --skip-playwright --skip-tests
+
+   # Preview what cleanup would remove
+   ./setup_dev_environment.sh --cleanup-only --cleanup-dry-run
+
+   # Cleanup generated files and additional caches/reports
+   ./setup_dev_environment.sh --cleanup-only --cleanup-all
+   ```
+
 6. **Verify your setup**:
    ```bash
    source .venv-dev/bin/activate

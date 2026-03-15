@@ -2,8 +2,23 @@
 set -euo pipefail
 
 dev_setup_cleanup_generated_files() {
-  rm -f .coverage coverage.xml
-  rm -rf htmlcov
+  local cleanup_script
+  cleanup_script="${REPO_ROOT}/scripts/cleanup.sh"
+
+  if [[ -x "${cleanup_script}" ]]; then
+    local cleanup_args=()
+    if [[ "${DEV_SETUP_CLEANUP_DRY_RUN:-false}" == "true" ]]; then
+      cleanup_args+=(--dry-run)
+    fi
+    if [[ "${DEV_SETUP_CLEANUP_ALL:-false}" == "true" ]]; then
+      cleanup_args+=(--all)
+    fi
+    "${cleanup_script}" "${cleanup_args[@]}" || log_warning "Repository cleanup helper failed (non-critical)"
+  else
+    log_warning "scripts/cleanup.sh is not executable; using minimal cleanup fallback"
+    rm -f .coverage coverage.xml
+    rm -rf htmlcov
+  fi
 
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git restore --quiet \
