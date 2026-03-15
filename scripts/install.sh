@@ -8,7 +8,8 @@ set -euo pipefail
 DEFAULT_PREFIX_NATIVE="/usr/local"
 DEFAULT_PREFIX_USER="${HOME:-/usr/local}/.local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PF_RUNNER_DIR="${SCRIPT_DIR}/pf-runner"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PF_RUNNER_DIR="${REPO_ROOT}/pf-runner"
 
 # Colors for output
 RED='\033[0;31m'
