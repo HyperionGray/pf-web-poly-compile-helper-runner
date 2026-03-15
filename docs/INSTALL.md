@@ -87,56 +87,50 @@ sudo apt-get install -f
 
 ---
 
-### 3. Static Executable (install-static.sh)
+### 3. Static Installer (`install-static.sh`)
 
-The simplest method - just copy a pre-built static executable.
+`install-static.sh` now supports explicit install modes:
 
-**Requirements:**
-- Linux x86_64 system
-- No Python or build tools needed!
+- `--mode static`: install `pf-runner-full/pf-static`
+- `--mode python`: install a Python wrapper plus runtime files
+- `--mode auto` (default): use static if available, otherwise fall back to Python mode
 
-**Build the static executable (one time):**
+**Build static binary (optional, one-time):**
 
 ```bash
-cd pf-runner
-# Install PyInstaller if needed
-pip install --user pyinstaller "lark>=1.1.0" "fabric>=3.2,<4" "typer>=0.12"
-# Build
-make build
+cd pf-runner-full
+make build-static
 ```
 
-Or build manually:
+**Install examples:**
 
 ```bash
-cd pf-runner
-python3 -m PyInstaller --onefile pf_main.py
-cp dist/pf_main pf-static
-```
-
-**Install the static executable:**
-
-```bash
-# System-wide install (requires sudo)
+# System-wide auto mode (uses static if present)
 sudo ./install-static.sh
 
-# User install (no sudo required)
-./install-static.sh --prefix ~/.local
+# User install, force static mode
+./install-static.sh --prefix ~/.local --mode static
+
+# User install, auto-build static if missing, then verify
+./install-static.sh --prefix ~/.local --build-static-if-missing --verify
+
+# User install, force Python mode
+./install-static.sh --prefix ~/.local --mode python
 ```
 
 **What it does:**
-- Copies the pre-built static pf executable to your bin directory
-- No dependencies, no compilation, just copy!
+- Installs `pf` into `<prefix>/bin`
+- In Python mode, installs runtime files under `<prefix>/lib/pf-runner`
+- Optionally runs post-install smoke checks with `--verify`
 
 **Pros:**
-- Simplest installation
-- No runtime dependencies
-- Fast installation
-- Single 16MB executable
+- Flexible install modes for different environments
+- Optional dependency-free static install
+- Predictable fallback behavior in auto mode
 
 **Cons:**
-- Requires pre-building the executable
-- Larger file size (~16MB)
-- Linux x86_64 only
+- Static mode requires a built `pf-static` binary
+- Python mode still needs Python runtime dependencies (`lark`, `fabric`, `typer`)
 
 ---
 
@@ -227,7 +221,7 @@ cd pf-web-poly-compile-helper-runner
 # Choose your installation method
 ./install.sh                    # Native
 ./debian/build-deb.sh 1.0.0    # Debian package
-./install-static.sh            # Static executable (after building)
+./install-static.sh --mode auto # Static when available, otherwise Python mode
 ```
 
 ---

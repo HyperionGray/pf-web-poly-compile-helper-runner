@@ -44,8 +44,8 @@ Options:
   -k EXPRESSION         Only run tests matching EXPRESSION
   --install-deps        Install required Python dependencies first
   --direct              Run only direct execution tests
-  --static              Run only static installation tests
-  --native              Run only native installation tests
+  --python              Run only Python-mode installer tests
+  --static              Run only static installer tests
   --help, -h            Show this help message
 
 Examples:
@@ -57,6 +57,12 @@ Examples:
 
   # Run only direct execution tests
   ./run_installer_tests.sh --direct
+
+  # Run only Python-mode installer tests
+  ./run_installer_tests.sh --python
+
+  # Run only static installer tests
+  ./run_installer_tests.sh --static
 
   # Run tests matching "version"
   ./run_installer_tests.sh -k version
@@ -91,12 +97,12 @@ while [[ $# -gt 0 ]]; do
             TEST_CLASS="::TestDirectExecution"
             shift
             ;;
-        --static)
-            TEST_CLASS="::TestStaticInstall"
+        --python)
+            TEST_CLASS="::TestPythonModeInstall"
             shift
             ;;
-        --native)
-            TEST_CLASS="::TestNativeInstall"
+        --static)
+            TEST_CLASS="::TestStaticModeInstall"
             shift
             ;;
         --help|-h)
