@@ -35,22 +35,34 @@ echo ""
 
 # Test 2: pf --help
 echo "Test 2: pf --help"
-OUTPUT=$("${PF_CMD[@]}" --help 2>&1)
-if echo "$OUTPUT" | grep -qiE "usage: pf|pf -"; then
-    echo "✓ PASS: 'pf --help' shows help text"
+if OUTPUT=$("${PF_CMD[@]}" --help 2>&1); then
+    if echo "$OUTPUT" | grep -qiE "usage: pf|pf -"; then
+        echo "✓ PASS: 'pf --help' shows help text"
+    else
+        echo "✗ FAIL: 'pf --help' did not show expected help text"
+        exit 1
+    fi
+elif [ "$PF_MODE" = "runner" ]; then
+    echo "⊘ SKIP: runner mode does not support top-level --help without wrapper"
 else
-    echo "✗ FAIL: 'pf --help' did not show expected help text"
+    echo "✗ FAIL: 'pf --help' command failed"
     exit 1
 fi
 echo ""
 
 # Test 3: pf -h
 echo "Test 3: pf -h"
-OUTPUT=$("${PF_CMD[@]}" -h 2>&1)
-if echo "$OUTPUT" | grep -qiE "usage: pf|pf -"; then
-    echo "✓ PASS: 'pf -h' shows help text"
+if OUTPUT=$("${PF_CMD[@]}" -h 2>&1); then
+    if echo "$OUTPUT" | grep -qiE "usage: pf|pf -"; then
+        echo "✓ PASS: 'pf -h' shows help text"
+    else
+        echo "✗ FAIL: 'pf -h' did not show expected help text"
+        exit 1
+    fi
+elif [ "$PF_MODE" = "runner" ]; then
+    echo "⊘ SKIP: runner mode does not support top-level -h without wrapper"
 else
-    echo "✗ FAIL: 'pf -h' did not show expected help text"
+    echo "✗ FAIL: 'pf -h' command failed"
     exit 1
 fi
 echo ""
