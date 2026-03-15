@@ -75,7 +75,18 @@ task install-pkg-tools
   shell if command -v apt-get &>/dev/null; then sudo apt-get install -y dpkg-dev rpm alien squashfs-tools zstd; fi
   shell if command -v dnf &>/dev/null; then sudo dnf install -y dpkg rpm-build alien squashfs-tools zstd; fi
   shell if command -v pacman &>/dev/null; then sudo pacman -S --noconfirm dpkg rpm-tools squashfs-tools zstd; fi
-  shell echo "Package conversion tools installed!"
+  shell echo "[OK] Package conversion tools installed!"
+  shell echo ""
+  shell echo "USAGE EXAMPLES:"
+  shell echo "  pf pkg-convert source=package.deb target=rpm"
+  shell echo "  pf pkg-convert-to-rpm source=package.deb"
+  shell echo "  pf pkg-info package=package.deb"
+  shell echo "  pf pkg-matrix  # Show conversion compatibility"
+  shell echo ""
+  shell echo "TEST COMMANDS:"
+  shell echo "  dpkg --version"
+  shell echo "  rpm --version"
+  shell echo "  alien --version"
 end
 
 task install-flatpak
@@ -84,7 +95,15 @@ task install-flatpak
   shell if command -v apt-get &>/dev/null; then sudo apt-get install -y flatpak flatpak-builder; fi
   shell if command -v dnf &>/dev/null; then sudo dnf install -y flatpak flatpak-builder; fi
   shell if command -v pacman &>/dev/null; then sudo pacman -S --noconfirm flatpak flatpak-builder; fi
-  shell echo "Flatpak installed!"
+  shell echo "[OK] Flatpak installed!"
+  shell echo ""
+  shell echo "USAGE:"
+  shell echo "  flatpak --version"
+  shell echo "  flatpak search <app-name>"
+  shell echo "  flatpak install flathub <app-name>"
+  shell echo ""
+  shell echo "ADD FLATHUB REPO:"
+  shell echo "  flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo"
 end
 
 task install-snap
@@ -93,7 +112,15 @@ task install-snap
   shell if command -v apt-get &>/dev/null; then sudo apt-get install -y snapd; fi
   shell if command -v dnf &>/dev/null; then sudo dnf install -y snapd; fi
   shell if command -v pacman &>/dev/null; then echo "Install snapd from AUR: yay -S snapd"; fi
-  shell echo "Snapd installed!"
+  shell echo "[OK] Snapd installed!"
+  shell echo ""
+  shell echo "USAGE:"
+  shell echo "  snap --version"
+  shell echo "  snap find <app-name>"
+  shell echo "  snap install <app-name>"
+  shell echo ""
+  shell echo "ENABLE SNAPD:"
+  shell echo "  sudo systemctl enable --now snapd.socket"
 end
 
 # Batch conversion tasks

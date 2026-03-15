@@ -11,7 +11,7 @@ dev_setup_create_dev_configs() {
   if [[ ! -f ".vscode/settings.json" ]]; then
     cat > .vscode/settings.json <<'EOF'
 {
-  "python.defaultInterpreterPath": "python3",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv-dev/bin/python",
   "python.linting.enabled": true,
   "python.linting.flake8Enabled": true,
   "editor.formatOnSave": true,

@@ -89,5 +89,33 @@ demos/practice-binaries/integer-overflow/int_overflow
 demos/practice-binaries/race-condition/toctou_race
 demos/practice-binaries/command-injection/cmd_injection
 
-# Container/runtime scratch files
+node_modules/
+venv/
+.venv-dev/
+*.log
+
+# Test artifacts
+test-results/
+playwright-report/
+*-test-report.json
+test-report.json
+*.test-report.json
+
+# CodeQL artifacts
+_codeql_*
+
+# pf-runner build artifacts
+pf-runner/build/
+pf-runner/dist/
+pf-runner/*.spec
+
+# Root-level build directory for all build artifacts
+build/
+
+# Debian package build artifacts
+debian/build/
+build-packages/
+
+# Container artifacts (don't commit built images or runtime data)
+# Note: Dockerfiles and quadlet configs ARE committed
 pfail.fail.pf

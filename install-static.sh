@@ -113,10 +113,9 @@ if [[ "$PREFIX" == "/usr/local" ]] || [[ "$PREFIX" == "/usr"* ]]; then
     fi
 fi
 
-# Check if pf-runner-full exists
+# Check if pf-runner-full directory exists
 if [[ ! -d "$PF_RUNNER_FULL_DIR" ]]; then
-    log_error "pf-runner-full directory not found at $PF_RUNNER_FULL_DIR"
-    log_info "This script must be run from the repository root"
+    log_error "pf-runner source directory not found at $PF_RUNNER_FULL_DIR"
     exit 1
 fi
 
