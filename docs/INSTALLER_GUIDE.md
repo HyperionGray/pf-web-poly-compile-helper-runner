@@ -4,6 +4,25 @@ This document provides comprehensive information about the pf-runner installer s
 
 ## Quick Start for Users
 
+### Static Source Installation (No Build Step)
+
+Use this when you want a lightweight host install from repository sources:
+
+```bash
+# Preview installation actions only (no filesystem changes)
+./install-static.sh --prefix ~/.local --dry-run
+
+# Install to user directory and run post-install checks
+./install-static.sh --prefix ~/.local --verify
+
+# System-wide install
+sudo ./install-static.sh --verify
+```
+
+`install-static.sh` now supports:
+- `--dry-run`: prints planned actions without changing your system
+- `--verify`: runs post-install checks (`pf -V`, bundled `test.pf` parsing)
+
 ### Fresh Ubuntu Installation (Native)
 
 For users who just installed Ubuntu and want to get pf-runner working immediately:
@@ -14,10 +33,10 @@ git clone <repository-url>
 cd pf-web-poly-compile-helper-runner
 
 # Install natively (system-wide, requires sudo)
-sudo ./install.sh
+sudo ./scripts/install.sh
 
 # OR install to user directory (no sudo required)
-./install.sh --prefix ~/.local
+./scripts/install.sh --prefix ~/.local
 
 # Test the installation
 pf --version
@@ -152,7 +171,7 @@ After validation, the containers are categorized as:
 - Full system integration
 
 **Requirements**:
-- Python 3.8+
+- Python 3.10+
 - Git
 - pip
 - Build tools (for some Python packages)

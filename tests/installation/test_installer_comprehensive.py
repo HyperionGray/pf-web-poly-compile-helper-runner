@@ -4,10 +4,6 @@ Comprehensive installer test suite for pf-runner.
 
 Tests all installation methods and verifies both installation success
 and post-installation functionality.
-
-NOTE: As of the test creation date, install.sh has known syntax errors and
-missing functions. Tests for native installation are marked as xfail until
-the installer is fixed. This test suite will help validate once it's repaired.
 """
 
 import os
@@ -21,7 +17,7 @@ import pytest
 
 # Get repository root
 REPO_ROOT = Path(__file__).parent.parent.parent.absolute()
-PF_RUNNER_DIR = REPO_ROOT / "pf-runner"
+PF_RUNNER_DIR = REPO_ROOT / "pf-runner-full"
 
 
 class InstallerTest:
@@ -130,11 +126,6 @@ class TestStaticInstall:
     @pytest.fixture(scope="class")
     def test_environment(self):
         """Set up test environment"""
-        # First check if static executable exists
-        static_exe = PF_RUNNER_DIR / "pf-static"
-        if not static_exe.exists():
-            pytest.skip("Static executable not built (pf-static not found)")
-        
         test_dir = tempfile.mkdtemp(prefix="pf-test-static-")
         install_prefix = Path(test_dir) / "install"
         
