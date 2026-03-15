@@ -245,6 +245,7 @@ task web-toolchain-check
   describe Verify required web/WASM toolchains are installed
   shell_lang bash
   shell |
+    set -euo pipefail
     python3 - <<'PY'
 import shutil
 reqs = ["wasm-pack", "emcc", "wat2wasm", "clang", "lfortran"]
@@ -252,12 +253,25 @@ missing = [c for c in reqs if shutil.which(c) is None]
 if missing: print('[ERR] Missing toolchain components:', ' '.join(missing)); print('Install hints:'); print('  - emcc/emsdk: https://emscripten.org/docs/getting_started/downloads.html'); print('  - wasm-pack: https://rustwasm.github.io/wasm-pack/installer/')
 else: print('[OK] Web toolchain ready:', ', '.join(reqs))
 PY
- end
+end
+
+task install prefix="/usr/local"
+  describe Install pf runner from latest package/build artifact
+  shell_lang bash
+  shell |
+    set -euo pipefail
+
+    ROOT="${PF_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    DEB="$(ls -1 "$ROOT"/build-packages/deb/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
+    INSTALLER="$ROOT/build-packages/pf-runner-1.0.0/install.sh"
 
     if [ -n "$DEB" ] && [ -f "$DEB" ] && command -v dpkg >/dev/null 2>&1; then
-      echo "[install] Installing pf from deb: $DEB (deb controls prefix)"
-      sudo dpkg -i "$DEB" || { echo "[install] Fixing deps..."; sudo apt-get -f install -y && sudo dpkg -i "$DEB"; }
-      exit 0
+      if [ "$prefix" = "/usr/local" ]; then
+        echo "[install] Installing pf from deb: $DEB (deb controls prefix)"
+        sudo dpkg -i "$DEB" || { echo "[install] Fixing deps..."; sudo apt-get -f install -y && sudo dpkg -i "$DEB"; }
+        exit 0
+      fi
+      echo "[install] Non-default prefix requested, falling back to installer script"
     fi
 
     if [ ! -x "$INSTALLER" ]; then
@@ -274,9 +288,68 @@ PY
     fi
 end
 
+task install-prereq-check
+  describe Check host prerequisites before running installer tasks
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    python3 - <<'PY'
+import shutil
+required = ["python3", "git"]
+recommended = ["pip3", "curl", "node"]
+missing_required = [cmd for cmd in required if shutil.which(cmd) is None]
+print("Required tools:")
+for cmd in required:
+    status = "OK" if shutil.which(cmd) else "MISSING"
+    print(f"  - {cmd}: {status}")
+print("")
+print("Recommended tools:")
+for cmd in recommended:
+    status = "OK" if shutil.which(cmd) else "MISSING"
+    print(f"  - {cmd}: {status}")
+if missing_required:
+    print("")
+    print("[ERR] Missing required prerequisites:", ", ".join(missing_required))
+    raise SystemExit(1)
+print("")
+print("[OK] Required prerequisites are present.")
+PY
+end
+
+task install-verify prefix="/usr/local"
+  describe Verify pf install and confirm help output is available
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    CANDIDATE="${prefix}/bin/pf"
+    if [ -x "$CANDIDATE" ]; then
+      PF_BIN="$CANDIDATE"
+    elif command -v pf >/dev/null 2>&1; then
+      PF_BIN="$(command -v pf)"
+    else
+      echo "[ERR] pf executable not found in ${prefix}/bin or PATH" >&2
+      exit 1
+    fi
+
+    echo "[verify] Using pf binary: $PF_BIN"
+    "$PF_BIN" --version
+    HELP_OUT="$("$PF_BIN" help 2>&1 || true)"
+    PF_HELP_OUTPUT="$HELP_OUT" python3 - <<'PY'
+import os
+help_out = os.environ.get("PF_HELP_OUTPUT", "")
+needles = ["install", "help", "usage"]
+if any(token in help_out.lower() for token in needles):
+    print("[OK] Help text is available after install.")
+else:
+    print("[ERR] Help text did not include expected guidance.")
+    raise SystemExit(1)
+PY
+    echo "[OK] Install verification passed."
+end
+
 task install-help
   describe Show install task choices (simplified)
-  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
+  shell printf '%s\n' "Install options:" "  pf install-prereq-check    # Verify host requirements before install" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-verify          # Verify pf binary and post-install help output" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
 end
 
 task install-all

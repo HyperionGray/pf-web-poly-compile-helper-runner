@@ -11,6 +11,13 @@ task category-installation-help
   describe Show help for Installation & Setup category
   shell echo " INSTALLATION & SETUP CATEGORY"
   shell echo ""
+  shell echo "Core Installer Flow:"
+  shell echo "  pf install-prereq-check     # Verify required host prerequisites"
+  shell echo "  pf install                  # Install pf (default /usr/local)"
+  shell echo "  pf install prefix=~/.local  # Install pf without sudo"
+  shell echo "  pf install-verify           # Verify pf binary and help output"
+  shell echo "  pf install-help             # Show concise installer task list"
+  shell echo ""
   shell echo "Tool Installation:"
   shell echo "  pf install-exploit-tools     # Install all exploit development tools"
   shell echo "  pf install-checksec          # Install checksec binary protection checker"
@@ -27,6 +34,13 @@ task category-installation-help
   shell echo "  pf install-snowman           # Install Snowman decompiler"
   shell echo ""
   shell echo "System Setup:"
+  shell echo "  pf install-tui-deps          # Install TUI dependencies"
+  shell echo "  pf rest-install              # Install REST API systemd service"
+  shell echo "  pf module-install-help       # Module-specific installer shortcuts"
+  shell echo ""
+  shell echo "Bundle / CI Helpers:"
+  shell echo "  pf install-all               # Install pf and common tool categories"
+  shell echo "  pf install-smoke-test        # Minimal install validation for CI"
 end
 
 # Module-oriented install entrypoints (improves discoverability)

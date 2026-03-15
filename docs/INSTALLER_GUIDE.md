@@ -44,6 +44,33 @@ pf --version
 pf list
 ```
 
+### Installer Guidance Tasks (pf-native flow)
+
+When using the pf task interface, use this sequence for a safer install experience:
+
+```bash
+# 1) Verify required host tools
+pf install-prereq-check
+
+# 2) Install pf (system-wide or user prefix)
+pf install
+# or
+pf install prefix=~/.local
+
+# 3) Verify binary + help output after install
+pf install-verify
+# or when using a custom prefix
+pf install-verify prefix=~/.local
+```
+
+Additional installer navigation helpers:
+
+```bash
+pf install-help                 # concise install command list
+pf category-installation-help   # broader installation/setup catalog
+pf install-smoke-test           # CI-oriented install smoke test
+```
+
 ## Installer Validation System
 
 ### Overview

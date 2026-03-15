@@ -42,13 +42,13 @@ else
 fi
 echo ""
 
-# Test 4: Check help includes installation instructions
-echo "Test 4: Verify help includes installation instructions"
+# Test 4: Check help includes installation guidance tasks
+echo "Test 4: Verify help includes installer guidance tasks"
 OUTPUT=$("${PF_SCRIPT}" help 2>&1)
-if echo "$OUTPUT" | grep -q "quick-install.sh"; then
-    echo "✓ PASS: Help includes quick-install.sh reference"
+if echo "$OUTPUT" | grep -q "install-prereq-check"; then
+    echo "✓ PASS: Help includes install-prereq-check"
 else
-    echo "✗ FAIL: Help missing quick-install.sh reference"
+    echo "✗ FAIL: Help missing install-prereq-check"
     exit 1
 fi
 echo ""
@@ -77,6 +77,17 @@ if echo "$OUTPUT" | grep -qi "help"; then
     echo "✓ PASS: Error message includes help hint"
 else
     echo "✗ FAIL: Error message missing help hint"
+    exit 1
+fi
+echo ""
+
+# Test 7: Verify category installer help isn't truncated
+echo "Test 7: Verify category-installation-help includes setup sections"
+OUTPUT=$("${PF_SCRIPT}" category-installation-help 2>&1)
+if echo "$OUTPUT" | grep -q "Bundle / CI Helpers:" && echo "$OUTPUT" | grep -q "module-install-help"; then
+    echo "✓ PASS: category-installation-help includes full setup and bundle guidance"
+else
+    echo "✗ FAIL: category-installation-help output appears incomplete"
     exit 1
 fi
 echo ""
