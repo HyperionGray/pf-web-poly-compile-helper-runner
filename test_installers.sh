@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-# Comprehensive installer test script
-# Tests all pf-runner installers and verifies functionality
+# Smoke-test the current no-build installer flow against the pf-runner-full layout.
 
 set -euo pipefail
 
-# Colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-REPO_ROOT="/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner"
-TEST_DIR="/tmp/installer-tests"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PF_RUNNER_DIR="${REPO_ROOT}/pf-runner-full"
+TEST_DIR="/tmp/installer-tests-$$"
+INSTALL_PREFIX="${TEST_DIR}/static-install"
+STATIC_PF="${INSTALL_PREFIX}/bin/pf"
 
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -30,42 +31,50 @@ log_test() {
     echo -e "${YELLOW}[TEST]${NC} $1"
 }
 
-# Test pf executable
-test_pf_executable() {
-    local test_name="$1"
-    shift
-    local pf_cmd=("$@")
-    
-    log_test "Testing $test_name"
-    
-    # Test -V
-    if ! "${pf_cmd[@]}" -V >/dev/null 2>&1; then
-        log_error "$test_name: pf -V failed"
-        return 1
-    fi
-    log_info "$test_name: pf -V works"
-    
-    # Test list with test.pf
-    cd "$REPO_ROOT/pf-runner"
-    if ! "${pf_cmd[@]}" test.pf list >/dev/null 2>&1; then
-        log_error "$test_name: pf list failed"
-        return 1
-    fi
-    log_info "$test_name: pf list works"
-    
-    # Test running a task
-    if ! "${pf_cmd[@]}" test.pf hello >/dev/null 2>&1; then
-        log_error "$test_name: pf hello failed"
-        return 1
-    fi
-    log_info "$test_name: pf hello task works"
-    
-    log_success "$test_name: All tests passed!"
-    return 0
+cleanup() {
+    rm -rf "$TEST_DIR"
 }
 
-# Clean up test directory
-rm -rf "$TEST_DIR"
+trap cleanup EXIT
+
+if [[ -x "${PF_RUNNER_DIR}/.venv/bin/python" ]]; then
+    RUNNER_PYTHON="${PF_RUNNER_DIR}/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+    RUNNER_PYTHON="$(command -v python3)"
+elif command -v python >/dev/null 2>&1; then
+    RUNNER_PYTHON="$(command -v python)"
+else
+    log_error "Python is required to run installer smoke tests"
+    exit 1
+fi
+
+test_pf_wrapper() {
+    local test_name="$1"
+    local pf_cmd="$2"
+
+    log_test "Testing ${test_name}"
+
+    if ! PF_PYTHON="$RUNNER_PYTHON" "$pf_cmd" -V >/dev/null 2>&1; then
+        log_error "${test_name}: pf -V failed"
+        return 1
+    fi
+    log_info "${test_name}: pf -V works"
+
+    if ! PF_PYTHON="$RUNNER_PYTHON" "$pf_cmd" "${PF_RUNNER_DIR}/test.pf" list >/dev/null 2>&1; then
+        log_error "${test_name}: pf list failed"
+        return 1
+    fi
+    log_info "${test_name}: pf list works"
+
+    if ! PF_PYTHON="$RUNNER_PYTHON" "$pf_cmd" "${PF_RUNNER_DIR}/test.pf" hello >/dev/null 2>&1; then
+        log_error "${test_name}: pf hello failed"
+        return 1
+    fi
+    log_info "${test_name}: pf hello task works"
+
+    log_success "${test_name}: All tests passed"
+}
+
 mkdir -p "$TEST_DIR"
 
 echo "========================================"
@@ -73,114 +82,69 @@ echo "pf-runner Installer Test Suite"
 echo "========================================"
 echo ""
 
-#
-# Test 1: Direct pf_main.py execution
-#
-log_test "Test 1: Direct pf_main.py execution"
-cd "$REPO_ROOT/pf-runner"
-test_pf_executable "Direct execution" python3 pf_main.py
+log_test "Test 1: Repository layout checks"
+[[ -d "$PF_RUNNER_DIR" ]] || { log_error "pf-runner-full directory not found"; exit 1; }
+[[ -f "${REPO_ROOT}/install-static.sh" ]] || { log_error "install-static.sh not found"; exit 1; }
+log_success "Installer assets found"
 echo ""
 
-#
-# Test 2: Install-static.sh
-#
-log_test "Test 2: Install-static.sh (custom prefix)"
-cd "$REPO_ROOT"
-./install-static.sh --prefix "$TEST_DIR/static-install" >/dev/null 2>&1
-test_pf_executable "Static install" "$TEST_DIR/static-install/bin/pf"
-echo ""
-
-#
-# Test 3: Native install with custom prefix
-#
-log_test "Test 3: Native install (custom prefix) - SKIPPED"
-log_info "Skipping native install test - install.sh not in repository root"
-log_info "The canonical installation method is via .deb package"
-log_info "See: sudo dpkg -i build-packages/deb/pf-runner_latest.deb"
-echo ""
-
-#
-# Test 4: Static install with custom prefix
-#
-log_test "Test 4: Static install (custom prefix)"
-cd "$REPO_ROOT"
-./install-static.sh --prefix "$TEST_DIR/static-install" >/dev/null 2>&1
-test_pf_executable "Static install" "$TEST_DIR/static-install/bin/pf"
-echo ""
-
-#
-# Test 5: Makefile install-local
-#
-log_test "Test 5: Makefile install-local"
-# Verify the symlinks were created earlier
-if [ -L "$HOME/.local/bin/pf" ]; then
-    log_success "Makefile install-local created symlink"
+log_test "Test 2: Direct pf_main.py execution"
+if "$RUNNER_PYTHON" "${PF_RUNNER_DIR}/pf_main.py" -V >/dev/null 2>&1 && \
+   "$RUNNER_PYTHON" "${PF_RUNNER_DIR}/pf_main.py" "${PF_RUNNER_DIR}/test.pf" list >/dev/null 2>&1 && \
+   "$RUNNER_PYTHON" "${PF_RUNNER_DIR}/pf_main.py" "${PF_RUNNER_DIR}/test.pf" hello >/dev/null 2>&1; then
+    log_success "Direct execution works"
 else
-    log_error "Makefile install-local symlink not found"
+    log_error "Direct execution failed"
+    exit 1
 fi
 echo ""
 
-#
-# Test 6: Shell completions
-#
-log_test "Test 6: Shell completions"
-if [ -f "/etc/bash_completion.d/pf" ]; then
-    log_success "Bash completion installed"
+log_test "Test 3: install-static.sh syntax"
+if bash -n "${REPO_ROOT}/install-static.sh"; then
+    log_success "install-static.sh syntax check passed"
 else
-    log_error "Bash completion not found"
-fi
-
-if [ -f "$HOME/.zsh/completions/_pf" ]; then
-    log_success "Zsh completion installed"
-else
-    log_info "Zsh completion not installed (expected, zsh completion dir was created in home)"
+    log_error "install-static.sh syntax check failed"
+    exit 1
 fi
 echo ""
 
-#
-# Test 7: Debian package structure
-#
-log_test "Test 7: Debian package"
-DEB_FILE="$REPO_ROOT/debian/build/pf-runner_1.0.0.deb"
-if [ -f "$DEB_FILE" ]; then
-    log_success "Debian package exists"
-    
-    # Verify package structure
-    pkg_contents=$(dpkg-deb -c "$DEB_FILE" 2>&1)
-    
-    if echo "$pkg_contents" | grep -q "usr/local/bin/pf$"; then
-        log_success "Package contains pf executable"
+log_test "Test 4: install-static.sh no-build install"
+if "${REPO_ROOT}/install-static.sh" --prefix "$INSTALL_PREFIX" >/dev/null 2>&1; then
+    log_success "install-static.sh completed"
+else
+    log_error "install-static.sh failed"
+    exit 1
+fi
+
+[[ -x "$STATIC_PF" ]] || { log_error "Installed pf wrapper not found at $STATIC_PF"; exit 1; }
+[[ -f "${INSTALL_PREFIX}/lib/pf-runner/pf_main.py" ]] || { log_error "Installed pf_main.py missing"; exit 1; }
+[[ -d "${INSTALL_PREFIX}/lib/pf-runner/pf-files" ]] || { log_error "Installed pf-files directory missing"; exit 1; }
+log_success "Installed layout looks correct"
+echo ""
+
+test_pf_wrapper "Static install wrapper" "$STATIC_PF"
+echo ""
+
+log_test "Test 5: Optional pf-static binary"
+if [[ -x "${PF_RUNNER_DIR}/pf-static" ]]; then
+    if "${PF_RUNNER_DIR}/pf-static" -V >/dev/null 2>&1; then
+        log_success "Optional pf-static binary works"
     else
-        log_error "Package missing pf executable"
-    fi
-    
-    if echo "$pkg_contents" | grep -q "usr/local/lib/pf-runner/pf_main.py"; then
-        log_success "Package contains pf-runner library"
-    else
-        log_error "Package missing pf-runner library"
+        log_error "Optional pf-static binary failed"
+        exit 1
     fi
 else
-    log_error "Debian package not found"
+    log_info "pf-static not built; skipping optional binary smoke test"
 fi
 echo ""
 
-#
-# Summary
-#
 echo "========================================"
 echo "Test Summary"
 echo "========================================"
-log_success "All available installer tests completed successfully!"
+log_success "Installer smoke tests completed successfully"
 echo ""
-echo "Tested installers:"
+echo "Validated:"
 echo "  ✓ Direct pf_main.py execution"
-echo "  ✓ Static install script (install-static.sh)"
-echo "  ⊘ Native install (skipped - use .deb package instead)"
-echo "  ✓ Makefile install-local"
-echo "  ✓ Shell completions"
-echo "  ✓ Debian package (.deb)"
-echo ""
-echo "All available installers are working correctly!"
-echo ""
-log_info "For production use, install via .deb package:"
-echo "  sudo dpkg -i build-packages/deb/pf-runner_latest.deb"
+echo "  ✓ install-static.sh syntax"
+echo "  ✓ install-static.sh no-build installation"
+echo "  ✓ Installed pf wrapper execution via PF_PYTHON"

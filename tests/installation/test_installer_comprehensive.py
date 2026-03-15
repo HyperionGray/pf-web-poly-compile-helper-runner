@@ -21,7 +21,20 @@ import pytest
 
 # Get repository root
 REPO_ROOT = Path(__file__).parent.parent.parent.absolute()
-PF_RUNNER_DIR = REPO_ROOT / "pf-runner"
+PF_RUNNER_DIR = REPO_ROOT / "pf-runner-full"
+STATIC_INSTALLER = REPO_ROOT / "install-static.sh"
+NATIVE_INSTALLER = REPO_ROOT / "scripts" / "install.sh"
+
+
+def resolve_runner_python() -> str:
+    """Prefer the repo venv so wrapper smoke tests can run with dependencies."""
+    repo_venv_python = PF_RUNNER_DIR / ".venv" / "bin" / "python"
+    if repo_venv_python.exists():
+        return str(repo_venv_python)
+    return sys.executable
+
+
+RUNNER_PYTHON = resolve_runner_python()
 
 
 class InstallerTest:
@@ -30,8 +43,9 @@ class InstallerTest:
     def __init__(self, test_dir):
         self.test_dir = Path(test_dir)
         self.pf_executable = None
+        self.env = None
     
-    def run_command(self, cmd, cwd=None, capture_output=True, check=True):
+    def run_command(self, cmd, cwd=None, capture_output=True, check=True, env=None):
         """Run a shell command and return result"""
         if isinstance(cmd, str):
             cmd = cmd.split()
@@ -41,7 +55,8 @@ class InstallerTest:
             cwd=cwd or REPO_ROOT,
             capture_output=capture_output,
             text=True,
-            check=check
+            check=check,
+            env={**os.environ, **(env or {})},
         )
         return result
     
@@ -50,7 +65,7 @@ class InstallerTest:
         assert self.pf_executable is not None, "pf executable not set"
         assert os.path.exists(self.pf_executable), f"pf not found at {self.pf_executable}"
         
-        result = self.run_command([str(self.pf_executable), "-V"])
+        result = self.run_command([str(self.pf_executable), "-V"], env=self.env)
         assert result.returncode == 0, f"pf -V failed: {result.stderr}"
         assert "pf" in result.stdout.lower(), "Version output doesn't contain 'pf'"
         return True
@@ -59,7 +74,8 @@ class InstallerTest:
         """Test that pf can list tasks"""
         result = self.run_command(
             [str(self.pf_executable), str(PF_RUNNER_DIR / "test.pf"), "list"],
-            cwd=PF_RUNNER_DIR
+            cwd=PF_RUNNER_DIR,
+            env=self.env,
         )
         assert result.returncode == 0, f"pf list failed: {result.stderr}"
         # test.pf should have 'hello' and 'vars' tasks
@@ -70,7 +86,8 @@ class InstallerTest:
         """Test that pf can run a simple task"""
         result = self.run_command(
             [str(self.pf_executable), str(PF_RUNNER_DIR / "test.pf"), "hello"],
-            cwd=PF_RUNNER_DIR
+            cwd=PF_RUNNER_DIR,
+            env=self.env,
         )
         assert result.returncode == 0, f"pf hello task failed: {result.stderr}"
         assert "hello" in result.stdout.lower(), "Task output doesn't contain 'hello'"
@@ -109,7 +126,7 @@ class TestNativeInstall:
         
         # Run installer
         result = subprocess.run(
-            [str(REPO_ROOT / "install.sh"), "--prefix", str(install_prefix), "--skip-deps"],
+            [str(NATIVE_INSTALLER), "--prefix", str(install_prefix), "--skip-deps"],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True
@@ -125,16 +142,11 @@ class TestNativeInstall:
 
 @pytest.mark.integration
 class TestStaticInstall:
-    """Test static executable installation method (install-static.sh)"""
+    """Test the no-build installation method exposed by install-static.sh."""
     
     @pytest.fixture(scope="class")
     def test_environment(self):
         """Set up test environment"""
-        # First check if static executable exists
-        static_exe = PF_RUNNER_DIR / "pf-static"
-        if not static_exe.exists():
-            pytest.skip("Static executable not built (pf-static not found)")
-        
         test_dir = tempfile.mkdtemp(prefix="pf-test-static-")
         install_prefix = Path(test_dir) / "install"
         
@@ -152,7 +164,7 @@ class TestStaticInstall:
         
         # Run installer
         result = subprocess.run(
-            [str(REPO_ROOT / "install-static.sh"), "--prefix", str(install_prefix)],
+            [str(STATIC_INSTALLER), "--prefix", str(install_prefix)],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True
@@ -173,6 +185,7 @@ class TestStaticInstall:
         pf_path = test_environment["pf_executable"]
         tester = InstallerTest(test_environment["test_dir"])
         tester.pf_executable = pf_path
+        tester.env = {"PF_PYTHON": RUNNER_PYTHON}
         assert tester.test_version()
     
     def test_static_list(self, test_environment):
@@ -180,6 +193,7 @@ class TestStaticInstall:
         pf_path = test_environment["pf_executable"]
         tester = InstallerTest(test_environment["test_dir"])
         tester.pf_executable = pf_path
+        tester.env = {"PF_PYTHON": RUNNER_PYTHON}
         assert tester.test_list_tasks()
     
     def test_static_run_task(self, test_environment):
@@ -187,6 +201,7 @@ class TestStaticInstall:
         pf_path = test_environment["pf_executable"]
         tester = InstallerTest(test_environment["test_dir"])
         tester.pf_executable = pf_path
+        tester.env = {"PF_PYTHON": RUNNER_PYTHON}
         assert tester.test_run_simple_task()
 
 
@@ -197,7 +212,7 @@ class TestDirectExecution:
     def test_direct_version(self):
         """Test that pf_main.py -V works"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "-V"],
+            [RUNNER_PYTHON, str(PF_RUNNER_DIR / "pf_main.py"), "-V"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
@@ -208,7 +223,7 @@ class TestDirectExecution:
     def test_direct_list(self):
         """Test that pf_main.py can list tasks"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "list"],
+            [RUNNER_PYTHON, str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "list"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
@@ -219,7 +234,7 @@ class TestDirectExecution:
     def test_direct_run_task(self):
         """Test that pf_main.py can run tasks"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "hello"],
+            [RUNNER_PYTHON, str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "hello"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
@@ -229,7 +244,7 @@ class TestDirectExecution:
     def test_direct_parameter_passing(self):
         """Test parameter passing in direct execution"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "vars", "name=DirectTest"],
+            [RUNNER_PYTHON, str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "vars", "name=DirectTest"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
