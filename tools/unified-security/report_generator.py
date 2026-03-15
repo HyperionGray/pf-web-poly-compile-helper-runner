@@ -451,23 +451,43 @@ Risk Score: {opportunity['risk_score']}/10
 \"\"\"
 
 import sys
-import struct
 
 # Target information
 TARGET = "{opportunity['target']}"
 EXPLOIT_TYPE = "{opportunity['type']}"
+RISK_SCORE = {opportunity['risk_score']}
+TECHNIQUES = {opportunity.get('techniques', [])}
+
+def select_primary_technique():
+    if TECHNIQUES:
+        return TECHNIQUES[0]
+    return "manual_validation"
+
+def build_payload(technique: str) -> bytes:
+    if technique in ("shellcode_injection", "stack_overflow", "rop_chain"):
+        return b"A" * 128
+    if technique == "format_string_exploit":
+        return (b"%p." * 16)
+    if technique == "command_injection_exploit":
+        return b";id;"
+    return b""
 
 def main():
-    print(f"🎯 Exploit template for {{TARGET}}")
-    print(f"📋 Type: {{EXPLOIT_TYPE}}")
-    print("⚠️  Risk Score: {opportunity['risk_score']}/10")
-    print()
-    
-    # TODO: Implement specific exploit based on findings
-    # Suggested techniques: {', '.join(opportunity.get('techniques', []))}
-    
-    print("⚠️  This is a template - implement specific exploit logic")
-    print("📚 Refer to the security assessment report for details")
+    technique = select_primary_technique()
+    payload = build_payload(technique)
+
+    print("Target:", TARGET)
+    print("Type:", EXPLOIT_TYPE)
+    print("Risk Score:", f"{{RISK_SCORE}}/10")
+    print("Primary technique:", technique)
+    print("Available techniques:", ", ".join(TECHNIQUES) if TECHNIQUES else "none provided")
+    print("Payload preview (hex):", payload[:32].hex())
+    print("")
+    print("Next steps:")
+    print("  1) Verify crash offset/control in a local test environment.")
+    print("  2) Replace build_payload() with target-specific logic.")
+    print("  3) Add transport logic (local process or remote socket).")
+    print("  4) Re-run with debugger instrumentation enabled.")
 
 if __name__ == '__main__':
     main()

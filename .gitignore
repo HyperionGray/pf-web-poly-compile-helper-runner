@@ -78,3 +78,5 @@ venv
 .bish.**
 .bish**
 **/**.bish.*
+.smart_target_info.json
+.enhanced_target_info.json
