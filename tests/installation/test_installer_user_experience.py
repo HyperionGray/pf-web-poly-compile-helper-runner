@@ -21,7 +21,7 @@ import pytest
 # Get repository root
 REPO_ROOT = Path(__file__).parent.parent.parent.absolute()
 PF_RUNNER_DIR = REPO_ROOT / "pf-runner-full"
-FIXTURE_PFYFILE = PF_RUNNER_DIR / "pf-files" / "tests" / "fixtures" / "test.pf"
+MAIN_PFYFILE = REPO_ROOT / "pf-files" / "Pfyfile.pf"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 TOOLS_DIR = REPO_ROOT / "tools"
 
@@ -29,13 +29,13 @@ TOOLS_DIR = REPO_ROOT / "tools"
 def get_pf_tasks():
     """Get list of all available pf tasks"""
     result = subprocess.run(
-        ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "-f", str(FIXTURE_PFYFILE), "list"],
+        ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "-f", str(MAIN_PFYFILE), "list"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True
     )
     if result.returncode != 0:
-        pytest.skip("Cannot list pf tasks from fixture Pfyfile")
+        pytest.skip("Cannot list pf tasks from main Pfyfile")
     
     # Parse task names from output
     # Tasks are formatted as "  task-name - description"
