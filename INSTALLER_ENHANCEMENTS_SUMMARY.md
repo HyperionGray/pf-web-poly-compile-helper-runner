@@ -10,6 +10,16 @@ The issue requested to "test all installers again please" and ensure users have 
 
 ## What Was Done
 
+### 0. Installer Preflight + Task Cleanup (Latest) ✅
+- Added `pf install-prereq-check` (alias: `pf install-doctor`) to validate required installer prerequisites before installation.
+  - Checks: Python 3.10+, `python3 -m pip`, and `git`
+  - Reports optional tools (`curl`, `gcc`, `make`)
+  - Prints package-manager-specific remediation commands for missing dependencies
+  - Supports non-failing mode: `pf install-prereq-check report_only=true`
+- Completed previously incomplete installer help output in `category-installation-help` with a full recommended install flow.
+- Removed duplicate stale task definitions from `pf-files/always-available/Pfyfile.always-available.pf` to reduce task-list confusion.
+- Removed stray root marker file `NOPFYFILES_IN_ROOT`.
+
 ### 1. Base PF-Runner Installers Fixed ✅
 - **Fixed install-static.sh**: Corrected path from `pf-runner/pf-static` to `pf-runner-full/pf-static`
 - **Added build-static target**: Created Makefile target to build static executable using PyInstaller

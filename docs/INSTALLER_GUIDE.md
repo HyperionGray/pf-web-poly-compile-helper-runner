@@ -4,6 +4,25 @@ This document provides comprehensive information about the pf-runner installer s
 
 ## Quick Start for Users
 
+### Pre-Install Prerequisite Check (Recommended)
+
+Run the installer preflight check before attempting any install:
+
+```bash
+pf install-prereq-check
+# alias:
+pf install-doctor
+```
+
+This command validates required tools (Python 3.10+, pip, git) and prints
+package-manager-specific remediation commands if anything is missing.
+
+For informational runs that should not fail CI or scripts:
+
+```bash
+pf install-prereq-check report_only=true
+```
+
 ### Fresh Ubuntu Installation (Native)
 
 For users who just installed Ubuntu and want to get pf-runner working immediately:
@@ -152,7 +171,7 @@ After validation, the containers are categorized as:
 - Full system integration
 
 **Requirements**:
-- Python 3.8+
+- Python 3.10+
 - Git
 - pip
 - Build tools (for some Python packages)
