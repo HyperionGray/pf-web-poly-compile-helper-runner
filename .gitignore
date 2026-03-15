@@ -44,6 +44,22 @@ playwright-report/
 test-report.json
 *.test-report.json
 
+# Smart workflow generated artifacts
+assessment_targets.json
+binary_analysis.json
+web_analysis.json
+fuzzing_results.json
+focused_results.json
+exploit_analysis.json
+vulnerabilities.json
+exploit_chains.json
+test_results.json
+comprehensive_security_report.json
+comprehensive_security_report.html
+comprehensive_security_report_exploits/
+*_exploit.py
+*_exploits/
+
 # CodeQL artifacts
 _codeql_*
 

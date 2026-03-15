@@ -462,12 +462,32 @@ def main():
     print(f"📋 Type: {{EXPLOIT_TYPE}}")
     print("⚠️  Risk Score: {opportunity['risk_score']}/10")
     print()
-    
-    # TODO: Implement specific exploit based on findings
-    # Suggested techniques: {', '.join(opportunity.get('techniques', []))}
-    
-    print("⚠️  This is a template - implement specific exploit logic")
-    print("📚 Refer to the security assessment report for details")
+
+    suggested = {opportunity.get('techniques', [])}
+    if not suggested:
+        suggested = ["manual_validation"]
+
+    payloads = {{}}
+    if "stack_overflow" in suggested or "rop_chain" in suggested:
+        payloads["overflow_probe"] = b"A" * 120
+    if "format_string_exploit" in suggested:
+        payloads["format_probe"] = b"%p|" * 16
+    if "command_injection_exploit" in suggested:
+        payloads["command_probe"] = b"test;id"
+    if "shellcode_injection" in suggested:
+        payloads["shellcode_probe"] = b"\\x90" * 32 + b"\\xCC" * 8
+
+    print("📋 Suggested techniques:", ", ".join(suggested))
+    print("🧪 Generated payload candidates:")
+    for name, payload in payloads.items():
+        print(f"  - {{name}}: {{len(payload)}} bytes")
+
+    print()
+    print("⚠️  Safety guidance:")
+    print("  1) Use only authorized targets in isolated environments")
+    print("  2) Replace placeholder offsets and addresses before execution")
+    print("  3) Validate crashes and logs before escalating to weaponized payloads")
+    print("📚 Refer to the unified security report for source evidence and reproduction steps")
 
 if __name__ == '__main__':
     main()

@@ -29,7 +29,7 @@ tools/
 │   ├── tool-detector.mjs   # Tool capability detection (✅ FUNCTIONAL)
 │   ├── workflow-engine.mjs # Workflow orchestration (stub)
 │   ├── smart_analyzer.py   # Binary analysis (✅ FUNCTIONAL)
-│   ├── smart_exploiter.py  # Exploit development (stub)
+│   ├── smart_exploiter.py  # Exploit development (✅ FUNCTIONAL)
 │   └── workflow_manager.py # Workflow state management (stub)
 │
 ├── unified/                 # Unified tool interfaces
@@ -61,9 +61,12 @@ tools/
   - Supports table and JSON output
 - `target_detector.py` - Basic target type detection
 - `checksec.py` - Pure Python implementation with real ELF analysis
+- `smart_exploiter.py` - Technique-aware exploit playbook generation
+  - Parses unified-checksec JSON even with mixed log output
+  - Generates runnable payload builders (buffer overflow, ROP, shellcode, format string, GOT probe)
+  - Supports local execution, remote delivery, and dry-run payload previews
 
 **⚠️ Stub (Needs Implementation):**
-- `smart_exploiter.py` - Placeholder exploit generation
 - `workflow-engine.mjs` - Logs parameters but doesn't execute workflows
 - `workflow_manager.py` - No state management yet
 - `smart_scanner.py` - Basic output only
@@ -126,7 +129,7 @@ Security Features:
 - [ ] Add integration tests
 
 **Phase 3: Advanced Features (Next)**
-- [ ] Implement smart_exploiter with real exploit generation
+- [x] Implement smart_exploiter with real exploit generation
 - [ ] Add workflow state management
 - [ ] Create workflow orchestration engine
 - [ ] Add machine learning for tool selection
