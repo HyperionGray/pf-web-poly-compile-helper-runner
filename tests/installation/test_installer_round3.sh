@@ -12,6 +12,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+TEST_PFY="$REPO_ROOT/pf-runner-full/pf-files/tests/fixtures/test.pf"
 TEST_DIR="/tmp/installer-round3-tests-$$"
 TESTS_PASSED=0
 TESTS_FAILED=0
@@ -136,14 +137,14 @@ if "$REPO_ROOT/install.sh" --prefix "$NATIVE_PREFIX" --skip-deps >/dev/null 2>&1
     fi
     
     # Test task listing
-    if cd "$REPO_ROOT/pf-runner-full" && "$NATIVE_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
+    if "$NATIVE_PREFIX/bin/pf" "$TEST_PFY" list >/dev/null 2>&1; then
         log_success "pf list works"
     else
         log_error "pf list failed"
     fi
     
     # Test task execution
-    if cd "$REPO_ROOT/pf-runner-full" && "$NATIVE_PREFIX/bin/pf" test.pf hello >/dev/null 2>&1; then
+    if "$NATIVE_PREFIX/bin/pf" "$TEST_PFY" hello >/dev/null 2>&1; then
         log_success "pf task execution works"
     else
         log_error "pf task execution failed"
@@ -186,7 +187,7 @@ else
         fi
         
         # Test task listing
-        if cd "$REPO_ROOT/pf-runner-full" && "$STATIC_PREFIX/bin/pf" test.pf list >/dev/null 2>&1; then
+        if "$STATIC_PREFIX/bin/pf" "$TEST_PFY" list >/dev/null 2>&1; then
             log_success "Static pf list works"
         else
             log_error "Static pf list failed"

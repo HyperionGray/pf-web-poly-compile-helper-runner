@@ -4,10 +4,6 @@ Comprehensive installer test suite for pf-runner.
 
 Tests all installation methods and verifies both installation success
 and post-installation functionality.
-
-NOTE: As of the test creation date, install.sh has known syntax errors and
-missing functions. Tests for native installation are marked as xfail until
-the installer is fixed. This test suite will help validate once it's repaired.
 """
 
 import os
@@ -22,6 +18,7 @@ import pytest
 # Get repository root
 REPO_ROOT = Path(__file__).parent.parent.parent.absolute()
 PF_RUNNER_DIR = REPO_ROOT / "pf-runner-full"
+TEST_PFY = PF_RUNNER_DIR / "pf-files" / "tests" / "fixtures" / "test.pf"
 
 
 class InstallerTest:
@@ -58,7 +55,7 @@ class InstallerTest:
     def test_list_tasks(self):
         """Test that pf can list tasks"""
         result = self.run_command(
-            [str(self.pf_executable), str(PF_RUNNER_DIR / "test.pf"), "list"],
+            [str(self.pf_executable), str(TEST_PFY), "list"],
             cwd=PF_RUNNER_DIR
         )
         assert result.returncode == 0, f"pf list failed: {result.stderr}"
@@ -69,7 +66,7 @@ class InstallerTest:
     def test_run_simple_task(self):
         """Test that pf can run a simple task"""
         result = self.run_command(
-            [str(self.pf_executable), str(PF_RUNNER_DIR / "test.pf"), "hello"],
+            [str(self.pf_executable), str(TEST_PFY), "hello"],
             cwd=PF_RUNNER_DIR
         )
         assert result.returncode == 0, f"pf hello task failed: {result.stderr}"
@@ -78,16 +75,8 @@ class InstallerTest:
 
 
 @pytest.mark.integration
-@pytest.mark.xfail(reason="install.sh currently has syntax errors and missing functions")
 class TestNativeInstall:
-    """Test native installation method (install.sh)
-    
-    NOTE: Currently marked as xfail because install.sh has known issues:
-    - Missing EOF for heredoc at line 284  
-    - Missing functions: check_prerequisites, install_pf_runner, validate_installation
-    - Uninitialized variable: PREFIX_SET
-    
-    These tests will pass once install.sh is fixed."""
+    """Test native installation method (install.sh)."""
     
     @pytest.fixture(scope="class")
     def test_environment(self):
@@ -208,7 +197,7 @@ class TestDirectExecution:
     def test_direct_list(self):
         """Test that pf_main.py can list tasks"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "list"],
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), str(TEST_PFY), "list"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
@@ -219,7 +208,7 @@ class TestDirectExecution:
     def test_direct_run_task(self):
         """Test that pf_main.py can run tasks"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "hello"],
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), str(TEST_PFY), "hello"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
@@ -229,7 +218,7 @@ class TestDirectExecution:
     def test_direct_parameter_passing(self):
         """Test parameter passing in direct execution"""
         result = subprocess.run(
-            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), "test.pf", "vars", "name=DirectTest"],
+            ["python3", str(PF_RUNNER_DIR / "pf_main.py"), str(TEST_PFY), "vars", "name=DirectTest"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
@@ -264,7 +253,7 @@ class TestStaticExecutable:
     def test_static_exe_list(self, static_exe):
         """Test that pf-static can list tasks"""
         result = subprocess.run(
-            [str(static_exe), "test.pf", "list"],
+            [str(static_exe), str(TEST_PFY), "list"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
@@ -275,7 +264,7 @@ class TestStaticExecutable:
     def test_static_exe_run_task(self, static_exe):
         """Test that pf-static can run tasks"""
         result = subprocess.run(
-            [str(static_exe), "test.pf", "hello"],
+            [str(static_exe), str(TEST_PFY), "hello"],
             cwd=PF_RUNNER_DIR,
             capture_output=True,
             text=True
