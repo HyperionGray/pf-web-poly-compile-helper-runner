@@ -40,6 +40,7 @@ dev_setup_check_system_requirements() {
 
   if ! python3 -m pip --version >/dev/null 2>&1; then
     log_error "python3 -m pip is required but not available"
+    printf '%s\n' "Ubuntu/Debian: sudo apt update && sudo apt install python3-pip"
     exit 1
   fi
 

@@ -41,6 +41,7 @@ log_info() { printf '%b\n' "${BLUE}[INFO]${NC} $*"; }
 log_success() { printf '%b\n' "${GREEN}[SUCCESS]${NC} $*"; }
 log_warning() { printf '%b\n' "${YELLOW}[WARNING]${NC} $*" >&2; }
 log_error() { printf '%b\n' "${RED}[ERROR]${NC} $*" >&2; }
+log_header() { printf '%b\n' "${BOLD}${CYAN}$*${NC}"; }
 
 die() {
   log_error "$*"

@@ -34,6 +34,7 @@ demos/practice-binaries/command-injection/cmd_injection
 
 node_modules/
 venv/
+.venv-dev/
 *.log
 
 # Test artifacts

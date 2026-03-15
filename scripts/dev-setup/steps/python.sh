@@ -1,47 +1,69 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-dev_setup_pip_install() {
-  local -a pip_args=()
+dev_setup_has_working_pip() {
+  local python_bin
+  python_bin="$(dev_setup_python_bin)"
+  [[ -x "${python_bin}" ]] || return 1
+  "${python_bin}" -m pip --version >/dev/null 2>&1
+}
 
-  local in_venv="false"
-  in_venv="$(python3 - <<'PY'
-import sys
-print("true" if getattr(sys, "base_prefix", sys.prefix) != sys.prefix else "false")
-PY
-)"
-
-  if [[ "$in_venv" != "true" ]]; then
-    pip_args+=(--user)
+dev_setup_create_python_venv() {
+  if dev_setup_has_working_pip; then
+    return 0
   fi
 
-  python3 -m pip install "${pip_args[@]}" "$@"
+  rm -rf "${PF_DEV_VENV}"
+
+  if python3 -m venv "${PF_DEV_VENV}" >/dev/null 2>&1 && dev_setup_has_working_pip; then
+    return 0
+  fi
+
+  rm -rf "${PF_DEV_VENV}"
+
+  log_warning "python3 -m venv failed; falling back to virtualenv"
+  python3 -m pip install --user virtualenv >/dev/null || die "Failed to install virtualenv fallback"
+  python3 -m virtualenv "${PF_DEV_VENV}" >/dev/null || die "Failed to create virtual environment at ${PF_DEV_VENV}"
+  dev_setup_has_working_pip || die "Created ${PF_DEV_VENV}, but pip is still unavailable"
+}
+
+dev_setup_python_bin() {
+  printf '%s\n' "${PF_DEV_VENV}/bin/python"
+}
+
+dev_setup_pip_install() {
+  local python_bin
+  python_bin="$(dev_setup_python_bin)"
+  "${python_bin}" -m pip install "$@"
 }
 
 dev_setup_install_python_dependencies() {
-  log_info "Installing Python dependencies..."
+  log_info "Preparing Python virtual environment..."
 
-  local core_deps=(
-    "fabric>=3.2,<4"
-    "rich"
-    "lark"
-  )
+  dev_setup_create_python_venv
 
-  local dev_deps=(
-    "pytest"
-    "pytest-cov"
-    "coverage"
-  )
+  if [[ ! -x "$(dev_setup_python_bin)" ]]; then
+    die "Python virtual environment is missing its interpreter: ${PF_DEV_VENV}"
+  fi
 
-  log_info "Upgrading pip..."
-  dev_setup_pip_install --upgrade pip || log_warning "Failed to upgrade pip (continuing)"
+  log_info "Upgrading pip tooling in ${PF_DEV_VENV}..."
+  dev_setup_pip_install --upgrade pip setuptools wheel || die "Failed to upgrade pip tooling"
 
-  log_info "Installing core Python packages..."
-  dev_setup_pip_install "${core_deps[@]}" || die "Failed to install core Python dependencies"
+  if [[ -f "requirements.txt" ]]; then
+    log_info "Installing root Python requirements..."
+    dev_setup_pip_install -r requirements.txt || die "Failed to install root Python requirements"
+  fi
 
-  log_info "Installing dev Python packages..."
-  dev_setup_pip_install "${dev_deps[@]}" || log_warning "Failed to install some dev dependencies (non-critical)"
+  log_info "Installing Python test dependencies..."
+  dev_setup_pip_install pytest pytest-cov || die "Failed to install Python test dependencies"
 
-  log_success "Python dependencies installed"
+  if [[ -d "pf-runner-full" ]]; then
+    log_info "Installing pf-runner-full in editable mode..."
+    dev_setup_pip_install -e "./pf-runner-full[api,tui]" || die "Failed to install pf-runner-full"
+  else
+    die "pf-runner-full/ is required for development setup"
+  fi
+
+  log_success "Python dependencies installed into ${PF_DEV_VENV}"
 }
 
