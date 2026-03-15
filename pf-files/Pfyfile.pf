@@ -252,11 +252,28 @@ missing = [c for c in reqs if shutil.which(c) is None]
 if missing: print('[ERR] Missing toolchain components:', ' '.join(missing)); print('Install hints:'); print('  - emcc/emsdk: https://emscripten.org/docs/getting_started/downloads.html'); print('  - wasm-pack: https://rustwasm.github.io/wasm-pack/installer/')
 else: print('[OK] Web toolchain ready:', ', '.join(reqs))
 PY
- end
+end
+
+task install prefix="/usr/local"
+  describe Install pf using package-first strategy with installer fallback
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    ROOT="${PF_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    prefix="${prefix:-/usr/local}"
+
+    DEB="$(ls -1 "$ROOT"/build-packages/deb/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
+    INSTALLER="$ROOT/build-packages/pf-runner-1.0.0/install.sh"
 
     if [ -n "$DEB" ] && [ -f "$DEB" ] && command -v dpkg >/dev/null 2>&1; then
       echo "[install] Installing pf from deb: $DEB (deb controls prefix)"
-      sudo dpkg -i "$DEB" || { echo "[install] Fixing deps..."; sudo apt-get -f install -y && sudo dpkg -i "$DEB"; }
+      if [ "$(id -u)" -ne 0 ]; then
+        sudo dpkg -i "$DEB" || { echo "[install] Fixing deps..."; sudo apt-get -f install -y && sudo dpkg -i "$DEB"; }
+      else
+        dpkg -i "$DEB" || { echo "[install] Fixing deps..."; apt-get -f install -y && dpkg -i "$DEB"; }
+      fi
+      echo "[OK] pf installed from package."
+      echo "Try: pf --version"
       exit 0
     fi
 
@@ -266,17 +283,69 @@ PY
       exit 127
     fi
 
-    echo "Installing to prefix=$prefix using $INSTALLER"
+    echo "[install] Installing to prefix=$prefix using $INSTALLER"
     if [ "$(id -u)" -ne 0 ] && [ "$prefix" = "/usr/local" ]; then
       sudo "$INSTALLER" --prefix "$prefix"
     else
       "$INSTALLER" --prefix "$prefix"
     fi
+    echo "[OK] pf installed to $prefix"
+    echo "Try: pf --version"
+end
+
+task install-prerequisites-check [alias install-check]
+  describe Check required and optional installer prerequisites
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    missing_required=0
+    echo "Installer prerequisites check"
+    echo ""
+
+    check_cmd() {
+      local cmd="$1"
+      local required="$2"
+      if command -v "$cmd" >/dev/null 2>&1; then
+        echo "  [OK] $cmd"
+      else
+        if [ "$required" = "yes" ]; then
+          echo "  [NO] $cmd (required)"
+          missing_required=1
+        else
+          echo "  [--] $cmd (optional)"
+        fi
+      fi
+    }
+
+    echo "Core requirements:"
+    check_cmd python3 yes
+    check_cmd git yes
+    check_cmd bash yes
+    echo ""
+
+    echo "Installer helpers:"
+    check_cmd sudo no
+    check_cmd dpkg no
+    check_cmd apt-get no
+    check_cmd curl no
+    check_cmd podman no
+    echo ""
+
+    if [ "$missing_required" -ne 0 ]; then
+      echo "[ERR] Missing one or more required commands."
+      echo "Install missing tools and rerun: pf install-prerequisites-check"
+      exit 1
+    fi
+
+    echo "[OK] Required prerequisites are present."
+    echo "Next steps:"
+    echo "  pf install-help"
+    echo "  pf install prefix=~/.local"
 end
 
 task install-help
   describe Show install task choices (simplified)
-  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
+  shell printf '%s\n' "Install options:" "  pf install-prerequisites-check # Validate system prerequisites first" "  pf install                 # Package-first install (fallback to installer)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
 end
 
 task install-all
@@ -302,40 +371,7 @@ task install-smoke-test
     trap 'rm -rf "$PREFIX"' EXIT
 
     echo "Using PREFIX=$PREFIX"
-    find_root() {
-      if [ -n "${PFY_ROOT:-}" ] && [ -d "${PFY_ROOT}" ]; then
-        if [ -f "${PFY_ROOT}/Pfyfile.pf" ]; then
-          echo "$(cd "${PFY_ROOT}/.." && pwd)"
-        else
-          echo "${PFY_ROOT}"
-        fi
-        return
-      fi
-      if [ -n "${PFY_FILE_PATH:-}" ] && [ -f "${PFY_FILE_PATH}" ]; then
-        echo "$(cd "$(dirname "${PFY_FILE_PATH}")/.." && pwd)"
-        return
-      fi
-      if git rev-parse --show-toplevel >/dev/null 2>&1; then
-        git rev-parse --show-toplevel
-        return
-      fi
-      cur="$PWD"
-      while [ "$cur" != "/" ]; do
-        if [ -d "$cur/pf-files" ] && [ -f "$cur/pf-files/Pfyfile.pf" ]; then
-          echo "$cur"
-          return
-        fi
-        cur="$(dirname "$cur")"
-      done
-      python3 - <<'PY'
-import importlib.util, pathlib
-spec = importlib.util.find_spec("pf_main")
-root = pathlib.Path(spec.origin).resolve().parent.parent if spec and spec.origin else pathlib.Path().resolve()
-print(root)
-PY
-    }
-
-    ROOT="${PF_ROOT:-$(pwd)}"
+    ROOT="${PF_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
     DEB="$(ls -1 "$ROOT"/build-packages/deb/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
     INSTALLER="$ROOT/build-packages/pf-runner-1.0.0/install.sh"
     if [ -n "$DEB" ] && [ -f "$DEB" ] && command -v dpkg >/dev/null 2>&1; then

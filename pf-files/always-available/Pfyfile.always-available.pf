@@ -12,6 +12,10 @@ task category-installation-help
   shell echo " INSTALLATION & SETUP CATEGORY"
   shell echo ""
   shell echo "Tool Installation:"
+  shell echo "  pf install-prerequisites-check # Validate required tools before install"
+  shell echo "  pf install-help              # Show installer entrypoints and examples"
+  shell echo "  pf install                   # Package-first install of pf"
+  shell echo "  pf install prefix=~/.local   # Install pf without sudo"
   shell echo "  pf install-exploit-tools     # Install all exploit development tools"
   shell echo "  pf install-checksec          # Install checksec binary protection checker"
   shell echo "  pf install-pwntools          # Install pwntools Python library"
@@ -27,6 +31,11 @@ task category-installation-help
   shell echo "  pf install-snowman           # Install Snowman decompiler"
   shell echo ""
   shell echo "System Setup:"
+  shell echo "  pf install-all               # Install pf + core tool bundles"
+  shell echo "  pf install-smoke-test        # CI-friendly installer validation"
+  shell echo "  pf module-install-help       # Show module-based install shortcuts"
+  shell echo ""
+  shell echo "Tip: run pf install-prerequisites-check before large installer bundles."
 end
 
 # Module-oriented install entrypoints (improves discoverability)
