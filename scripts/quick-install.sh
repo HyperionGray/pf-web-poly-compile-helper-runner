@@ -51,7 +51,31 @@ detect_os() {
 
 # Check if we're in the repo
 in_repo() {
-    [[ -f "scripts/install.sh" ]] && [[ -d "pf-runner" ]]
+    [[ -d "pf-runner" ]] && ([[ -f "install.sh" ]] || [[ -f "scripts/install.sh" ]])
+}
+
+resolve_installer_path() {
+    if [[ -x "./install.sh" ]]; then
+        echo "./install.sh"
+        return 0
+    fi
+
+    if [[ -x "./scripts/install.sh" ]]; then
+        echo "./scripts/install.sh"
+        return 0
+    fi
+
+    if [[ -f "./install.sh" ]]; then
+        echo "./install.sh"
+        return 0
+    fi
+
+    if [[ -f "./scripts/install.sh" ]]; then
+        echo "./scripts/install.sh"
+        return 0
+    fi
+
+    return 1
 }
 
 # Main installation logic
@@ -68,6 +92,11 @@ main() {
     # If we're in the repo, use the local installer
     if in_repo; then
         log_info "Detected repository - using local installer"
+        local installer_cmd
+        if ! installer_cmd=$(resolve_installer_path); then
+            log_error "Could not locate installer entrypoint (install.sh or scripts/install.sh)"
+            exit 1
+        fi
         
         # Check if we have a .deb package
         if [[ "$os_type" == "debian" ]] && [[ -f "deb/build/pf-runner_${PF_VERSION}.deb" ]]; then
@@ -85,9 +114,9 @@ main() {
             # Use the standard native installer
             log_info "Using standard installer"
             if [[ $EUID -eq 0 ]]; then
-                ./install.sh
+                "$installer_cmd"
             else
-                ./install.sh --prefix ~/.local
+                "$installer_cmd" --prefix ~/.local
             fi
         fi
     else
@@ -111,10 +140,16 @@ main() {
         
         # Run the installer based on available tools
         log_info "Running native installer"
+        local installer_cmd
+        if ! installer_cmd=$(resolve_installer_path); then
+            log_error "Could not locate installer entrypoint after clone"
+            exit 1
+        fi
+
         if [[ $EUID -eq 0 ]]; then
-            ./install.sh
+            "$installer_cmd"
         else
-            ./install.sh --prefix ~/.local
+            "$installer_cmd" --prefix ~/.local
         fi
         
         log_info "Cleaning up temporary directory"

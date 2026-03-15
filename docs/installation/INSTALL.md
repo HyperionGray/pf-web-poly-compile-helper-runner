@@ -58,6 +58,12 @@ sudo ./install.sh
 # Skip system dependency installation (when dependencies are already satisfied)
 ./install.sh --skip-deps
 
+ # Verify an existing install without reinstalling
+ ./install.sh --verify-only
+
+ # Verify a specific installation prefix
+ ./install.sh --prefix ~/.local --verify-only
+
 # Show help page
 ./install.sh --help
 ```
@@ -66,7 +72,7 @@ sudo ./install.sh
 
 - **Linux** (Ubuntu/Debian/Fedora/Arch) or **macOS**
 - **Git**
-- **Python 3.8+** with pip (`python3 -m ensurepip`)
+- **Python 3.10+** with pip (`python3 -m ensurepip`)
 - **Build tools** (`gcc`, `make`, `curl`) for compiling dependencies
 
 ## After Installation
@@ -83,6 +89,20 @@ sudo ./install.sh
    pf autobuild        # Auto-detect and build your project
    pf tui              # Launch interactive TUI
    ```
+
+## Verify an Existing Installation
+
+Use `--verify-only` when you want a smoke-check without changing files:
+
+```bash
+# Auto-detect an existing install in ~/.local, /usr/local, or /usr
+./install.sh --verify-only
+
+# Verify a specific prefix
+./install.sh --prefix /usr/local --verify-only
+```
+
+The verification checks that `pf` exists at the selected prefix and runs a basic `pf list` validation.
 
 ## Troubleshooting
 
@@ -107,9 +127,9 @@ If you get "command not found" after installation:
 ### Python dependency issues
 If you get Python import errors:
 
-1. **Reinstall with dependencies**:
+1. **Reinstall and allow dependency installation**:
    ```bash
-   ./install.sh --skip-deps  # Skip system deps if they're already installed
+   ./install.sh
    ```
 
 2. **Manual dependency install**:

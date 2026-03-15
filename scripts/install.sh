@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # install.sh - Cohesive installer for pf-runner (package-first with container and native fallback)
-# Usage: ./install.sh [--mode package|container|native] [--runtime podman|docker] [--image NAME] [--prefix PATH] [--skip-deps] [--skip-build] [--no-wrapper] [--help]
+# Usage: ./install.sh [--prefix PATH] [--skip-deps] [--verify-only] [--help]
 
 set -euo pipefail
 
@@ -22,6 +22,7 @@ PREFIX=""
 PREFIX_SET=false
 SKIP_DEPS=false
 SHOW_HELP=false
+VERIFY_ONLY=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -37,6 +38,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --skip-deps)
             SKIP_DEPS=true
+            shift
+            ;;
+        --verify-only)
+            VERIFY_ONLY=true
             shift
             ;;
         --help|-h)
@@ -62,6 +67,7 @@ USAGE:
 OPTIONS:
     --prefix PATH     Install prefix (default: ${DEFAULT_PREFIX_NATIVE} when run as root, ${DEFAULT_PREFIX_USER} otherwise)
     --skip-deps       Skip installing system dependencies (assumes they are already present)
+    --verify-only     Verify an existing installation without installing/updating files
     --help, -h        Show this help message
 
 EXAMPLES:
@@ -73,6 +79,12 @@ EXAMPLES:
 
     # Skip dependency installation (when dependencies already satisfied)
     ./install.sh --skip-deps
+
+    # Verify an existing installation without reinstalling
+    ./install.sh --verify-only
+
+    # Verify a specific prefix
+    ./install.sh --prefix ~/.local --verify-only
 
 WHAT THIS SCRIPT DOES:
     1. Checks prerequisites (Python 3.10+, Git, pip)
@@ -115,6 +127,28 @@ normalize_settings() {
             PREFIX="$DEFAULT_PREFIX_USER"
         fi
     fi
+}
+
+resolve_verify_prefix() {
+    # If caller provided an explicit prefix, keep it.
+    if [[ "$PREFIX_SET" == true ]]; then
+        return 0
+    fi
+
+    # Prefer whichever existing installation is actually present.
+    local candidates=()
+    if [[ -n "${HOME:-}" ]]; then
+        candidates+=("${HOME}/.local")
+    fi
+    candidates+=("/usr/local" "/usr")
+
+    local candidate
+    for candidate in "${candidates[@]}"; do
+        if [[ -x "${candidate}/bin/pf" ]]; then
+            PREFIX="$candidate"
+            return 0
+        fi
+    done
 }
 
 # Check if running as root when needed
@@ -388,6 +422,27 @@ update_path_info() {
     fi
 }
 
+run_verify_only() {
+    log_info "Running verification-only mode (no files will be modified)..."
+    resolve_verify_prefix
+    log_info "Verifying installation at prefix: ${PREFIX}"
+
+    if validate_native_installation; then
+        echo ""
+        log_success "✅ Installation verification passed"
+        update_path_info
+        echo ""
+        log_info "Next steps:"
+        echo "  1. Try: ${PREFIX}/bin/pf --version"
+        echo "  2. Try: ${PREFIX}/bin/pf list"
+        return 0
+    fi
+
+    log_error "Installation verification failed for prefix: ${PREFIX}"
+    log_info "If pf is installed elsewhere, rerun with: ./install.sh --prefix <path> --verify-only"
+    return 1
+}
+
 # Main installation function
 main() {
     echo -e "${BLUE}pf-runner Installation Script${NC}"
@@ -402,6 +457,14 @@ main() {
     fi
     
     normalize_settings
+
+    if [[ "$VERIFY_ONLY" == true ]]; then
+        if run_verify_only; then
+            exit 0
+        else
+            exit 1
+        fi
+    fi
 
     # Check permissions
     check_permissions
