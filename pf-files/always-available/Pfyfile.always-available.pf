@@ -77,12 +77,11 @@ task install-doctor
     if command -v python3 >/dev/null 2>&1; then
       if python3 - <<'PY' >/tmp/pf-install-doctor-modules.log 2>&1
 import importlib.util
+import sys
 mods = ["fabric", "lark", "typer"]
 missing = [m for m in mods if importlib.util.find_spec(m) is None]
-if missing:
-    print("missing:" + ",".join(missing))
-    raise SystemExit(1)
-print("ok")
+print("ok" if not missing else "missing:" + ",".join(missing))
+raise SystemExit(0 if not missing else 1)
 PY
       then
         echo "[OK] Required Python modules are importable (fabric, lark, typer)"
