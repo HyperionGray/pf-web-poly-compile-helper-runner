@@ -78,6 +78,32 @@ pf smart-exploit binary=./target --technique=rop_chain
 - Shellcode generation with multiple architectures
 - Intelligent technique selection
 
+### 🔗 `pf smart-exploit-chain`
+**End-to-end vulnerability-to-payload orchestration**
+
+```bash
+# Binary target (auto vulnerability type)
+pf smart-exploit-chain target=./vulnerable
+
+# Web target (focus SQLi path)
+pf smart-exploit-chain target=http://localhost:8080 vuln_type=sqli
+
+# Override payload architecture/type
+pf smart-exploit-chain target=./target arch=x64 payload_type=reverse_shell
+```
+
+**What it does:**
+1. Discovers vulnerabilities based on target type (binary vs URL)
+2. Builds exploit context (checksec/debug or web scan/fuzz)
+3. Generates exploitation assets (ROP/template/fuzz payload path)
+4. Produces payload artifacts through shellcode generation
+5. Prints a phased summary so operators can iterate quickly
+
+**Notes:**
+- Alias: `pf sec ...`
+- Target auto-detection is path/URL based
+- `vuln_type` defaults to `auto` and maps to sensible per-target defaults
+
 ### 🚀 `pf smart-fuzz`
 **Adaptive fuzzing that detects target type and uses optimal strategy**
 
