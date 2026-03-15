@@ -27,6 +27,13 @@ task category-installation-help
   shell echo "  pf install-snowman           # Install Snowman decompiler"
   shell echo ""
   shell echo "System Setup:"
+  shell echo "  pf install-prereqs           # Check installation prerequisites"
+  shell echo "  pf install                   # Install pf runner (default /usr/local)"
+  shell echo "  pf install prefix=~/.local   # Install pf runner without sudo"
+  shell echo "  pf install-post-check        # Verify pf command and PATH setup"
+  shell echo "  pf install-smoke-test        # Run end-to-end installer smoke test"
+  shell echo ""
+  shell echo "Tip: run 'pf install-help' for the quick install flow."
 end
 
 # Module-oriented install entrypoints (improves discoverability)

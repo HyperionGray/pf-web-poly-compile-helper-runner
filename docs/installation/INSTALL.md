@@ -21,6 +21,25 @@ sudo ./install.sh
 ./install.sh --prefix ~/.local
 ```
 
+## Task-driven installer workflow (inside pf)
+
+After `pf` is available, you can run the installer flow directly from tasks:
+
+```bash
+# 1) Verify baseline system requirements first
+pf install-prereqs
+
+# 2) Install pf (system or user prefix)
+pf install
+pf install prefix=~/.local
+
+# 3) Validate that pf is on PATH and runnable
+pf install-post-check
+pf install-post-check prefix=~/.local
+```
+
+`pf install` now prefers a built `.deb` package for `/usr/local` installs and automatically falls back to the canonical script path for custom prefixes.
+
 ### Running the WebAssembly toolchain tasks
 
 Tasks such as `web-toolchain-check`, `web-build-c-wasm`, and `web-build-fortran-wasm` require the Emscripten SDK and related binaries in `PATH`. If you installed emsdk under `$HOME/emsdk-*`, run them through the helper:

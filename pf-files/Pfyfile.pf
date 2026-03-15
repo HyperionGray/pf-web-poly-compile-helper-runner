@@ -252,31 +252,150 @@ missing = [c for c in reqs if shutil.which(c) is None]
 if missing: print('[ERR] Missing toolchain components:', ' '.join(missing)); print('Install hints:'); print('  - emcc/emsdk: https://emscripten.org/docs/getting_started/downloads.html'); print('  - wasm-pack: https://rustwasm.github.io/wasm-pack/installer/')
 else: print('[OK] Web toolchain ready:', ', '.join(reqs))
 PY
- end
+end
 
-    if [ -n "$DEB" ] && [ -f "$DEB" ] && command -v dpkg >/dev/null 2>&1; then
-      echo "[install] Installing pf from deb: $DEB (deb controls prefix)"
-      sudo dpkg -i "$DEB" || { echo "[install] Fixing deps..."; sudo apt-get -f install -y && sudo dpkg -i "$DEB"; }
-      exit 0
-    fi
+task install prefix="/usr/local"
+  describe Install pf from .deb when available (falls back to installer script for custom prefixes)
+  shell_lang bash
+  shell |
+    set -euo pipefail
 
-    if [ ! -x "$INSTALLER" ]; then
-      echo "[ERR] canonical installer not found at $INSTALLER" >&2
-      echo "      Build it with: pf build-packages (or consult build-packages/pf-runner-1.0.0)" >&2
-      exit 127
-    fi
+    find_root() {
+      if [ -n "${PFY_ROOT:-}" ] && [ -d "${PFY_ROOT}" ]; then
+        if [ -f "${PFY_ROOT}/Pfyfile.pf" ]; then
+          echo "$(cd "${PFY_ROOT}/.." && pwd)"
+        else
+          echo "${PFY_ROOT}"
+        fi
+        return
+      fi
+      if [ -n "${PFY_FILE_PATH:-}" ] && [ -f "${PFY_FILE_PATH}" ]; then
+        echo "$(cd "$(dirname "${PFY_FILE_PATH}")/.." && pwd)"
+        return
+      fi
+      if git rev-parse --show-toplevel >/dev/null 2>&1; then
+        git rev-parse --show-toplevel
+        return
+      fi
+      cur="$PWD"
+      while [ "$cur" != "/" ]; do
+        if [ -d "$cur/pf-files" ] && [ -f "$cur/pf-files/Pfyfile.pf" ]; then
+          echo "$cur"
+          return
+        fi
+        cur="$(dirname "$cur")"
+      done
+      python3 - <<'PY'
+import importlib.util, pathlib
+spec = importlib.util.find_spec("pf_main")
+root = pathlib.Path(spec.origin).resolve().parent.parent if spec and spec.origin else pathlib.Path().resolve()
+print(root)
+PY
+    }
 
-    echo "Installing to prefix=$prefix using $INSTALLER"
-    if [ "$(id -u)" -ne 0 ] && [ "$prefix" = "/usr/local" ]; then
-      sudo "$INSTALLER" --prefix "$prefix"
+    ROOT="${PF_ROOT:-$(find_root)}"
+    PREFIX_PATH="${prefix/#\~/$HOME}"
+    DEB="$(ls -1 "$ROOT"/build-packages/deb/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
+    INSTALLER="$ROOT/build-packages/pf-runner-1.0.0/install.sh"
+
+    if [ "$PREFIX_PATH" = "/usr/local" ] && [ -n "$DEB" ] && [ -f "$DEB" ] && command -v dpkg >/dev/null 2>&1; then
+      echo "[install] Installing pf from deb: $DEB"
+      if [ "$(id -u)" -ne 0 ]; then
+        sudo dpkg -i "$DEB" || { echo "[install] Fixing deps..."; sudo apt-get -f install -y && sudo dpkg -i "$DEB"; }
+      else
+        dpkg -i "$DEB" || { echo "[install] Fixing deps..."; apt-get -f install -y && dpkg -i "$DEB"; }
+      fi
     else
-      "$INSTALLER" --prefix "$prefix"
+      if [ "$PREFIX_PATH" != "/usr/local" ] && [ -n "$DEB" ] && [ -f "$DEB" ]; then
+        echo "[install] Custom prefix requested; using installer script instead of .deb"
+      fi
+      if [ ! -x "$INSTALLER" ]; then
+        echo "[ERR] canonical installer not found at $INSTALLER" >&2
+        echo "      Build it with: pf build-packages (or consult build-packages/pf-runner-1.0.0)" >&2
+        exit 127
+      fi
+      echo "Installing to prefix=$PREFIX_PATH using $INSTALLER"
+      if [ "$(id -u)" -ne 0 ] && [ "$PREFIX_PATH" = "/usr/local" ]; then
+        sudo "$INSTALLER" --prefix "$PREFIX_PATH"
+      else
+        "$INSTALLER" --prefix "$PREFIX_PATH"
+      fi
     fi
+
+    echo "[OK] Installation command completed."
+    echo ""
+    echo "Next steps:"
+    echo "  pf install-post-check prefix=$PREFIX_PATH"
+    echo "  pf --version"
+    echo "  pf list"
+end
+
+task install-prereqs
+  describe Check baseline prerequisites before running installer tasks
+  shell_lang bash
+  shell |
+    set -euo pipefail
+
+    missing=0
+    for cmd in bash python3 git curl; do
+      if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "[ERR] Missing required command: $cmd"
+        missing=1
+      else
+        echo "[OK] Found $cmd at $(command -v "$cmd")"
+      fi
+    done
+
+    if command -v dpkg >/dev/null 2>&1; then
+      echo "[OK] dpkg detected (.deb installation path available)"
+    else
+      echo "[WARN] dpkg not found; install task will use the script-based path."
+    fi
+
+    if [ "$missing" -ne 0 ]; then
+      echo ""
+      echo "Install prerequisites and re-run:"
+      echo "  sudo apt-get update && sudo apt-get install -y git curl python3 python3-pip"
+      exit 1
+    fi
+
+    echo ""
+    echo "[OK] Baseline prerequisites look good."
+    echo "Run 'pf install' or 'pf install prefix=~/.local' to continue."
+end
+
+task install-post-check prefix="$HOME/.local"
+  describe Validate pf availability after install and print quick-start commands
+  shell_lang bash
+  shell |
+    set -euo pipefail
+
+    PREFIX_PATH="${prefix/#\~/$HOME}"
+    CANDIDATE_BIN="${PREFIX_PATH}/bin"
+    if [ -x "$CANDIDATE_BIN/pf" ]; then
+      PATH="$CANDIDATE_BIN:$PATH"
+    fi
+
+    if ! command -v pf >/dev/null 2>&1; then
+      echo "[ERR] pf is not on PATH yet."
+      echo "If you installed to a custom prefix, add:"
+      echo "  export PATH=\"$CANDIDATE_BIN:\$PATH\""
+      exit 1
+    fi
+
+    pf --version
+    pf list >/dev/null
+    echo "[OK] pf command is working."
+    echo ""
+    echo "Quick start:"
+    echo "  pf install-help"
+    echo "  pf category-installation-help"
+    echo "  pf web-dev"
 end
 
 task install-help
   describe Show install task choices (simplified)
-  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
+  shell printf '%s\n' "Install options:" "  pf install-prereqs         # Check required commands before install" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-post-check      # Validate PATH + pf command after install" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
 end
 
 task install-all
@@ -335,7 +454,7 @@ print(root)
 PY
     }
 
-    ROOT="${PF_ROOT:-$(pwd)}"
+    ROOT="${PF_ROOT:-$(find_root)}"
     DEB="$(ls -1 "$ROOT"/build-packages/deb/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
     INSTALLER="$ROOT/build-packages/pf-runner-1.0.0/install.sh"
     if [ -n "$DEB" ] && [ -f "$DEB" ] && command -v dpkg >/dev/null 2>&1; then
