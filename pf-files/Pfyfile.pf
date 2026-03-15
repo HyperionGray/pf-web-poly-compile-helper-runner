@@ -382,15 +382,7 @@ task install-verify
     echo ""
 
     echo "Python libraries:"
-    if python3 - <<'PY'
-import importlib
-mods = ("fabric", "lark", "typer")
-missing = [m for m in mods if importlib.util.find_spec(m) is None]
-if missing:
-    print("[MISSING] Python modules:", ", ".join(missing))
-    raise SystemExit(1)
-print("[OK] Python modules: fabric, lark, typer")
-PY
+    if python3 -c "import importlib.util, sys; mods=('fabric','lark','typer'); missing=[m for m in mods if importlib.util.find_spec(m) is None]; print('[MISSING] Python modules: ' + ', '.join(missing) if missing else '[OK] Python modules: fabric, lark, typer'); sys.exit(1 if missing else 0)"
     then
       :
     else
