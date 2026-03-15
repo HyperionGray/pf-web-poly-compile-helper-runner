@@ -252,7 +252,16 @@ missing = [c for c in reqs if shutil.which(c) is None]
 if missing: print('[ERR] Missing toolchain components:', ' '.join(missing)); print('Install hints:'); print('  - emcc/emsdk: https://emscripten.org/docs/getting_started/downloads.html'); print('  - wasm-pack: https://rustwasm.github.io/wasm-pack/installer/')
 else: print('[OK] Web toolchain ready:', ', '.join(reqs))
 PY
- end
+end
+
+task install prefix="/usr/local"
+  describe Install pf-runner (prefers .deb on Debian/Ubuntu when available)
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    ROOT="${PF_ROOT:-$(pwd)}"
+    DEB="$(ls -1 "$ROOT"/build-packages/deb/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
+    INSTALLER="$ROOT/build-packages/pf-runner-1.0.0/install.sh"
 
     if [ -n "$DEB" ] && [ -f "$DEB" ] && command -v dpkg >/dev/null 2>&1; then
       echo "[install] Installing pf from deb: $DEB (deb controls prefix)"
@@ -276,7 +285,16 @@ end
 
 task install-help
   describe Show install task choices (simplified)
-  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
+  shell printf '%s\n' "Install options:" "  pf install                  # Native install (default /usr/local)" "  pf install prefix=~/.local  # Install to custom prefix (no sudo needed)" "  pf install-all              # pf install + tooling bundles" "  pf install-status           # Categorized install health report + recommendations" "  pf install-smoke-test       # Minimal CI smoke of installer"
+end
+
+task install-status
+  describe Show categorized installer/tool status and recommended next steps
+  shell_lang bash
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    "$ROOT/scripts/installers/install-status.sh"
 end
 
 task install-all
@@ -372,10 +390,4 @@ task sync-demo
   shell echo "  Excludes: sync src=./ dest=/backup/ excludes=[\"*.log\",\"*.tmp\"] delete dry"
   shell echo "  From file: sync src=./ dest=/backup/ exclude_file=.rsync-exclude"
   shell echo "See pf-runner/SYNC.md for full documentation"
-end
-
-task thing
-     describe "Do python instead"
-     shell_lang
-     print("I'm a python script!")
 end

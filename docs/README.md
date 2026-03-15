@@ -637,6 +637,7 @@ Once pf is installed, you can use these tasks:
 pf install       # Re-run installation
 pf install-web   # Alias to install (for web development)
 pf install-base  # Alias to install (for compatibility)
+pf install-status # Show categorized install health and next steps
 ```
 
 ### What Gets Installed?
@@ -694,6 +695,7 @@ After initial installation, you can also use pf tasks:
 pf install       # Re-run installation
 pf install-web   # Alias to install
 pf install-base  # Alias to install
+pf install-status # Show categorized install health and next steps
 ```
 
 #### Native Installation (Alternative)
@@ -1197,6 +1199,7 @@ npx playwright show-report
 - **Kernel Debugging Guide**: See [`KERNEL-DEBUGGING.md`](KERNEL-DEBUGGING.md) for advanced debugging features
 - **Interactive TUI Guide**: See [`TUI.md`](TUI.md) for text user interface documentation
 - **Package Manager Guide**: See [`PACKAGE-MANAGER.md`](PACKAGE-MANAGER.md) for package format translation
+- **Install Status Guide**: See [`INSTALL-STATUS.md`](INSTALL-STATUS.md) for post-install environment verification
 
 ### 🔒 Code Quality & Security Reviews
 - **Security Scanning Guide**: See [`SECURITY-SCANNING-GUIDE.md`](SECURITY-SCANNING-GUIDE.md) - **NEW!** Quick reference for all security tools
@@ -1452,6 +1455,7 @@ Additional documentation in `../pf-runner/`:
 | `pf install-base` | Install base pf runner and dependencies |
 | `pf install-web` | Install web/WASM development tools |
 | `pf install` | Install everything (base + web) |
+| `pf install-status` | Show categorized install status and recommended installers |
 | `pf list` | List all available tasks |
 
 | **Container & Quadlet Commands** | |

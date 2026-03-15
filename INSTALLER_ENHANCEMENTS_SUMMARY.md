@@ -81,6 +81,12 @@ All enhanced installers now follow the **install-checksec best practice pattern*
     - Added git-cleanup workflow examples
     - Included PATH setup note
 
+### 4. Installer Status Reporting Added (NEW) ✅
+- Added `pf install-status` task for a single-command environment audit
+- Added `scripts/installers/install-status.sh` for categorized tool checks
+- Added actionable "Recommended next steps" output based on missing categories
+- Covers runtime, exploit, debugging, injection, fuzzing, and package toolchains
+
 ---
 
 ## Testing Results
@@ -248,7 +254,7 @@ Users now get:
 
 1. **Automated Testing**: Create CI job to test installers in clean environment
 2. **Prerequisites Checker**: Add task to check if system meets requirements
-3. **Installation Summary**: Add task showing all installed tools
+3. **Installation Summary**: ✅ Implemented via `pf install-status`
 4. **Uninstall Support**: Add uninstall tasks where missing
 5. **Cross-Platform**: Enhance installers to support more Linux distributions
 
@@ -295,6 +301,7 @@ pf install-snap              # Snap package manager
 # System
 pf install-tui-deps          # TUI dependencies
 pf rest-install              # REST API service
+pf install-status            # Show categorized install health and next steps
 
 # Git
 pf install-git-filter-repo   # Git history rewriting
