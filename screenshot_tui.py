@@ -9,7 +9,7 @@ and preview purposes.
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "pf-runner"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "pf-runner-full"))
 
 try:
     from rich.console import Console
