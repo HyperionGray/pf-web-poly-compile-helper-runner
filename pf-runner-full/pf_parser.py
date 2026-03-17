@@ -1680,6 +1680,23 @@ def parse_pfyfile_text(
             elif stripped.startswith('tag '):
                 current_task.add_tag(stripped[4:].strip())
             else:
+                # Detect shell heredoc and group body lines into the same entry.
+                if stripped.startswith('shell ') and '<<' in stripped:
+                    shell_cmd_part = stripped[6:].strip()
+                    heredoc_delim, _, _ = _parse_heredoc_syntax(shell_cmd_part)
+                    if heredoc_delim:
+                        body_parts: List[str] = []
+                        j = i + 1
+                        while j < len(lines):
+                            body_line = lines[j]
+                            body_parts.append(body_line)
+                            j += 1
+                            if body_line.strip() == heredoc_delim:
+                                break
+                        combined = line + '\n' + '\n'.join(body_parts)
+                        current_task.add(combined)
+                        i = j
+                        continue
                 current_task.add(line)
         
         i += 1
