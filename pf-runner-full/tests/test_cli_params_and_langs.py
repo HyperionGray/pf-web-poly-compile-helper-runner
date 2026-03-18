@@ -1,9 +1,11 @@
 import tempfile
 import textwrap
+import types
 
 from pf_args import PfArgumentParser
 from pf_parser import parse_pfyfile_text
 from pf_main import PfRunner
+from pf_task_executor import TaskExecutor
 
 
 def test_gnu_style_params_are_forwarded_to_task():
@@ -42,4 +44,31 @@ def test_inline_lang_bracket_executes():
         f.flush()
         runner = PfRunner()
         rc = runner.run_command(["--file", f.name, "inline-lang"])
+        assert rc == 0
+
+
+def test_task_executor_uses_main_runner_execution_path():
+    pfy = textwrap.dedent(
+        """
+        task inline-lang
+          shell [lang:python] print("executor-ok")
+        end
+        """
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".pf") as f:
+        f.write(pfy)
+        f.flush()
+        args = types.SimpleNamespace(
+            task="inline-lang",
+            file=f.name,
+            env=[],
+            hosts=[],
+            host=[],
+            user=None,
+            port=None,
+            sudo=False,
+            sudo_user=None,
+            task_args=[],
+        )
+        rc = TaskExecutor().handle_run_command(args)
         assert rc == 0
