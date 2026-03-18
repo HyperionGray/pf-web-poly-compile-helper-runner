@@ -151,6 +151,13 @@ For more help on a specific subcommand:
             "--subcommand", help="Show tasks only from specific subcommand"
         )
 
+        # modules command
+        self.subparsers.add_parser(
+            "modules",
+            help="List discovered task modules/subcommands",
+            description="List available modules with task counts",
+        )
+
         # run command (default)
         run_parser = self.subparsers.add_parser(
             "run",
@@ -394,6 +401,7 @@ For more help on a specific subcommand:
         # (but do not rewrite built-in commands into tasks).
         if task_args and task_args[0] not in (
             "list",
+            "modules",
             "help",
             "run",
             "prune",
@@ -441,7 +449,7 @@ For more help on a specific subcommand:
                 return self.parser.parse_args(["--help"])
 
         # Directly handle explicit commands and flags without legacy translation
-        builtin_commands = {"list", "run", "help", "prune", "debug-on", "debug-off", "version"}
+        builtin_commands = {"list", "modules", "run", "help", "prune", "debug-on", "debug-off", "version"}
         if args[0] in builtin_commands or args[0] in ("--version", "-V"):
             return self.parser.parse_args(args)
 

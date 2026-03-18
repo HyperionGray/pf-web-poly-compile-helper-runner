@@ -206,6 +206,32 @@ pf list --subcommand web-demo
 pf list --subcommand security
 ```
 
+You can also list all discovered module surfaces directly:
+
+```bash
+pf modules
+```
+
+The `modules` command prints module names and task counts, and is a quick way to
+discover what can be invoked as `pf <module> <task>`.
+
+### Normalized Module Name Matching
+
+`pf list --subcommand ...` now accepts common module name variants:
+
+- `-` (hyphen), `_` (underscore), and spaces are treated equivalently
+- matching is case-insensitive
+
+Examples:
+
+```bash
+pf list --subcommand web-tools
+pf list --subcommand web_tools
+pf list --subcommand "web tools"
+```
+
+All of these resolve to the same discovered module surface when it exists.
+
 ### Mixing with Global Options
 
 Subcommands work seamlessly with global options:

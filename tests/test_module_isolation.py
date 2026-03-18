@@ -184,3 +184,78 @@ def test_repo_unified_security_requires_explicit_file() -> None:
 
     assert result.returncode == 0, result.stderr
     assert "security-assess-comprehensive" in result.stdout
+
+
+def test_modules_command_lists_discovered_modules(tmp_path: Path) -> None:
+    _write_pf(
+        tmp_path / "pf-files" / "always-available" / "Pfyfile.always-available.pf",
+        """
+        task shared-task
+          describe Shared root task
+          shell echo "shared"
+        end
+        """,
+    )
+    _write_pf(
+        tmp_path / "pf-files" / "Pfyfile.pf",
+        """
+        include Pfyfile.widget_tools.pf
+        include Pfyfile.admin.pf
+        task root-task
+          describe Root task
+          shell echo "root"
+        end
+        """,
+    )
+    _write_pf(
+        tmp_path / "pf-files" / "Pfyfile.widget_tools.pf",
+        """
+        task widget-task
+          describe Widget task
+          shell echo "widget"
+        end
+        """,
+    )
+    _write_pf(
+        tmp_path / "pf-files" / "Pfyfile.admin.pf",
+        """
+        task admin-task
+          describe Admin task
+          shell echo "admin"
+        end
+        """,
+    )
+
+    result = _run_pf(tmp_path, "modules")
+
+    assert result.returncode == 0, result.stderr
+    assert "widget-tools (1 task)" in result.stdout
+    assert "admin (1 task)" in result.stdout
+    assert "always-available" not in result.stdout
+
+
+def test_list_subcommand_accepts_normalized_module_aliases(tmp_path: Path) -> None:
+    _write_pf(
+        tmp_path / "pf-files" / "Pfyfile.pf",
+        """
+        include Pfyfile.widget_tools.pf
+        """,
+    )
+    _write_pf(
+        tmp_path / "pf-files" / "Pfyfile.widget_tools.pf",
+        """
+        task widget-task
+          describe Widget task
+          shell echo "widget"
+        end
+        """,
+    )
+
+    underscore_alias = _run_pf(tmp_path, "list", "--subcommand", "widget_tools")
+    spaced_alias = _run_pf(tmp_path, "list", "--subcommand", "widget tools")
+
+    assert underscore_alias.returncode == 0, underscore_alias.stderr
+    assert "widget-task" in underscore_alias.stdout
+
+    assert spaced_alias.returncode == 0, spaced_alias.stderr
+    assert "widget-task" in spaced_alias.stdout

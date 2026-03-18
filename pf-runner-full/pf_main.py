@@ -155,6 +155,33 @@ class PfRunner:
         noun = "task" if task_count == 1 else "tasks"
         return f"{task_count} {noun}"
 
+    def _normalize_module_name(self, module_name: str) -> str:
+        """Normalize module names so spaces/underscores/hyphens compare consistently."""
+        lowered = module_name.strip().lower().replace("_", "-")
+        return re.sub(r"-+", "-", re.sub(r"\s+", "-", lowered)).strip("-")
+
+    def _resolve_module_name(
+        self, requested_module: str, module_tasks: Dict[str, List[TaskListing]]
+    ) -> Optional[str]:
+        """Resolve a user-provided module name to a discovered module key."""
+        if requested_module in module_tasks:
+            return requested_module
+
+        normalized_lookup: Dict[str, str] = {}
+        ambiguous: set[str] = set()
+        for module_name in module_tasks:
+            key = self._normalize_module_name(module_name)
+            existing = normalized_lookup.get(key)
+            if existing is None:
+                normalized_lookup[key] = module_name
+            elif existing != module_name:
+                ambiguous.add(key)
+
+        for key in ambiguous:
+            normalized_lookup.pop(key, None)
+
+        return normalized_lookup.get(self._normalize_module_name(requested_module))
+
     # Module names that are always flattened into the root listing surface.
     _ROOT_FLAT_MODULES = frozenset({"always-available", "module-compat"})
 
@@ -280,6 +307,8 @@ class PfRunner:
                 return self._handle_help_command(parsed_args)
             elif parsed_args.command == 'run':
                 return self._handle_run_command(parsed_args)
+            elif parsed_args.command == 'modules':
+                return self._handle_modules_command(parsed_args)
             elif parsed_args.command == 'prune':
                 return self._handle_prune_command(parsed_args)
             elif parsed_args.command == 'debug-on':
@@ -375,17 +404,19 @@ class PfRunner:
             requested_module = (getattr(args, "subcommand", None) or "").strip().lower()
 
             if requested_module:
-                tasks = module_tasks.get(requested_module, [])
-                if not tasks:
+                resolved_module = self._resolve_module_name(requested_module, module_tasks)
+                if not resolved_module:
                     print(f"No tasks found for module '{args.subcommand}'.", file=sys.stderr)
                     if module_tasks:
                         available_modules = ", ".join(sorted(module_tasks))
                         print(f"Available modules: {available_modules}", file=sys.stderr)
+                    print("Tip: run `pf modules` to see discovered modules.", file=sys.stderr)
                     return 1
 
-                print(f"Tasks for {requested_module}:")
+                tasks = module_tasks.get(resolved_module, [])
+                print(f"Tasks for {resolved_module}:")
                 self._print_task_entries(tasks)
-                print(f"\nUsage: pf {requested_module} <task_name> [params...]")
+                print(f"\nUsage: pf {resolved_module} <task_name> [params...]")
                 print("       pf help <task_name>  # Show help for a specific task")
                 return 0
 
@@ -443,6 +474,39 @@ class PfRunner:
             return 0
         except Exception as e:
             print(f"Error listing tasks: {e}", file=sys.stderr)
+            print("\nTraceback:", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+            return 1
+
+    def _handle_modules_command(self, args) -> int:
+        """Handle the modules command."""
+        file_arg = args.file
+        try:
+            _direct_tasks, module_tasks = self._load_task_listing(file_arg)
+            if not module_tasks:
+                print("No modules found.")
+                print("Tip: add includes to Pfyfile.*.pf files to create module surfaces.")
+                return 0
+
+            print("Available modules:")
+            for module_name, tasks in sorted(module_tasks.items()):
+                print(f"  {module_name} ({self._format_task_count(len(tasks))})")
+
+            print("\nUsage:")
+            print("  pf <module> <task_name> [params...]")
+            print("  pf list --subcommand <module>")
+            return 0
+        except FileNotFoundError as e:
+            print(f"Error: Pfyfile not found: {e}", file=sys.stderr)
+            return 1
+        except BrokenPipeError:
+            try:
+                sys.stdout.close()
+            except Exception:
+                pass
+            return 0
+        except Exception as e:
+            print(f"Error listing modules: {e}", file=sys.stderr)
             print("\nTraceback:", file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
             return 1

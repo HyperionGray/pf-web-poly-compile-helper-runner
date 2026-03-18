@@ -25,3 +25,23 @@ If it includes `pf-files/tests/Pfyfile.tests.pf`:
 - Avoid huge `pf list` output by grouping tasks.
 - Keep similarly named tasks in different files while still presenting a clean CLI.
 - Make completions and discovery nicer (`pf shells <TAB>`, `pf tests <TAB>`, etc.).
+
+## Module discovery command
+
+Use `pf modules` to print discovered module surfaces with task counts:
+
+```bash
+pf modules
+```
+
+This is useful when you want to quickly see which `pf <module> <task>` entrypoints
+are currently available in the loaded Pfyfile graph.
+
+## Module name normalization
+
+When filtering tasks with `pf list --subcommand ...`, module names are normalized:
+
+- hyphen (`-`), underscore (`_`), and spaces are treated equivalently
+- matching is case-insensitive
+
+Example: `web-tools`, `web_tools`, and `"web tools"` resolve to the same module.

@@ -8,6 +8,7 @@ A `pf`-driven task runner and polyglot helper repository with WebAssembly, rever
 ## Useful commands
 ```bash
 pf list
+pf modules
 pf help
 pf pe usage
 pf --file pf-files/Pfyfile.pe.pf list
