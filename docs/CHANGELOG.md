@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Module listing and task-file cleanup (2026-03-18)
+- `pf list --subcommand` now supports root-flattened modules (`always-available` and `module-compat`)
+  by resolving their module files directly when those modules are intentionally merged into the root surface.
+- `pf list --subcommand` now normalizes underscore module names to hyphen form
+  (for example, `module_compat` -> `module-compat`) for consistent CLI matching.
+- Removed a stale duplicate `dev-setup` task definition from `pf-files/Pfyfile.pf`
+  to avoid silent task override behavior.
+
 ### Fixed - CI/CD Review and Documentation Verification (2025-12-22)
 - **CI/CD Review Response**: Completed comprehensive review of automated CI/CD findings
 - **Documentation Verification**: Confirmed all essential documentation files are present and properly formatted

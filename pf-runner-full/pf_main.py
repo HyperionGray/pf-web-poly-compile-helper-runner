@@ -155,6 +155,10 @@ class PfRunner:
         noun = "task" if task_count == 1 else "tasks"
         return f"{task_count} {noun}"
 
+    def _normalize_module_name(self, module_name: Optional[str]) -> str:
+        """Normalize module names for CLI matching."""
+        return (module_name or "").strip().lower().replace("_", "-")
+
     # Module names that are always flattened into the root listing surface.
     _ROOT_FLAT_MODULES = frozenset({"always-available", "module-compat"})
 
@@ -372,14 +376,32 @@ class PfRunner:
                 file_arg = resolved or target
 
             direct_tasks, module_tasks = self._load_task_listing(file_arg)
-            requested_module = (getattr(args, "subcommand", None) or "").strip().lower()
+            requested_module_raw = getattr(args, "subcommand", None)
+            requested_module = self._normalize_module_name(requested_module_raw)
 
             if requested_module:
                 tasks = module_tasks.get(requested_module, [])
+                # Root-flat modules (e.g. always-available/module-compat) are merged
+                # into direct tasks for root listings but should still be listable
+                # through `list --subcommand <module>`.
+                if not tasks and requested_module in self._ROOT_FLAT_MODULES:
+                    try:
+                        base_pfyfile = _find_pfyfile(file_arg=file_arg)
+                        start_dir = os.path.dirname(os.path.abspath(base_pfyfile))
+                    except Exception:
+                        start_dir = os.getcwd()
+
+                    module_ref = _resolve_pfyfile_reference(requested_module, start_dir=start_dir)
+                    if module_ref:
+                        flat_tasks, _ = self._load_task_listing(module_ref)
+                        tasks = flat_tasks
+
                 if not tasks:
-                    print(f"No tasks found for module '{args.subcommand}'.", file=sys.stderr)
+                    print(f"No tasks found for module '{requested_module_raw}'.", file=sys.stderr)
                     if module_tasks:
-                        available_modules = ", ".join(sorted(module_tasks))
+                        available = set(module_tasks)
+                        available.update(self._ROOT_FLAT_MODULES)
+                        available_modules = ", ".join(sorted(available))
                         print(f"Available modules: {available_modules}", file=sys.stderr)
                     return 1
 
