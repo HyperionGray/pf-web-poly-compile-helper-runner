@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import tempfile
 import textwrap
 import unittest
@@ -98,6 +99,70 @@ class TestModuleListing(unittest.TestCase):
             self.assertIn("alpha-second - Alpha second task", output)
             self.assertNotIn("local-task", output)
             self.assertNotIn("beta-task", output)
+
+    def test_default_list_json_includes_core_and_modules(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pfyfile = self._write_pfyfiles(tmpdir)
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                rc = PfRunner().run_command(["--file", pfyfile, "list", "--json"])
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(stdout.getvalue())
+
+            self.assertEqual(payload["requested_module"], None)
+            self.assertEqual(payload["summary"]["core_task_count"], 2)
+            self.assertEqual(payload["summary"]["module_count"], 2)
+            self.assertEqual(payload["summary"]["module_task_count"], 3)
+            self.assertEqual(payload["summary"]["total_task_count"], 5)
+
+            core_names = {task["name"] for task in payload["core_tasks"]}
+            self.assertEqual(core_names, {"local-task", "local-alias"})
+
+            self.assertIn("alpha", payload["modules"])
+            self.assertIn("beta-tools", payload["modules"])
+            alpha_names = {task["name"] for task in payload["modules"]["alpha"]}
+            beta_names = {task["name"] for task in payload["modules"]["beta-tools"]}
+            self.assertEqual(alpha_names, {"alpha-task", "alpha-second"})
+            self.assertEqual(beta_names, {"beta-task"})
+
+    def test_subcommand_list_json_returns_only_requested_module(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pfyfile = self._write_pfyfiles(tmpdir)
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                rc = PfRunner().run_command(
+                    ["--file", pfyfile, "list", "--subcommand", "alpha", "--json"]
+                )
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(stdout.getvalue())
+
+            self.assertEqual(payload["requested_module"], "alpha")
+            self.assertEqual(payload["summary"]["core_task_count"], 0)
+            self.assertEqual(payload["summary"]["module_count"], 1)
+            self.assertEqual(payload["summary"]["module_task_count"], 2)
+            self.assertEqual(payload["summary"]["total_task_count"], 2)
+            self.assertEqual(set(payload["modules"].keys()), {"alpha"})
+            self.assertEqual(payload["core_tasks"], [])
+
+    def test_subcommand_list_json_reports_missing_module(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pfyfile = self._write_pfyfiles(tmpdir)
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                rc = PfRunner().run_command(
+                    ["--file", pfyfile, "list", "--subcommand", "missing", "--json"]
+                )
+
+            self.assertEqual(rc, 1)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["requested_module"], "missing")
+            self.assertIn("No tasks found for module", payload["error"])
+            self.assertEqual(payload["available_modules"], ["alpha", "beta-tools"])
 
 
 if __name__ == "__main__":

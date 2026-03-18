@@ -25,3 +25,19 @@ If it includes `pf-files/tests/Pfyfile.tests.pf`:
 - Avoid huge `pf list` output by grouping tasks.
 - Keep similarly named tasks in different files while still presenting a clean CLI.
 - Make completions and discovery nicer (`pf shells <TAB>`, `pf tests <TAB>`, etc.).
+
+## Machine-readable listings
+
+Use JSON output when scripting against task metadata:
+
+- Full surface:
+  - `pf list --json`
+- Single module:
+  - `pf list --subcommand shells --json`
+
+The JSON payload includes:
+
+- `core_tasks`: direct/root task entries
+- `modules`: module name to task-entry list mapping
+- `summary`: task and module counts
+- `requested_module`: module filter (when used)

@@ -32,7 +32,8 @@ import difflib
 import shlex
 import textwrap
 import re
-from typing import List, Dict, Optional, Tuple
+import json
+from typing import Any, List, Dict, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -218,6 +219,42 @@ class PfRunner:
             desc_text = f" - {description}" if description else ""
             alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
             print(f"  {task_name}{desc_text}{alias_text}")
+
+    def _task_entry_to_dict(self, task_entry: TaskListing) -> Dict[str, Any]:
+        """Convert a task tuple into a stable JSON-serializable mapping."""
+        task_name, description, aliases = task_entry
+        return {
+            "name": task_name,
+            "description": description,
+            "aliases": aliases,
+        }
+
+    def _emit_list_json(
+        self,
+        direct_tasks: List[TaskListing],
+        module_tasks: Dict[str, List[TaskListing]],
+        file_arg: Optional[str],
+        requested_module: Optional[str],
+    ) -> None:
+        """Emit task listing data as compact, deterministic JSON."""
+        sorted_module_names = sorted(module_tasks)
+        payload: Dict[str, Any] = {
+            "file": file_arg,
+            "requested_module": requested_module,
+            "summary": {
+                "core_task_count": len(direct_tasks),
+                "module_count": len(sorted_module_names),
+                "module_task_count": sum(len(module_tasks[name]) for name in sorted_module_names),
+                "total_task_count": len(direct_tasks)
+                + sum(len(module_tasks[name]) for name in sorted_module_names),
+            },
+            "core_tasks": [self._task_entry_to_dict(task) for task in direct_tasks],
+            "modules": {
+                name: [self._task_entry_to_dict(task) for task in module_tasks[name]]
+                for name in sorted_module_names
+            },
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True))
     
     def run_command(self, args: List[str]) -> int:
         """Run pf command with enhanced argument parsing and error handling."""
@@ -367,6 +404,7 @@ class PfRunner:
         file_arg = args.file
         try:
             target = getattr(args, "target", None)
+            emit_json = bool(getattr(args, "json", False))
             if target and not file_arg:
                 resolved = _resolve_pfyfile_reference(target, start_dir=os.getcwd())
                 file_arg = resolved or target
@@ -377,11 +415,28 @@ class PfRunner:
             if requested_module:
                 tasks = module_tasks.get(requested_module, [])
                 if not tasks:
+                    if emit_json:
+                        payload = {
+                            "error": f"No tasks found for module '{args.subcommand}'.",
+                            "requested_module": requested_module,
+                            "available_modules": sorted(module_tasks),
+                        }
+                        print(json.dumps(payload, indent=2, sort_keys=True))
+                        return 1
                     print(f"No tasks found for module '{args.subcommand}'.", file=sys.stderr)
                     if module_tasks:
                         available_modules = ", ".join(sorted(module_tasks))
                         print(f"Available modules: {available_modules}", file=sys.stderr)
                     return 1
+
+                if emit_json:
+                    self._emit_list_json(
+                        direct_tasks=[],
+                        module_tasks={requested_module: tasks},
+                        file_arg=file_arg,
+                        requested_module=requested_module,
+                    )
+                    return 0
 
                 print(f"Tasks for {requested_module}:")
                 self._print_task_entries(tasks)
@@ -390,6 +445,15 @@ class PfRunner:
                 return 0
 
             total_tasks = len(direct_tasks) + sum(len(tasks) for tasks in module_tasks.values())
+            if emit_json:
+                self._emit_list_json(
+                    direct_tasks=direct_tasks,
+                    module_tasks=module_tasks,
+                    file_arg=file_arg,
+                    requested_module=None,
+                )
+                return 0
+
             print("Available tasks:")
             if total_tasks == 0:
                 print("  No tasks found.")
@@ -872,7 +936,6 @@ class PfRunner:
                 implicit_lang: Optional[str] = task_default_lang or params.get("default_lang")
                 shell_lang: Optional[str] = None
                 pending_script: List[str] = []
-                current_lang: Optional[str] = shell_lang or implicit_lang
 
                 def flush_pending() -> None:
                     nonlocal rc, pending_script, implicit_lang
@@ -927,7 +990,6 @@ class PfRunner:
                         flush_pending()
                         parts = stripped.split(None, 1)
                         shell_lang = parts[1].strip() if len(parts) > 1 else None
-                        current_lang = shell_lang or implicit_lang
                         i += 1
                         continue
 
@@ -935,7 +997,6 @@ class PfRunner:
                         flush_pending()
                         parts = stripped.split(None, 1)
                         implicit_lang = parts[1].strip() if len(parts) > 1 else None
-                        current_lang = shell_lang or implicit_lang
                         i += 1
                         continue
 

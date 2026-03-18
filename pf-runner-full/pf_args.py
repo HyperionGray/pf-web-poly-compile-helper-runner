@@ -150,6 +150,11 @@ For more help on a specific subcommand:
         list_parser.add_argument(
             "--subcommand", help="Show tasks only from specific subcommand"
         )
+        list_parser.add_argument(
+            "--json",
+            action="store_true",
+            help="Emit list output as JSON",
+        )
 
         # run command (default)
         run_parser = self.subparsers.add_parser(
