@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - API Rate Limiting and Test Coverage (2026-03-17)
+- **API rate limiting**: Added sliding-window rate limiter to `pf_api.py`
+  - General endpoints: configurable via `PF_API_RATE_LIMIT` (default 60 req/min per IP)
+  - Execution endpoints: separate tighter limit via `PF_API_EXEC_RATE_LIMIT` (default 10 req/min per IP)
+  - Window size configurable via `PF_API_RATE_WINDOW` (default 60 seconds)
+  - Returns HTTP 429 with `Retry-After` header when limit is exceeded
+  - Respects `X-Forwarded-For` header for real client IP detection behind proxies
+- **New tests for parser utility functions** (`test_parser_utils.py`):
+  - `_normalize_hosts`, `_merge_env_hosts`, `_dedupe_preserve_order`, `_parse_host`
+  - `list_dsl_tasks_with_desc`, `get_alias_map`
+  - 21 new test cases; total test count raised from 13 to 47
+- **New tests for API rate limiter** (`test_api_rate_limiter.py`):
+  - Validates per-client tracking, window expiry, and limit enforcement
+  - 6 new test cases covering edge cases (zero limit, large limit, sliding window)
+
+### Fixed - Documentation Updates (2026-03-17)
+- **KNOWN_ISSUES.md**: All 8 previously-listed missing utility functions marked as resolved;
+  short-term action items updated to reflect completed status
+
 ### Fixed - CI/CD Review and Documentation Verification (2025-12-22)
 - **CI/CD Review Response**: Completed comprehensive review of automated CI/CD findings
 - **Documentation Verification**: Confirmed all essential documentation files are present and properly formatted

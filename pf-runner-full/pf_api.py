@@ -22,11 +22,14 @@ import os
 import sys
 import subprocess
 import shlex
+import time
+import collections
+import threading
 from typing import Dict, List, Optional, Any
 from contextlib import asynccontextmanager
 
 try:
-    from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
+    from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Request
     from fastapi.responses import JSONResponse, StreamingResponse
     from pydantic import BaseModel, Field
 except ImportError:
@@ -53,10 +56,54 @@ DEFAULT_HOST = os.environ.get("PF_API_HOST", "127.0.0.1")
 DEFAULT_PORT = int(os.environ.get("PF_API_PORT", "8000"))
 DEFAULT_WORKERS = int(os.environ.get("PF_API_WORKERS", "4"))
 
+# Rate limiting configuration (requests per window)
+RATE_LIMIT_REQUESTS = int(os.environ.get("PF_API_RATE_LIMIT", "60"))
+RATE_LIMIT_WINDOW = int(os.environ.get("PF_API_RATE_WINDOW", "60"))  # seconds
+RATE_LIMIT_EXEC_REQUESTS = int(os.environ.get("PF_API_EXEC_RATE_LIMIT", "10"))
+
 # Reserved paths that should not be treated as task aliases
 RESERVED_PATHS = frozenset(
     ["docs", "redoc", "openapi.json", "favicon.ico", "pf", "reload", "health"]
 )
+
+
+class _SlidingWindowRateLimiter:
+    """Thread-safe sliding window rate limiter keyed by client IP."""
+
+    def __init__(self, max_requests: int, window_seconds: int) -> None:
+        self._max = max_requests
+        self._window = window_seconds
+        self._buckets: Dict[str, collections.deque] = {}
+        self._lock = threading.Lock()
+
+    def is_allowed(self, key: str) -> bool:
+        """Return True if the request is within the rate limit."""
+        now = time.monotonic()
+        cutoff = now - self._window
+        with self._lock:
+            bucket = self._buckets.setdefault(key, collections.deque())
+            # Drop timestamps outside the sliding window
+            while bucket and bucket[0] < cutoff:
+                bucket.popleft()
+            if len(bucket) >= self._max:
+                return False
+            bucket.append(now)
+            return True
+
+
+# Global rate limiter instances
+_global_limiter = _SlidingWindowRateLimiter(RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW)
+_exec_limiter = _SlidingWindowRateLimiter(RATE_LIMIT_EXEC_REQUESTS, RATE_LIMIT_WINDOW)
+
+
+def _get_client_ip(request: Request) -> str:
+    """Extract the real client IP, respecting X-Forwarded-For if present."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return "unknown"
 
 
 # Pydantic models for request/response
@@ -235,9 +282,18 @@ async def health_check():
 
 @app.get("/pf/", response_model=TaskListResponse, tags=["Tasks"])
 async def list_tasks(
-    include_builtins: bool = Query(True, description="Include built-in tasks")
+    request: Request,
+    include_builtins: bool = Query(True, description="Include built-in tasks"),
 ):
     """List all available pf tasks."""
+    client_ip = _get_client_ip(request)
+    if not _global_limiter.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please slow down.",
+            headers={"Retry-After": str(RATE_LIMIT_WINDOW)},
+        )
+
     tasks, _ = _load_tasks()
 
     task_list = []
@@ -260,8 +316,15 @@ async def list_tasks(
 
 
 @app.get("/pf/{task_name}", response_model=TaskInfo, tags=["Tasks"])
-async def get_task(task_name: str):
+async def get_task(task_name: str, request: Request):
     """Get details about a specific task."""
+    client_ip = _get_client_ip(request)
+    if not _global_limiter.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please slow down.",
+            headers={"Retry-After": str(RATE_LIMIT_WINDOW)},
+        )
     resolved_name = _resolve_task_name(task_name)
 
     if resolved_name is None:
@@ -292,8 +355,21 @@ async def get_task(task_name: str):
 
 
 @app.post("/pf/{task_name}", response_model=TaskExecuteResponse, tags=["Tasks"])
-async def execute_task(task_name: str, request: TaskExecuteRequest):
+async def execute_task(task_name: str, request: TaskExecuteRequest, http_request: Request):
     """Execute a pf task."""
+    client_ip = _get_client_ip(http_request)
+    if not _global_limiter.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please slow down.",
+            headers={"Retry-After": str(RATE_LIMIT_WINDOW)},
+        )
+    if not _exec_limiter.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Execution rate limit exceeded. Please slow down.",
+            headers={"Retry-After": str(RATE_LIMIT_WINDOW)},
+        )
     resolved_name = _resolve_task_name(task_name)
 
     if resolved_name is None:
@@ -360,7 +436,7 @@ async def reload_tasks():
 
 # Dynamic alias routes - these allow accessing tasks via their aliases
 @app.get("/{alias}", tags=["Aliases"])
-async def get_task_by_alias(alias: str):
+async def get_task_by_alias(alias: str, request: Request):
     """Get task details via its alias."""
     # Skip reserved paths that shouldn't be treated as aliases
     if alias in RESERVED_PATHS:
@@ -372,11 +448,11 @@ async def get_task_by_alias(alias: str):
         raise HTTPException(status_code=404, detail=f"Alias '{alias}' not found")
 
     # Redirect to the canonical task endpoint
-    return await get_task(resolved_name)
+    return await get_task(resolved_name, request)
 
 
 @app.post("/{alias}", tags=["Aliases"])
-async def execute_task_by_alias(alias: str, request: TaskExecuteRequest):
+async def execute_task_by_alias(alias: str, request: TaskExecuteRequest, http_request: Request):
     """Execute a task via its alias."""
     # Skip reserved paths that shouldn't be treated as aliases
     if alias in RESERVED_PATHS:
@@ -387,7 +463,7 @@ async def execute_task_by_alias(alias: str, request: TaskExecuteRequest):
     if resolved_name is None:
         raise HTTPException(status_code=404, detail=f"Alias '{alias}' not found")
 
-    return await execute_task(resolved_name, request)
+    return await execute_task(resolved_name, request, http_request)
 
 
 def run_server(

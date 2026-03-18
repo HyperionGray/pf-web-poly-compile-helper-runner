@@ -24,20 +24,24 @@ This document tracks known issues in pf_parser.py that were present before the c
 
 ## Missing Utility Functions
 
-The following functions are imported by pf_main.py but not defined in pf_parser.py:
+~~The following functions are imported by pf_main.py but not defined in pf_parser.py:~~
 
-1. `_normalize_hosts()` - Normalize host specifications
-2. `_merge_env_hosts()` - Merge environment-based host lists
-3. `_dedupe_preserve_order()` - Remove duplicates while preserving order
-4. `_parse_host()` - Parse individual host specifications
-5. `_c_for()` - Create connection for host
-6. `_exec_line_fabric()` - Execute line using Fabric
-7. `list_dsl_tasks_with_desc()` - List tasks with descriptions  
-8. `get_alias_map()` - Get task alias mappings
+✅ **ALL RESOLVED** — All eight utility functions are now implemented in `pf_parser.py` (lines 1315+) and importable from `pf_main.py`:
 
-**Impact**: Unit tests fail, advanced features unavailable
-**Priority**: High  
-**Estimated effort**: Medium (2-4 hours to implement all)
+1. `_normalize_hosts()` - Normalize host specifications ✅
+2. `_merge_env_hosts()` - Merge environment-based host lists ✅
+3. `_dedupe_preserve_order()` - Remove duplicates while preserving order ✅
+4. `_parse_host()` - Parse individual host specifications ✅
+5. `_c_for()` - Create connection for host ✅
+6. `_exec_line_fabric()` - Execute line using Fabric ✅
+7. `list_dsl_tasks_with_desc()` - List tasks with descriptions ✅
+8. `get_alias_map()` - Get task alias mappings ✅
+
+Unit tests for all eight functions are in `pf-runner-full/tests/test_parser_utils.py`.
+
+**Impact**: Unit test suite now fully operational.
+**Priority**: N/A — resolved.
+**Resolved**: 2026-03-17
 
 ## Recommendations
 
@@ -47,9 +51,9 @@ The following functions are imported by pf_main.py but not defined in pf_parser.
 3. ✅ Add textwrap import - DONE
 
 ### Short-term (Enable full testing)
-1. Implement all missing utility functions
-2. Verify pf_main.py can import successfully
-3. Re-enable full unit test suite
+1. ~~Implement all missing utility functions~~ ✅ DONE
+2. ~~Verify pf_main.py can import successfully~~ ✅ DONE — all imports verified
+3. ~~Re-enable full unit test suite~~ ✅ DONE — 47 tests passing
 
 ### Long-term (Architecture)
 1. Consider splitting pf_parser.py into smaller, focused modules
