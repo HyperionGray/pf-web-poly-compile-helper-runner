@@ -16,15 +16,46 @@ from typing import List, Dict, Optional
 
 # Import existing pf functionality
 from pf_parser import (
-    _load_pfy_source_with_includes, parse_pfyfile_text
+    _find_pfyfile, _load_pfy_source_with_includes, parse_pfyfile_text
 )
 
 
 class SubcommandManager:
     """Manages subcommand discovery and registration."""
+
+    _ROOT_FLAT_MODULES = frozenset({"always-available", "module-compat"})
     
     def __init__(self):
         pass
+
+    def _module_name_from_source_file(self, source_file: Optional[str]) -> Optional[str]:
+        """Convert a `Pfyfile.<name>.pf` path into a normalized module name."""
+        if not source_file:
+            return None
+
+        basename = os.path.basename(source_file)
+        if not (basename.startswith("Pfyfile.") and basename.endswith(".pf")):
+            return None
+
+        module_name = basename[len("Pfyfile.") : -len(".pf")].replace("_", "-").lower()
+        if module_name in ("", "pf"):
+            return None
+        return module_name
+
+    def _pick_module_source(
+        self,
+        current_source: Optional[str],
+        candidate_source: Optional[str],
+    ) -> Optional[str]:
+        """Prefer a stable, shallow source path when a module spans multiple files."""
+        if not candidate_source:
+            return current_source
+        if not current_source:
+            return candidate_source
+        return min(
+            (current_source, candidate_source),
+            key=lambda path: (len(path.split(os.sep)), path),
+        )
         
     def discover_subcommands(self, pfyfile: Optional[str] = None) -> Dict[str, List[str]]:
         """Discover subcommands from included files.
@@ -35,14 +66,48 @@ class SubcommandManager:
         subcommands: Dict[str, List[str]] = {}
         
         try:
-            _dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=pfyfile)
+            dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=pfyfile)
+            dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
 
-            # Group task names by the file they came from.
-            for task_name, source_file in task_sources.items():
-                subcommands.setdefault(source_file, []).append(task_name)
+            resolved_pfyfile = _find_pfyfile(file_arg=pfyfile)
+            main_pfyfile = (
+                os.path.abspath(resolved_pfyfile)
+                if resolved_pfyfile and os.path.exists(resolved_pfyfile)
+                else None
+            )
+            main_module_name = (
+                self._module_name_from_source_file(main_pfyfile) if main_pfyfile else None
+            )
+            is_root = main_module_name is None
+            module_entries: Dict[str, Dict[str, object]] = {}
 
-            for source_file in subcommands:
-                subcommands[source_file].sort()
+            for task_name, task in sorted(dsl_tasks.items()):
+                source_file = os.path.abspath(task.source_file) if task.source_file else None
+                if main_pfyfile and source_file == main_pfyfile:
+                    continue
+
+                module_name = self._module_name_from_source_file(source_file)
+                if not module_name:
+                    continue
+                if main_module_name and module_name == main_module_name:
+                    continue
+                if is_root and module_name in self._ROOT_FLAT_MODULES:
+                    continue
+
+                entry = module_entries.setdefault(
+                    module_name,
+                    {"tasks": [], "source_file": None},
+                )
+                entry["tasks"].append(task_name)
+                entry["source_file"] = self._pick_module_source(
+                    entry["source_file"], source_file
+                )
+
+            for entry in module_entries.values():
+                source_file = entry["source_file"]
+                if not source_file:
+                    continue
+                subcommands[source_file] = sorted(entry["tasks"])
                     
         except FileNotFoundError:
             # If the main Pfyfile is not found, that's expected in some cases
