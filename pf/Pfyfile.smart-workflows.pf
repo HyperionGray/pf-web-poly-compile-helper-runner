@@ -20,6 +20,12 @@ task smart-analyze
   shell echo "Analysis complete"
 end
 
+task smart-exploit
+  describe Build an exploit workflow plan for a binary target (target=path, output=file, arch=amd64, technique=name)
+  shell test -n "${target}" || (echo "[ERR] Error: target parameter required" && exit 1)
+  shell python3 tools/orchestration/smart_exploiter.py "${target}" ${output:+--output ${output}} ${arch:+--arch ${arch}} ${technique:+--technique ${technique}} ${json:+--format json}
+end
+
 task checksec-unified
   describe Unified binary security analysis
   shell python3 tools/smart-workflows/unified_checksec.py ${binary} ${json:+--json}
@@ -30,5 +36,6 @@ task smart-help
   shell echo "Smart Workflows Help:"
   shell echo "  pf smart-detect target=<target>    # Detect target type"
   shell echo "  pf smart-analyze target=<target>   # Analyze target"
+  shell echo "  pf smart-exploit target=<target>   # Build exploit workflow"
   shell echo "  pf checksec-unified binary=<file>  # Security analysis"
 end

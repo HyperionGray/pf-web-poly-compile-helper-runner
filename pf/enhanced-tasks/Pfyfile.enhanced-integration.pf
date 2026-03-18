@@ -165,16 +165,7 @@ task smart-full-stack [alias sfs]
   
   # Auto-detect target type
   shell echo "🔍 Auto-detecting target type..."
-  shell if [ -f "${target}" ]; then
-  shell   echo "Target is a file - running binary analysis"
-  shell   pf smart-binary-complete binary="${target}"
-  shell elif echo "${target}" | grep -q "^https\?://"; then
-  shell   echo "Target is a URL - running web analysis"
-  shell   pf smart-web-complete url="${target}"
-  shell else
-  shell   echo "Unknown target type - running basic analysis"
-  shell   file "${target}" 2>/dev/null || echo "File analysis failed"
-  shell fi
+  shell if [ -f "${target}" ]; then echo "Target is a file - running binary analysis"; pf smart-binary-complete binary="${target}"; elif echo "${target}" | grep -q "^https\?://"; then echo "Target is a URL - running web analysis"; pf smart-web-complete url="${target}"; else echo "Unknown target type - running basic analysis"; file "${target}" 2>/dev/null || echo "File analysis failed"; fi
   shell echo ""
   
   shell echo "✅ Full-stack analysis complete!"
@@ -189,28 +180,17 @@ task smart-exploit-chain [alias sec]
   
   # Phase 1: Vulnerability Discovery
   shell echo "🔍 Phase 1: Vulnerability Discovery"
-  shell if [ -f "${target}" ]; then
-  shell   pf checksec-analyze binary="${target}"
-  shell   pf debug-analyze-binary binary="${target}" quick=true
-  shell else
-  shell   pf security-scan url="${target}" checks=sqli,xss,cmdi
-  shell fi
+  shell if [ -f "${target}" ]; then pf checksec-unified binary="${target}"; pf smart-analyze target="${target}"; else pf security-scan url="${target}" checks=sqli,xss,cmdi; fi
   shell echo ""
   
   # Phase 2: Exploit Development
   shell echo "💥 Phase 2: Exploit Development"
-  shell if [ -f "${target}" ]; then
-  shell   pf rop-find-gadgets binary="${target}" limit=10
-  shell   pf create-exploit-template binary="${target}" type="${vuln_type:-buffer_overflow}"
-  shell else
-  shell   echo "Web exploit payload generation..."
-  shell   pf security-fuzz url="${target}" type="${vuln_type:-sqli}"
-  shell fi
+  shell if [ -f "${target}" ]; then pf smart-exploit target="${target}" arch="${arch:-amd64}" ${output:+output=${output}} ${vuln_type:+technique=${vuln_type}}; else echo "Web exploit payload generation..."; pf security-fuzz url="${target}" type="${vuln_type:-sqli}"; fi
   shell echo ""
   
   # Phase 3: Payload Generation
   shell echo "🎯 Phase 3: Payload Generation"
-  shell pf generate-shellcode arch="${arch:-x64}" type="${payload_type:-reverse_shell}"
+  shell if [ -f "${target}" ]; then echo "Binary exploit workflow complete. Refine payload in ${output:-$(basename "${target}")_exploit.py}."; else echo "Web exploit workflow complete. Review scan and fuzz output."; fi
   shell echo ""
   
   shell echo "✅ Exploit chain building complete!"

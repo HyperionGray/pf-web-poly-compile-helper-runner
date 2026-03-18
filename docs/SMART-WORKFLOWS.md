@@ -54,22 +54,25 @@ pf smart-analyze target=./binary --format=json --output=analysis.json
 
 ```bash
 # Basic exploit development
-pf smart-exploit binary=./vulnerable
+pf smart-exploit target=./vulnerable
 
 # Specify architecture and output
-pf smart-exploit binary=./target --arch=amd64 --output=my_exploit.py
+pf smart-exploit target=./target arch=amd64 output=my_exploit.py
 
 # Focus on specific technique
-pf smart-exploit binary=./target --technique=rop_chain
+pf smart-exploit target=./target technique=rop_chain
+
+# JSON output for automation
+pf smart-exploit target=/bin/ls json=true
 ```
 
 **What it does:**
 1. Analyzes target security features
-2. Determines appropriate exploitation techniques
-3. Generates exploit template with pwntools
+2. Determines and prioritizes exploitation techniques
+3. Generates exploit template with pwntools (or a robust fallback scaffold)
 4. Finds ROP gadgets (if applicable)
-5. Generates shellcode for target architecture
-6. Creates working exploit framework
+5. Generates shellcode for target architecture (if applicable)
+6. Creates a practical exploit framework and next-step plan
 
 **Tool Integration:**
 - Unified checksec for security analysis

@@ -29,7 +29,7 @@ tools/
 │   ├── tool-detector.mjs   # Tool capability detection (✅ FUNCTIONAL)
 │   ├── workflow-engine.mjs # Workflow orchestration (stub)
 │   ├── smart_analyzer.py   # Binary analysis (✅ FUNCTIONAL)
-│   ├── smart_exploiter.py  # Exploit development (stub)
+│   ├── smart_exploiter.py  # Exploit workflow planner (✅ FUNCTIONAL)
 │   └── workflow_manager.py # Workflow state management (stub)
 │
 ├── unified/                 # Unified tool interfaces
@@ -59,11 +59,14 @@ tools/
   - Detects 17 security tools across 7 categories
   - Returns real availability status
   - Supports table and JSON output
+- `smart_exploiter.py` - Exploit workflow planning and template generation
+  - Analyzes target hardening features and recommends techniques
+  - Generates exploit templates via pwntools (with robust fallback template)
+  - Supports focused technique-first workflows (e.g. rop_chain, ret2libc)
 - `target_detector.py` - Basic target type detection
 - `checksec.py` - Pure Python implementation with real ELF analysis
 
 **⚠️ Stub (Needs Implementation):**
-- `smart_exploiter.py` - Placeholder exploit generation
 - `workflow-engine.mjs` - Logs parameters but doesn't execute workflows
 - `workflow_manager.py` - No state management yet
 - `smart_scanner.py` - Basic output only
@@ -78,6 +81,7 @@ pf smart-detect target=/bin/ls           # Detects target type
 pf unified-checksec binary=/bin/ls       # Real security analysis with risk scoring
 pf smart-analyze target=/bin/ls          # Comprehensive binary analysis
 pf smart-analyze target=/bin/ls --deep-analysis  # Deep analysis with symbols/sections
+pf smart-exploit target=/bin/ls          # Build exploit workflow + template
 pf smart-detect-tools                    # Detect installed security tools
 pf autopwn binary=./target               # Works with real security analysis
 pf autoweb url=http://example.com        # Works with real web scanning
@@ -90,6 +94,7 @@ pf smart-detect-tools --format json      # JSON format
 **What to Expect:**
 - **unified-checksec**: Full security feature analysis, risk scoring, colored output
 - **smart-analyze**: Real binary analysis with multiple checks
+- **smart-exploit**: Practical exploit plan + starter template output
 - **tool-detector**: Actual detection of installed tools
 - **autopwn/autoweb**: Now use real security analysis in Phase 1
 
@@ -126,7 +131,6 @@ Security Features:
 - [ ] Add integration tests
 
 **Phase 3: Advanced Features (Next)**
-- [ ] Implement smart_exploiter with real exploit generation
 - [ ] Add workflow state management
 - [ ] Create workflow orchestration engine
 - [ ] Add machine learning for tool selection

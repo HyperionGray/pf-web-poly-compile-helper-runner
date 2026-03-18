@@ -151,12 +151,6 @@ task dev-setup
   bash "${PFY_ROOT:-.}/setup_dev_environment.sh"
 end
 
-task dev-setup
-  describe Set up the repo-local development environment
-  shell_lang bash
-  bash "${PFY_ROOT:-.}/setup_dev_environment.sh"
-end
-
 task install-all
   describe Install pf plus core tool categories
   shell pf install
@@ -252,8 +246,3 @@ task sync-demo
   shell echo "See pf-runner/SYNC.md for full documentation"
 end
 
-task thing
-     describe "Do python instead"
-     shell_lang
-     print("I'm a python script!")
-end
