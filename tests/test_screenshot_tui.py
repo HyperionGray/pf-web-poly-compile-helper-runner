@@ -8,14 +8,20 @@ Tests verify that the screenshot script can be imported and has expected structu
 
 import sys
 import os
+import json
 import pytest
 from unittest.mock import Mock, patch
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Constants
-PF_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')
+def _pf_tui_path_exists() -> bool:
+    root = os.path.join(os.path.dirname(__file__), "..")
+    candidates = [
+        os.path.join(root, "pf-runner-full", "pf_tui.py"),
+        os.path.join(root, "pf-runner", "pf_tui.py"),
+    ]
+    return any(os.path.exists(candidate) for candidate in candidates)
 
 
 def test_screenshot_tui_file_exists():
@@ -38,7 +44,7 @@ def test_screenshot_tui_imports():
 
 
 @pytest.mark.skipif(
-    not os.path.exists(PF_TUI_PATH),
+    not _pf_tui_path_exists(),
     reason="pf_tui module not available"
 )
 def test_screenshot_tui_module_structure():
@@ -55,7 +61,7 @@ def test_screenshot_tui_module_structure():
 
 
 @pytest.mark.skipif(
-    not os.path.exists(PF_TUI_PATH),
+    not _pf_tui_path_exists(),
     reason="pf_tui module not available"
 )
 @patch('screenshot_tui.PfTUI')
@@ -90,6 +96,38 @@ def test_show_menu_screenshot(mock_console, mock_tui_class):
         
     except Exception as e:
         pytest.skip(f"Screenshot TUI test skipped due to dependencies: {e}")
+
+
+@pytest.mark.skipif(
+    not _pf_tui_path_exists(),
+    reason="pf_tui module not available"
+)
+@patch("screenshot_tui.PfTUI")
+@patch("screenshot_tui.Console")
+def test_show_menu_screenshot_writes_json(mock_console, mock_tui_class, tmp_path):
+    """Snapshot mode should write JSON output when requested."""
+    mock_console.return_value = Mock()
+    mock_tui_instance = Mock()
+    mock_tui_instance.tasks = [Mock(), Mock()]
+    mock_tui_instance.categories = [
+        Mock(name="Core Tasks", tasks=[Mock(), Mock()]),
+        Mock(name="Testing", tasks=[Mock()]),
+    ]
+    mock_tui_class.return_value = mock_tui_instance
+
+    import screenshot_tui
+
+    out_file = tmp_path / "snapshot.json"
+    rc = screenshot_tui.show_menu_screenshot(
+        output_path=str(out_file),
+        snapshot_format="json",
+    )
+
+    assert rc == 0
+    assert out_file.exists()
+    payload = json.loads(out_file.read_text(encoding="utf-8"))
+    assert payload["total_tasks"] == 2
+    assert payload["total_categories"] == 2
 
 
 def test_screenshot_tui_is_executable():

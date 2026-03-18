@@ -9,6 +9,7 @@ The pf TUI provides a modern, intuitive interface for:
 - **Visual Debugging**: Integration with debugging and reverse engineering tools
 - **Syntax Checking**: Validate task definitions before execution
 - **Tool Discovery**: View available debugging tools and their installation status
+- **Snapshot Export**: Generate text/markdown/json snapshots for docs and reviews
 
 ## Features
 
@@ -112,6 +113,7 @@ Main Menu:
   [3] Check task syntax
   [4] View debugging tools
   [5] Search tasks
+  [6] Exploit development tools
   [q] Quit
 ```
 
@@ -169,11 +171,35 @@ Find tasks quickly:
 For non-interactive demonstration:
 
 ```bash
-# Run the TUI demo
+# Run the TUI demo (recommended task entrypoint)
+pf tui-demo
+
+# Direct script usage
 python3 demo_tui.py
 ```
 
 This showcases TUI capabilities without requiring user interaction.
+
+## Snapshot Mode (New)
+
+Generate a static TUI snapshot for docs, changelogs, or PR context:
+
+```bash
+# Print snapshot to terminal
+pf tui-screenshot
+
+# Save markdown snapshot for docs
+pf tui-screenshot format=markdown output=docs/tui/snapshot.md
+
+# Save machine-readable JSON snapshot
+pf tui-screenshot format=json output=docs/tui/snapshot.json
+```
+
+Direct script usage:
+
+```bash
+python3 screenshot_tui.py --format markdown --output docs/tui/snapshot.md
+```
 
 ## Architecture
 
@@ -262,11 +288,15 @@ pf tui
 
 # View TUI help
 pf tui-help
+
+# Run demo/snapshot helpers
+pf tui-demo
+pf tui-screenshot format=markdown output=docs/tui/snapshot.md
 ```
 
 ## Keyboard Shortcuts
 
-- **Number keys (1-5)**: Select menu option
+- **Number keys (1-6)**: Select menu option
 - **q**: Quit TUI
 - **Enter**: Confirm selection or continue
 - **Ctrl+C**: Interrupt and exit
@@ -293,14 +323,17 @@ The TUI uses color-coding for better readability:
 ### File Structure
 
 ```
-pf-runner/
+pf-runner-full/
 ├── pf_tui.py          # Main TUI implementation
 ├── pf_parser.py       # Task parsing (dependency)
 ├── pf_shell.py        # Shell validation (dependency)
 └── ...
 
-Pfyfile.tui.pf         # TUI task definitions
-demo_tui.py            # Non-interactive demo
+pf-files/always-available/Pfyfile.tui.pf   # TUI task definitions
+demos/demo_tui.py                           # Non-interactive demo implementation
+demos/screenshot_tui.py                     # Snapshot renderer implementation
+demo_tui.py                                 # Backward-compatible wrapper
+screenshot_tui.py                           # Backward-compatible wrapper
 ```
 
 ## Troubleshooting
@@ -309,7 +342,7 @@ demo_tui.py            # Non-interactive demo
 
 ```bash
 # Ensure you're in the correct directory
-cd pf-runner
+cd pf-runner-full
 
 # Install dependencies
 pip3 install --user rich fabric

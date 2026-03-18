@@ -1,48 +1,40 @@
 #!/usr/bin/env python3
 """
-screenshot_tui.py - Screenshot/snapshot utility for the pf TUI menu
-
-Renders a static snapshot of the pf TUI task menu for documentation
-and preview purposes.
+Compatibility wrapper for demos/screenshot_tui.py.
 """
 
-import sys
-import os
+from __future__ import annotations
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "pf-runner-full"))
+from typing import Optional, Sequence
 
-try:
-    from rich.console import Console
-except ImportError:
-    print("Error: rich is not installed. Install with: pip install rich", file=sys.stderr)
-    sys.exit(1)
+import demos.screenshot_tui as _impl
 
-try:
-    from pf_tui import PfTUI
-except ImportError:
-    print("Error: pf_tui module not available", file=sys.stderr)
-    sys.exit(1)
+# Re-export symbols used by existing tests and callers.
+Console = _impl.Console
+PfTUI = _impl.PfTUI
 
 
-def show_menu_screenshot() -> None:
-    """Render a static snapshot of the pf TUI task menu."""
-    console = Console()
-    tui = PfTUI()
+def show_menu_screenshot(
+    output_path: Optional[str] = None,
+    snapshot_format: str = "text",
+    pfyfile: Optional[str] = None,
+) -> int:
+    """Render a TUI snapshot, optionally saving it to a file."""
+    _impl.Console = Console
+    _impl.PfTUI = PfTUI
+    return _impl.show_menu_screenshot(
+        output_path=output_path,
+        snapshot_format=snapshot_format,
+        pfyfile=pfyfile,
+    )
 
-    try:
-        tui.load_tasks()
-        tui.categorize_tasks()
-        tui.show_header()
-    except Exception:
-        pass
 
-    console.print("[bold green]pf Task Menu[/bold green]")
-    if tui.categories:
-        for category in tui.categories:
-            console.print(f"  [cyan]{category.name}[/cyan]")
-    else:
-        console.print("  (no tasks found)")
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    """CLI entry point for compatibility script."""
+    _impl.Console = Console
+    _impl.PfTUI = PfTUI
+    return _impl.main(argv)
 
 
 if __name__ == "__main__":
-    show_menu_screenshot()
+    raise SystemExit(main())

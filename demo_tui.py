@@ -1,45 +1,32 @@
 #!/usr/bin/env python3
 """
-demo_tui.py - Demo script for pf TUI (Text User Interface)
-
-Demonstrates the PfTUI interface by loading tasks and showing
-a summary of available task categories.
+Compatibility wrapper for demos/demo_tui.py.
 """
 
-import sys
-import os
+from __future__ import annotations
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "pf-runner-full"))
+from typing import Optional, Sequence
 
-try:
-    from rich.console import Console
-except ImportError:
-    print("Error: rich is not installed. Install with: pip install rich", file=sys.stderr)
-    sys.exit(1)
+import demos.demo_tui as _impl
 
-try:
-    from pf_tui import PfTUI
-except ImportError:
-    print("Error: pf_tui module not available", file=sys.stderr)
-    sys.exit(1)
+# Re-export symbols used by existing tests and callers.
+Console = _impl.Console
+PfTUI = _impl.PfTUI
 
 
-def demo_tui() -> None:
-    """Run a brief demo of the pf TUI, showing task categories and counts."""
-    console = Console()
-    tui = PfTUI()
+def demo_tui(pfyfile: Optional[str] = None) -> int:
+    """Run non-interactive TUI demo."""
+    _impl.Console = Console
+    _impl.PfTUI = PfTUI
+    return _impl.demo_tui(pfyfile=pfyfile)
 
-    try:
-        tui.load_tasks()
-        tui.categorize_tasks()
-    except Exception:
-        pass
 
-    console.print("[bold blue]pf TUI Demo[/bold blue]")
-    console.print(f"Loaded {len(tui.tasks)} tasks")
-    if tui.categories:
-        console.print(f"Categories: {', '.join(str(c.name) for c in tui.categories)}")
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    """CLI entry point for compatibility script."""
+    _impl.Console = Console
+    _impl.PfTUI = PfTUI
+    return _impl.main(argv)
 
 
 if __name__ == "__main__":
-    demo_tui()
+    raise SystemExit(main())

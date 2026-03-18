@@ -9,14 +9,18 @@ Tests verify that the demo script can be imported and run without errors.
 import sys
 import os
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from io import StringIO
+from unittest.mock import Mock, patch
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Constants
-PF_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')
+def _pf_tui_path_exists() -> bool:
+    root = os.path.join(os.path.dirname(__file__), "..")
+    candidates = [
+        os.path.join(root, "pf-runner-full", "pf_tui.py"),
+        os.path.join(root, "pf-runner", "pf_tui.py"),
+    ]
+    return any(os.path.exists(candidate) for candidate in candidates)
 
 
 def test_demo_tui_imports():
@@ -37,7 +41,7 @@ def test_demo_tui_path_setup(mock_path):
 
 
 @pytest.mark.skipif(
-    not os.path.exists(PF_TUI_PATH),
+    not _pf_tui_path_exists(),
     reason="pf_tui module not available"
 )
 @patch('demo_tui.PfTUI')
@@ -67,7 +71,7 @@ def test_demo_tui_function(mock_console, mock_tui_class):
 
 
 @pytest.mark.skipif(
-    not os.path.exists(PF_TUI_PATH),
+    not _pf_tui_path_exists(),
     reason="pf_tui module not available"
 )
 def test_demo_tui_module_structure():
