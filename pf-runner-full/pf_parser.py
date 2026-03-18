@@ -873,7 +873,7 @@ def _build_native_heredoc_command(
     else:
         heredoc_cmd = f"bash {shell_cmd}\n{heredoc_content}\n{delimiter}"
     if outfile:
-        heredoc_cmd = f"({heredoc_cmd}) > {shlex.quote(outfile)}"
+        heredoc_cmd = f"(\n{heredoc_cmd}\n) > {shlex.quote(outfile)}"
     return heredoc_cmd
 
 
