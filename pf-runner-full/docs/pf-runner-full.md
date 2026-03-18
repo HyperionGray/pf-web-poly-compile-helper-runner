@@ -294,7 +294,8 @@ end
 The heredoc syntax supports:
 - **Any language**: Works with all supported polyglot languages (python, node, go, rust, etc.)
 - **Output redirection**: `<< DELIM > output.txt` redirects the output to a file
-- **Custom delimiters**: Use any uppercase name (e.g., `EOF`, `PYEOF`, `PYTHON_CODE`, etc.)
+- **Custom delimiters**: Delimiter names may include letters, digits, `_`, `.`, `:`, and `-`
+  (e.g., `EOF`, `PYEOF`, `EOF-JSON`, `BUILD.OUT:V2`, etc.)
 
 **Examples:**
 

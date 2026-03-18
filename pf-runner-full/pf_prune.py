@@ -265,8 +265,12 @@ class PfSyntaxChecker:
         shell_heredoc_delim: Optional[str] = None
         in_shell_backslash_continuation = False
 
-        shell_heredoc_re = re.compile(r"^shell\s+<<-?\s*(['\"]?)([A-Za-z0-9_]+)\1\s*$")
-        script_heredoc_re = re.compile(r"<<-?\s*(['\"]?)([A-Za-z0-9_]+)\1\s*$")
+        shell_heredoc_re = re.compile(
+            r"^shell\s+<<-?\s*(['\"]?)([A-Za-z0-9_][A-Za-z0-9_.:-]*)\1\s*$"
+        )
+        script_heredoc_re = re.compile(
+            r"<<-?\s*(['\"]?)([A-Za-z0-9_][A-Za-z0-9_.:-]*)\1\s*$"
+        )
         
         for i, line in enumerate(lines, 1):
             stripped = line.strip()

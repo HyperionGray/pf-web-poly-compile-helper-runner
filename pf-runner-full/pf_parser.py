@@ -785,7 +785,8 @@ _LANG_BRACKET_RE = re.compile(r"^\s*\[lang:([^\]]+)\]\s*(.*)$", re.IGNORECASE | 
 # Supports optional tab-stripping (<<-), optional quoting of the delimiter,
 # and an optional redirection target for heredoc output.
 _HEREDOC_RE = re.compile(
-    r"<<(?P<strip>-?)\s*(?:['\"]?)(?P<delim>[A-Za-z][A-Za-z0-9_]*)(?:['\"]?)"
+    r"<<(?P<strip>-?)\s*(?P<quote>['\"]?)"
+    r"(?P<delim>[A-Za-z0-9_][A-Za-z0-9_.:-]*)(?P=quote)"
     r"\s*(?:>\s*(?P<outfile>[^\s]+))?$"
 )
 

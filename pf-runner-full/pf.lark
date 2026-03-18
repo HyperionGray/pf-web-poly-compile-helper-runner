@@ -168,7 +168,7 @@ lang_shebang: LANG_SHEBANG
 // Tokens
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_-]*/      // Task names, variables, parameters
 STRING: /"[^"]*"/                           // Quoted strings (double quotes)
-HEREDOC_DOCUMENT: /\s*shell[^\r\n]*<<-?\s*(?P<quote>['"]?)(?P<delim>[A-Za-z][A-Za-z0-9_]*)(?P=quote)[^\r\n]*\r?\n(?:[^\r\n]*\r?\n)*?\s*(?P=delim)\s*(?:\r?\n|$)/
+HEREDOC_DOCUMENT: /\s*shell[^\r\n]*<<-?\s*(?P<quote>['"]?)(?P<delim>[A-Za-z0-9_][A-Za-z0-9_.:-]*)(?P=quote)[^\r\n]*\r?\n(?:[^\r\n]*\r?\n)*?\s*(?P=delim)\s*(?:\r?\n|$)/
 SHELL_PIPE_BLOCK: /(?m:(?P<indent>[ \t]*)shell[^\S\r\n]*\|[^\r\n]*\r?\n(?:(?P=indent)[ \t]+.*\r?\n)+)/
 TEXT_LINE.0: /[^\r\n]+/                       // Any text until end of line
 INLINE_TEXT.-1: /(?!\s*(?:task|end|include)\b)[^\r\n]+/
