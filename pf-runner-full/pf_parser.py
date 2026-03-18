@@ -814,6 +814,69 @@ def _parse_heredoc_syntax(cmd: str) -> Tuple[Optional[str], Optional[str], bool]
     return None, None, False
 
 
+def _extract_heredoc_parts(
+    shell_cmd: str,
+    lines: Optional[List[str]] = None,
+    line_index: Optional[int] = None,
+    task_name: Optional[str] = None,
+    task_env: Optional[Dict[str, str]] = None,
+) -> Tuple[Optional[str], Optional[str], Optional[str], str, int]:
+    """
+    Extract a heredoc's first command line and body content.
+
+    Supports both legacy multi-line task bodies and parser-grouped shell
+    commands where the heredoc body is already embedded in ``shell_cmd``.
+    """
+    first_cmd_line = shell_cmd.split("\n", 1)[0]
+    delimiter, outfile, strip_tabs = _parse_heredoc_syntax(first_cmd_line)
+    next_index = line_index if line_index is not None else 0
+    if not delimiter:
+        return None, None, None, "", next_index
+
+    heredoc_lines: List[str] = []
+    if "\n" in shell_cmd:
+        for part in shell_cmd.split("\n")[1:]:
+            if part.strip() == delimiter:
+                break
+            heredoc_lines.append(part)
+    else:
+        if lines is None or line_index is None:
+            return first_cmd_line, delimiter, outfile, "", next_index
+        next_index = line_index + 1
+        while next_index < len(lines):
+            body_line = lines[next_index]
+            if body_line.strip() == delimiter:
+                break
+            heredoc_lines.append(body_line)
+            next_index += 1
+        else:
+            raise PFExecutionError(
+                message=f"Heredoc delimiter '{delimiter}' not found",
+                task_name=task_name,
+                command=first_cmd_line,
+                environment=task_env or {},
+                suggestion="Ensure heredoc terminator is present"
+            )
+
+    if strip_tabs:
+        heredoc_lines = [line.lstrip("\t") for line in heredoc_lines]
+    return first_cmd_line, delimiter, outfile, "\n".join(heredoc_lines), next_index
+
+
+def _build_native_heredoc_command(
+    shell_cmd: str, heredoc_content: str, delimiter: str, outfile: Optional[str]
+) -> str:
+    """Build a shell command string for native bash heredoc execution."""
+    cmd_before = shell_cmd.split("<<", 1)[0].strip()
+    if cmd_before:
+        heredoc_cmd = f"{shell_cmd}\n{heredoc_content}\n{delimiter}"
+    else:
+        heredoc_cmd = f"bash {shell_cmd}\n{heredoc_content}\n{delimiter}"
+    if outfile:
+        heredoc_cmd = f"({heredoc_cmd}) > {shlex.quote(outfile)}"
+    return heredoc_cmd
+
+
 def _parse_lang_bracket(cmd: str) -> Tuple[Optional[str], str]:
     """
     Parse [lang:xxx] syntax from the beginning of a shell command.
@@ -1554,20 +1617,23 @@ def run_task_by_name(
             cmd = stripped[6:].strip()
             cmd = _interpolate(cmd, params, task_env)
             if "<<" in cmd:
-                delimiter, outfile, strip_tabs = _parse_heredoc_syntax(cmd)
+                (
+                    cmd_first_line,
+                    delimiter,
+                    outfile,
+                    heredoc_body,
+                    i,
+                ) = _extract_heredoc_parts(
+                    cmd,
+                    lines=lines,
+                    line_index=i,
+                    task_name=task_name,
+                    task_env=task_env,
+                )
                 if delimiter:
-                    heredoc_lines: List[str] = []
-                    i += 1
-                    while i < len(lines):
-                        body_line = lines[i]
-                        if body_line.strip() == delimiter:
-                            break
-                        heredoc_lines.append(body_line)
-                        i += 1
-                    if strip_tabs:
-                        heredoc_lines = [ln.lstrip('\t') for ln in heredoc_lines]
-                    heredoc_body = "\n".join(heredoc_lines)
-                    cmd = f"{cmd}\n{heredoc_body}\n{delimiter}"
+                    cmd = _build_native_heredoc_command(
+                        cmd_first_line or cmd, heredoc_body, delimiter, outfile
+                    )
             rc = _exec_line_fabric(cmd, None, task_env, task_name, False, None)
             i += 1
             if rc != 0:

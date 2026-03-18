@@ -55,7 +55,8 @@ from pf_parser import (
     _c_for,
     _dedupe_preserve_order,
     _interpolate,
-    _parse_heredoc_syntax,
+    _extract_heredoc_parts,
+    _build_native_heredoc_command,
     _parse_lang_bracket,
     _canonical_lang,
     _render_polyglot_command,
@@ -987,42 +988,21 @@ class PfRunner:
                                         args.sudo, args.sudo_user
                                     )
                             elif "<<" in shell_cmd:
-                                # Parse heredoc syntax from the first line only (supports
-                                # pre-grouped heredoc where body is embedded after '\n').
-                                first_cmd_line = shell_cmd.split("\n")[0]
-                                delimiter, outfile, strip_tabs = _parse_heredoc_syntax(first_cmd_line)
+                                (
+                                    first_cmd_line,
+                                    delimiter,
+                                    outfile,
+                                    heredoc_content,
+                                    i,
+                                ) = _extract_heredoc_parts(
+                                    shell_cmd,
+                                    lines=lines,
+                                    line_index=i,
+                                    task_name=task_name,
+                                    task_env=task_env,
+                                )
                                 if delimiter:
-                                    heredoc_lines: List[str] = []
-
-                                    if "\n" in shell_cmd:
-                                        # Pre-grouped heredoc: body is already embedded in
-                                        # shell_cmd (as produced by parse_pfyfile_text).
-                                        cmd_parts = shell_cmd.split("\n")
-                                        shell_cmd = cmd_parts[0]
-                                        for part in cmd_parts[1:]:
-                                            if part.strip() == delimiter:
-                                                break
-                                            heredoc_lines.append(part)
-                                    else:
-                                        i += 1
-                                        while i < len(lines):
-                                            body_line = lines[i]
-                                            if body_line.strip() == delimiter:
-                                                break
-                                            heredoc_lines.append(body_line)
-                                            i += 1
-                                        else:
-                                            raise PFExecutionError(
-                                                message=f"Heredoc delimiter '{delimiter}' not found",
-                                                task_name=task_name,
-                                                command=shell_cmd,
-                                                environment=task_env,
-                                                suggestion="Ensure heredoc terminator is present"
-                                            )
-
-                                    heredoc_content = "\n".join(heredoc_lines)
-                                    if strip_tabs:
-                                        heredoc_content = "\n".join(line.lstrip("\t") for line in heredoc_lines)
+                                    shell_cmd = first_cmd_line or shell_cmd
                                     lang_for_heredoc = line_lang or shell_lang or implicit_lang
                                     effective_lang = _canonical_lang(lang_for_heredoc) if lang_for_heredoc else None
                                     if lang_for_heredoc and effective_lang != "bash":
@@ -1038,15 +1018,9 @@ class PfRunner:
                                             args.sudo, args.sudo_user
                                         )
                                     else:
-                                        # Native bash heredoc (or no lang).
-                                        # If no command precedes '<<', run content via bash.
-                                        cmd_before = shell_cmd.split("<<")[0].strip()
-                                        if cmd_before:
-                                            heredoc_cmd = f"{shell_cmd}\n{heredoc_content}\n{delimiter}"
-                                        else:
-                                            heredoc_cmd = f"bash {shell_cmd}\n{heredoc_content}\n{delimiter}"
-                                        if outfile:
-                                            heredoc_cmd = f"({heredoc_cmd}) > {shlex.quote(outfile)}"
+                                        heredoc_cmd = _build_native_heredoc_command(
+                                            shell_cmd, heredoc_content, delimiter, outfile
+                                        )
                                         rc = _exec_line_fabric(
                                             heredoc_cmd, connection, task_env, task_name,
                                             args.sudo, args.sudo_user
