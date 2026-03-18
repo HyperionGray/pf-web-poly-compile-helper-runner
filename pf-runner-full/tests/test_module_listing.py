@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import tempfile
 import textwrap
 import unittest
@@ -98,6 +99,44 @@ class TestModuleListing(unittest.TestCase):
             self.assertIn("alpha-second - Alpha second task", output)
             self.assertNotIn("local-task", output)
             self.assertNotIn("beta-task", output)
+
+    def test_default_list_json_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pfyfile = self._write_pfyfiles(tmpdir)
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                rc = PfRunner().run_command(["--file", pfyfile, "list", "--json"])
+
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(rc, 0)
+            self.assertGreaterEqual(payload["total_tasks"], 4)
+            self.assertIn("core_tasks", payload)
+            self.assertIn("modules", payload)
+
+            core_names = {entry["name"] for entry in payload["core_tasks"]}
+            self.assertIn("local-task", core_names)
+            self.assertIn("local-alias", core_names)
+            self.assertIn("alpha", payload["modules"])
+            self.assertIn("beta-tools", payload["modules"])
+
+    def test_subcommand_list_json_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pfyfile = self._write_pfyfiles(tmpdir)
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                rc = PfRunner().run_command(
+                    ["--file", pfyfile, "list", "--subcommand", "alpha", "--json"]
+                )
+
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(rc, 0)
+            self.assertEqual(payload["subcommand"], "alpha")
+            self.assertEqual(
+                {entry["name"] for entry in payload["tasks"]},
+                {"alpha-task", "alpha-second"},
+            )
 
 
 if __name__ == "__main__":

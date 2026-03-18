@@ -1689,9 +1689,13 @@ def parse_pfyfile_text(
                         j = i + 1
                         while j < len(lines):
                             body_line = lines[j]
+                            stripped_body = body_line.strip()
+                            # Avoid swallowing following tasks when heredoc is unterminated.
+                            if stripped_body == "end" and heredoc_delim != "end":
+                                break
                             heredoc_body_lines.append(body_line)
                             j += 1
-                            if body_line.strip() == heredoc_delim:
+                            if stripped_body == heredoc_delim:
                                 break
                         combined = line + '\n' + '\n'.join(heredoc_body_lines)
                         current_task.add(combined)

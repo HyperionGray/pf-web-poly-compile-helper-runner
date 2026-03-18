@@ -295,6 +295,8 @@ The heredoc syntax supports:
 - **Any language**: Works with all supported polyglot languages (python, node, go, rust, etc.)
 - **Output redirection**: `<< DELIM > output.txt` redirects the output to a file
 - **Custom delimiters**: Use any uppercase name (e.g., `EOF`, `PYEOF`, `PYTHON_CODE`, etc.)
+- **Strict delimiter handling**: Unterminated heredocs now fail with a clear error
+  (`Heredoc delimiter '<DELIM>' not found`) instead of silently consuming later tasks.
 
 **Examples:**
 

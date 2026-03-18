@@ -11,6 +11,7 @@
 
 ```bash
 ./pf list
+./pf list --json
 ./pf run default-task
 ```
 

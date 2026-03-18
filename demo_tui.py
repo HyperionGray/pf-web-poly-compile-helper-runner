@@ -32,9 +32,11 @@ def demo_tui() -> None:
     try:
         tui.load_tasks()
         tui.categorize_tasks()
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"Error during TUI demo: {exc}", file=sys.stderr)
+        sys.exit(1)
 
+    console.print("[bold yellow]==================== DEMO ====================[/bold yellow]")
     console.print("[bold blue]pf TUI Demo[/bold blue]")
     console.print(f"Loaded {len(tui.tasks)} tasks")
     if tui.categories:

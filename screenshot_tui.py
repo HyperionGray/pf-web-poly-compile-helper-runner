@@ -33,9 +33,11 @@ def show_menu_screenshot() -> None:
         tui.load_tasks()
         tui.categorize_tasks()
         tui.show_header()
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"Error generating TUI screenshot: {exc}", file=sys.stderr)
+        sys.exit(1)
 
+    console.print("[bold yellow]==================== DEMO ====================[/bold yellow]")
     console.print("[bold green]pf Task Menu[/bold green]")
     if tui.categories:
         for category in tui.categories:
