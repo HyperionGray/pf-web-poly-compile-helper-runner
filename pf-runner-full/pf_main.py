@@ -999,10 +999,20 @@ class PfRunner:
                                         # shell_cmd (as produced by parse_pfyfile_text).
                                         cmd_parts = shell_cmd.split("\n")
                                         shell_cmd = cmd_parts[0]
+                                        terminator_found = False
                                         for part in cmd_parts[1:]:
                                             if part.strip() == delimiter:
+                                                terminator_found = True
                                                 break
                                             heredoc_lines.append(part)
+                                        if not terminator_found:
+                                            raise PFExecutionError(
+                                                message=f"Heredoc delimiter '{delimiter}' not found",
+                                                task_name=task_name,
+                                                command=shell_cmd,
+                                                environment=task_env,
+                                                suggestion="Ensure heredoc terminator is present"
+                                            )
                                     else:
                                         i += 1
                                         while i < len(lines):

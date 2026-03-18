@@ -92,6 +92,26 @@ end
     assert "CAT_OK" in r4.stdout
 
 
+def test_unterminated_heredoc_reports_missing_delimiter(tmp_path: Path):
+    pfy = tmp_path / "Pfyfile.pf"
+    pfy.write_text(
+        """\
+task broken-heredoc
+  shell <<'EOF'
+echo "should-not-run"
+end
+""",
+        encoding="utf-8",
+    )
+
+    result = _run_pf(["--file", str(pfy), "run", "broken-heredoc"])
+
+    assert result.returncode != 0
+    assert "Heredoc delimiter 'EOF' not found" in result.stderr
+    assert "end: command not found" not in result.stderr
+    assert "should-not-run" not in result.stdout
+
+
 def test_prune_ignores_shell_bashisms(tmp_path: Path):
     pfy = tmp_path / "Pfyfile.pf"
     pfy.write_text(
