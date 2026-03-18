@@ -14,20 +14,25 @@ RUNNER_DIR = os.path.join(ROOT_DIR, "pf-runner-full")
 if RUNNER_DIR not in sys.path:
     sys.path.insert(0, RUNNER_DIR)
 
-try:
-    from rich.console import Console
-except ImportError:
-    print("Error: rich is not installed. Install with: pip install rich", file=sys.stderr)
-    sys.exit(1)
-
-try:
-    from pf_tui import PfTUI
-except ImportError:
-    print("Error: pf_tui module not available", file=sys.stderr)
-    sys.exit(1)
+# Populated lazily so importing this module does not require optional deps.
+Console = None
+PfTUI = None
 
 
-def _print_demo_banner(console: Console) -> None:
+def _ensure_dependencies() -> None:
+    """Load optional demo dependencies on demand."""
+    global Console, PfTUI
+    if Console is not None and PfTUI is not None:
+        return
+
+    from rich.console import Console as RichConsole
+    from pf_tui import PfTUI as PfTUIClass
+
+    Console = RichConsole
+    PfTUI = PfTUIClass
+
+
+def _print_demo_banner(console) -> None:
     """Print a prominent banner for demo-only runs."""
     line = "=" * 64
     console.print(f"[bold yellow]{line}[/bold yellow]")
@@ -35,8 +40,17 @@ def _print_demo_banner(console: Console) -> None:
     console.print(f"[bold yellow]{line}[/bold yellow]")
 
 
-def show_menu_screenshot() -> None:
+def show_menu_screenshot() -> int:
     """Render a static snapshot of the pf TUI task menu."""
+    try:
+        _ensure_dependencies()
+    except ImportError:
+        print(
+            "Error: demo dependencies missing. Install with: pip install rich",
+            file=sys.stderr,
+        )
+        return 1
+
     console = Console()
     tui = PfTUI()
 
@@ -55,7 +69,8 @@ def show_menu_screenshot() -> None:
             console.print(f"  [cyan]{category.name}[/cyan]")
     else:
         console.print("  (no tasks found)")
+    return 0
 
 
 if __name__ == "__main__":
-    show_menu_screenshot()
+    raise SystemExit(show_menu_screenshot())
