@@ -109,10 +109,13 @@ def test_show_menu_screenshot_writes_json(mock_console, mock_tui_class, tmp_path
     mock_console.return_value = Mock()
     mock_tui_instance = Mock()
     mock_tui_instance.tasks = [Mock(), Mock()]
-    mock_tui_instance.categories = [
-        Mock(name="Core Tasks", tasks=[Mock(), Mock()]),
-        Mock(name="Testing", tasks=[Mock()]),
-    ]
+    category_one = Mock()
+    category_one.name = "Core Tasks"
+    category_one.tasks = [Mock(), Mock()]
+    category_two = Mock()
+    category_two.name = "Testing"
+    category_two.tasks = [Mock()]
+    mock_tui_instance.categories = [category_one, category_two]
     mock_tui_class.return_value = mock_tui_instance
 
     import screenshot_tui
