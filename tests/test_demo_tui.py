@@ -9,20 +9,20 @@ Tests verify that the demo script can be imported and run without errors.
 import sys
 import os
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from io import StringIO
+from unittest.mock import Mock, patch
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Constants
-PF_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')
+PF_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'pf-runner-full', 'pf_tui.py')
+DEMO_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'demo', 'demo_tui.py')
 
 
 def test_demo_tui_imports():
     """Test that demo_tui can be imported without errors"""
     try:
-        import demo_tui
+        from demo import demo_tui
         assert demo_tui is not None
     except ImportError as e:
         pytest.skip(f"demo_tui not available: {e}")
@@ -31,7 +31,7 @@ def test_demo_tui_imports():
 @patch('sys.path')
 def test_demo_tui_path_setup(mock_path):
     """Test that demo_tui sets up the path correctly"""
-    # This would normally check that pf-runner is added to sys.path
+    # This would normally check that pf-runner-full is added to sys.path.
     # For now, just verify the module structure is importable
     assert True
 
@@ -40,8 +40,8 @@ def test_demo_tui_path_setup(mock_path):
     not os.path.exists(PF_TUI_PATH),
     reason="pf_tui module not available"
 )
-@patch('demo_tui.PfTUI')
-@patch('demo_tui.Console')
+@patch('demo.demo_tui.PfTUI')
+@patch('demo.demo_tui.Console')
 def test_demo_tui_function(mock_console, mock_tui_class):
     """Test demo_tui function with mocked dependencies"""
     # Setup mocks
@@ -54,7 +54,7 @@ def test_demo_tui_function(mock_console, mock_tui_class):
     mock_tui_class.return_value = mock_tui_instance
     
     try:
-        import demo_tui
+        from demo import demo_tui
         
         # Test that demo_tui function runs without errors
         demo_tui.demo_tui()
@@ -73,7 +73,7 @@ def test_demo_tui_function(mock_console, mock_tui_class):
 def test_demo_tui_module_structure():
     """Test that demo_tui has expected structure"""
     try:
-        import demo_tui
+        from demo import demo_tui
         
         # Verify expected function exists
         assert hasattr(demo_tui, 'demo_tui')
@@ -85,12 +85,7 @@ def test_demo_tui_module_structure():
 
 def test_demo_tui_file_exists():
     """Test that demo_tui.py file exists"""
-    demo_tui_path = os.path.join(
-        os.path.dirname(__file__), 
-        '..', 
-        'demo_tui.py'
-    )
-    assert os.path.exists(demo_tui_path), "demo_tui.py should exist"
+    assert os.path.exists(DEMO_TUI_PATH), "demo/demo_tui.py should exist"
 
 
 if __name__ == '__main__':

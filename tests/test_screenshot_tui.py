@@ -15,23 +15,19 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Constants
-PF_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')
+PF_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'pf-runner-full', 'pf_tui.py')
+SCREENSHOT_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'demo', 'screenshot_tui.py')
 
 
 def test_screenshot_tui_file_exists():
     """Test that screenshot_tui.py file exists"""
-    screenshot_tui_path = os.path.join(
-        os.path.dirname(__file__), 
-        '..', 
-        'screenshot_tui.py'
-    )
-    assert os.path.exists(screenshot_tui_path), "screenshot_tui.py should exist"
+    assert os.path.exists(SCREENSHOT_TUI_PATH), "demo/screenshot_tui.py should exist"
 
 
 def test_screenshot_tui_imports():
     """Test that screenshot_tui can be imported without errors"""
     try:
-        import screenshot_tui
+        from demo import screenshot_tui
         assert screenshot_tui is not None
     except ImportError as e:
         pytest.skip(f"screenshot_tui not available: {e}")
@@ -44,7 +40,7 @@ def test_screenshot_tui_imports():
 def test_screenshot_tui_module_structure():
     """Test that screenshot_tui has expected structure"""
     try:
-        import screenshot_tui
+        from demo import screenshot_tui
         
         # Verify expected function exists
         assert hasattr(screenshot_tui, 'show_menu_screenshot')
@@ -58,8 +54,8 @@ def test_screenshot_tui_module_structure():
     not os.path.exists(PF_TUI_PATH),
     reason="pf_tui module not available"
 )
-@patch('screenshot_tui.PfTUI')
-@patch('screenshot_tui.Console')
+@patch('demo.screenshot_tui.PfTUI')
+@patch('demo.screenshot_tui.Console')
 def test_show_menu_screenshot(mock_console, mock_tui_class):
     """Test show_menu_screenshot function with mocked dependencies"""
     # Setup mocks
@@ -75,7 +71,7 @@ def test_show_menu_screenshot(mock_console, mock_tui_class):
     mock_tui_class.return_value = mock_tui_instance
     
     try:
-        import screenshot_tui
+        from demo import screenshot_tui
         
         # Test that function runs without errors
         screenshot_tui.show_menu_screenshot()
@@ -94,14 +90,8 @@ def test_show_menu_screenshot(mock_console, mock_tui_class):
 
 def test_screenshot_tui_is_executable():
     """Test that screenshot_tui.py is executable or has shebang"""
-    screenshot_tui_path = os.path.join(
-        os.path.dirname(__file__), 
-        '..', 
-        'screenshot_tui.py'
-    )
-    
-    if os.path.exists(screenshot_tui_path):
-        with open(screenshot_tui_path, 'r') as f:
+    if os.path.exists(SCREENSHOT_TUI_PATH):
+        with open(SCREENSHOT_TUI_PATH, 'r') as f:
             first_line = f.readline()
             # Check for shebang
             assert first_line.startswith('#!'), "Script should have shebang"
