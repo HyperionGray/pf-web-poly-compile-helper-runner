@@ -203,6 +203,14 @@ def _resolve_pfyfile_reference(
     has_pfy_prefix = raw_basename.startswith("Pfyfile.")
     candidates: List[str] = []
 
+    def _name_variants(name: str) -> List[str]:
+        """Generate equivalent module/file name variants."""
+        variants = [name]
+        for alt in (name.replace("_", "-"), name.replace("-", "_")):
+            if alt not in variants:
+                variants.append(alt)
+        return variants
+
     def add_candidate(path: str) -> None:
         if not path:
             return
@@ -234,22 +242,28 @@ def _resolve_pfyfile_reference(
     if pf_files_root:
         canonical_module_candidate: Optional[str] = None
         if has_pf_suffix or has_pfy_prefix:
-            canonical_name = raw_basename
+            canonical_names = _name_variants(raw_basename)
         else:
-            canonical_name = f"Pfyfile.{raw_basename}.pf"
-        candidate_path = os.path.join(pf_files_root, canonical_name)
-        if os.path.isfile(candidate_path):
-            canonical_module_candidate = os.path.abspath(candidate_path)
+            canonical_names = [f"Pfyfile.{name}.pf" for name in _name_variants(raw_basename)]
+
+        for canonical_name in canonical_names:
+            candidate_path = os.path.join(pf_files_root, canonical_name)
+            if os.path.isfile(candidate_path):
+                canonical_module_candidate = os.path.abspath(candidate_path)
+                break
+
         lookup_names: List[str] = []
         if has_pf_suffix or has_pfy_prefix:
-            lookup_names.append(raw_basename)
+            lookup_names.extend(_name_variants(raw_basename))
         else:
-            lookup_names.extend(
-                [
-                    f"{raw_basename}.pf",
-                    f"Pfyfile.{raw_basename}.pf",
-                ]
-            )
+            for name in _name_variants(raw_basename):
+                lookup_names.extend(
+                    [
+                        f"{name}.pf",
+                        f"Pfyfile.{name}.pf",
+                    ]
+                )
+        lookup_names = list(dict.fromkeys(lookup_names))
 
         matches: List[str] = []
         index = _pf_files_index(pf_files_root)

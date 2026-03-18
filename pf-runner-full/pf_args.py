@@ -218,6 +218,11 @@ For more help on a specific subcommand:
             help="Show pf version",
             description="Display pf version information and exit",
         )
+
+    @staticmethod
+    def _normalize_subcommand_name(name: str) -> str:
+        """Normalize module/subcommand aliases like foo_bar -> foo-bar."""
+        return name.strip().lower().replace("_", "-")
         
     def add_subcommand_from_file(self, filename: str, tasks: List[str]):
         """Add a subcommand based on an included file."""
@@ -403,12 +408,13 @@ For more help on a specific subcommand:
         ):
             # Check if first arg looks like a subcommand
             potential_subcommand = task_args[0]
+            normalized_subcommand = self._normalize_subcommand_name(potential_subcommand)
             if (
                 hasattr(self, "_subcommand_names")
-                and potential_subcommand in self._subcommand_names
+                and normalized_subcommand in self._subcommand_names
             ):
                 # It's a subcommand
-                modern_args.extend(task_args)
+                modern_args.extend([normalized_subcommand, *task_args[1:]])
             else:
                 # It's a task for the run command
                 modern_args.append("run")

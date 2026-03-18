@@ -23,6 +23,29 @@ def _run_pf(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _write_hyphen_module_fixture(tmp_path: Path) -> None:
+    _write_pf(
+        tmp_path / "pf-files" / "Pfyfile.pf",
+        """
+        include Pfyfile.my-module.pf
+
+        task root-task
+          describe Root task
+          shell echo "root"
+        end
+        """,
+    )
+    _write_pf(
+        tmp_path / "pf-files" / "Pfyfile.my-module.pf",
+        """
+        task mod-usage
+          describe Usage task in a hyphenated module
+          shell echo "module-alias-ok"
+        end
+        """,
+    )
+
+
 def test_explicit_module_listing_excludes_always_available_tasks(tmp_path: Path) -> None:
     _write_pf(
         tmp_path / "pf-files" / "always-available" / "Pfyfile.always-available.pf",
@@ -75,6 +98,36 @@ def test_root_listing_still_includes_always_available_tasks(tmp_path: Path) -> N
     assert result.returncode == 0, result.stderr
     assert "root-task" in result.stdout
     assert "shared-task" in result.stdout
+
+
+def test_module_alias_with_underscore_lists_hyphenated_subcommand(tmp_path: Path) -> None:
+    _write_hyphen_module_fixture(tmp_path)
+
+    result = _run_pf(tmp_path, "my_module")
+
+    assert result.returncode == 0, result.stderr
+    assert "mod-usage" in result.stdout
+    assert "Auto-corrected" not in result.stderr
+
+
+def test_module_alias_with_underscore_runs_hyphenated_subcommand_task(tmp_path: Path) -> None:
+    _write_hyphen_module_fixture(tmp_path)
+
+    result = _run_pf(tmp_path, "my_module", "mod-usage")
+
+    assert result.returncode == 0, result.stderr
+    assert "module-alias-ok" in result.stdout
+    assert "Auto-corrected" not in result.stderr
+
+
+def test_list_subcommand_accepts_underscore_module_alias(tmp_path: Path) -> None:
+    _write_hyphen_module_fixture(tmp_path)
+
+    result = _run_pf(tmp_path, "list", "--subcommand", "my_module")
+
+    assert result.returncode == 0, result.stderr
+    assert "Tasks for my-module:" in result.stdout
+    assert "mod-usage" in result.stdout
 
 
 def test_repo_pe_module_lists_local_surface_only() -> None:

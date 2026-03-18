@@ -155,6 +155,10 @@ class PfRunner:
         noun = "task" if task_count == 1 else "tasks"
         return f"{task_count} {noun}"
 
+    def _normalize_module_name(self, module_name: str) -> str:
+        """Normalize module aliases like foo_bar -> foo-bar."""
+        return module_name.strip().lower().replace("_", "-")
+
     # Module names that are always flattened into the root listing surface.
     _ROOT_FLAT_MODULES = frozenset({"always-available", "module-compat"})
 
@@ -372,7 +376,7 @@ class PfRunner:
                 file_arg = resolved or target
 
             direct_tasks, module_tasks = self._load_task_listing(file_arg)
-            requested_module = (getattr(args, "subcommand", None) or "").strip().lower()
+            requested_module = self._normalize_module_name(getattr(args, "subcommand", None) or "")
 
             if requested_module:
                 tasks = module_tasks.get(requested_module, [])

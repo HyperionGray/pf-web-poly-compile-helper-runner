@@ -20,6 +20,19 @@ If it includes `pf-files/tests/Pfyfile.tests.pf`:
 - Direct: `pf test-basic`
 - Grouped: `pf tests test-basic`
 
+## Module alias normalization
+
+Subcommand/module names are normalized so `-` and `_` are interchangeable.
+
+Examples:
+
+- `pf my-module list-task`
+- `pf my_module list-task` (equivalent)
+- `pf list --subcommand my-module`
+- `pf list --subcommand my_module` (equivalent)
+
+This helps when shell history, docs, or scripts mix underscore and hyphen spellings.
+
 ## Why use subcommands?
 
 - Avoid huge `pf list` output by grouping tasks.
