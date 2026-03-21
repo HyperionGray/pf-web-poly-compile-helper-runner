@@ -107,11 +107,12 @@ Once launched, the TUI presents a main menu:
 
 ```
 Main Menu:
-  [1] List all tasks by category
-  [2] Run a task
-  [3] Check task syntax
-  [4] View debugging tools
-  [5] Search tasks
+  [1] Browse Pfyfiles
+  [2] All tasks by category
+  [3] Search tasks
+  [4] Syntax checker
+  [5] Debugging tools
+  [6] Exploit tools
   [q] Quit
 ```
 
@@ -164,16 +165,31 @@ Find tasks quickly:
 - Search by description
 - View results in a table with category information
 
+### 6. Exploit Tools
+
+Provides direct access to exploit-focused workflows and helper tasks from
+within the TUI.
+
 ## Demo Mode
 
 For non-interactive demonstration:
 
 ```bash
 # Run the TUI demo
-python3 demo_tui.py
+python3 demos/demo_tui.py
+
+# Render a menu snapshot (human-readable)
+python3 demos/screenshot_tui.py
+
+# Machine-readable summary for tooling/docs pipelines
+python3 demos/demo_tui.py --summary-json
+python3 demos/screenshot_tui.py --summary-json --max-categories 12
 ```
 
-This showcases TUI capabilities without requiring user interaction.
+Both scripts support:
+- `--pfyfile <path>`: target a specific Pfyfile
+- `--max-categories <N>`: cap category rows in output
+- `--summary-json`: emit structured JSON instead of text output
 
 ## Architecture
 
@@ -293,14 +309,16 @@ The TUI uses color-coding for better readability:
 ### File Structure
 
 ```
-pf-runner/
+pf-runner-full/
 ├── pf_tui.py          # Main TUI implementation
 ├── pf_parser.py       # Task parsing (dependency)
 ├── pf_shell.py        # Shell validation (dependency)
 └── ...
 
-Pfyfile.tui.pf         # TUI task definitions
-demo_tui.py            # Non-interactive demo
+pf-files/always-available/Pfyfile.tui.pf
+demos/demo_tui.py          # Non-interactive demo output
+demos/screenshot_tui.py    # Static menu/snapshot output
+demos/tui_common.py        # Shared loader/summary helpers
 ```
 
 ## Troubleshooting
@@ -309,7 +327,7 @@ demo_tui.py            # Non-interactive demo
 
 ```bash
 # Ensure you're in the correct directory
-cd pf-runner
+cd pf-runner-full
 
 # Install dependencies
 pip3 install --user rich fabric

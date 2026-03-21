@@ -1,97 +1,72 @@
 #!/usr/bin/env python3
-"""
-Test suite for demo_tui.py
+"""Tests for demo TUI wrappers and summary mode."""
 
-This demonstrates how to add tests for demo/utility scripts.
-Tests verify that the demo script can be imported and run without errors.
-"""
+from __future__ import annotations
 
-import sys
+import importlib
+import json
 import os
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from io import StringIO
+import sys
+from unittest.mock import Mock, patch
 
-# Add parent directory to path
+# Add parent directory to import root wrappers and demos package.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Constants
-PF_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')
+
+def test_root_wrapper_exports_demo_function():
+    """Root wrapper should expose demo_tui for compatibility."""
+    module = importlib.import_module("demo_tui")
+    assert hasattr(module, "demo_tui")
+    assert callable(module.demo_tui)
 
 
-def test_demo_tui_imports():
-    """Test that demo_tui can be imported without errors"""
-    try:
-        import demo_tui
-        assert demo_tui is not None
-    except ImportError as e:
-        pytest.skip(f"demo_tui not available: {e}")
+@patch("demos.demo_tui.load_tui_with_summary")
+@patch("demos.demo_tui.load_console_class")
+def test_demo_tui_summary_json_mode(mock_load_console_class, mock_load_tui_with_summary):
+    """JSON mode should print structured summary content."""
+    from demos import demo_tui as demo_module
+
+    mock_console = Mock()
+    mock_console_class = Mock(return_value=mock_console)
+    mock_load_console_class.return_value = mock_console_class
+
+    mock_tui = Mock()
+    summary = {
+        "total_tasks": 11,
+        "category_count": 3,
+        "categories": [{"name": "Core Tasks", "task_count": 4}],
+    }
+    mock_load_tui_with_summary.return_value = (mock_tui, summary)
+
+    rc = demo_module.demo_tui(summary_json=True)
+    assert rc == 0
+    mock_load_tui_with_summary.assert_called_once_with(pfyfile=None, max_categories=8)
+
+    assert mock_console.print.called
+    printed = mock_console.print.call_args_list[-1].args[0]
+    parsed = json.loads(printed)
+    assert parsed["total_tasks"] == 11
+    assert parsed["category_count"] == 3
 
 
-@patch('sys.path')
-def test_demo_tui_path_setup(mock_path):
-    """Test that demo_tui sets up the path correctly"""
-    # This would normally check that pf-runner is added to sys.path
-    # For now, just verify the module structure is importable
-    assert True
+@patch("demos.demo_tui.demo_tui")
+def test_demo_tui_main_parses_options(mock_demo_tui):
+    """CLI options should flow into demo_tui entrypoint."""
+    from demos import demo_tui as demo_module
 
-
-@pytest.mark.skipif(
-    not os.path.exists(PF_TUI_PATH),
-    reason="pf_tui module not available"
-)
-@patch('demo_tui.PfTUI')
-@patch('demo_tui.Console')
-def test_demo_tui_function(mock_console, mock_tui_class):
-    """Test demo_tui function with mocked dependencies"""
-    # Setup mocks
-    mock_console_instance = Mock()
-    mock_console.return_value = mock_console_instance
-    
-    mock_tui_instance = Mock()
-    mock_tui_instance.tasks = [Mock()] * 5
-    mock_tui_instance.categories = [Mock(name="cat1"), Mock(name="cat2")]
-    mock_tui_class.return_value = mock_tui_instance
-    
-    try:
-        import demo_tui
-        
-        # Test that demo_tui function runs without errors
-        demo_tui.demo_tui()
-        
-        # Verify Console was used
-        assert mock_console.called or mock_console_instance.print.called
-        
-    except Exception as e:
-        pytest.skip(f"Demo TUI test skipped due to dependencies: {e}")
-
-
-@pytest.mark.skipif(
-    not os.path.exists(PF_TUI_PATH),
-    reason="pf_tui module not available"
-)
-def test_demo_tui_module_structure():
-    """Test that demo_tui has expected structure"""
-    try:
-        import demo_tui
-        
-        # Verify expected function exists
-        assert hasattr(demo_tui, 'demo_tui')
-        assert callable(demo_tui.demo_tui)
-        
-    except ImportError:
-        pytest.skip("demo_tui module not available for testing")
-
-
-def test_demo_tui_file_exists():
-    """Test that demo_tui.py file exists"""
-    demo_tui_path = os.path.join(
-        os.path.dirname(__file__), 
-        '..', 
-        'demo_tui.py'
+    mock_demo_tui.return_value = 0
+    rc = demo_module.main(
+        [
+            "--pfyfile",
+            "custom.pf",
+            "--max-categories",
+            "5",
+            "--summary-json",
+        ]
     )
-    assert os.path.exists(demo_tui_path), "demo_tui.py should exist"
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+    assert rc == 0
+    mock_demo_tui.assert_called_once_with(
+        pfyfile="custom.pf",
+        max_categories=5,
+        summary_json=True,
+    )
