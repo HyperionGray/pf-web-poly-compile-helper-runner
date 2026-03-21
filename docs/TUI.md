@@ -170,7 +170,7 @@ For non-interactive demonstration:
 
 ```bash
 # Run the TUI demo
-python3 demo_tui.py
+python3 demos/demo_tui.py
 ```
 
 This showcases TUI capabilities without requiring user interaction.
@@ -300,7 +300,8 @@ pf-runner/
 └── ...
 
 Pfyfile.tui.pf         # TUI task definitions
-demo_tui.py            # Non-interactive demo
+demos/demo_tui.py      # Canonical non-interactive demo
+demos/screenshot_tui.py # Canonical menu snapshot demo
 ```
 
 ## Troubleshooting

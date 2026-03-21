@@ -1,47 +1,19 @@
 #!/usr/bin/env python3
 """
-screenshot_tui.py - Screenshot/snapshot utility for the pf TUI menu
-
-Renders a static snapshot of the pf TUI task menu for documentation
-and preview purposes.
+Backward-compatible wrapper for the canonical demos/screenshot_tui.py script.
 """
 
-import sys
-import os
+from demos import screenshot_tui as _screenshot_module
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "pf-runner-full"))
-
-try:
-    from rich.console import Console
-except ImportError:
-    print("Error: rich is not installed. Install with: pip install rich", file=sys.stderr)
-    sys.exit(1)
-
-try:
-    from pf_tui import PfTUI
-except ImportError:
-    print("Error: pf_tui module not available", file=sys.stderr)
-    sys.exit(1)
-
+# Compatibility exports (tests patch these symbols on this module).
+PfTUI = _screenshot_module.PfTUI
+Console = _screenshot_module.Console
 
 def show_menu_screenshot() -> None:
-    """Render a static snapshot of the pf TUI task menu."""
-    console = Console()
-    tui = PfTUI()
-
-    try:
-        tui.load_tasks()
-        tui.categorize_tasks()
-        tui.show_header()
-    except Exception:
-        pass
-
-    console.print("[bold green]pf Task Menu[/bold green]")
-    if tui.categories:
-        for category in tui.categories:
-            console.print(f"  [cyan]{category.name}[/cyan]")
-    else:
-        console.print("  (no tasks found)")
+    """Run the screenshot demo via the canonical demos module."""
+    _screenshot_module.PfTUI = PfTUI
+    _screenshot_module.Console = Console
+    _screenshot_module.show_menu_screenshot()
 
 
 if __name__ == "__main__":

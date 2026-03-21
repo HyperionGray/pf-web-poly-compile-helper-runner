@@ -41,8 +41,8 @@ The issue requested verification of Playwright browser coverage. **Confirmed:**
 The 100+ files listed as "without tests" fall into these categories:
 
 #### 1. Demo/Utility Scripts (Not Requiring Dedicated Tests)
-- `screenshot_tui.py` - Demo script for screenshots
-- `demo_tui.py` - Non-interactive TUI demonstration  
+- `demos/screenshot_tui.py` - Demo script for screenshots
+- `demos/demo_tui.py` - Non-interactive TUI demonstration  
 - `demo_unified_api.py` - API demo script
 - `simple_syntax_validator.py` - Syntax validation utility
 
