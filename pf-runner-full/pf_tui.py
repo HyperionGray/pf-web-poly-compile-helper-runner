@@ -250,7 +250,6 @@ class PfTUI:
             "practice": TaskCategory("Practice Binaries", [], "yellow"),
             "core": TaskCategory("Core Tasks", [], "white"),
         }
-        print(tasks_with_desc)
         for task_name, description, aliases in tasks_with_desc:
             categorized = False
 
