@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from pf_main import PfRunner
+from pf_subcommand_manager import SubcommandManager
 
 
 class TestModuleListing(unittest.TestCase):
@@ -98,6 +99,69 @@ class TestModuleListing(unittest.TestCase):
             self.assertIn("alpha-second - Alpha second task", output)
             self.assertNotIn("local-task", output)
             self.assertNotIn("beta-task", output)
+
+    def test_subcommand_execution_rejects_out_of_scope_tasks(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pfyfile = self._write_pfyfiles(tmpdir)
+            stderr = io.StringIO()
+
+            with contextlib.redirect_stderr(stderr):
+                rc = PfRunner().run_command(["--file", pfyfile, "alpha", "local-task"])
+
+            error_output = stderr.getvalue()
+            self.assertEqual(rc, 1)
+            self.assertIn("Task 'local-task' is not available in module 'alpha'.", error_output)
+            self.assertIn("alpha-task", error_output)
+            self.assertIn("alpha-second", error_output)
+
+    def test_help_command_accepts_module_name(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pfyfile = self._write_pfyfiles(tmpdir)
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                rc = PfRunner().run_command(["--file", pfyfile, "help", "alpha"])
+
+            output = stdout.getvalue()
+            self.assertEqual(rc, 0)
+            self.assertIn("Tasks for alpha:", output)
+            self.assertIn("alpha-task - Alpha task (aliases: at)", output)
+            self.assertIn("alpha-second - Alpha second task", output)
+
+    def test_flattened_modules_are_not_registered_as_subcommands(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            pf_files = root / "pf-files"
+            always_dir = pf_files / "always-available"
+            always_dir.mkdir(parents=True)
+            (always_dir / "Pfyfile.always-available.pf").write_text(
+                textwrap.dedent(
+                    """
+                    task shared-task
+                      describe Shared root task
+                    end
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            root_file = pf_files / "Pfyfile.pf"
+            root_file.write_text(
+                textwrap.dedent(
+                    """
+                    task root-task
+                      describe Root task
+                    end
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            subcommands = SubcommandManager().discover_subcommands(str(root_file))
+
+            registered_files = "\n".join(sorted(subcommands))
+            self.assertNotIn("Pfyfile.always-available.pf", registered_files)
 
 
 if __name__ == "__main__":

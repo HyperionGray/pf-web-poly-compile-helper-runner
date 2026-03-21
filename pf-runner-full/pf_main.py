@@ -155,6 +155,9 @@ class PfRunner:
         noun = "task" if task_count == 1 else "tasks"
         return f"{task_count} {noun}"
 
+    # Module names that are always flattened into the root listing surface.
+    _ROOT_FLAT_MODULES = frozenset({"always-available", "module-compat"})
+
     def _load_task_listing(
         self, file_arg: Optional[str]
     ) -> Tuple[List[TaskListing], Dict[str, List[TaskListing]]]:
@@ -164,6 +167,12 @@ class PfRunner:
         are tasks defined in the main Pfyfile, while `module_tasks` is keyed by
         module name and contains tasks sourced from included `Pfyfile.<name>.pf`
         files.
+
+        Special flattening rules applied here:
+        - Tasks from the same-named included file (e.g., ``web-testing/Pfyfile.web.pf``
+          when viewing the ``web`` module) are merged into ``direct_tasks``.
+        - Tasks from ``always-available`` and ``module-compat`` are merged into
+          ``direct_tasks`` when loading the root/default Pfyfile surface.
         """
         dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
         dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
@@ -172,6 +181,10 @@ class PfRunner:
         main_pfyfile = (
             os.path.abspath(resolved_pfyfile) if resolved_pfyfile and os.path.exists(resolved_pfyfile) else None
         )
+
+        # Derive module name for the main Pfyfile (None for root Pfyfile.pf).
+        main_module_name = self._module_name_from_source_file(main_pfyfile) if main_pfyfile else None
+        is_root = main_module_name is None
 
         direct_tasks: List[TaskListing] = []
         module_tasks: Dict[str, List[TaskListing]] = {}
@@ -186,7 +199,14 @@ class PfRunner:
 
             module_name = self._module_name_from_source_file(source_file)
             if module_name:
-                module_tasks.setdefault(module_name, []).append(task_info)
+                # Same-named included file: merge into the core surface.
+                if main_module_name and module_name == main_module_name:
+                    direct_tasks.append(task_info)
+                # Root-surface flat modules: merge into root core tasks.
+                elif is_root and module_name in self._ROOT_FLAT_MODULES:
+                    direct_tasks.append(task_info)
+                else:
+                    module_tasks.setdefault(module_name, []).append(task_info)
             else:
                 direct_tasks.append(task_info)
 
@@ -457,6 +477,13 @@ class PfRunner:
                 for line in BUILTINS[task_name]:
                     print(f"  {line}")
             else:
+                module_name = task_name.strip().lower()
+                _direct_tasks, module_tasks = self._load_task_listing(pfyfile)
+                if module_name in module_tasks:
+                    print(f"Tasks for {module_name}:")
+                    self._print_task_entries(module_tasks[module_name])
+                    print(f"\nUsage: pf {module_name} <task_name> [params...]")
+                    return 0
                 # Try to suggest corrections
                 suggestions = self.autocorrect.suggest_task_correction(task_name)
                 print(f"Task '{task_name}' not found.")
@@ -497,6 +524,20 @@ class PfRunner:
         if not hasattr(args, 'task'):
             print("No task specified for subcommand.", file=sys.stderr)
             return 1
+        allowed_tasks = set(getattr(args, "subcommand_tasks", []) or [])
+        if allowed_tasks and args.task not in allowed_tasks:
+            available = ", ".join(sorted(allowed_tasks))
+            print(
+                f"Task '{args.task}' is not available in module '{args.command}'.",
+                file=sys.stderr,
+            )
+            if available:
+                print(f"Available tasks: {available}", file=sys.stderr)
+            return 1
+
+        scoped_file = getattr(args, "subcommand_file", None)
+        if scoped_file:
+            args.file = scoped_file
             
         # Combine task name with parameters
         task_args = [args.task]
@@ -851,15 +892,25 @@ class PfRunner:
                 task_env.update(params)
                 implicit_lang: Optional[str] = task_default_lang or params.get("default_lang")
                 shell_lang: Optional[str] = None
+                shell_lang_cleared = False
                 pending_script: List[str] = []
-                current_lang: Optional[str] = shell_lang or implicit_lang
+
+                def active_lang(line_lang: Optional[str] = None) -> Optional[str]:
+                    if line_lang:
+                        return line_lang
+                    if shell_lang:
+                        return shell_lang
+                    if shell_lang_cleared:
+                        return None
+                    return implicit_lang
 
                 def flush_pending() -> None:
                     nonlocal rc, pending_script, implicit_lang
                     if not pending_script:
                         return
                     script_body = textwrap.dedent("\n".join(pending_script)).strip("\n")
-                    if not implicit_lang:
+                    lang_for_pending = active_lang()
+                    if not lang_for_pending:
                         raise PFExecutionError(
                             message="Inline code block provided without default_lang/shell_lang",
                             task_name=task_name,
@@ -868,7 +919,7 @@ class PfRunner:
                             suggestion="Add shell_lang <lang> or default_lang <lang> before inline code",
                         )
                     rendered_cmd, _lang = _render_polyglot_command(
-                        implicit_lang, script_body, os.getcwd()
+                        lang_for_pending, script_body, os.getcwd()
                     )
                     rc_flush = _exec_line_fabric(
                         rendered_cmd, connection, task_env, task_name,
@@ -906,8 +957,17 @@ class PfRunner:
                     if stripped.startswith('shell_lang '):
                         flush_pending()
                         parts = stripped.split(None, 1)
-                        shell_lang = parts[1].strip() if len(parts) > 1 else None
-                        current_lang = shell_lang or implicit_lang
+                        shell_lang_value = parts[1].strip() if len(parts) > 1 else None
+                        shell_lang_key = (shell_lang_value or "").lower()
+                        if shell_lang_key in ("", "default"):
+                            shell_lang = None
+                            shell_lang_cleared = False
+                        elif shell_lang_key == "none":
+                            shell_lang = None
+                            shell_lang_cleared = True
+                        else:
+                            shell_lang = shell_lang_value
+                            shell_lang_cleared = False
                         i += 1
                         continue
 
@@ -915,7 +975,6 @@ class PfRunner:
                         flush_pending()
                         parts = stripped.split(None, 1)
                         implicit_lang = parts[1].strip() if len(parts) > 1 else None
-                        current_lang = shell_lang or implicit_lang
                         i += 1
                         continue
 
@@ -951,7 +1010,7 @@ class PfRunner:
                                     block_lines.append(next_line)
                                     i += 1
                                 script_body = textwrap.dedent("\n".join(block_lines)).strip("\n")
-                                lang_for_block = line_lang or shell_lang or implicit_lang
+                                lang_for_block = active_lang(line_lang)
                                 if lang_for_block:
                                     rendered_cmd, _lang = _render_polyglot_command(
                                         lang_for_block, script_body, os.getcwd()
@@ -967,30 +1026,55 @@ class PfRunner:
                                         args.sudo, args.sudo_user
                                     )
                             elif "<<" in shell_cmd:
-                                delimiter, outfile, strip_tabs = _parse_heredoc_syntax(shell_cmd)
+                                # Parse heredoc syntax from the first line only (supports
+                                # pre-grouped heredoc where body is embedded after '\n').
+                                first_cmd_line = shell_cmd.split("\n")[0]
+                                delimiter, outfile, strip_tabs = _parse_heredoc_syntax(first_cmd_line)
                                 if delimiter:
                                     heredoc_lines: List[str] = []
-                                    i += 1
-                                    while i < len(lines):
-                                        body_line = lines[i]
-                                        if body_line.strip() == delimiter:
-                                            break
-                                        heredoc_lines.append(body_line)
-                                        i += 1
+
+                                    if "\n" in shell_cmd:
+                                        # Pre-grouped heredoc: body is already embedded in
+                                        # shell_cmd (as produced by parse_pfyfile_text).
+                                        cmd_parts = shell_cmd.split("\n")
+                                        shell_cmd = cmd_parts[0]
+                                        found_delimiter = False
+                                        for part in cmd_parts[1:]:
+                                            if part.strip() == delimiter:
+                                                found_delimiter = True
+                                                break
+                                            heredoc_lines.append(part)
+                                        if not found_delimiter:
+                                            raise PFExecutionError(
+                                                message=f"Heredoc delimiter '{delimiter}' not found",
+                                                task_name=task_name,
+                                                command=shell_cmd,
+                                                environment=task_env,
+                                                suggestion="Ensure heredoc terminator is present",
+                                            )
                                     else:
-                                        raise PFExecutionError(
-                                            message=f"Heredoc delimiter '{delimiter}' not found",
-                                            task_name=task_name,
-                                            command=shell_cmd,
-                                            environment=task_env,
-                                            suggestion="Ensure heredoc terminator is present"
-                                        )
+                                        i += 1
+                                        while i < len(lines):
+                                            body_line = lines[i]
+                                            if body_line.strip() == delimiter:
+                                                break
+                                            heredoc_lines.append(body_line)
+                                            i += 1
+                                        else:
+                                            raise PFExecutionError(
+                                                message=f"Heredoc delimiter '{delimiter}' not found",
+                                                task_name=task_name,
+                                                command=shell_cmd,
+                                                environment=task_env,
+                                                suggestion="Ensure heredoc terminator is present"
+                                            )
 
                                     heredoc_content = "\n".join(heredoc_lines)
                                     if strip_tabs:
                                         heredoc_content = "\n".join(line.lstrip("\t") for line in heredoc_lines)
-                                    lang_for_heredoc = line_lang or shell_lang or implicit_lang
-                                    if lang_for_heredoc:
+                                    lang_for_heredoc = active_lang(line_lang)
+                                    effective_lang = _canonical_lang(lang_for_heredoc) if lang_for_heredoc else None
+                                    if lang_for_heredoc and effective_lang != "bash":
                                         rendered_cmd, _lang = _render_polyglot_command(
                                             lang_for_heredoc,
                                             textwrap.dedent(heredoc_content).strip("\n"),
@@ -1003,7 +1087,15 @@ class PfRunner:
                                             args.sudo, args.sudo_user
                                         )
                                     else:
-                                        heredoc_cmd = f"{shell_cmd}\n{heredoc_content}\n{delimiter}"
+                                        # Native bash heredoc (or no lang).
+                                        # If no command precedes '<<', run content via bash.
+                                        cmd_before = shell_cmd.split("<<")[0].strip()
+                                        if cmd_before:
+                                            heredoc_cmd = f"{shell_cmd}\n{heredoc_content}\n{delimiter}"
+                                        else:
+                                            heredoc_cmd = f"bash {shell_cmd}\n{heredoc_content}\n{delimiter}"
+                                        if outfile:
+                                            heredoc_cmd = f"({heredoc_cmd}) > {shlex.quote(outfile)}"
                                         rc = _exec_line_fabric(
                                             heredoc_cmd, connection, task_env, task_name,
                                             args.sudo, args.sudo_user
@@ -1015,7 +1107,7 @@ class PfRunner:
                                     )
                             else:
                                 rendered_cmd = None
-                                lang_for_line = line_lang or shell_lang or implicit_lang
+                                lang_for_line = active_lang(line_lang)
                                 if lang_for_line:
                                     rendered_cmd, _lang = _render_polyglot_command(
                                         lang_for_line, shell_cmd, os.getcwd()

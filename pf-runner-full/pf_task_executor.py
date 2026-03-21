@@ -28,40 +28,71 @@ class TaskExecutor:
     
     def __init__(self):
         pass
+
+    def _build_cli_args(self, args, command_tokens: List[str]) -> List[str]:
+        """Reconstruct CLI args so execution uses the main runner path."""
+        cli_args: List[str] = []
+
+        file_arg = getattr(args, "file", None)
+        if file_arg:
+            cli_args.extend(["--file", file_arg])
+
+        for env_name in getattr(args, "env", []) or []:
+            cli_args.extend(["--env", env_name])
+
+        hosts = getattr(args, "hosts", None) or []
+        if isinstance(hosts, str):
+            hosts = [hosts]
+        for host_group in hosts:
+            cli_args.extend(["--hosts", host_group])
+
+        host_values = getattr(args, "host", None) or []
+        if isinstance(host_values, str):
+            host_values = [host_values]
+        for host in host_values:
+            cli_args.extend(["--host", host])
+
+        user = getattr(args, "user", None)
+        if user:
+            cli_args.extend(["--user", user])
+
+        port = getattr(args, "port", None)
+        if port is not None:
+            cli_args.extend(["--port", str(port)])
+
+        if getattr(args, "sudo", False):
+            cli_args.append("--sudo")
+
+        sudo_user = getattr(args, "sudo_user", None)
+        if sudo_user:
+            cli_args.extend(["--sudo-user", sudo_user])
+
+        cli_args.extend(command_tokens)
+        return cli_args
     
     def handle_run_command(self, args) -> int:
         """Handle the run command."""
-        return run_task_by_name(
-            task_name=args.task,
-            file_arg=args.file,
-            hosts_arg=args.hosts,
-            env_arg=args.env,
-            dry_run=args.dry_run,
-            debug=args.debug,
-            parallel=args.parallel,
-            task_args=getattr(args, 'task_args', [])
-        )
+        from pf_main import main as pf_main_entry
+
+        command_tokens = ["run", args.task, *(getattr(args, "task_args", []) or [])]
+        return pf_main_entry(self._build_cli_args(args, command_tokens))
     
     def handle_subcommand(self, args) -> int:
         """Handle subcommand execution."""
         # Extract the subcommand name from the args
-        subcommand = args.subcommand if hasattr(args, 'subcommand') else None
+        subcommand = (
+            getattr(args, "subcommand", None)
+            or getattr(args, "command", None)
+        )
         
         if not subcommand:
             print("No subcommand specified.", file=sys.stderr)
             return 1
-        
-        # Run the subcommand as a task
-        return run_task_by_name(
-            task_name=subcommand,
-            file_arg=args.file,
-            hosts_arg=args.hosts,
-            env_arg=args.env,
-            dry_run=args.dry_run,
-            debug=args.debug,
-            parallel=args.parallel,
-            task_args=getattr(args, 'task_args', [])
-        )
+
+        from pf_main import main as pf_main_entry
+
+        command_tokens = [subcommand, args.task, *(getattr(args, "params", []) or [])]
+        return pf_main_entry(self._build_cli_args(args, command_tokens))
     
     def execute_parallel_tasks(self, tasks: List[Dict], max_workers: int = 4) -> int:
         """Execute multiple tasks in parallel."""
@@ -96,13 +127,22 @@ class TaskExecutor:
     
     def _execute_single_task(self, task_info: Dict) -> int:
         """Execute a single task with the given parameters."""
-        return run_task_by_name(
-            task_name=task_info['task_name'],
-            file_arg=task_info.get('file_arg'),
-            hosts_arg=task_info.get('hosts_arg'),
-            env_arg=task_info.get('env_arg'),
-            dry_run=task_info.get('dry_run', False),
-            debug=task_info.get('debug', False),
-            parallel=task_info.get('parallel', False),
-            task_args=task_info.get('task_args', [])
+        from types import SimpleNamespace
+        from pf_main import main as pf_main_entry
+
+        args = SimpleNamespace(
+            file=task_info.get("file_arg"),
+            env=task_info.get("env_arg"),
+            hosts=task_info.get("hosts_arg"),
+            host=task_info.get("host_arg"),
+            user=task_info.get("user"),
+            port=task_info.get("port"),
+            sudo=task_info.get("sudo", False),
+            sudo_user=task_info.get("sudo_user"),
         )
+        command_tokens = [
+            "run",
+            task_info["task_name"],
+            *(task_info.get("task_args", []) or []),
+        ]
+        return pf_main_entry(self._build_cli_args(args, command_tokens))
