@@ -112,6 +112,7 @@ Main Menu:
   [3] Check task syntax
   [4] View debugging tools
   [5] Search tasks
+  [6] Exploit Tools
   [q] Quit
 ```
 
@@ -166,14 +167,21 @@ Find tasks quickly:
 
 ## Demo Mode
 
-For non-interactive demonstration:
+For non-interactive demonstration and docs snapshots:
 
 ```bash
-# Run the TUI demo
-python3 demo_tui.py
+# Run the summary demo (human-readable output)
+python3 demos/demo_tui.py
+
+# Export machine-readable summary
+python3 demos/demo_tui.py --json-out out/tui-summary.json
+
+# Render a static menu snapshot and export JSON
+python3 demos/screenshot_tui.py --json-out out/tui-snapshot.json
 ```
 
-This showcases TUI capabilities without requiring user interaction.
+Root-level `demo_tui.py` and `screenshot_tui.py` remain compatibility shims and
+delegate to the canonical scripts in `demos/`.
 
 ## Architecture
 
@@ -293,14 +301,15 @@ The TUI uses color-coding for better readability:
 ### File Structure
 
 ```
-pf-runner/
+pf-runner-full/
 ├── pf_tui.py          # Main TUI implementation
 ├── pf_parser.py       # Task parsing (dependency)
 ├── pf_shell.py        # Shell validation (dependency)
 └── ...
 
 Pfyfile.tui.pf         # TUI task definitions
-demo_tui.py            # Non-interactive demo
+demos/demo_tui.py      # Non-interactive summary demo
+demos/screenshot_tui.py# Non-interactive menu snapshot
 ```
 
 ## Troubleshooting

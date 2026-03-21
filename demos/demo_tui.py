@@ -1,87 +1,116 @@
 #!/usr/bin/env python3
-"""
-Demo script to showcase TUI features non-interactively
-"""
+"""Non-interactive pf TUI demo with optional JSON summary export."""
 
 from __future__ import annotations
 
-import os
+import argparse
 import sys
-from typing import Any
+from typing import Optional, Sequence
 
-# Add pf-runner to path (relative to this script's location)
-script_dir = os.path.dirname(os.path.abspath(__file__))
-pf_runner_path = os.path.join(script_dir, 'pf-runner')
-if pf_runner_path not in sys.path:
-    sys.path.insert(0, pf_runner_path)
+from demos.tui_demo_utils import (
+    build_tui_summary,
+    load_console_class,
+    load_tui_class,
+    print_demo_banner,
+    write_summary_json,
+)
 
-# Optional imports: tests patch these symbols, so keep module importable even
-# when optional runtime deps aren't installed.
-try:
-    from pf_tui import PfTUI  # type: ignore[import-not-found]
-except Exception:  # pragma: no cover
-    PfTUI = Any  # type: ignore[misc,assignment]
 
-try:
-    from rich.console import Console  # type: ignore[import-not-found]
-except Exception:  # pragma: no cover
-    Console = Any  # type: ignore[misc,assignment]
+def build_parser() -> argparse.ArgumentParser:
+    """Build CLI parser for the demo script."""
+    parser = argparse.ArgumentParser(
+        description="Run a non-interactive pf TUI demo and print a task summary."
+    )
+    parser.add_argument(
+        "--pfyfile",
+        default=None,
+        help="Optional Pfyfile path to load instead of auto-discovery.",
+    )
+    parser.add_argument(
+        "--max-categories",
+        type=int,
+        default=12,
+        help="Maximum number of category rows to print.",
+    )
+    parser.add_argument(
+        "--json-out",
+        default=None,
+        help="Optional JSON output path for machine-readable summary.",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit with non-zero status if task loading or categorization fails.",
+    )
+    return parser
 
-def demo_tui():
-    """Demonstrate TUI capabilities"""
-    console = Console()
-    
-    console.print("\n[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]")
-    console.print("[bold cyan]           pf TUI Demo - Non-Interactive Mode           [/bold cyan]")
-    console.print("[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]\n")
-    
-    # Initialize TUI
-    tui = PfTUI()
-    
-    # Show header
-    console.print("[bold]1. Header Display:[/bold]")
-    tui.show_header()
-    
-    # Load and categorize tasks
-    console.print("\n[bold]2. Loading Tasks:[/bold]")
-    if tui.load_tasks():
-        console.print(f"[green]✓ Successfully loaded {len(tui.tasks)} tasks[/green]")
-    else:
-        console.print("[red]✗ Failed to load tasks[/red]")
-        return
-    
-    console.print("\n[bold]3. Categorizing Tasks:[/bold]")
-    tui.categorize_tasks()
-    console.print(f"[green]✓ Organized into {len(tui.categories)} categories[/green]")
-    
-    # Show categories summary
-    console.print("\n[bold]4. Category Summary:[/bold]")
-    for category in tui.categories:
-        console.print(f"  • [cyan]{category.name}[/cyan]: {len(category.tasks)} tasks")
-    
-    # Show debugging tools
-    console.print("\n[bold]5. Debugging Tools View:[/bold]")
-    tui.show_debugging_tools()
-    
-    # Show exploit development categories
-    console.print("\n[bold]6. Exploit Development Categories:[/bold]")
-    exploit_categories = [cat for cat in tui.categories 
-                         if 'exploit' in cat.name.lower() or 'pwn' in cat.name.lower() 
-                         or 'rop' in cat.name.lower() or 'heap' in cat.name.lower()]
-    
-    for category in exploit_categories:
-        console.print(f"\n[bold {category.color}]{category.name}[/bold {category.color}] ({len(category.tasks)} tasks)")
-        for task_name, _ in category.tasks[:3]:  # Show first 3 tasks
-            console.print(f"  • [cyan]{task_name}[/cyan]")
-        if len(category.tasks) > 3:
-            console.print(f"  ... and {len(category.tasks) - 3} more")
-    
-    console.print("\n[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]")
-    console.print("[bold green]✓ Demo completed successfully![/bold green]")
-    console.print("[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]\n")
-    
-    console.print("[dim]To run the full interactive TUI, use: pf tui[/dim]")
-    console.print("[dim]To access exploit dev tools, select option 6 in the TUI[/dim]\n")
+
+def demo_tui(
+    pfyfile: Optional[str] = None,
+    max_categories: int = 12,
+    json_out: Optional[str] = None,
+    strict: bool = False,
+) -> int:
+    """Run the non-interactive demo."""
+    try:
+        console = load_console_class()()
+    except Exception as exc:
+        print(f"Error: could not load rich Console: {exc}", file=sys.stderr)
+        return 1
+
+    print_demo_banner(console, "pf TUI demo summary")
+
+    try:
+        tui = load_tui_class()(pfyfile)
+    except Exception as exc:
+        console.print(f"[red]Error: could not initialize PfTUI: {exc}[/red]")
+        return 1
+
+    load_ok = bool(tui.load_tasks())
+    if not load_ok:
+        console.print("[yellow]Warning: no tasks were loaded.[/yellow]")
+        if strict:
+            return 1
+
+    try:
+        tui.categorize_tasks()
+    except Exception as exc:
+        console.print(f"[yellow]Warning: categorization failed: {exc}[/yellow]")
+        if strict:
+            return 1
+
+    summary = build_tui_summary(tui)
+    console.print(
+        f"[bold]Loaded {summary['task_count']} tasks across "
+        f"{summary['category_count']} categories.[/bold]"
+    )
+
+    limit = max(0, int(max_categories))
+    shown = summary["categories"][:limit]
+    for category in shown:
+        console.print(f"  - {category['name']}: {category['task_count']} tasks")
+    remaining = summary["category_count"] - len(shown)
+    if remaining > 0:
+        console.print(f"  ... {remaining} more categories")
+
+    if json_out:
+        write_summary_json(json_out, summary)
+        console.print(f"[green]Wrote JSON summary to {json_out}[/green]")
+
+    console.print("[dim]Use `pf tui` for the full interactive interface.[/dim]")
+    return 0
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    """CLI entrypoint."""
+    args = build_parser().parse_args(argv)
+    return demo_tui(
+        pfyfile=args.pfyfile,
+        max_categories=args.max_categories,
+        json_out=args.json_out,
+        strict=args.strict,
+    )
+
 
 if __name__ == "__main__":
-    demo_tui()
+    raise SystemExit(main())

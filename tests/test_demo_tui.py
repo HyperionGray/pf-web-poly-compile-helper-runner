@@ -1,97 +1,78 @@
 #!/usr/bin/env python3
-"""
-Test suite for demo_tui.py
+"""Tests for non-interactive demo_tui script and root shim."""
 
-This demonstrates how to add tests for demo/utility scripts.
-Tests verify that the demo script can be imported and run without errors.
-"""
+from __future__ import annotations
 
-import sys
+import json
 import os
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from io import StringIO
+import sys
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
-# Add parent directory to path
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Constants
-PF_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')
+
+def _fake_tui(load_ok: bool = True) -> Mock:
+    tui = Mock()
+    tui.tasks = {"build": object(), "test": object(), "deploy": object()}
+    tui.categories = [
+        SimpleNamespace(name="Build", tasks=[("build", "Build task")]),
+        SimpleNamespace(name="Test", tasks=[("test", "Test task"), ("deploy", "")]),
+    ]
+    tui.load_tasks.return_value = load_ok
+    tui.categorize_tasks.return_value = None
+    return tui
 
 
-def test_demo_tui_imports():
-    """Test that demo_tui can be imported without errors"""
-    try:
-        import demo_tui
-        assert demo_tui is not None
-    except ImportError as e:
-        pytest.skip(f"demo_tui not available: {e}")
+def test_demo_tui_root_shim_exports_entrypoints():
+    import demo_tui
+
+    assert hasattr(demo_tui, "main")
+    assert callable(demo_tui.main)
+    assert hasattr(demo_tui, "demo_tui")
+    assert callable(demo_tui.demo_tui)
 
 
-@patch('sys.path')
-def test_demo_tui_path_setup(mock_path):
-    """Test that demo_tui sets up the path correctly"""
-    # This would normally check that pf-runner is added to sys.path
-    # For now, just verify the module structure is importable
-    assert True
+def test_demo_tui_writes_json_summary(tmp_path):
+    import demos.demo_tui as demo_script
+
+    console_instance = Mock()
+    fake_console_class = Mock(return_value=console_instance)
+    fake_tui_instance = _fake_tui(load_ok=True)
+    fake_tui_class = Mock(return_value=fake_tui_instance)
+    out_path = tmp_path / "summary.json"
+
+    with (
+        patch.object(demo_script, "load_console_class", return_value=fake_console_class),
+        patch.object(demo_script, "load_tui_class", return_value=fake_tui_class),
+    ):
+        rc = demo_script.main(["--json-out", str(out_path), "--max-categories", "1"])
+
+    assert rc == 0
+    assert out_path.exists()
+    payload = json.loads(out_path.read_text())
+    assert payload["task_count"] == 3
+    assert payload["category_count"] == 2
+    assert len(payload["categories"]) == 2
 
 
-@pytest.mark.skipif(
-    not os.path.exists(PF_TUI_PATH),
-    reason="pf_tui module not available"
-)
-@patch('demo_tui.PfTUI')
-@patch('demo_tui.Console')
-def test_demo_tui_function(mock_console, mock_tui_class):
-    """Test demo_tui function with mocked dependencies"""
-    # Setup mocks
-    mock_console_instance = Mock()
-    mock_console.return_value = mock_console_instance
-    
-    mock_tui_instance = Mock()
-    mock_tui_instance.tasks = [Mock()] * 5
-    mock_tui_instance.categories = [Mock(name="cat1"), Mock(name="cat2")]
-    mock_tui_class.return_value = mock_tui_instance
-    
-    try:
-        import demo_tui
-        
-        # Test that demo_tui function runs without errors
-        demo_tui.demo_tui()
-        
-        # Verify Console was used
-        assert mock_console.called or mock_console_instance.print.called
-        
-    except Exception as e:
-        pytest.skip(f"Demo TUI test skipped due to dependencies: {e}")
+def test_demo_tui_strict_mode_fails_when_load_fails():
+    import demos.demo_tui as demo_script
+
+    fake_console_class = Mock(return_value=Mock())
+    fake_tui_instance = _fake_tui(load_ok=False)
+    fake_tui_class = Mock(return_value=fake_tui_instance)
+
+    with (
+        patch.object(demo_script, "load_console_class", return_value=fake_console_class),
+        patch.object(demo_script, "load_tui_class", return_value=fake_tui_class),
+    ):
+        rc = demo_script.main(["--strict"])
+
+    assert rc == 1
 
 
-@pytest.mark.skipif(
-    not os.path.exists(PF_TUI_PATH),
-    reason="pf_tui module not available"
-)
-def test_demo_tui_module_structure():
-    """Test that demo_tui has expected structure"""
-    try:
-        import demo_tui
-        
-        # Verify expected function exists
-        assert hasattr(demo_tui, 'demo_tui')
-        assert callable(demo_tui.demo_tui)
-        
-    except ImportError:
-        pytest.skip("demo_tui module not available for testing")
-
-
-def test_demo_tui_file_exists():
-    """Test that demo_tui.py file exists"""
-    demo_tui_path = os.path.join(
-        os.path.dirname(__file__), 
-        '..', 
-        'demo_tui.py'
-    )
-    assert os.path.exists(demo_tui_path), "demo_tui.py should exist"
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
