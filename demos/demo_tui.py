@@ -1,87 +1,131 @@
 #!/usr/bin/env python3
-"""
-Demo script to showcase TUI features non-interactively
+"""Non-interactive DEMO overview for the pf TUI.
+
+This is the canonical location for the demo script. Root-level wrappers keep
+backward compatibility for existing commands (`python3 demo_tui.py`).
 """
 
 from __future__ import annotations
 
-import os
+import argparse
 import sys
-from typing import Any
+from pathlib import Path
+from typing import Any, Optional
 
-# Add pf-runner to path (relative to this script's location)
-script_dir = os.path.dirname(os.path.abspath(__file__))
-pf_runner_path = os.path.join(script_dir, 'pf-runner')
-if pf_runner_path not in sys.path:
-    sys.path.insert(0, pf_runner_path)
+PfTUI: Any = None
+Console: Any = None
 
-# Optional imports: tests patch these symbols, so keep module importable even
-# when optional runtime deps aren't installed.
-try:
-    from pf_tui import PfTUI  # type: ignore[import-not-found]
-except Exception:  # pragma: no cover
-    PfTUI = Any  # type: ignore[misc,assignment]
+_RUNNER_CANDIDATES = ("pf-runner-full", "pf-runner")
 
-try:
-    from rich.console import Console  # type: ignore[import-not-found]
-except Exception:  # pragma: no cover
-    Console = Any  # type: ignore[misc,assignment]
 
-def demo_tui():
-    """Demonstrate TUI capabilities"""
-    console = Console()
-    
-    console.print("\n[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]")
-    console.print("[bold cyan]           pf TUI Demo - Non-Interactive Mode           [/bold cyan]")
-    console.print("[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]\n")
-    
-    # Initialize TUI
-    tui = PfTUI()
-    
-    # Show header
-    console.print("[bold]1. Header Display:[/bold]")
-    tui.show_header()
-    
-    # Load and categorize tasks
-    console.print("\n[bold]2. Loading Tasks:[/bold]")
-    if tui.load_tasks():
-        console.print(f"[green]✓ Successfully loaded {len(tui.tasks)} tasks[/green]")
+def _resolve_runner_path(explicit_runner: Optional[str] = None) -> Path:
+    """Resolve and add the pf runner path to sys.path."""
+    demo_dir = Path(__file__).resolve().parent
+    repo_root = demo_dir.parent
+
+    candidates = []
+    if explicit_runner:
+        candidates.append(Path(explicit_runner))
     else:
-        console.print("[red]✗ Failed to load tasks[/red]")
-        return
-    
-    console.print("\n[bold]3. Categorizing Tasks:[/bold]")
+        candidates.extend(repo_root / name for name in _RUNNER_CANDIDATES)
+
+    for candidate in candidates:
+        candidate = candidate.resolve()
+        if (candidate / "pf_tui.py").exists():
+            candidate_str = str(candidate)
+            if candidate_str not in sys.path:
+                sys.path.insert(0, candidate_str)
+            return candidate
+
+    looked_in = ", ".join(str(path.resolve()) for path in candidates)
+    raise FileNotFoundError(f"Could not find pf_tui.py under: {looked_in}")
+
+
+def _load_dependencies(explicit_runner: Optional[str] = None) -> Path:
+    """Load runtime dependencies lazily so imports stay test-friendly."""
+    global PfTUI, Console
+    runner_path = _resolve_runner_path(explicit_runner)
+
+    if Console is None:
+        try:
+            from rich.console import Console as rich_console  # type: ignore[import-not-found]
+        except Exception as exc:  # pragma: no cover - environment-dependent
+            raise RuntimeError("rich is required for TUI demos: pip install rich") from exc
+        Console = rich_console
+
+    if PfTUI is None:
+        try:
+            from pf_tui import PfTUI as pf_tui_class  # type: ignore[import-not-found]
+        except Exception as exc:  # pragma: no cover - environment-dependent
+            raise RuntimeError(f"pf_tui import failed from {runner_path}") from exc
+        PfTUI = pf_tui_class
+
+    return runner_path
+
+
+def _print_demo_banner(console: Any, title: str) -> None:
+    border = "=" * 72
+    console.print(border)
+    console.print("DEMO MODE")
+    console.print(title)
+    console.print(border)
+
+
+def demo_tui(
+    pfyfile: Optional[str] = None,
+    runner_path: Optional[str] = None,
+) -> int:
+    """Run a non-interactive summary of TUI-discovered tasks/categories."""
+    try:
+        resolved_runner = _load_dependencies(runner_path)
+    except Exception as exc:
+        print(f"Error loading demo dependencies: {exc}", file=sys.stderr)
+        return 1
+
+    console = Console()
+    _print_demo_banner(console, "pf TUI NON-INTERACTIVE SUMMARY")
+    console.print(f"runner path: {resolved_runner}")
+    if pfyfile:
+        console.print(f"pfyfile: {pfyfile}")
+
+    tui = PfTUI(pfyfile)
+    if not tui.load_tasks():
+        console.print("Failed to load tasks from the selected Pfyfile.")
+        return 1
+
     tui.categorize_tasks()
-    console.print(f"[green]✓ Organized into {len(tui.categories)} categories[/green]")
-    
-    # Show categories summary
-    console.print("\n[bold]4. Category Summary:[/bold]")
-    for category in tui.categories:
-        console.print(f"  • [cyan]{category.name}[/cyan]: {len(category.tasks)} tasks")
-    
-    # Show debugging tools
-    console.print("\n[bold]5. Debugging Tools View:[/bold]")
-    tui.show_debugging_tools()
-    
-    # Show exploit development categories
-    console.print("\n[bold]6. Exploit Development Categories:[/bold]")
-    exploit_categories = [cat for cat in tui.categories 
-                         if 'exploit' in cat.name.lower() or 'pwn' in cat.name.lower() 
-                         or 'rop' in cat.name.lower() or 'heap' in cat.name.lower()]
-    
-    for category in exploit_categories:
-        console.print(f"\n[bold {category.color}]{category.name}[/bold {category.color}] ({len(category.tasks)} tasks)")
-        for task_name, _ in category.tasks[:3]:  # Show first 3 tasks
-            console.print(f"  • [cyan]{task_name}[/cyan]")
-        if len(category.tasks) > 3:
-            console.print(f"  ... and {len(category.tasks) - 3} more")
-    
-    console.print("\n[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]")
-    console.print("[bold green]✓ Demo completed successfully![/bold green]")
-    console.print("[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]\n")
-    
-    console.print("[dim]To run the full interactive TUI, use: pf tui[/dim]")
-    console.print("[dim]To access exploit dev tools, select option 6 in the TUI[/dim]\n")
+    total_tasks = len(tui.tasks)
+    total_categories = len(tui.categories)
+    console.print(f"loaded tasks: {total_tasks}")
+    console.print(f"categories: {total_categories}")
+
+    if tui.categories:
+        console.print("\nTop categories:")
+        for category in tui.categories[:10]:
+            category_name = getattr(category, "name", "unknown")
+            task_count = len(getattr(category, "tasks", []))
+            console.print(f"  - {category_name}: {task_count}")
+
+    console.print("\nRun 'pf tui' for the interactive interface.")
+    return 0
+
+
+def main(argv: Optional[list[str]] = None) -> int:
+    parser = argparse.ArgumentParser(description="Run the pf TUI demo summary")
+    parser.add_argument(
+        "--file",
+        dest="pfyfile",
+        default=None,
+        help="Optional Pfyfile path to load before summarizing tasks",
+    )
+    parser.add_argument(
+        "--runner-path",
+        default=None,
+        help="Optional path to pf runner directory containing pf_tui.py",
+    )
+    args = parser.parse_args(argv)
+    return demo_tui(pfyfile=args.pfyfile, runner_path=args.runner_path)
+
 
 if __name__ == "__main__":
-    demo_tui()
+    raise SystemExit(main())

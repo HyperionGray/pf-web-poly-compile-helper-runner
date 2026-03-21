@@ -1,112 +1,98 @@
 #!/usr/bin/env python3
-"""
-Test suite for screenshot_tui.py
+"""Tests for TUI screenshot demo script and compatibility wrapper."""
 
-This demonstrates how to add tests for demo/utility scripts.
-Tests verify that the screenshot script can be imported and has expected structure.
-"""
+from __future__ import annotations
 
-import sys
-import os
-import pytest
-from unittest.mock import Mock, patch
-
-# Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Constants
-PF_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')
+import importlib
+from pathlib import Path
 
 
-def test_screenshot_tui_file_exists():
-    """Test that screenshot_tui.py file exists"""
-    screenshot_tui_path = os.path.join(
-        os.path.dirname(__file__), 
-        '..', 
-        'screenshot_tui.py'
+REPO_ROOT = Path(__file__).resolve().parents[1]
+CANONICAL_SCREENSHOT_SCRIPT = REPO_ROOT / "demos" / "screenshot_tui.py"
+ROOT_WRAPPER_SCRIPT = REPO_ROOT / "screenshot_tui.py"
+
+
+def test_screenshot_script_locations_exist() -> None:
+    assert CANONICAL_SCREENSHOT_SCRIPT.exists(), "demos/screenshot_tui.py should exist"
+    assert ROOT_WRAPPER_SCRIPT.exists(), "root wrapper screenshot_tui.py should exist"
+
+
+def test_root_wrapper_exports_expected_entrypoints() -> None:
+    module = importlib.import_module("screenshot_tui")
+    assert hasattr(module, "show_menu_screenshot")
+    assert callable(module.show_menu_screenshot)
+    assert hasattr(module, "main")
+    assert callable(module.main)
+
+
+def test_screenshot_demo_returns_error_when_dependencies_fail(monkeypatch) -> None:
+    module = importlib.import_module("demos.screenshot_tui")
+
+    def fail_loader(_runner_path=None):
+        raise RuntimeError("missing dependencies")
+
+    monkeypatch.setattr(module, "_load_dependencies", fail_loader)
+    rc = module.show_menu_screenshot()
+    assert rc == 1
+
+
+def test_show_menu_screenshot_runs_with_mocked_dependencies(monkeypatch) -> None:
+    module = importlib.import_module("demos.screenshot_tui")
+
+    class FakeConsole:
+        def __init__(self):
+            self.lines = []
+
+        def print(self, message):
+            self.lines.append(str(message))
+
+    class FakeCategory:
+        def __init__(self, name, tasks):
+            self.name = name
+            self.tasks = tasks
+
+    class FakeTUI:
+        def __init__(self, pfyfile):
+            self.pfyfile = pfyfile
+            self.tasks = {"a": object(), "b": object(), "c": object()}
+            self.categories = []
+            self.header_rendered = False
+
+        def load_tasks(self):
+            return True
+
+        def categorize_tasks(self):
+            self.categories = [
+                FakeCategory("Core Tasks", [("build", "Build project")]),
+                FakeCategory("Testing", [("test", "Run tests")]),
+            ]
+
+        def show_header(self):
+            self.header_rendered = True
+
+    monkeypatch.setattr(
+        module,
+        "_load_dependencies",
+        lambda _runner_path=None: Path("/tmp/pf-runner-full"),
     )
-    assert os.path.exists(screenshot_tui_path), "screenshot_tui.py should exist"
+    monkeypatch.setattr(module, "Console", FakeConsole)
+    monkeypatch.setattr(module, "PfTUI", FakeTUI)
+
+    rc = module.show_menu_screenshot(pfyfile="Pfyfile.pf")
+    assert rc == 0
 
 
-def test_screenshot_tui_imports():
-    """Test that screenshot_tui can be imported without errors"""
-    try:
-        import screenshot_tui
-        assert screenshot_tui is not None
-    except ImportError as e:
-        pytest.skip(f"screenshot_tui not available: {e}")
+def test_show_menu_main_parses_cli_options(monkeypatch) -> None:
+    module = importlib.import_module("demos.screenshot_tui")
+    captured = {}
 
+    def fake_show_menu_screenshot(pfyfile=None, runner_path=None):
+        captured["pfyfile"] = pfyfile
+        captured["runner_path"] = runner_path
+        return 0
 
-@pytest.mark.skipif(
-    not os.path.exists(PF_TUI_PATH),
-    reason="pf_tui module not available"
-)
-def test_screenshot_tui_module_structure():
-    """Test that screenshot_tui has expected structure"""
-    try:
-        import screenshot_tui
-        
-        # Verify expected function exists
-        assert hasattr(screenshot_tui, 'show_menu_screenshot')
-        assert callable(screenshot_tui.show_menu_screenshot)
-        
-    except ImportError:
-        pytest.skip("screenshot_tui module not available for testing")
-
-
-@pytest.mark.skipif(
-    not os.path.exists(PF_TUI_PATH),
-    reason="pf_tui module not available"
-)
-@patch('screenshot_tui.PfTUI')
-@patch('screenshot_tui.Console')
-def test_show_menu_screenshot(mock_console, mock_tui_class):
-    """Test show_menu_screenshot function with mocked dependencies"""
-    # Setup mocks
-    mock_console_instance = Mock()
-    mock_console.return_value = mock_console_instance
-    
-    mock_tui_instance = Mock()
-    mock_tui_instance.tasks = [Mock()] * 10
-    mock_tui_instance.categories = [
-        Mock(name=f"Category {i}", tasks=[Mock()]) 
-        for i in range(10)
-    ]
-    mock_tui_class.return_value = mock_tui_instance
-    
-    try:
-        import screenshot_tui
-        
-        # Test that function runs without errors
-        screenshot_tui.show_menu_screenshot()
-        
-        # Verify Console was used for output
-        assert mock_console.called or mock_console_instance.print.called
-        
-        # Verify TUI methods were called
-        assert mock_tui_instance.load_tasks.called
-        assert mock_tui_instance.categorize_tasks.called
-        assert mock_tui_instance.show_header.called
-        
-    except Exception as e:
-        pytest.skip(f"Screenshot TUI test skipped due to dependencies: {e}")
-
-
-def test_screenshot_tui_is_executable():
-    """Test that screenshot_tui.py is executable or has shebang"""
-    screenshot_tui_path = os.path.join(
-        os.path.dirname(__file__), 
-        '..', 
-        'screenshot_tui.py'
-    )
-    
-    if os.path.exists(screenshot_tui_path):
-        with open(screenshot_tui_path, 'r') as f:
-            first_line = f.readline()
-            # Check for shebang
-            assert first_line.startswith('#!'), "Script should have shebang"
-            assert 'python' in first_line.lower(), "Shebang should reference Python"
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+    monkeypatch.setattr(module, "show_menu_screenshot", fake_show_menu_screenshot)
+    rc = module.main(["--file", "custom.pf", "--runner-path", "/tmp/runner"])
+    assert rc == 0
+    assert captured["pfyfile"] == "custom.pf"
+    assert captured["runner_path"] == "/tmp/runner"

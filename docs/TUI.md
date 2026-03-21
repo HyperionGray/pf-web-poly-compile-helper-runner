@@ -170,10 +170,15 @@ For non-interactive demonstration:
 
 ```bash
 # Run the TUI demo
-python3 demo_tui.py
+python3 demos/demo_tui.py
+
+# Render a static menu snapshot
+python3 demos/screenshot_tui.py
 ```
 
 This showcases TUI capabilities without requiring user interaction.
+Both scripts support `--file <Pfyfile>` and `--runner-path <path-to-pf-runner-full>`.
+Root-level wrappers (`demo_tui.py`, `screenshot_tui.py`) still exist for backwards compatibility.
 
 ## Architecture
 
@@ -300,7 +305,8 @@ pf-runner/
 └── ...
 
 Pfyfile.tui.pf         # TUI task definitions
-demo_tui.py            # Non-interactive demo
+demos/demo_tui.py      # Non-interactive demo summary
+demos/screenshot_tui.py # Static menu snapshot helper
 ```
 
 ## Troubleshooting

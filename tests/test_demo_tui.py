@@ -1,97 +1,94 @@
 #!/usr/bin/env python3
-"""
-Test suite for demo_tui.py
+"""Tests for TUI demo scripts and compatibility wrappers."""
 
-This demonstrates how to add tests for demo/utility scripts.
-Tests verify that the demo script can be imported and run without errors.
-"""
+from __future__ import annotations
 
-import sys
-import os
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from io import StringIO
-
-# Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Constants
-PF_TUI_PATH = os.path.join(os.path.dirname(__file__), '..', 'pf-runner', 'pf_tui.py')
+import importlib
+from pathlib import Path
 
 
-def test_demo_tui_imports():
-    """Test that demo_tui can be imported without errors"""
-    try:
-        import demo_tui
-        assert demo_tui is not None
-    except ImportError as e:
-        pytest.skip(f"demo_tui not available: {e}")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+CANONICAL_DEMO_SCRIPT = REPO_ROOT / "demos" / "demo_tui.py"
+ROOT_WRAPPER_SCRIPT = REPO_ROOT / "demo_tui.py"
 
 
-@patch('sys.path')
-def test_demo_tui_path_setup(mock_path):
-    """Test that demo_tui sets up the path correctly"""
-    # This would normally check that pf-runner is added to sys.path
-    # For now, just verify the module structure is importable
-    assert True
+def test_demo_tui_script_locations_exist() -> None:
+    assert CANONICAL_DEMO_SCRIPT.exists(), "demos/demo_tui.py should exist"
+    assert ROOT_WRAPPER_SCRIPT.exists(), "root wrapper demo_tui.py should exist"
 
 
-@pytest.mark.skipif(
-    not os.path.exists(PF_TUI_PATH),
-    reason="pf_tui module not available"
-)
-@patch('demo_tui.PfTUI')
-@patch('demo_tui.Console')
-def test_demo_tui_function(mock_console, mock_tui_class):
-    """Test demo_tui function with mocked dependencies"""
-    # Setup mocks
-    mock_console_instance = Mock()
-    mock_console.return_value = mock_console_instance
-    
-    mock_tui_instance = Mock()
-    mock_tui_instance.tasks = [Mock()] * 5
-    mock_tui_instance.categories = [Mock(name="cat1"), Mock(name="cat2")]
-    mock_tui_class.return_value = mock_tui_instance
-    
-    try:
-        import demo_tui
-        
-        # Test that demo_tui function runs without errors
-        demo_tui.demo_tui()
-        
-        # Verify Console was used
-        assert mock_console.called or mock_console_instance.print.called
-        
-    except Exception as e:
-        pytest.skip(f"Demo TUI test skipped due to dependencies: {e}")
+def test_root_wrapper_exports_expected_entrypoints() -> None:
+    module = importlib.import_module("demo_tui")
+    assert hasattr(module, "demo_tui")
+    assert callable(module.demo_tui)
+    assert hasattr(module, "main")
+    assert callable(module.main)
 
 
-@pytest.mark.skipif(
-    not os.path.exists(PF_TUI_PATH),
-    reason="pf_tui module not available"
-)
-def test_demo_tui_module_structure():
-    """Test that demo_tui has expected structure"""
-    try:
-        import demo_tui
-        
-        # Verify expected function exists
-        assert hasattr(demo_tui, 'demo_tui')
-        assert callable(demo_tui.demo_tui)
-        
-    except ImportError:
-        pytest.skip("demo_tui module not available for testing")
+def test_demo_tui_returns_error_when_dependencies_fail(monkeypatch) -> None:
+    module = importlib.import_module("demos.demo_tui")
+
+    def fail_loader(_runner_path=None):
+        raise RuntimeError("missing dependencies")
+
+    monkeypatch.setattr(module, "_load_dependencies", fail_loader)
+    rc = module.demo_tui()
+    assert rc == 1
 
 
-def test_demo_tui_file_exists():
-    """Test that demo_tui.py file exists"""
-    demo_tui_path = os.path.join(
-        os.path.dirname(__file__), 
-        '..', 
-        'demo_tui.py'
+def test_demo_tui_summary_runs_with_mocked_dependencies(monkeypatch) -> None:
+    module = importlib.import_module("demos.demo_tui")
+
+    class FakeConsole:
+        def __init__(self):
+            self.lines = []
+
+        def print(self, message):
+            self.lines.append(str(message))
+
+    class FakeCategory:
+        def __init__(self, name, tasks):
+            self.name = name
+            self.tasks = tasks
+
+    class FakeTUI:
+        def __init__(self, pfyfile):
+            self.pfyfile = pfyfile
+            self.tasks = {"a": object(), "b": object()}
+            self.categories = []
+
+        def load_tasks(self):
+            return True
+
+        def categorize_tasks(self):
+            self.categories = [
+                FakeCategory("Core Tasks", [("build", "Build project")]),
+                FakeCategory("Testing", [("test", "Run tests")]),
+            ]
+
+    monkeypatch.setattr(
+        module,
+        "_load_dependencies",
+        lambda _runner_path=None: Path("/tmp/pf-runner-full"),
     )
-    assert os.path.exists(demo_tui_path), "demo_tui.py should exist"
+    monkeypatch.setattr(module, "Console", FakeConsole)
+    monkeypatch.setattr(module, "PfTUI", FakeTUI)
+
+    rc = module.demo_tui(pfyfile="Pfyfile.pf")
+    assert rc == 0
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+def test_demo_tui_main_parses_cli_options(monkeypatch) -> None:
+    module = importlib.import_module("demos.demo_tui")
+    captured = {}
+
+    def fake_demo_tui(pfyfile=None, runner_path=None):
+        captured["pfyfile"] = pfyfile
+        captured["runner_path"] = runner_path
+        return 0
+
+    monkeypatch.setattr(module, "demo_tui", fake_demo_tui)
+    rc = module.main(["--file", "custom.pf", "--runner-path", "/tmp/runner"])
+    assert rc == 0
+    assert captured["pfyfile"] == "custom.pf"
+    assert captured["runner_path"] == "/tmp/runner"

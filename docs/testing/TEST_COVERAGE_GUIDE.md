@@ -112,8 +112,8 @@ npm run security:all          # Run all security tests
 Many utility and demo files don't have dedicated test files but are covered by integration tests:
 
 #### Demo/Utility Scripts
-- `screenshot_tui.py` - Demo script for TUI screenshots
-- `demo_tui.py` - Non-interactive TUI demonstration
+- `demos/screenshot_tui.py` - Demo script for TUI screenshots (tests/test_screenshot_tui.py)
+- `demos/demo_tui.py` - Non-interactive TUI demonstration (tests/test_demo_tui.py)
 - `demo_unified_api.py` - API demonstration script
 - `simple_syntax_validator.py` - Syntax validation utility
 
