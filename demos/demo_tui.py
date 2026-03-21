@@ -20,12 +20,12 @@ if PF_RUNNER_FULL not in sys.path:
 # Optional imports: keep module importable in minimal environments.
 try:
     from rich.console import Console  # type: ignore[import-not-found]
-except Exception:  # pragma: no cover
+except BaseException:  # pragma: no cover
     Console = Any  # type: ignore[misc,assignment]
 
 try:
     from pf_tui import PfTUI  # type: ignore[import-not-found]
-except Exception:  # pragma: no cover
+except BaseException:  # pragma: no cover
     PfTUI = Any  # type: ignore[misc,assignment]
 
 

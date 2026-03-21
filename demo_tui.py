@@ -3,13 +3,21 @@
 
 from __future__ import annotations
 
+import os
 import sys
+from typing import Any
 
-from demos import demo_tui as _demo_impl
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "pf-runner-full"))
 
-# Kept as module-level names so existing tests can patch these attributes.
-PfTUI = _demo_impl.PfTUI
-Console = _demo_impl.Console
+try:
+    from rich.console import Console  # type: ignore[import-not-found]
+except BaseException:  # pragma: no cover
+    Console = Any  # type: ignore[misc,assignment]
+
+try:
+    from pf_tui import PfTUI  # type: ignore[import-not-found]
+except BaseException:  # pragma: no cover
+    PfTUI = Any  # type: ignore[misc,assignment]
 
 
 def demo_tui() -> None:

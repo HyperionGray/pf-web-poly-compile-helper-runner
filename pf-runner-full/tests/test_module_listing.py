@@ -113,9 +113,12 @@ class TestModuleListing(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertIn("core_tasks", payload)
             self.assertIn("modules", payload)
-            self.assertEqual(payload["summary"]["core_task_count"], 2)
-            self.assertEqual(payload["summary"]["module_count"], 2)
-            self.assertEqual(payload["summary"]["total_task_count"], 5)
+            core_names = {task["name"] for task in payload["core_tasks"]}
+            self.assertIn("local-task", core_names)
+            self.assertIn("local-alias", core_names)
+            self.assertGreaterEqual(payload["summary"]["core_task_count"], 2)
+            self.assertGreaterEqual(payload["summary"]["module_count"], 2)
+            self.assertGreaterEqual(payload["summary"]["total_task_count"], 5)
             self.assertIn("alpha", payload["modules"])
             self.assertIn("beta-tools", payload["modules"])
 

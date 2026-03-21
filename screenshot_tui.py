@@ -3,13 +3,21 @@
 
 from __future__ import annotations
 
+import os
 import sys
+from typing import Any
 
-from demos import screenshot_tui as _shot_impl
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "pf-runner-full"))
 
-# Kept as module-level names so existing tests can patch these attributes.
-PfTUI = _shot_impl.PfTUI
-Console = _shot_impl.Console
+try:
+    from rich.console import Console  # type: ignore[import-not-found]
+except BaseException:  # pragma: no cover
+    Console = Any  # type: ignore[misc,assignment]
+
+try:
+    from pf_tui import PfTUI  # type: ignore[import-not-found]
+except BaseException:  # pragma: no cover
+    PfTUI = Any  # type: ignore[misc,assignment]
 
 
 def show_menu_screenshot() -> None:
