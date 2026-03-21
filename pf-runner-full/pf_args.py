@@ -150,6 +150,10 @@ For more help on a specific subcommand:
         list_parser.add_argument(
             "--subcommand", help="Show tasks only from specific subcommand"
         )
+        list_parser.add_argument(
+            "--match",
+            help="Filter listed tasks/modules by text (name, description, alias)",
+        )
 
         # run command (default)
         run_parser = self.subparsers.add_parser(

@@ -206,6 +206,16 @@ pf list --subcommand web-demo
 pf list --subcommand security
 ```
 
+### Filtering by Task Text
+
+Narrow `pf list` output using a case-insensitive substring match across task
+name, description, and aliases:
+
+```bash
+pf list --match build
+pf list --subcommand web-demo --match dev
+```
+
 ### Mixing with Global Options
 
 Subcommands work seamlessly with global options:

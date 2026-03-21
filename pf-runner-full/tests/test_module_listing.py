@@ -100,6 +100,66 @@ class TestModuleListing(unittest.TestCase):
             self.assertNotIn("local-task", output)
             self.assertNotIn("beta-task", output)
 
+    def test_list_match_filters_to_core_tasks(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pfyfile = self._write_pfyfiles(tmpdir)
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                rc = PfRunner().run_command(
+                    ["--file", pfyfile, "list", "--match", "local"]
+                )
+
+            output = stdout.getvalue()
+            self.assertEqual(rc, 0)
+            self.assertIn("Core tasks:", output)
+            self.assertIn("local-task - Local task", output)
+            self.assertIn("local-alias - Local alias task (aliases: lt)", output)
+            self.assertNotIn("Modules:", output)
+            self.assertNotIn("alpha (2 tasks)", output)
+            self.assertNotIn("beta-tools (1 task)", output)
+
+    def test_list_match_filters_module_counts(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pfyfile = self._write_pfyfiles(tmpdir)
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                rc = PfRunner().run_command(
+                    ["--file", pfyfile, "list", "--match", "beta"]
+                )
+
+            output = stdout.getvalue()
+            self.assertEqual(rc, 0)
+            self.assertIn("Modules:", output)
+            self.assertIn("beta-tools (1 task)", output)
+            self.assertNotIn("alpha (2 tasks)", output)
+            self.assertNotIn("local-task - Local task", output)
+
+    def test_subcommand_list_match_filters_tasks(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pfyfile = self._write_pfyfiles(tmpdir)
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                rc = PfRunner().run_command(
+                    [
+                        "--file",
+                        pfyfile,
+                        "list",
+                        "--subcommand",
+                        "alpha",
+                        "--match",
+                        "second",
+                    ]
+                )
+
+            output = stdout.getvalue()
+            self.assertEqual(rc, 0)
+            self.assertIn("Tasks for alpha:", output)
+            self.assertIn("alpha-second - Alpha second task", output)
+            self.assertNotIn("alpha-task - Alpha task", output)
+
     def test_subcommand_execution_rejects_out_of_scope_tasks(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             pfyfile = self._write_pfyfiles(tmpdir)

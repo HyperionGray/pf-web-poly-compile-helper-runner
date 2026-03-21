@@ -218,6 +218,31 @@ class PfRunner:
             desc_text = f" - {description}" if description else ""
             alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
             print(f"  {task_name}{desc_text}{alias_text}")
+
+    def _task_matches_list_query(
+        self,
+        task_info: TaskListing,
+        query: str,
+    ) -> bool:
+        """Return True when a task entry matches a list query substring."""
+        task_name, description, aliases = task_info
+        haystack = " ".join(
+            [task_name, description or "", " ".join(aliases or [])]
+        ).lower()
+        return query in haystack
+
+    def _filter_task_entries(
+        self, tasks: List[TaskListing], query: str
+    ) -> List[TaskListing]:
+        """Filter task entries by case-insensitive substring query."""
+        lowered_query = query.strip().lower()
+        if not lowered_query:
+            return tasks
+        return [
+            task_info
+            for task_info in tasks
+            if self._task_matches_list_query(task_info, lowered_query)
+        ]
     
     def run_command(self, args: List[str]) -> int:
         """Run pf command with enhanced argument parsing and error handling."""
@@ -373,12 +398,21 @@ class PfRunner:
 
             direct_tasks, module_tasks = self._load_task_listing(file_arg)
             requested_module = (getattr(args, "subcommand", None) or "").strip().lower()
+            match_query = (getattr(args, "match", None) or "").strip().lower()
 
             if requested_module:
                 tasks = module_tasks.get(requested_module, [])
+                if match_query:
+                    tasks = self._filter_task_entries(tasks, match_query)
                 if not tasks:
-                    print(f"No tasks found for module '{args.subcommand}'.", file=sys.stderr)
-                    if module_tasks:
+                    if match_query:
+                        print(
+                            f"No tasks found for module '{args.subcommand}' matching '{match_query}'.",
+                            file=sys.stderr,
+                        )
+                    else:
+                        print(f"No tasks found for module '{args.subcommand}'.", file=sys.stderr)
+                    if module_tasks and not match_query:
                         available_modules = ", ".join(sorted(module_tasks))
                         print(f"Available modules: {available_modules}", file=sys.stderr)
                     return 1
@@ -389,10 +423,22 @@ class PfRunner:
                 print("       pf help <task_name>  # Show help for a specific task")
                 return 0
 
+            if match_query:
+                direct_tasks = self._filter_task_entries(direct_tasks, match_query)
+                filtered_modules: Dict[str, List[TaskListing]] = {}
+                for module_name, tasks in module_tasks.items():
+                    matched_tasks = self._filter_task_entries(tasks, match_query)
+                    if matched_tasks:
+                        filtered_modules[module_name] = matched_tasks
+                module_tasks = filtered_modules
+
             total_tasks = len(direct_tasks) + sum(len(tasks) for tasks in module_tasks.values())
             print("Available tasks:")
             if total_tasks == 0:
-                print("  No tasks found.")
+                if match_query:
+                    print(f"  No tasks matched '{match_query}'.")
+                else:
+                    print("  No tasks found.")
                 if file_arg:
                     print(f"\nNote: Using Pfyfile: {file_arg}")
                     print("Check if the file exists and contains task definitions.")
@@ -417,6 +463,7 @@ class PfRunner:
             print("  pf <module|file.pf>                # List tasks from a module/file")
             print("  pf <module|file.pf> <task_name> [params...]")
             print("  pf help <task_name>                # Show help for a specific task")
+            print("  pf list --match <text>             # Filter tasks by name/description/alias")
 
             return 0
         except FileNotFoundError as e:
