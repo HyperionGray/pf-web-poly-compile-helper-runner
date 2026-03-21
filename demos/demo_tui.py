@@ -7,13 +7,23 @@ import argparse
 import sys
 from typing import Optional, Sequence
 
-from demos.tui_demo_utils import (
-    build_tui_summary,
-    load_console_class,
-    load_tui_class,
-    print_demo_banner,
-    write_summary_json,
-)
+try:
+    from demos.tui_demo_utils import (
+        build_tui_summary,
+        load_console_class,
+        load_tui_class,
+        print_demo_banner,
+        write_summary_json,
+    )
+except ModuleNotFoundError:
+    # Support direct execution: `python3 demos/demo_tui.py`
+    from tui_demo_utils import (  # type: ignore[no-redef]
+        build_tui_summary,
+        load_console_class,
+        load_tui_class,
+        print_demo_banner,
+        write_summary_json,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
