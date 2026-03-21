@@ -28,7 +28,6 @@ def show_menu_screenshot(
         return 1
 
     console = Console()
-    print_demo_banner(console, "pf TUI Menu Snapshot")
 
     try:
         tui, summary = load_tui_with_summary(
@@ -42,6 +41,7 @@ def show_menu_screenshot(
         console.print(json.dumps(summary, indent=2, sort_keys=True))
         return 0
 
+    print_demo_banner(console, "pf TUI Menu Snapshot")
     tui.show_header("DEMO MODE - static menu snapshot")
     console.print("\n[bold cyan]Main Menu[/bold cyan]")
     console.print("  [1] Browse Pfyfiles")

@@ -28,7 +28,6 @@ def demo_tui(
         return 1
 
     console = Console()
-    print_demo_banner(console, "pf TUI Demo (non-interactive)")
 
     try:
         tui, summary = load_tui_with_summary(
@@ -42,6 +41,7 @@ def demo_tui(
         console.print(json.dumps(summary, indent=2, sort_keys=True))
         return 0
 
+    print_demo_banner(console, "pf TUI Demo (non-interactive)")
     tui.show_header("DEMO MODE - non-interactive overview")
     console.print("[bold]Summary[/bold]")
     console.print(f"  total tasks: {summary['total_tasks']}")
