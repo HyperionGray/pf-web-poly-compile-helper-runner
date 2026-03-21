@@ -17,13 +17,16 @@ if PF_RUNNER_FULL not in sys.path:
 
 try:
     from rich.console import Console
-except ImportError:  # pragma: no cover
-    Console = Any  # type: ignore[misc,assignment]
+except BaseException:  # pragma: no cover
+    Console = None  # type: ignore[misc,assignment]
 
-try:
-    from pf_tui import PfTUI
-except ImportError:  # pragma: no cover
-    PfTUI = Any  # type: ignore[misc,assignment]
+if Console is not None:
+    try:
+        from pf_tui import PfTUI
+    except BaseException:  # pragma: no cover
+        PfTUI = None  # type: ignore[misc,assignment]
+else:  # pragma: no cover
+    PfTUI = None  # type: ignore[misc,assignment]
 
 
 def _print_demo_banner(console: Any) -> None:
@@ -35,6 +38,13 @@ def _print_demo_banner(console: Any) -> None:
 
 def show_menu_screenshot() -> None:
     """Render a static snapshot of the pf TUI task menu."""
+    if Console is None or PfTUI is None:
+        print(
+            "Error: demo dependencies are not installed. Install with: pip install 'pf-runner[tui]'",
+            file=sys.stderr,
+        )
+        return
+
     console = Console()
     _print_demo_banner(console)
 
