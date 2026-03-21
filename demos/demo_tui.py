@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Demo script to showcase TUI features non-interactively
+demo_tui.py - Demo script for pf TUI (Text User Interface)
+
+Canonical location: demos/demo_tui.py
 """
 
 from __future__ import annotations
@@ -9,79 +11,47 @@ import os
 import sys
 from typing import Any
 
-# Add pf-runner to path (relative to this script's location)
-script_dir = os.path.dirname(os.path.abspath(__file__))
-pf_runner_path = os.path.join(script_dir, 'pf-runner')
-if pf_runner_path not in sys.path:
-    sys.path.insert(0, pf_runner_path)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(SCRIPT_DIR)
+PF_RUNNER_FULL = os.path.join(REPO_ROOT, "pf-runner-full")
+if PF_RUNNER_FULL not in sys.path:
+    sys.path.insert(0, PF_RUNNER_FULL)
 
-# Optional imports: tests patch these symbols, so keep module importable even
-# when optional runtime deps aren't installed.
-try:
-    from pf_tui import PfTUI  # type: ignore[import-not-found]
-except Exception:  # pragma: no cover
-    PfTUI = Any  # type: ignore[misc,assignment]
-
+# Optional imports: keep module importable in minimal environments.
 try:
     from rich.console import Console  # type: ignore[import-not-found]
 except Exception:  # pragma: no cover
     Console = Any  # type: ignore[misc,assignment]
 
-def demo_tui():
-    """Demonstrate TUI capabilities"""
+try:
+    from pf_tui import PfTUI  # type: ignore[import-not-found]
+except Exception:  # pragma: no cover
+    PfTUI = Any  # type: ignore[misc,assignment]
+
+
+def _print_demo_banner(console: Any) -> None:
+    console.print("[bold yellow]" + "=" * 68 + "[/bold yellow]")
+    console.print("[bold yellow] " + "DEMO MODE".center(66) + "[/bold yellow]")
+    console.print("[bold yellow]" + "=" * 68 + "[/bold yellow]")
+
+
+def demo_tui() -> None:
+    """Run a brief demo of the pf TUI, showing task categories and counts."""
     console = Console()
-    
-    console.print("\n[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]")
-    console.print("[bold cyan]           pf TUI Demo - Non-Interactive Mode           [/bold cyan]")
-    console.print("[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]\n")
-    
-    # Initialize TUI
+    _print_demo_banner(console)
+
     tui = PfTUI()
-    
-    # Show header
-    console.print("[bold]1. Header Display:[/bold]")
-    tui.show_header()
-    
-    # Load and categorize tasks
-    console.print("\n[bold]2. Loading Tasks:[/bold]")
-    if tui.load_tasks():
-        console.print(f"[green]✓ Successfully loaded {len(tui.tasks)} tasks[/green]")
-    else:
-        console.print("[red]✗ Failed to load tasks[/red]")
-        return
-    
-    console.print("\n[bold]3. Categorizing Tasks:[/bold]")
-    tui.categorize_tasks()
-    console.print(f"[green]✓ Organized into {len(tui.categories)} categories[/green]")
-    
-    # Show categories summary
-    console.print("\n[bold]4. Category Summary:[/bold]")
-    for category in tui.categories:
-        console.print(f"  • [cyan]{category.name}[/cyan]: {len(category.tasks)} tasks")
-    
-    # Show debugging tools
-    console.print("\n[bold]5. Debugging Tools View:[/bold]")
-    tui.show_debugging_tools()
-    
-    # Show exploit development categories
-    console.print("\n[bold]6. Exploit Development Categories:[/bold]")
-    exploit_categories = [cat for cat in tui.categories 
-                         if 'exploit' in cat.name.lower() or 'pwn' in cat.name.lower() 
-                         or 'rop' in cat.name.lower() or 'heap' in cat.name.lower()]
-    
-    for category in exploit_categories:
-        console.print(f"\n[bold {category.color}]{category.name}[/bold {category.color}] ({len(category.tasks)} tasks)")
-        for task_name, _ in category.tasks[:3]:  # Show first 3 tasks
-            console.print(f"  • [cyan]{task_name}[/cyan]")
-        if len(category.tasks) > 3:
-            console.print(f"  ... and {len(category.tasks) - 3} more")
-    
-    console.print("\n[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]")
-    console.print("[bold green]✓ Demo completed successfully![/bold green]")
-    console.print("[bold cyan]═══════════════════════════════════════════════════════[/bold cyan]\n")
-    
-    console.print("[dim]To run the full interactive TUI, use: pf tui[/dim]")
-    console.print("[dim]To access exploit dev tools, select option 6 in the TUI[/dim]\n")
+    try:
+        tui.load_tasks()
+        tui.categorize_tasks()
+    except Exception:
+        pass
+
+    console.print("[bold blue]pf TUI Demo[/bold blue]")
+    console.print(f"Loaded {len(tui.tasks)} tasks")
+    if tui.categories:
+        console.print(f"Categories: {', '.join(str(c.name) for c in tui.categories)}")
+
 
 if __name__ == "__main__":
     demo_tui()

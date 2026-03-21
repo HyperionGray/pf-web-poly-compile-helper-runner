@@ -126,6 +126,10 @@ pf list
 # or
 pf --list
 
+# Machine-readable list output
+pf list --json
+pf list --subcommand web --json
+
 # Legacy style:
 pf env=prod update
 
@@ -138,6 +142,19 @@ pf hosts=ubuntu@10.0.0.5:22,punk@10.4.4.4:24 run-tls tls_cert=$PWD/certs/server.
 # or
 pf --hosts=ubuntu@10.0.0.5:22,punk@10.4.4.4:24 run-tls --tls_cert=$PWD/certs/server.crt --tls_key=$PWD/certs/server.key --port=9443
 ```
+
+### Machine-readable task listing
+
+Use `--json` with the `list` command when you need structured output:
+
+```bash
+pf list --json
+pf list --subcommand web --json
+```
+
+- `pf list --json` returns `core_tasks`, `modules`, and a `summary` object.
+- `pf list --subcommand <module> --json` returns a compact module payload with
+  `requested_module`, `task_count`, and `tasks`.
 
 ## Toolchain setup
 

@@ -170,7 +170,7 @@ For non-interactive demonstration:
 
 ```bash
 # Run the TUI demo
-python3 demo_tui.py
+python3 demos/demo_tui.py
 ```
 
 This showcases TUI capabilities without requiring user interaction.
@@ -299,8 +299,9 @@ pf-runner/
 ├── pf_shell.py        # Shell validation (dependency)
 └── ...
 
-Pfyfile.tui.pf         # TUI task definitions
-demo_tui.py            # Non-interactive demo
+Pfyfile.tui.pf              # TUI task definitions
+demos/demo_tui.py           # Non-interactive demo
+demos/screenshot_tui.py     # Static menu snapshot helper
 ```
 
 ## Troubleshooting

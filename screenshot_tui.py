@@ -1,31 +1,19 @@
 #!/usr/bin/env python3
-"""
-screenshot_tui.py - Screenshot/snapshot utility for the pf TUI menu
+"""Compatibility shim for demos/screenshot_tui.py."""
 
-Renders a static snapshot of the pf TUI task menu for documentation
-and preview purposes.
-"""
+from __future__ import annotations
 
 import sys
-import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "pf-runner-full"))
+from demos import screenshot_tui as _shot_impl
 
-try:
-    from rich.console import Console
-except ImportError:
-    print("Error: rich is not installed. Install with: pip install rich", file=sys.stderr)
-    sys.exit(1)
-
-try:
-    from pf_tui import PfTUI
-except ImportError:
-    print("Error: pf_tui module not available", file=sys.stderr)
-    sys.exit(1)
+# Kept as module-level names so existing tests can patch these attributes.
+PfTUI = _shot_impl.PfTUI
+Console = _shot_impl.Console
 
 
 def show_menu_screenshot() -> None:
-    """Render a static snapshot of the pf TUI task menu."""
+    """Run the canonical TUI screenshot demo using patchable symbols."""
     console = Console()
     tui = PfTUI()
 
@@ -45,4 +33,5 @@ def show_menu_screenshot() -> None:
 
 
 if __name__ == "__main__":
+    print("Note: screenshot_tui.py moved to demos/screenshot_tui.py", file=sys.stderr)
     show_menu_screenshot()

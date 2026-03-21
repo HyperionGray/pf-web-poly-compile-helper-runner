@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import tempfile
 import textwrap
 import unittest
@@ -99,6 +100,41 @@ class TestModuleListing(unittest.TestCase):
             self.assertIn("alpha-second - Alpha second task", output)
             self.assertNotIn("local-task", output)
             self.assertNotIn("beta-task", output)
+
+    def test_default_list_json_includes_core_and_modules(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pfyfile = self._write_pfyfiles(tmpdir)
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                rc = PfRunner().run_command(["--file", pfyfile, "list", "--json"])
+
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(rc, 0)
+            self.assertIn("core_tasks", payload)
+            self.assertIn("modules", payload)
+            self.assertEqual(payload["summary"]["core_task_count"], 2)
+            self.assertEqual(payload["summary"]["module_count"], 2)
+            self.assertEqual(payload["summary"]["total_task_count"], 5)
+            self.assertIn("alpha", payload["modules"])
+            self.assertIn("beta-tools", payload["modules"])
+
+    def test_subcommand_list_json_shows_requested_module(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pfyfile = self._write_pfyfiles(tmpdir)
+            stdout = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout):
+                rc = PfRunner().run_command(
+                    ["--file", pfyfile, "list", "--subcommand", "alpha", "--json"]
+                )
+
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(rc, 0)
+            self.assertEqual(payload["requested_module"], "alpha")
+            self.assertEqual(payload["task_count"], 2)
+            self.assertEqual(payload["tasks"][0]["name"], "alpha-second")
+            self.assertEqual(payload["tasks"][1]["name"], "alpha-task")
 
     def test_subcommand_execution_rejects_out_of_scope_tasks(self):
         with tempfile.TemporaryDirectory() as tmpdir:

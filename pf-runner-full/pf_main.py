@@ -24,6 +24,7 @@ into focused, cohesive components while maintaining the same public interface.
 
 import os
 import sys
+import json
 import atexit
 import shutil
 import tempfile
@@ -32,7 +33,7 @@ import difflib
 import shlex
 import textwrap
 import re
-from typing import List, Dict, Optional, Tuple
+from typing import Any, List, Dict, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -218,6 +219,15 @@ class PfRunner:
             desc_text = f" - {description}" if description else ""
             alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
             print(f"  {task_name}{desc_text}{alias_text}")
+
+    def _task_entry_to_dict(self, task: TaskListing) -> Dict[str, Any]:
+        """Serialize `(task_name, description, aliases)` for JSON output."""
+        task_name, description, aliases = task
+        return {
+            "name": task_name,
+            "description": description,
+            "aliases": aliases,
+        }
     
     def run_command(self, args: List[str]) -> int:
         """Run pf command with enhanced argument parsing and error handling."""
@@ -373,15 +383,45 @@ class PfRunner:
 
             direct_tasks, module_tasks = self._load_task_listing(file_arg)
             requested_module = (getattr(args, "subcommand", None) or "").strip().lower()
+            output_json = bool(getattr(args, "json", False))
 
             if requested_module:
                 tasks = module_tasks.get(requested_module, [])
                 if not tasks:
+                    if output_json:
+                        print(
+                            json.dumps(
+                                {
+                                    "error": f"No tasks found for module '{requested_module}'.",
+                                    "requested_module": requested_module,
+                                    "available_modules": sorted(module_tasks),
+                                    "source": file_arg,
+                                },
+                                indent=2,
+                                sort_keys=True,
+                            )
+                        )
+                        return 1
                     print(f"No tasks found for module '{args.subcommand}'.", file=sys.stderr)
                     if module_tasks:
                         available_modules = ", ".join(sorted(module_tasks))
                         print(f"Available modules: {available_modules}", file=sys.stderr)
                     return 1
+
+                if output_json:
+                    print(
+                        json.dumps(
+                            {
+                                "requested_module": requested_module,
+                                "source": file_arg,
+                                "task_count": len(tasks),
+                                "tasks": [self._task_entry_to_dict(task) for task in tasks],
+                            },
+                            indent=2,
+                            sort_keys=True,
+                        )
+                    )
+                    return 0
 
                 print(f"Tasks for {requested_module}:")
                 self._print_task_entries(tasks)
@@ -390,6 +430,32 @@ class PfRunner:
                 return 0
 
             total_tasks = len(direct_tasks) + sum(len(tasks) for tasks in module_tasks.values())
+            if output_json:
+                module_task_count = sum(len(tasks) for tasks in module_tasks.values())
+                print(
+                    json.dumps(
+                        {
+                            "source": file_arg,
+                            "core_tasks": [self._task_entry_to_dict(task) for task in direct_tasks],
+                            "modules": {
+                                module_name: [
+                                    self._task_entry_to_dict(task) for task in tasks
+                                ]
+                                for module_name, tasks in sorted(module_tasks.items())
+                            },
+                            "summary": {
+                                "core_task_count": len(direct_tasks),
+                                "module_count": len(module_tasks),
+                                "module_task_count": module_task_count,
+                                "total_task_count": total_tasks,
+                            },
+                        },
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
+                return 0
+
             print("Available tasks:")
             if total_tasks == 0:
                 print("  No tasks found.")

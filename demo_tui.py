@@ -1,31 +1,19 @@
 #!/usr/bin/env python3
-"""
-demo_tui.py - Demo script for pf TUI (Text User Interface)
+"""Compatibility shim for demos/demo_tui.py."""
 
-Demonstrates the PfTUI interface by loading tasks and showing
-a summary of available task categories.
-"""
+from __future__ import annotations
 
 import sys
-import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "pf-runner-full"))
+from demos import demo_tui as _demo_impl
 
-try:
-    from rich.console import Console
-except ImportError:
-    print("Error: rich is not installed. Install with: pip install rich", file=sys.stderr)
-    sys.exit(1)
-
-try:
-    from pf_tui import PfTUI
-except ImportError:
-    print("Error: pf_tui module not available", file=sys.stderr)
-    sys.exit(1)
+# Kept as module-level names so existing tests can patch these attributes.
+PfTUI = _demo_impl.PfTUI
+Console = _demo_impl.Console
 
 
 def demo_tui() -> None:
-    """Run a brief demo of the pf TUI, showing task categories and counts."""
+    """Run the canonical TUI demo flow using patchable module symbols."""
     console = Console()
     tui = PfTUI()
 
@@ -42,4 +30,5 @@ def demo_tui() -> None:
 
 
 if __name__ == "__main__":
+    print("Note: demo_tui.py moved to demos/demo_tui.py", file=sys.stderr)
     demo_tui()

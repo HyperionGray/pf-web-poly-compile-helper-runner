@@ -1,55 +1,59 @@
 #!/usr/bin/env python3
 """
-Script to capture TUI menu screenshot
+screenshot_tui.py - Screenshot/snapshot utility for the pf TUI menu
+
+Canonical location: demos/screenshot_tui.py
 """
 
-import sys
+from __future__ import annotations
+
 import os
+import sys
+from typing import Any
 
-# Add pf-runner to path
-script_dir = os.path.dirname(os.path.abspath(__file__))
-repo_root = os.path.dirname(script_dir)
-pf_runner_path = os.path.join(repo_root, 'pf-runner')
-sys.path.insert(0, pf_runner_path)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(SCRIPT_DIR)
+PF_RUNNER_FULL = os.path.join(REPO_ROOT, "pf-runner-full")
+if PF_RUNNER_FULL not in sys.path:
+    sys.path.insert(0, PF_RUNNER_FULL)
 
-from pf_tui import PfTUI
-from rich.console import Console
+try:
+    from rich.console import Console  # type: ignore[import-not-found]
+except Exception:  # pragma: no cover
+    Console = Any  # type: ignore[misc,assignment]
 
-def show_menu_screenshot():
-    """Show TUI menu for screenshot"""
+try:
+    from pf_tui import PfTUI  # type: ignore[import-not-found]
+except Exception:  # pragma: no cover
+    PfTUI = Any  # type: ignore[misc,assignment]
+
+
+def _print_demo_banner(console: Any) -> None:
+    console.print("[bold yellow]" + "=" * 68 + "[/bold yellow]")
+    console.print("[bold yellow] " + "DEMO SCREENSHOT MODE".center(66) + "[/bold yellow]")
+    console.print("[bold yellow]" + "=" * 68 + "[/bold yellow]")
+
+
+def show_menu_screenshot() -> None:
+    """Render a static snapshot of the pf TUI task menu."""
     console = Console()
-    
-    # Initialize TUI
+    _print_demo_banner(console)
     tui = PfTUI()
-    tui.load_tasks()
-    tui.categorize_tasks()
-    
-    # Show header and menu
-    tui.show_header()
-    
-    console.print("\n[bold cyan]Main Menu:[/bold cyan]")
-    console.print("  [1] List all tasks by category")
-    console.print("  [2] Run a task")
-    console.print("  [3] Check task syntax")
-    console.print("  [4] View debugging tools")
-    console.print("  [5] Search tasks")
-    console.print("  [6] Exploit Development Tools")
-    console.print("  [q] Quit")
-    
-    console.print("\n[bold green]New Feature:[/bold green] Option 6 provides quick access to:")
-    console.print("  • Install exploit tools (pwntools, ROPgadget, checksec)")
-    console.print("  • Run exploit workflow on binaries")
-    console.print("  • Generate exploit templates")
-    console.print("  • Find ROP gadgets")
-    console.print("  • Access comprehensive help")
-    
-    console.print("\n[bold yellow]Task Categories Available:[/bold yellow]")
-    for i, category in enumerate(tui.categories[:8], 1):
-        console.print(f"  {i}. {category.name} ({len(category.tasks)} tasks)")
-    console.print(f"  ... and {len(tui.categories) - 8} more categories")
-    
-    console.print(f"\n[bold]Total:[/bold] {len(tui.tasks)} tasks in {len(tui.categories)} categories")
-    console.print("\n[dim]Press Ctrl+C to exit this demo[/dim]")
+
+    try:
+        tui.load_tasks()
+        tui.categorize_tasks()
+        tui.show_header()
+    except Exception:
+        pass
+
+    console.print("[bold green]pf Task Menu[/bold green]")
+    if tui.categories:
+        for category in tui.categories:
+            console.print(f"  [cyan]{category.name}[/cyan]")
+    else:
+        console.print("  (no tasks found)")
+
 
 if __name__ == "__main__":
     show_menu_screenshot()
