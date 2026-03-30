@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Test Coverage for Core Modules (2026-03-28)
+- **pf_exceptions unit tests**: Comprehensive coverage for all exception classes
+  (PFException, PFSyntaxError, PFExecutionError, PFEnvironmentError,
+  PFTaskNotFoundError, PFConnectionError), format_exception_for_user, and
+  environment detection helpers (_detect_container_environment,
+  _detect_subshell_depth, _get_platform_info)
+- **pf_subcommand_manager unit tests**: Coverage for module name extraction,
+  source path selection, include file parsing, and include file loading
+- **pf_shell extended unit tests**: Edge-case coverage for parse_shell_command,
+  _has_shell_metacharacters, validate_shell_syntax, and build_shell_command
+  including sudo wrapping, env merging, metacharacter detection, and error paths
+
 ### Fixed - CI/CD Review and Documentation Verification (2025-12-22)
 - **CI/CD Review Response**: Completed comprehensive review of automated CI/CD findings
 - **Documentation Verification**: Confirmed all essential documentation files are present and properly formatted
