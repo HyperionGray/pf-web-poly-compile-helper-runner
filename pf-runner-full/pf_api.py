@@ -25,6 +25,7 @@ import shlex
 import time
 import collections
 import threading
+import re
 from typing import Dict, List, Optional, Any
 from contextlib import asynccontextmanager
 
@@ -207,6 +208,47 @@ def _resolve_task_name(name: str) -> Optional[str]:
     return None
 
 
+_PARAM_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+
+def _build_safe_pf_args(params: Dict[str, Any]) -> List[str]:
+    """
+    Validate and convert task parameters into a list of 'key=value' arguments
+    safe to pass to pf_parser via subprocess.
+
+    Raises HTTPException(400) if any parameter name or value is invalid.
+    """
+    safe_args: List[str] = []
+
+    # Import HTTPException lazily to avoid issues when FastAPI is unavailable.
+    try:
+        from fastapi import HTTPException  # type: ignore
+    except Exception:
+        HTTPException = RuntimeError  # type: ignore
+
+    for raw_key, raw_value in (params or {}).items():
+        key = str(raw_key)
+
+        # Disallow keys that do not match our strict pattern
+        if not _PARAM_NAME_PATTERN.match(key):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid parameter name: {key!r}",
+            )
+
+        # Convert value to string; limit size to avoid abuse
+        value = "" if raw_value is None else str(raw_value)
+        if len(value) > 4096:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Parameter value for {key!r} is too long",
+            )
+
+        safe_args.append(f"{key}={value}")
+
+    return safe_args
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown events."""
@@ -375,29 +417,32 @@ async def execute_task(task_name: str, request: TaskExecuteRequest, http_request
     if resolved_name is None:
         raise HTTPException(status_code=404, detail=f"Task '{task_name}' not found")
 
-    # Build pf command
-    cmd = ["python3", "-m", "pf_parser", resolved_name]
-
-    # Add parameters
-    for key, value in request.params.items():
-        cmd.append(f"{key}={shlex.quote(value)}")
-
-    # Add sudo if requested
-    if request.sudo:
-        cmd.insert(0, "sudo")
-        if request.sudo_user:
-            cmd.insert(1, "-u")
-            cmd.insert(2, request.sudo_user)
-
     # Execute the task
     try:
         # Get the pf-runner directory for execution context
         pf_runner_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # Use pf_parser.py directly for task execution
+        # Build validated parameter arguments
+        safe_param_args = _build_safe_pf_args(request.params)
+
+        # Use pf_parser.py directly for task execution with validated arguments
+        base_cmd: List[str] = [
+            "python3",
+            os.path.join(pf_runner_dir, "pf_parser.py"),
+            resolved_name,
+        ] + safe_param_args
+
+        # Add sudo if requested (fixed, non-user-controlled positions)
+        if request.sudo:
+            sudo_cmd: List[str] = ["sudo"]
+            if request.sudo_user:
+                sudo_cmd.extend(["-u", request.sudo_user])
+            cmd = sudo_cmd + base_cmd
+        else:
+            cmd = base_cmd
+
         result = subprocess.run(
-            ["python3", os.path.join(pf_runner_dir, "pf_parser.py"), resolved_name]
-            + [f"{k}={v}" for k, v in request.params.items()],
+            cmd,
             capture_output=True,
             text=True,
             timeout=300,  # 5 minute timeout
