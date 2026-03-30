@@ -19,6 +19,7 @@ Features:
 """
 
 import os
+import re
 import sys
 import subprocess
 import shlex
@@ -57,6 +58,34 @@ DEFAULT_WORKERS = int(os.environ.get("PF_API_WORKERS", "4"))
 RESERVED_PATHS = frozenset(
     ["docs", "redoc", "openapi.json", "favicon.ico", "pf", "reload", "health"]
 )
+
+# Regex for valid task names and parameter keys (alphanumeric, hyphens, underscores, dots)
+_VALID_TASK_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_VALID_PARAM_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+
+
+def _validate_task_name(name: str) -> str:
+    """Validate and return a sanitized task name, or raise HTTPException."""
+    if not _VALID_TASK_NAME_RE.match(name):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid task name: must match [A-Za-z0-9._-] and be 1-128 chars",
+        )
+    return name
+
+
+def _validate_params(params: Dict[str, str]) -> Dict[str, str]:
+    """Validate parameter keys and sanitize values for subprocess use."""
+    validated: Dict[str, str] = {}
+    for key, value in params.items():
+        if not _VALID_PARAM_KEY_RE.match(key):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid parameter key '{key}': must be a valid identifier",
+            )
+        # Sanitize value for safe shell use
+        validated[key] = shlex.quote(str(value))
+    return validated
 
 
 # Pydantic models for request/response
@@ -262,6 +291,7 @@ async def list_tasks(
 @app.get("/pf/{task_name}", response_model=TaskInfo, tags=["Tasks"])
 async def get_task(task_name: str):
     """Get details about a specific task."""
+    _validate_task_name(task_name)
     resolved_name = _resolve_task_name(task_name)
 
     if resolved_name is None:
@@ -293,35 +323,38 @@ async def get_task(task_name: str):
 
 @app.post("/pf/{task_name}", response_model=TaskExecuteResponse, tags=["Tasks"])
 async def execute_task(task_name: str, request: TaskExecuteRequest):
-    """Execute a pf task."""
+    """Execute a pf task.
+
+    Security: task names are validated against an allowlist regex and all
+    parameter values are shell-quoted before being passed to subprocess.
+    The command is executed with ``shell=False`` so no shell interpretation
+    occurs on the argument vector.
+    """
+    _validate_task_name(task_name)
     resolved_name = _resolve_task_name(task_name)
 
     if resolved_name is None:
         raise HTTPException(status_code=404, detail=f"Task '{task_name}' not found")
 
-    # Build pf command
-    cmd = ["python3", "-m", "pf_parser", resolved_name]
-
-    # Add parameters
-    for key, value in request.params.items():
-        cmd.append(f"{key}={shlex.quote(value)}")
-
-    # Add sudo if requested
-    if request.sudo:
-        cmd.insert(0, "sudo")
-        if request.sudo_user:
-            cmd.insert(1, "-u")
-            cmd.insert(2, request.sudo_user)
+    # Validate and sanitize parameters
+    safe_params = _validate_params(request.params)
 
     # Execute the task
     try:
-        # Get the pf-runner directory for execution context
         pf_runner_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # Use pf_parser.py directly for task execution
+        # Build command as a list (shell=False) with sanitized params.
+        cmd: List[str] = [
+            sys.executable,
+            os.path.join(pf_runner_dir, "pf_main.py"),
+            "run",
+            resolved_name,
+        ]
+        for key, value in safe_params.items():
+            cmd.append(f"{key}={value}")
+
         result = subprocess.run(
-            ["python3", os.path.join(pf_runner_dir, "pf_parser.py"), resolved_name]
-            + [f"{k}={v}" for k, v in request.params.items()],
+            cmd,
             capture_output=True,
             text=True,
             timeout=300,  # 5 minute timeout
