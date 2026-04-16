@@ -218,8 +218,17 @@ def _load_all_tasks(repo_root: Path, pfyfile_override: Optional[str]) -> Tuple[D
 
     dsl_src, task_sources = pf_parser._load_pfy_source_with_includes(file_arg=pfyfile_override)
     tasks = pf_parser.parse_pfyfile_text(dsl_src, task_sources)
-    cfg_path = repo_root / "pf.config.json5"
-    return tasks, str(cfg_path) if cfg_path.exists() else None
+    cfg_path: Optional[Path] = None
+    explicit_cfg = os.environ.get("PF_CONFIG_FILE")
+    if explicit_cfg:
+        candidate = Path(explicit_cfg).expanduser()
+        if candidate.exists():
+            cfg_path = candidate.resolve()
+    if cfg_path is None:
+        candidate = repo_root / "pf.config.json5"
+        if candidate.exists():
+            cfg_path = candidate
+    return tasks, str(cfg_path) if cfg_path else None
 
 
 def main(argv: Sequence[str]) -> int:
