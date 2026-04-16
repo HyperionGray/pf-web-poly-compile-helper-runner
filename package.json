@@ -25,6 +25,7 @@
     "test:sync": "node tests/debugging/sync-ops.test.mjs",
     "test:api": "node tests/api/api-server.test.mjs",
     "test:fuzz": "node tests/fuzz/pf-fuzzer.test.mjs",
+    "test:fuzz:tasks": "node tests/fuzz/pf-fuzzing-tasks.test.mjs",
     "test:all": "npm run test && npm run test:tui && npm run test:unit",
     "api-server": "node tools/api-server.mjs",
     "dev": "node tools/api-server.mjs",
