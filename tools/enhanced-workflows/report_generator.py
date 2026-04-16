@@ -22,9 +22,15 @@ def main() -> int:
     if not args:
         print("Usage: report_generator.py --target <path> [--output file]", file=sys.stderr)
         return 1
-    target = args[1] if args[0] == "--target" else args[0]
+    if args[0] == "--target":
+        if len(args) < 2:
+            print("--target requires a value", file=sys.stderr)
+            return 1
+        target = args[1]
+    else:
+        target = args[0]
     root = Path(__file__).resolve().parents[2]
-    checker = root / "tools" / "smart-workflows" / "unified_checksec.py"
+    checker = root / "tools" / "unified" / "unified_checksec.py"
     if not checker.exists():
         print(f"unified_checksec missing at {checker}", file=sys.stderr)
         return 1

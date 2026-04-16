@@ -12,7 +12,7 @@ def main() -> int:
         return 1
     binary = sys.argv[1]
     root = Path(__file__).resolve().parents[2]
-    checker = root / "tools" / "smart-workflows" / "unified_checksec.py"
+    checker = root / "tools" / "unified" / "unified_checksec.py"
     if not checker.exists():
         print(f"unified_checksec missing at {checker}", file=sys.stderr)
         return 1
