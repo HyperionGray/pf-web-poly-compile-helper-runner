@@ -24,9 +24,9 @@ Date: 2026-04-16
 
 ## Changes made
 - Fixed AFL++ install path logic in:
-  - `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/pf/Pfyfile.fuzzing.pf`
+  - `pf/Pfyfile.fuzzing.pf`
 - Added this review document:
-  - `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/docs/FULL_REV.md`
+  - `docs/FULL_REV.md`
 
 ## Completeness status
 - **Review completeness:** complete for this round.
