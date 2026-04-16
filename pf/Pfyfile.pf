@@ -7,6 +7,7 @@ include always-available/Pfyfile.always-on.pf
 include always-available/Pfyfile.tui.pf
 include enhanced-tasks/Pfyfile.smart-workflows.pf
 include gitops/Pfyfile.git-cleanup.pf
+include gitops/Pfyfile.hgactions.pf
 include gitops/Pfyfile.pr-management.pf
 include core/Pfyfile.repo.pf
 
