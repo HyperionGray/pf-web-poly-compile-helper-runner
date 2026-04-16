@@ -16,12 +16,12 @@ class VmkitImagesReviewTester {
 
     async test(name, fn) {
         try {
-            console.log(`\n🧪 Testing: ${name}`);
+            console.log(`\nTesting: ${name}`);
             await fn();
-            console.log(`✅ PASS: ${name}`);
+            console.log(`PASS: ${name}`);
             this.passed++;
         } catch (error) {
-            console.log(`❌ FAIL: ${name}`);
+            console.log(`FAIL: ${name}`);
             console.log(`   Error: ${error.message}`);
             this.failed++;
         }
@@ -32,7 +32,7 @@ async function runTests() {
     const tester = new VmkitImagesReviewTester();
     const vmkitImagesDir = join(projectRoot, 'vmkit-images');
 
-    console.log('🔍 VMKit Images Review Tests');
+    console.log('VMKit Images Review Tests');
     console.log('============================\n');
 
     await tester.test('vmkit-images directory exists', async () => {
@@ -75,10 +75,10 @@ async function runTests() {
     });
 
     console.log('\n============================');
-    console.log('📊 VMKit Images Review Results');
+    console.log('VMKit Images Review Results');
     console.log('============================');
-    console.log(`✅ Passed: ${tester.passed}`);
-    console.log(`❌ Failed: ${tester.failed}`);
+    console.log(`Passed: ${tester.passed}`);
+    console.log(`Failed: ${tester.failed}`);
 
     return tester.failed === 0;
 }
