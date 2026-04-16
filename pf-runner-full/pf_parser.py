@@ -783,10 +783,10 @@ _LANG_BRACKET_RE = re.compile(r"^\s*\[lang:([^\]]+)\]\s*(.*)$", re.IGNORECASE | 
 
 # Regex to parse heredoc syntax: <<[-] ['"]?DELIM['"]? [> output_file]
 # Supports optional tab-stripping (<<-), optional quoting of the delimiter,
-# and an optional redirection target for heredoc output.
+# and an optional redirection tail which is parsed shell-style afterwards.
 _HEREDOC_RE = re.compile(
-    r"<<(?P<strip>-?)\s*(?:['\"]?)(?P<delim>[A-Za-z][A-Za-z0-9_]*)(?:['\"]?)"
-    r"\s*(?:>\s*(?P<outfile>[^\s]+))?$"
+    r"<<(?P<strip>-?)\s*(?P<quote>['\"]?)(?P<delim>[A-Za-z][A-Za-z0-9_]*)"
+    r"(?P=quote)(?P<tail>.*)$"
 )
 
 
@@ -808,8 +808,22 @@ def _parse_heredoc_syntax(cmd: str) -> Tuple[Optional[str], Optional[str], bool]
     match = _HEREDOC_RE.search(cmd)
     if match:
         delimiter = match.group("delim")
-        output_file = match.group("outfile") if match.group("outfile") else None
         strip_tabs = bool(match.group("strip"))
+        tail = (match.group("tail") or "").strip()
+        output_file: Optional[str] = None
+        if tail:
+            if not tail.startswith(">"):
+                return None, None, False
+            redirect_target = tail[1:].strip()
+            if not redirect_target:
+                return None, None, False
+            try:
+                redirect_parts = shlex.split(redirect_target)
+            except ValueError:
+                return None, None, False
+            if len(redirect_parts) != 1:
+                return None, None, False
+            output_file = redirect_parts[0]
         return delimiter, output_file, strip_tabs
     return None, None, False
 
@@ -1618,6 +1632,7 @@ def parse_pfyfile_text(
     current_task: Optional[Task] = None
     lines = text.splitlines()
     i = 0
+    file_default_lang: Optional[str] = None
     
     while i < len(lines):
         line = lines[i]
@@ -1629,6 +1644,13 @@ def parse_pfyfile_text(
             stripped = combined_line.strip()
             i = new_i
         
+        # File-level shebang language applies to tasks that do not set
+        # their own default language.
+        if current_task is None and stripped.startswith("#!lang:"):
+            file_default_lang = stripped[len("#!lang:") :].strip() or None
+            i += 1
+            continue
+
         # Skip empty lines and comments
         if not stripped or stripped.startswith('#'):
             i += 1
@@ -1644,6 +1666,8 @@ def parse_pfyfile_text(
                 # Allow task header to set default language: task foo default_lang=python
                 if "default_lang" in current_task.params:
                     current_task.default_lang = current_task.params.pop("default_lang")
+                elif file_default_lang:
+                    current_task.default_lang = file_default_lang
                 tasks_dict[task_name] = current_task
             except (ValueError, PFSyntaxError):
                 # Skip malformed task definitions
@@ -1680,6 +1704,32 @@ def parse_pfyfile_text(
             elif stripped.startswith('tag '):
                 current_task.add_tag(stripped[4:].strip())
             else:
+                # Detect shell heredoc and group body lines into the same entry.
+                if stripped.startswith('shell ') and '<<' in stripped:
+                    body_parts = stripped[6:].strip()
+                    heredoc_delim, _, _ = _parse_heredoc_syntax(body_parts)
+                    if heredoc_delim:
+                        heredoc_body_lines: List[str] = []
+                        j = i + 1
+                        found_delimiter = False
+                        while j < len(lines):
+                            body_line = lines[j]
+                            heredoc_body_lines.append(body_line)
+                            j += 1
+                            if body_line.strip() == heredoc_delim:
+                                found_delimiter = True
+                                break
+                        if not found_delimiter:
+                            raise PFSyntaxError(
+                                message=f"Heredoc delimiter '{heredoc_delim}' not found",
+                                task_name=current_task.name,
+                                command=line,
+                                suggestion="Ensure heredoc terminator is present",
+                            )
+                        combined = line + '\n' + '\n'.join(heredoc_body_lines)
+                        current_task.add(combined)
+                        i = j
+                        continue
                 current_task.add(line)
         
         i += 1

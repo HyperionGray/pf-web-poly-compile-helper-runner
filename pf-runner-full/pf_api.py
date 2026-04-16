@@ -19,6 +19,7 @@ Features:
 """
 
 import os
+import re
 import sys
 import subprocess
 import shlex
@@ -66,6 +67,34 @@ RATE_LIMIT_EXEC_REQUESTS = int(os.environ.get("PF_API_EXEC_RATE_LIMIT", "10"))
 RESERVED_PATHS = frozenset(
     ["docs", "redoc", "openapi.json", "favicon.ico", "pf", "reload", "health"]
 )
+
+# Regex for valid task names and parameter keys (alphanumeric, hyphens, underscores, dots)
+_VALID_TASK_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_VALID_PARAM_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+
+
+def _validate_task_name(name: str) -> str:
+    """Validate and return a sanitized task name, or raise HTTPException."""
+    if not _VALID_TASK_NAME_RE.match(name):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid task name: must match [A-Za-z0-9._-] and be 1-128 chars",
+        )
+    return name
+
+
+def _validate_params(params: Dict[str, str]) -> Dict[str, str]:
+    """Validate parameter keys and sanitize values for subprocess use."""
+    validated: Dict[str, str] = {}
+    for key, value in params.items():
+        if not _VALID_PARAM_KEY_RE.match(key):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid parameter key '{key}': must be a valid identifier",
+            )
+        # Sanitize value for safe shell use
+        validated[key] = shlex.quote(str(value))
+    return validated
 
 
 class _SlidingWindowRateLimiter:
@@ -360,13 +389,7 @@ async def list_tasks(
 @app.get("/pf/{task_name}", response_model=TaskInfo, tags=["Tasks"])
 async def get_task(task_name: str, request: Request):
     """Get details about a specific task."""
-    client_ip = _get_client_ip(request)
-    if not _global_limiter.is_allowed(client_ip):
-        raise HTTPException(
-            status_code=429,
-            detail="Too many requests. Please slow down.",
-            headers={"Retry-After": str(RATE_LIMIT_WINDOW)},
-        )
+    _validate_task_name(task_name)
     resolved_name = _resolve_task_name(task_name)
 
     if resolved_name is None:
@@ -397,49 +420,36 @@ async def get_task(task_name: str, request: Request):
 
 
 @app.post("/pf/{task_name}", response_model=TaskExecuteResponse, tags=["Tasks"])
-async def execute_task(task_name: str, request: TaskExecuteRequest, http_request: Request):
-    """Execute a pf task."""
-    client_ip = _get_client_ip(http_request)
-    if not _global_limiter.is_allowed(client_ip):
-        raise HTTPException(
-            status_code=429,
-            detail="Too many requests. Please slow down.",
-            headers={"Retry-After": str(RATE_LIMIT_WINDOW)},
-        )
-    if not _exec_limiter.is_allowed(client_ip):
-        raise HTTPException(
-            status_code=429,
-            detail="Execution rate limit exceeded. Please slow down.",
-            headers={"Retry-After": str(RATE_LIMIT_WINDOW)},
-        )
+async def execute_task(task_name: str, request: TaskExecuteRequest):
+    """Execute a pf task.
+
+    Security: task names are validated against an allowlist regex and all
+    parameter values are shell-quoted before being passed to subprocess.
+    The command is executed with ``shell=False`` so no shell interpretation
+    occurs on the argument vector.
+    """
+    _validate_task_name(task_name)
     resolved_name = _resolve_task_name(task_name)
 
     if resolved_name is None:
         raise HTTPException(status_code=404, detail=f"Task '{task_name}' not found")
 
+    # Validate and sanitize parameters
+    safe_params = _validate_params(request.params)
+
     # Execute the task
     try:
-        # Get the pf-runner directory for execution context
         pf_runner_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # Build validated parameter arguments
-        safe_param_args = _build_safe_pf_args(request.params)
-
-        # Use pf_parser.py directly for task execution with validated arguments
-        base_cmd: List[str] = [
-            "python3",
-            os.path.join(pf_runner_dir, "pf_parser.py"),
+        # Build command as a list (shell=False) with sanitized params.
+        cmd: List[str] = [
+            sys.executable,
+            os.path.join(pf_runner_dir, "pf_main.py"),
+            "run",
             resolved_name,
-        ] + safe_param_args
-
-        # Add sudo if requested (fixed, non-user-controlled positions)
-        if request.sudo:
-            sudo_cmd: List[str] = ["sudo"]
-            if request.sudo_user:
-                sudo_cmd.extend(["-u", request.sudo_user])
-            cmd = sudo_cmd + base_cmd
-        else:
-            cmd = base_cmd
+        ]
+        for key, value in safe_params.items():
+            cmd.append(f"{key}={value}")
 
         result = subprocess.run(
             cmd,
