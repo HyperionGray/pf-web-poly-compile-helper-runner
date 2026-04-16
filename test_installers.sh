@@ -111,7 +111,7 @@ echo ""
 # Test 2: Debian package structure
 #
 log_test "Test 2: Debian package"
-DEB_FILE="$(ls -1 "$REPO_ROOT"/build-packages/deb/pf-runner_*.deb "$REPO_ROOT"/deb/build/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
+DEB_FILE="$(ls -1 "$REPO_ROOT"/build-packages/deb/pf-runner_*.deb "$REPO_ROOT"/deb/build/pf-runner_*.deb "$REPO_ROOT"/debian/build/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
 if [ -f "$DEB_FILE" ]; then
     log_success "Debian package exists"
     
