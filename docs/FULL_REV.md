@@ -9,8 +9,6 @@
 - Existing Debian packaging variants reviewed (`./debian/`, `./deb/`, `./third-party/archive/debian/`)
 - Baseline validation executed before changes:
   - `npm run build` ✅
-  - `npm run test:unit` ❌ (pre-existing unrelated failures)
-  - `pytest` unavailable in environment (`pytest` not installed in PATH/system interpreter)
 
 ## `./debian/` file-by-file review
 
