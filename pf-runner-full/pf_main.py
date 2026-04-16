@@ -244,7 +244,7 @@ class PfRunner:
                 i += 1
             elif not args_copy[i].startswith('-'):
                 # Found a non-option argument, check if it's an alias
-                builtins = {'list', 'help', 'run', 'prune', 'debug-on', 'debug-off'}
+                builtins = {'list', 'help', 'run', 'prune', 'validate', 'debug-on', 'debug-off'}
                 if args_copy[i] not in builtins:
                     try:
                         alias_map = get_alias_map(file_arg=file_arg)
@@ -286,6 +286,8 @@ class PfRunner:
                 return self._handle_debug_on_command(parsed_args)
             elif parsed_args.command == 'debug-off':
                 return self._handle_debug_off_command(parsed_args)
+            elif parsed_args.command == 'validate':
+                return self._handle_validate_command(parsed_args)
             elif parsed_args.command == 'version':
                 return self._handle_version_command(parsed_args)
             elif hasattr(parsed_args, 'subcommand_tasks'):
@@ -362,6 +364,44 @@ class PfRunner:
         print(f"install: {install_dir}")
         return 0
     
+    def _handle_validate_command(self, args) -> int:
+        """Validate all Pfyfiles for syntax errors without executing tasks."""
+        verbose = getattr(args, "verbose", False)
+        file_arg = args.file
+        errors: List[Tuple[str, str]] = []
+        checked = 0
+
+        try:
+            dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
+            checked += 1
+            if verbose:
+                pfyfile = _find_pfyfile(file_arg=file_arg)
+                print(f"  OK  {pfyfile}")
+        except Exception as e:
+            pfyfile = file_arg or "(default Pfyfile)"
+            errors.append((pfyfile, str(e)))
+            if verbose:
+                print(f"  FAIL {pfyfile}: {e}")
+
+        if not errors:
+            try:
+                dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
+                checked += len(dsl_tasks)
+                if verbose:
+                    for name in sorted(dsl_tasks):
+                        print(f"  OK  task '{name}'")
+            except Exception as e:
+                errors.append(("(parse)", str(e)))
+
+        if errors:
+            print(f"Validation failed: {len(errors)} error(s)")
+            for path, msg in errors:
+                print(f"  {path}: {msg}")
+            return 1
+
+        print(f"Validation passed: {checked} item(s) checked, 0 errors")
+        return 0
+
     def _handle_list_command(self, args) -> int:
         """Handle the list command."""
         file_arg = args.file

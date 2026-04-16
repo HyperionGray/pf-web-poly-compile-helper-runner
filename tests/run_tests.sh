@@ -2,9 +2,10 @@
 # Comprehensive Test Runner - "Test it all again and again and again. That's thrice."
 # This script runs all tests three times with fresh environment setup
 
-cd /workspace
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR" || exit 1
 
-echo "🚀 Starting Comprehensive Test Suite"
+echo "Starting Comprehensive Test Suite"
 echo "Testing it all again and again and again. That's thrice!"
 echo "============================================================"
 
@@ -19,11 +20,9 @@ exit_code=$?
 echo ""
 echo "============================================================"
 if [ $exit_code -eq 0 ]; then
-    echo "🎉 All tests completed successfully across all three runs!"
-    echo "✅ Nay ye canne deny it workes!"
+    echo "All tests completed successfully across all three runs!"
 else
-    echo "⚠️  Some tests had issues. Check the detailed report above."
-    echo "❌ Review and fix failing tests."
+    echo "Some tests had issues. Check the detailed report above."
 fi
 echo "============================================================"
 
