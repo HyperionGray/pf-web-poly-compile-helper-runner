@@ -36,12 +36,12 @@ class TaskValidationTester {
         this.passed = 0;
         this.failed = 0;
         this.tests = [];
-        this.pfParser = join(projectRoot, 'pf-runner', 'pf_parser.py');
+        this.pfParserPath = process.env.PF_PARSER_PATH || join(projectRoot, 'pf-runner', 'pf_parser.py');
     }
 
     async runPfCommand(args = []) {
         return new Promise((resolve) => {
-            const proc = spawn('python3', [this.pfParser, ...args, '--file=Pfyfile.pf'], {
+            const proc = spawn('python3', [this.pfParserPath, ...args, '--file=Pfyfile.pf'], {
                 cwd: projectRoot,
                 stdio: ['pipe', 'pipe', 'pipe'],
                 timeout: 30000

@@ -5,7 +5,7 @@ Date: 2026-04-16
 ## Scope
 
 - Reviewed `tests/` against current repository layout and runner behavior.
-- Verified root compatibility entry (`/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/Pfyfile.pf`) and canonical task tree (`pf-files/`).
+- Verified root compatibility entry (`Pfyfile.pf`) and canonical task tree (`pf-files/`).
 - Validated test command behavior with current local parser invocation path.
 
 ## What was fixed
@@ -13,6 +13,7 @@ Date: 2026-04-16
 1. Updated `tests/pf-tasks-validation.test.mjs` to use the in-repo parser entrypoint:
    - `python3 pf-runner/pf_parser.py ... --file=Pfyfile.pf`
    - avoids dependence on an external `~/.local/bin/pf` install.
+   - supports override via `PF_PARSER_PATH` for alternate runner layouts.
 2. Updated `tests/pf-tasks-validation.test.mjs` assertions to match current project conventions:
    - root compatibility `Pfyfile.pf` delegating to `pf-files/Pfyfile.pf`
    - canonical Pfyfiles under `pf-files/**`
@@ -34,4 +35,4 @@ Date: 2026-04-16
 
 - Negative syntax enforcement in parser-focused suites is currently non-strict:
   malformed snippets can still be accepted by `pf_parser.py` in list/parse flows.
-  This is now explicitly marked in test output as a known limitation.
+  This is now explicitly marked and counted in test output as known limitations.
