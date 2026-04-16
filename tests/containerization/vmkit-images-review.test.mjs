@@ -55,7 +55,12 @@ async function runTests() {
             await fs.access(isoPath);
             return;
         } catch {
-            const marker = (await fs.readFile(markerPath, 'utf-8')).trim();
+            let marker = '';
+            try {
+                marker = (await fs.readFile(markerPath, 'utf-8')).trim();
+            } catch {
+                throw new Error('ReactOS ISO is missing and reactos-livecd.iso.REMOVED.git-id marker is not present');
+            }
             if (!/^[0-9a-f]{40}$/i.test(marker)) {
                 throw new Error('ISO removal marker is missing a valid git id');
             }
