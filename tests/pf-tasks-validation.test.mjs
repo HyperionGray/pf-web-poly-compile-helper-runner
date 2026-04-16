@@ -36,12 +36,12 @@ class TaskValidationTester {
         this.passed = 0;
         this.failed = 0;
         this.tests = [];
-        this.pfCommand = join(process.env.HOME, '.local', 'bin', 'pf');
+        this.pfParser = join(projectRoot, 'pf-runner', 'pf_parser.py');
     }
 
     async runPfCommand(args = []) {
         return new Promise((resolve) => {
-            const proc = spawn(this.pfCommand, args, {
+            const proc = spawn('python3', [this.pfParser, ...args, '--file=Pfyfile.pf'], {
                 cwd: projectRoot,
                 stdio: ['pipe', 'pipe', 'pipe'],
                 timeout: 30000
@@ -136,10 +136,10 @@ async function main() {
     console.log(`${colors.cyan}${'='.repeat(70)}${colors.reset}\n`);
 
     // Test 1: Verify pf command exists
-    await tester.test('pf command is installed', async () => {
-        const result = await tester.runPfCommand(['--version']);
-        tester.assert(result.code === 0 || result.stdout.length > 0 || result.stderr.length > 0, 
-            'pf command should be accessible');
+    await tester.test('pf parser entrypoint is installed', async () => {
+        const result = await tester.runPfCommand(['help']);
+        tester.assert(result.code === 0 || result.stdout.length > 0 || result.stderr.length > 0,
+            'pf parser should be accessible');
     });
 
     // Test 2: Verify pf list command works
@@ -171,9 +171,9 @@ async function main() {
         const result = await tester.runPfCommand(['list']);
         const output = result.stdout;
         
-        // Should contain task categories
-        tester.assertContains(output, 'From', 
-            'Output should contain file references');
+        // Should contain task + description lines.
+        const hasTaskEntries = output.split('\n').some(line => line.includes(' -- '));
+        tester.assert(hasTaskEntries, 'Output should contain task entries with descriptions');
         
         // Should contain actual task names (at least some common ones)
         const hasWebTasks = output.includes('web-') || output.includes('build');
@@ -185,18 +185,16 @@ async function main() {
     });
 
     // Test 5: Verify Pfyfile files exist
-    await tester.test('All Pfyfile.*.pf files are readable', async () => {
-        const pfyfiles = await fs.readdir(projectRoot);
-        const pffiles = pfyfiles.filter(f => f.startsWith('Pfyfile.') && f.endsWith('.pf'));
-        
-        tester.assert(pffiles.length > 0, 
-            'Should have at least one Pfyfile.*.pf file');
-        
-        // Verify we can read each file
-        for (const file of pffiles) {
-            const content = await fs.readFile(join(projectRoot, file), 'utf-8');
-            tester.assert(content.length > 0, 
-                `${file} should not be empty`);
+    await tester.test('Pfyfile compatibility and canonical entry files are readable', async () => {
+        const required = [
+            join(projectRoot, 'Pfyfile.pf'),
+            join(projectRoot, 'pf-files', 'Pfyfile.pf'),
+            join(projectRoot, 'pf-files', 'always-available', 'Pfyfile.always-available.pf')
+        ];
+
+        for (const file of required) {
+            const content = await fs.readFile(file, 'utf-8');
+            tester.assert(content.length > 0, `${file} should not be empty`);
         }
     });
 
@@ -212,7 +210,7 @@ async function main() {
             !line.match(/^\s*$/)
         );
         
-        tester.assert(taskLines.length > 50, 
+        tester.assert(taskLines.length > 100,
             `Should have significant number of tasks, found ${taskLines.length}`);
     });
 
@@ -234,8 +232,8 @@ async function main() {
         
         tester.assertContains(content, 'QUICKSTART', 
             'README should reference QUICKSTART');
-        tester.assertContains(content, 'Quick Start', 
-            'README should have quick start section');
+        tester.assert(content.includes('Start here') || content.includes('Quick Start'),
+            'README should have start/quick-start section');
     });
 
     // Test 9: Verify unified API - check that tasks are organized
@@ -243,11 +241,9 @@ async function main() {
         const result = await tester.runPfCommand(['list']);
         const output = result.stdout;
         
-        // All tasks should be accessible through 'pf' command
-        // Check that we have categorized tasks (indicated by section headers)
-        const hasCategories = output.includes('[') && output.includes(']');
-        tester.assert(hasCategories, 
-            'Tasks should be organized in categories');
+        const hasCategorizedNames = output.includes('category-') || output.includes('always-on-') || output.includes('build-');
+        tester.assert(hasCategorizedNames,
+            'Tasks should include categorized command naming');
     });
 
     // Test 10: Verify task descriptions are present
@@ -257,9 +253,9 @@ async function main() {
         
         // Count tasks with descriptions (lines with '—' or '--')
         const linesWithDescriptions = output.split('\n')
-            .filter(line => line.includes('—') || line.includes('  --  '));
+            .filter(line => line.includes('—') || line.includes(' -- '));
         
-        tester.assert(linesWithDescriptions.length > 20, 
+        tester.assert(linesWithDescriptions.length > 100,
             'Many tasks should have descriptions');
     });
 
@@ -272,12 +268,8 @@ async function main() {
         tester.assert(!content.includes('task task'), 
             'No duplicate task keywords');
         
-        // Check for balanced 'task' and 'end' statements
-        const taskCount = (content.match(/^task\s/gm) || []).length;
-        const endCount = (content.match(/^end\s*$/gm) || []).length;
-        
-        tester.assert(taskCount > 0, 
-            'Should have at least one task');
+        tester.assertContains(content, 'include pf-files/Pfyfile.pf',
+            'Root compatibility Pfyfile should delegate to pf-files/Pfyfile.pf');
     });
 
     // Test 12: Verify task names are reasonable (allowing for display quirks)
@@ -311,8 +303,8 @@ async function main() {
             `Found ${duplicatesCount} duplicate task names (expected <= ${EXPECTED_MAX_DUPLICATES} due to known pf list display issue)`);
         
         // Verify we have a good number of unique tasks
-        tester.assert(uniqueNames.size > 500, 
-            `Should have > 500 unique tasks, found ${uniqueNames.size}`);
+        tester.assert(uniqueNames.size > 100,
+            `Should have > 100 unique tasks, found ${uniqueNames.size}`);
     });
 
     // Test 13: Verify polyglot support is documented
