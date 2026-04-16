@@ -36,9 +36,9 @@ task install-aflplusplus
   shell echo "╚════════════════════════════════════════════════════════════╝"
   shell echo ""
   shell mkdir -p /tmp/fuzzing-tools
-  shell cd /tmp/fuzzing-tools && git clone https://github.com/AFLplusplus/AFLplusplus
-  shell cd /tmp/fuzzing-${PFY_ROOT:-.}/tools/AFLplusplus && make distrib
-  shell cd /tmp/fuzzing-${PFY_ROOT:-.}/tools/AFLplusplus && sudo make install
+  shell test -d /tmp/fuzzing-tools/AFLplusplus/.git || (cd /tmp/fuzzing-tools && git clone https://github.com/AFLplusplus/AFLplusplus)
+  shell cd /tmp/fuzzing-tools/AFLplusplus && make distrib
+  shell cd /tmp/fuzzing-tools/AFLplusplus && sudo make install
   shell echo ""
   shell echo "[OK] AFL++ installed successfully!"
   shell afl-fuzz -h | head -20
