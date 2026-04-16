@@ -3,7 +3,7 @@
 Date: 2026-04-16
 
 ## Scope reviewed
-- `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/in`
+- `./in`
 - Root runner entrypoints and related fuzzing task definitions that consume `./in`
 
 ## What was checked
