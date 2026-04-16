@@ -18,4 +18,4 @@ This directory was reviewed against the current repository state and current pf 
 2. Validate package build with current pf runner tree.
 3. Validate install and `pf -V`/`pf list` smoke checks.
 
-See `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/docs/FULL_REV.md` for the full review and root-level relationship analysis.
+See `../docs/FULL_REV.md` for the full review and root-level relationship analysis.

@@ -1,7 +1,7 @@
 # FULL review: `./debian/`
 
 ## Scope
-- Reviewed `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/debian/`
+- Reviewed `./debian/`
 - Reviewed root-level packaging/build references that interact with Debian packaging
 
 ## Repository/context checks performed
@@ -36,7 +36,7 @@
 Status: **INCOMPLETE (explicitly marked)**
 
 A completion marker has been added at:
-- `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/debian/REVIEW_STATUS.md`
+- `./debian/REVIEW_STATUS.md`
 
 This fulfills the requirement to mark incompleteness when full completion cannot be safely delivered in one surgical round without broader packaging refactor/synchronization.
 
