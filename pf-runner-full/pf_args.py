@@ -212,6 +212,19 @@ For more help on a specific subcommand:
             description="Toggle debug mode off - returns to normal error reporting",
         )
 
+        # validate command - lightweight syntax validation
+        validate_parser = self.subparsers.add_parser(
+            "validate",
+            help="Validate all Pfyfiles for syntax errors (no execution)",
+            description="Parse all discovered Pfyfiles and report any syntax errors",
+        )
+        validate_parser.add_argument(
+            "-v",
+            "--verbose",
+            action="store_true",
+            help="Show verbose output including each file checked",
+        )
+
         # version command (mirrors -V/--version)
         self.subparsers.add_parser(
             "version",
@@ -397,6 +410,7 @@ For more help on a specific subcommand:
             "help",
             "run",
             "prune",
+            "validate",
             "debug-on",
             "debug-off",
             "version",
@@ -441,7 +455,7 @@ For more help on a specific subcommand:
                 return self.parser.parse_args(["--help"])
 
         # Directly handle explicit commands and flags without legacy translation
-        builtin_commands = {"list", "run", "help", "prune", "debug-on", "debug-off", "version"}
+        builtin_commands = {"list", "run", "help", "prune", "validate", "debug-on", "debug-off", "version"}
         if args[0] in builtin_commands or args[0] in ("--version", "-V"):
             return self.parser.parse_args(args)
 
