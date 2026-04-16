@@ -29,7 +29,7 @@
 ## Cross-repo compatibility findings
 1. `./pf-runner-full/Makefile` still references Debian package artifacts including `./debian/build/pf-runner_*.deb` (from repo root context).
 2. `./test_installers.sh` checks `./debian/build/pf-runner_1.0.0.deb` in its Debian package test section.
-3. `./scripts/build-packages.sh` uses `dpkg-buildpackage` flow and expects Debian source-package files such as `./debian/changelog`.
+3. `./scripts/build-packages.sh` uses a `dpkg-buildpackage` flow and expects Debian source-package files such as `./debian/changelog`.
 4. Current root `debian/` lacks required executable packaging files and therefore is not complete for current referenced flows.
 
 ## Completeness decision

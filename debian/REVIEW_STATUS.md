@@ -9,7 +9,7 @@ This directory was reviewed against the current repository state and current pf 
 - policy files (`AGENTS.md`, `rules.json5`, `.copilot_rules`)
 
 ## Blocking gaps
-- Missing required Debian source package files for `dpkg-buildpackage` flow (for example `changelog`, `rules`, and related maintainer scripts).
+- Missing required Debian source package files for `dpkg-buildpackage` flow (for example `./debian/changelog`, `./debian/rules`, and related maintainer scripts).
 - No package build entrypoint in `./debian/` (for example `build-deb.sh`), while the repository still has installer/test paths that reference `debian/build/*.deb`.
 - Packaging logic known elsewhere in the repo (`deb/` and archived copies) does not cleanly match current pf runner layout without additional synchronization work.
 
