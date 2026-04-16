@@ -18,4 +18,4 @@ This directory was reviewed against the current repository state and current pf 
 2. Validate package build with current pf runner tree.
 3. Validate install and `pf -V`/`pf list` smoke checks.
 
-See `../docs/FULL_REV.md` for the full review and root-level relationship analysis.
+See `./docs/FULL_REV.md` (from repository root) for the full review and root-level relationship analysis.

@@ -5,8 +5,8 @@
 - Reviewed root-level packaging/build references that interact with Debian packaging
 
 ## Repository/context checks performed
-- Root files and task runner entrypoints reviewed (`README.md`, `Pfyfile.pf`, `pf-runner-full/Makefile`, `scripts/build-packages.sh`, `test_installers.sh`)
-- Existing Debian packaging variants reviewed (`debian/`, `deb/`, `third-party/archive/debian/`)
+- Root files and task runner entrypoints reviewed (`./README.md`, `./Pfyfile.pf`, `./pf-runner-full/Makefile`, `./scripts/build-packages.sh`, `./test_installers.sh`)
+- Existing Debian packaging variants reviewed (`./debian/`, `./deb/`, `./third-party/archive/debian/`)
 - Baseline validation executed before changes:
   - `npm run build` ✅
   - `npm run test:unit` ❌ (pre-existing unrelated failures)
@@ -27,9 +27,9 @@
 - Do not provide Debian build mechanics.
 
 ## Cross-repo compatibility findings
-1. `pf-runner-full/Makefile` still references Debian package artifacts including `../debian/build/pf-runner_*.deb`.
-2. `test_installers.sh` checks `debian/build/pf-runner_1.0.0.deb` in its Debian package test section.
-3. `scripts/build-packages.sh` uses `dpkg-buildpackage` flow and expects Debian source-package files such as `debian/changelog`.
+1. `./pf-runner-full/Makefile` still references Debian package artifacts including `./debian/build/pf-runner_*.deb` (from repo root context).
+2. `./test_installers.sh` checks `./debian/build/pf-runner_1.0.0.deb` in its Debian package test section.
+3. `./scripts/build-packages.sh` uses `dpkg-buildpackage` flow and expects Debian source-package files such as `./debian/changelog`.
 4. Current root `debian/` lacks required executable packaging files and therefore is not complete for current referenced flows.
 
 ## Completeness decision
