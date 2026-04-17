@@ -97,11 +97,11 @@ end
 # Root web compatibility wrappers now live in compat/Pfyfile.module-compat.pf.
 
 task install-help
-  describe Show install task choices (simplified)
-  shell printf '%s\n' "Install options:" "  pf install                 # Native install (default /usr/local)" "  pf install prefix=~/.local # Install to custom prefix (no sudo needed)" "  pf install-all             # pf install + tooling bundles" "  pf install-smoke-test      # Minimal CI smoke of installer"
+  describe Show install task choices (Debian .deb only)
+  shell printf '%s\n' "Install options:" "  pf install            # Install latest local .deb package" "  pf install-all        # pf install + tooling bundles" "  pf install-smoke-test # Minimal CI smoke of .deb installer"
 end
 task install prefix="" skip_deps="false"
-  describe Install pf runner via the repository installer (optional prefix/skip_deps)
+  describe Install pf runner via local Debian .deb package
   shell_lang bash
   shell |
     set -euo pipefail
@@ -124,25 +124,14 @@ task install prefix="" skip_deps="false"
     else
       ROOT="$(pwd)"
     fi
-    INSTALLER="${ROOT}/install.sh"
-    if [ ! -x "${INSTALLER}" ]; then
-      echo "[ERR] installer not found at ${INSTALLER}" >&2
+    DEB="$(ls -1 "$ROOT"/build-packages/deb/pf-runner_*.deb "$ROOT"/deb/build/pf-runner_*.deb "$ROOT"/debian/build/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
+    if [ -z "${DEB}" ] || [ ! -f "${DEB}" ]; then
+      echo "[ERR] no Debian package found under build-packages/deb, deb/build, or debian/build" >&2
+      echo "      Build one with: ./deb/build-deb.sh 1.0.0" >&2
       exit 127
     fi
 
-    if [ -n "${prefix:-}" ]; then
-      if [ "${skip_deps:-false}" = "true" ]; then
-        "${INSTALLER}" --prefix "${prefix}" --skip-deps
-      else
-        "${INSTALLER}" --prefix "${prefix}"
-      fi
-    else
-      if [ "${skip_deps:-false}" = "true" ]; then
-        "${INSTALLER}" --skip-deps
-      else
-        "${INSTALLER}"
-      fi
-    fi
+    sudo dpkg -i "${DEB}" || { sudo apt-get -f install -y && sudo dpkg -i "${DEB}"; }
 end
 
 task dev-setup
@@ -209,17 +198,13 @@ PY
 
     ROOT="${PF_ROOT:-$(pwd)}"
     DEB="$(ls -1 "$ROOT"/build-packages/deb/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
-    INSTALLER="$ROOT/build-packages/pf-runner-1.0.0/install.sh"
     if [ -n "$DEB" ] && [ -f "$DEB" ] && command -v dpkg >/dev/null 2>&1; then
       echo "[install-smoke-test] Installing pf from deb: $DEB"
       sudo dpkg -i "$DEB" || { echo "[install-smoke-test] Fixing deps..."; sudo apt-get -f install -y && sudo dpkg -i "$DEB"; }
     else
-      if [ ! -x "$INSTALLER" ]; then
-        echo "[ERR] canonical installer not found at $INSTALLER" >&2
-        echo "      Build it with: pf build-packages (or consult build-packages/pf-runner-1.0.0)" >&2
-        exit 127
-      fi
-      "$INSTALLER" --prefix "$PREFIX" --skip-deps
+      echo "[ERR] .deb package not found for install-smoke-test" >&2
+      echo "      Build it with: pf build-packages or ./deb/build-deb.sh 1.0.0" >&2
+      exit 127
     fi
 
     PATH="$PREFIX/bin:$PATH" pf --version

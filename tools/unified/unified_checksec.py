@@ -314,6 +314,7 @@ def main():
     parser.add_argument('binary', nargs='?', help='Binary file to analyze')
     parser.add_argument('--batch', action='store_true', help='Analyze all binaries in directory')
     parser.add_argument('--format', choices=['json', 'text'], default='text', help='Output format')
+    parser.add_argument('--json', action='store_true', help='Alias for --format json')
     parser.add_argument('--output', '-o', help='Output file (default: stdout)')
     parser.add_argument('--tool-info', action='store_true', help='Show available tools information')
     
@@ -330,13 +331,15 @@ def main():
         parser.print_help()
         return
     
+    output_format = 'json' if args.json else args.format
+
     if args.batch:
-        results = checksec.analyze_batch(args.binary, args.format)
+        results = checksec.analyze_batch(args.binary, output_format)
     else:
-        results = checksec.analyze_binary(args.binary, args.format)
+        results = checksec.analyze_binary(args.binary, output_format)
     
     # Format output
-    if args.format == 'json':
+    if output_format == 'json':
         output = json.dumps(results, indent=2)
     else:
         if 'output' in results:
