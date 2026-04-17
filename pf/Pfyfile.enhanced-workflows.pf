@@ -23,7 +23,7 @@ end
 
 task checksec-unified
   describe Unified binary security analysis
-  shell python3 tools/enhanced-workflows/unified_checksec.py ${binary} ${json:+--json}
+  shell python3 tools/unified/unified_checksec.py ${binary} ${json:+--json}
 end
 
 task enhanced-help
