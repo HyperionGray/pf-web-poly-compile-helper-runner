@@ -33,6 +33,7 @@ test_hardcoded_paths() {
     local hardcoded_found=false
     local scan_paths=(
         "./deb/build-deb.sh"
+        "./deb/build-packages.sh"
         "./scripts/build-packages.sh"
         "./pf.sh"
         "./pf-runner-full"
@@ -87,6 +88,11 @@ test_installer_prereqs() {
     # Check if Debian package build script exists and is executable
     if [[ ! -x "./deb/build-deb.sh" ]]; then
         log_error "deb/build-deb.sh not found or not executable"
+        return 1
+    fi
+
+    if [[ ! -x "./deb/build-packages.sh" ]]; then
+        log_error "deb/build-packages.sh not found or not executable"
         return 1
     fi
     
