@@ -1,5 +1,0 @@
-# Split into parts on 2026-02-14 to keep file < 340 lines.
-# Original file: Pfyfile.always-on.pf
-
-include Pfyfile.always-on.part1.pf
-include Pfyfile.always-on.part2.pf

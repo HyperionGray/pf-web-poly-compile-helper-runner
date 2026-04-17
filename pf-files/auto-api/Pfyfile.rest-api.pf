@@ -59,7 +59,7 @@ task rest-dev [alias=rdev] host="127.0.0.1" port="8000"
     for dir in \
       "$ROOT/pf-runner-full" \
       "$ROOT/pf-runner" \
-      "$ROOT/build-packages/pf-runner-1.0.0/pf-runner"; do
+      "$ROOT/build-packages/deb/pf-runner-1.0.0/pf-runner"; do
       if [ -d "$dir" ]; then
         PF_RUNNER_DIR="$dir"
         break
@@ -83,7 +83,7 @@ task rest-install [alias=rinst]
     set -euo pipefail
     ROOT="${PF_ROOT:-$(pwd)}"
     PF_RUNNER_DIR=""
-    for candidate in "$ROOT/pf-runner-full" "$ROOT/pf-runner" "$ROOT/build-packages/pf-runner-1.0.0/pf-runner"; do
+    for candidate in "$ROOT/pf-runner-full" "$ROOT/pf-runner" "$ROOT/build-packages/deb/pf-runner-1.0.0/pf-runner"; do
       if [ -f "$candidate/pf-rest-api@.service" ]; then
         PF_RUNNER_DIR="$candidate"
         break

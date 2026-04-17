@@ -12,8 +12,17 @@ pf help
 pf pe usage
 pf --file pf-files/Pfyfile.pe.pf list
 ```
+## Pfyfile dependency directives
+Declare runtime dependencies once at the top of a Pfyfile (outside tasks):
+```pf
+dep apt curl jq
+dep github owner/repo@main
+dep pip "requests>=2.31"
+```
+These are installed automatically before task execution.
 ## Repository layout
 - `pf-files/` — task modules and module entrypoints
+- `pf-files/Pfyfile.pf` — base runner install flow + module includes
 - `pf-runner-full/` — canonical Python runner implementation
 - `docs/` — guides, feature documentation, CI/CD notes, and reviews
 - `bak/` — tracked archive for historical results and deprecated material

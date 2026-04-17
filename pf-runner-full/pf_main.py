@@ -26,6 +26,7 @@ import os
 import sys
 import atexit
 import shutil
+import subprocess
 import tempfile
 import difflib
 import shlex
@@ -47,6 +48,7 @@ from pf_parser import (
     _resolve_pfyfile_reference,
     _load_pfy_source_with_includes,
     parse_pfyfile_text,
+    parse_pfyfile_dependencies,
     Task,
     _merge_env_hosts,
     _normalize_hosts,
@@ -147,6 +149,66 @@ class PfRunner:
                         global_env[k] = _interpolate(v, {}, global_env)
 
         return global_env
+
+    def _run_dependency_command(self, command: List[str]) -> int:
+        """Run a dependency install command and return its exit code."""
+        try:
+            completed = subprocess.run(command, check=False)
+            return int(completed.returncode)
+        except FileNotFoundError:
+            print(f"Dependency command not found: {command[0]}", file=sys.stderr)
+            return 127
+
+    def _install_declared_dependencies(self, dsl_src: str, dry_run: bool = False) -> int:
+        """Install top-level Pfyfile dependencies before task execution."""
+        dependencies = parse_pfyfile_dependencies(dsl_src)
+        apt_packages = dependencies.get("apt", [])
+        pip_specs = dependencies.get("pip", [])
+        if not apt_packages and not pip_specs:
+            return 0
+
+        if apt_packages:
+            missing_apt: List[str] = []
+            for package in apt_packages:
+                try:
+                    check_result = subprocess.run(
+                        ["dpkg", "-s", package],
+                        check=False,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                except FileNotFoundError:
+                    print("Dependency check command not found: dpkg", file=sys.stderr)
+                    return 127
+                if check_result.returncode != 0:
+                    missing_apt.append(package)
+
+            if missing_apt:
+                apt_cmd = ["apt-get", "install", "-y"] + missing_apt
+                if os.geteuid() != 0:
+                    if shutil.which("sudo"):
+                        apt_cmd = ["sudo"] + apt_cmd
+                    else:
+                        print(
+                            "Cannot install apt dependencies without root or sudo.",
+                            file=sys.stderr,
+                        )
+                        return 1
+                if dry_run:
+                    print(f"[dry-run] dependency install: {' '.join(shlex.quote(p) for p in apt_cmd)}")
+                else:
+                    if self._run_dependency_command(apt_cmd) != 0:
+                        return 1
+
+        if pip_specs:
+            pip_cmd = [sys.executable, "-m", "pip", "install"] + pip_specs
+            if dry_run:
+                print(f"[dry-run] dependency install: {' '.join(shlex.quote(p) for p in pip_cmd)}")
+            else:
+                if self._run_dependency_command(pip_cmd) != 0:
+                    return 1
+
+        return 0
 
     def _module_name_from_source_file(self, source_file: Optional[str]) -> Optional[str]:
         """Convert a `Pfyfile.<name>.pf` path into its module/subcommand name.
@@ -640,6 +702,11 @@ class PfRunner:
                 atexit.register(shutil.rmtree, shim_dir, ignore_errors=True)
                 existing_path = os.environ.get("PATH", "")
                 global_env["PATH"] = f"{shim_dir}:{existing_path}" if existing_path else shim_dir
+            dep_rc = self._install_declared_dependencies(
+                dsl_src, dry_run=bool(getattr(args, "dry_run", False))
+            )
+            if dep_rc != 0:
+                return dep_rc
             dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
             valid_task_names = set(BUILTINS.keys()) | set(dsl_tasks.keys())
             

@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-# pf - Wrapper script for pf-runner
-exec /usr/local/lib/pf-runner/pf_main.py "$@"

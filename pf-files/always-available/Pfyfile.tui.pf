@@ -44,7 +44,7 @@ task tui
     }
 
     ROOT="$(find_root)"
-    for dir in "$ROOT/pf-runner-full" "$ROOT/pf-runner" "$ROOT/build-packages/pf-runner-1.0.0/pf-runner"; do
+    for dir in "$ROOT/pf-runner-full" "$ROOT/pf-runner" "$ROOT/build-packages/deb/pf-runner-1.0.0/pf-runner"; do
       if [ -d "$dir" ] && [ -f "$dir/pf_tui.py" ]; then
         cd "$dir" && python3 pf_tui.py
         exit $?
@@ -97,7 +97,7 @@ task tui-with-file
     }
 
     ROOT="$(find_root)"
-    for dir in "$ROOT/pf-runner-full" "$ROOT/pf-runner" "$ROOT/build-packages/pf-runner-1.0.0/pf-runner"; do
+    for dir in "$ROOT/pf-runner-full" "$ROOT/pf-runner" "$ROOT/build-packages/deb/pf-runner-1.0.0/pf-runner"; do
       if [ -d "$dir" ] && [ -f "$dir/pf_tui.py" ]; then
         cd "$dir" && python3 pf_tui.py ${file}
         exit $?

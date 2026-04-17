@@ -1,6 +1,0 @@
-#!lang:bash
-
-task smoke
-  describe Smoke test task for Makefile
-  shell echo "hello"
-end

@@ -1,3 +1,0 @@
-The old installer scripts have been archived here.
-Base installation is now native-only via ./install.sh.
-Container image setup is handled by pf container tasks, not the installer.
