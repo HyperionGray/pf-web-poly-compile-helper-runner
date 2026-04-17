@@ -1,6 +1,8 @@
 typer>=0.12
 fabric>=3.2
 lark>=1.1.0
+json5>=0.12
+rich>=13
 fastapi>=0.109.1
 uvicorn[standard]>=0.27
 

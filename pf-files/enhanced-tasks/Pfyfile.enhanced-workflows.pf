@@ -90,7 +90,7 @@ end
 task enhanced-binary-analysis
   describe Comprehensive enhanced binary analysis
   shell echo " Enhanced binary analysis for: ${binary}"
-  shell python3 tools/enhanced-workflows/binary_analyzer.py "${binary}" --comprehensive
+  shell python3 tools/enhanced-workflows/workflow_orchestrator.py reverse --target "${binary}" --phase analysis
 end
 
 task enhanced-reverse
@@ -125,7 +125,7 @@ end
 
 task enhanced-report
   describe Generate enhanced workflow report
-  shell python3 tools/enhanced-workflows/report_generator.py --target "${target}" --output enhanced_report.html
+  shell python3 tools/enhanced-workflows/workflow_orchestrator.py scan --target "${target}" --phase analysis > enhanced_report.txt
 end
 
 task enhanced-status

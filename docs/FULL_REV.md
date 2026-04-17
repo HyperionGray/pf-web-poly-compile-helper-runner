@@ -1,81 +1,55 @@
-# Full Review: `./fuzzing/` (and project integration)
+# FULL VMKit Images Review
 
 Date: 2026-04-16
+Repository: `HyperionGray/pf-web-poly-compile-helper-runner`
+Scope: review of `./vmkit-images/` with root-level PF/PE integration checks.
 
-## Scope reviewed
+## What was reviewed
 
-- `fuzzing/fuzz_target.c`
-- `fuzzing/in/seed`
-- `fuzzing/AGENTS.md`, `fuzzing/rules.json5`, `fuzzing/.copilot_rules`
-- Integration points in:
-  - `pf/Pfyfile.fuzzing.pf`
-  - `tools/fuzzing/generate-template.sh`
-  - `tools/fuzzing/create-examples.sh`
-  - `tests/fuzz/pf-fuzzer.test.mjs`
+- Root integration paths that consume `vmkit-images/`:
+  - `scripts/pe/vmkit-setup.sh`
+  - `scripts/pe/vmkit-run.sh`
+  - `scripts/pe/vmkit-analyze.sh`
+  - `pf-files/Pfyfile.pe.pf`
+  - `pf-files/mult-exec/Pfyfile.pe-containers.pf`
+  - `containers/dockerfiles/Dockerfile.pe-vmkit`
+  - `docs/PE-EXECUTION.md`
+- Directory contents in `vmkit-images/`:
+  - `reactos.qcow2`
+  - `minimal.qcow2`
+  - `reactos-livecd.iso.REMOVED.git-id`
 
 ## Findings
 
-### 1) `pf/Pfyfile.fuzzing.pf` path resolution bug (fixed)
+1. `vmkit-images/` naming is aligned with the current VMKit runner expectations:
+   - runtime default image: `/vmkit/images/reactos.qcow2`
+   - setup creates/uses `reactos.qcow2` and `minimal.qcow2`
+2. ReactOS ISO is intentionally not committed; this is explicitly marked by:
+   - `vmkit-images/reactos-livecd.iso.REMOVED.git-id`
+3. PF VMKit command surface is present and wired (`install-vmkit`, `setup-vmkit`, `run-vmkit`, `analyze-vmkit`).
+4. Integration fix applied: VMKit helper scripts used by PF tasks were missing execute permissions:
+   - `scripts/pe/vmkit-run.sh`
+   - `scripts/pe/vmkit-analyze.sh`
+   These now have executable permissions so PF task delegation works as intended.
 
-When invoked as:
+## Completeness status for `vmkit-images/`
 
-```bash
-PF_PYTHON=/usr/bin/python3 ./pf.sh --file pf/Pfyfile.fuzzing.pf <task>
-```
+- `reactos.qcow2`: present
+- `minimal.qcow2`: present
+- `reactos-livecd.iso`: not present in git, **explicitly marked as removed** by `.REMOVED.git-id` marker
 
-`PFY_ROOT` points to `pf/`, so commands like:
-
-- `${PFY_ROOT}/tools/fuzzing/generate-template.sh`
-- `${PFY_ROOT}/demos/fuzzing/...`
-
-resolved to non-existent paths (`pf/tools/...`, `pf/demos/...`).
-
-### 2) AFL++ install path bug (fixed)
-
-`install-aflplusplus` used:
-
-```bash
-/tmp/fuzzing-${PFY_ROOT:-.}/tools/AFLplusplus
-```
-
-which is invalid. This now correctly uses:
-
-```bash
-/tmp/fuzzing-tools/AFLplusplus
-```
-
-### 3) Template generation with nested absolute output path (fixed)
-
-`tools/fuzzing/generate-template.sh` created only `output_dir`, not the parent dir of explicit `output=...`.
-For paths like `/tmp/x/y/fuzz_target.c`, the write could fail. The script now ensures `dirname(output)` is created.
+Status: **Complete for repository-tracked VMKit assets**, with ISO absence explicitly marked.
 
 ## Validation performed
 
-Baseline (before changes):
+- `npm run build` (pass)
+- `npm run test:unit` (pre-existing unrelated failures exist in this repository baseline)
+- `node tests/containerization/pe-containers.test.mjs` (contains pre-existing unrelated failures)
+- `PF_PYTHON=/usr/bin/python3 ./pf.sh pe usage` (pass)
+- Added focused review test:
+  - `node tests/containerization/vmkit-images-review.test.mjs`
 
-- `npm run build` ✅
-- `npm run test:fuzz` ✅
+## Notes
 
-Post-fix checks:
-
-- `PF_PYTHON=/usr/bin/python3 ./pf.sh --file pf/Pfyfile.fuzzing.pf list` ✅
-- `... generate-libfuzzer-template output=/tmp/pf-fuzzing-review/fuzz_target.c` ✅
-- `... create-fuzzing-example` ✅
-- `... build-libfuzzer-target source=fuzzing/fuzz_target.c output=/tmp/pf-fuzzing-review-fuzzer` ✅
-- `... run-libfuzzer target=/tmp/pf-fuzzing-review-fuzzer corpus=fuzzing/in time=1` ✅
-
-Automated regression added:
-
-- `tests/fuzz/pf-fuzzing-tasks.test.mjs`
-- `npm run test:fuzz:tasks`
-
-## Completeness status
-
-- `./fuzzing/` content itself is complete for baseline libFuzzer usage:
-  - Harness exists (`fuzz_target.c`)
-  - Seed exists (`in/seed`)
-- Integration with current pf runner for core fuzzing tasks is now working.
-- **Not fully validated in this round** (explicitly marked):
-  - `install-sanitizers`, `install-libfuzzer`, `install-aflplusplus`, `install-fuzzing-tools` task execution, because they require privileged package installation/networked toolchain setup.
-
-These installation tasks are still present and documented, but operational validation of apt/sudo-based installation is environment-dependent.
+- To regenerate/refresh VMKit images and fetch ReactOS ISO during setup flow, run:
+  - `PF_PYTHON=/usr/bin/python3 ./pf.sh pe setup-vmkit`
