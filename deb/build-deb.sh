@@ -50,7 +50,7 @@ log_info "Creating pf executable..."
 cat > "${PKG_DIR}/usr/local/bin/pf" << 'EOF'
 #!/usr/bin/env bash
 # pf - Wrapper script for pf-runner
-exec /usr/local/lib/pf-runner/pf_main.py "$@"
+exec /usr/local/lib/pf-runner/pf_universal "$@"
 EOF
 chmod 755 "${PKG_DIR}/usr/local/bin/pf"
 
