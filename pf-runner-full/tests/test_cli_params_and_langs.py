@@ -81,7 +81,11 @@ def test_env_only_shell_assignment_persists_across_shell_lang_switch():
         f"""
         task keep-state
           shell ROOT="$(pwd)"
-          shell [lang:python] import os, sys; sys.exit(0 if os.environ.get("ROOT") == {expected_root!r} else 1)
+          shell [lang:python] |
+            import os
+            import sys
+            root = os.environ.get("ROOT")
+            sys.exit(0 if root == {expected_root!r} else 1)
         end
         """
     )

@@ -178,7 +178,7 @@ def _resolve_env_only_assignment(
     key_items = " ".join(shlex.quote(k) for k in env_keys)
     script = (
         f"{raw_cmd}\n"
-        f"for __pf_k in {key_items}; do printf '%s=%s\\0' \"$__pf_k\" \"${{!__pf_k}}\"; done"
+        f"for _pf_k in {key_items}; do printf '%s=%s\\0' \"$_pf_k\" \"${{!_pf_k}}\"; done"
     )
 
     if connection is None:
@@ -221,9 +221,11 @@ def _resolve_env_only_assignment(
         parsed = result.stdout.split("\0")
 
     for item in parsed:
-        if not item or "=" not in item:
+        if not item:
             continue
-        key, value = item.split("=", 1)
+        key, sep, value = item.partition("=")
+        if not sep:
+            continue
         if key in env_keys:
             task_env[key] = value
     return 0
