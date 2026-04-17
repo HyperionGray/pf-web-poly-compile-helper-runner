@@ -1,44 +1,55 @@
-# Full Review: `./pf/` (with root context)
+# FULL VMKit Images Review
 
 Date: 2026-04-16
+Repository: `HyperionGray/pf-web-poly-compile-helper-runner`
+Scope: review of `./vmkit-images/` with root-level PF/PE integration checks.
 
-## Scope reviewed
+## What was reviewed
 
-- `pf/**/*.pf` (all files under `./pf/`)
-- Root wiring context:
-  - `/Pfyfile.pf`
-  - `/pf-files/Pfyfile.pf`
-  - `pf-runner-full/pf_main.py` runner behavior via live validation/listing
+- Root integration paths that consume `vmkit-images/`:
+  - `scripts/pe/vmkit-setup.sh`
+  - `scripts/pe/vmkit-run.sh`
+  - `scripts/pe/vmkit-analyze.sh`
+  - `pf-files/Pfyfile.pe.pf`
+  - `pf-files/mult-exec/Pfyfile.pe-containers.pf`
+  - `containers/dockerfiles/Dockerfile.pe-vmkit`
+  - `docs/PE-EXECUTION.md`
+- Directory contents in `vmkit-images/`:
+  - `reactos.qcow2`
+  - `minimal.qcow2`
+  - `reactos-livecd.iso.REMOVED.git-id`
 
-## What was verified
+## Findings
 
-1. Runner compatibility
-   - `python3 pf-runner-full/pf_main.py --file pf/Pfyfile.pf validate` passes.
-2. Full `./pf/` parse sweep
-   - All `pf/**/*.pf` files validate successfully with the current runner.
-3. Aggregator reachability
-   - `pf/Pfyfile.pf` now includes `pf/gitops/Pfyfile.hgactions.pf` so that module is reachable from the main `./pf/` entrypoint.
+1. `vmkit-images/` naming is aligned with the current VMKit runner expectations:
+   - runtime default image: `/vmkit/images/reactos.qcow2`
+   - setup creates/uses `reactos.qcow2` and `minimal.qcow2`
+2. ReactOS ISO is intentionally not committed; this is explicitly marked by:
+   - `vmkit-images/reactos-livecd.iso.REMOVED.git-id`
+3. PF VMKit command surface is present and wired (`install-vmkit`, `setup-vmkit`, `run-vmkit`, `analyze-vmkit`).
+4. Integration fix applied: VMKit helper scripts used by PF tasks were missing execute permissions:
+   - `scripts/pe/vmkit-run.sh`
+   - `scripts/pe/vmkit-analyze.sh`
+   These now have executable permissions so PF task delegation works as intended.
 
-## Fixes made during review
+## Completeness status for `vmkit-images/`
 
-1. Added missing include in `pf/Pfyfile.pf`:
-   - `include gitops/Pfyfile.hgactions.pf`
-2. Fixed `pf/gitops/Pfyfile.hgactions.pf` task execution path:
-   - Replaced brittle relative path usage with root resolution:
-     - `ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"`
-     - `"$ROOT/.github/hg_actions/scripts/hga_run.sh" "$file" "$execute"`
-3. Added focused regression test:
-   - `tests/runner-full/pf-directory-review.test.mjs`
-   - Confirms:
-     - `pf/Pfyfile.pf` validates
-     - `hgactions` module is visible from `pf/Pfyfile.pf list`
-     - all `pf/**/*.pf` files validate
+- `reactos.qcow2`: present
+- `minimal.qcow2`: present
+- `reactos-livecd.iso`: not present in git, **explicitly marked as removed** by `.REMOVED.git-id` marker
 
-## Completeness status
+Status: **Complete for repository-tracked VMKit assets**, with ISO absence explicitly marked.
 
-- `./pf/` review in this pass: **COMPLETE** for runner-compatibility and entrypoint wiring.
-- No parse/validation blockers were found after fixes.
+## Validation performed
+
+- `npm run build` (pass)
+- `npm run test:unit` (pre-existing unrelated failures exist in this repository baseline)
+- `node tests/containerization/pe-containers.test.mjs` (contains pre-existing unrelated failures)
+- `PF_PYTHON=/usr/bin/python3 ./pf.sh pe usage` (pass)
+- Added focused review test:
+  - `node tests/containerization/vmkit-images-review.test.mjs`
 
 ## Notes
 
-- A separate pre-existing baseline issue exists in `tests/grammar/grammar.test.mjs` invalid-syntax cases; this is outside the `./pf/` review changes and was not modified here.
+- To regenerate/refresh VMKit images and fetch ReactOS ISO during setup flow, run:
+  - `PF_PYTHON=/usr/bin/python3 ./pf.sh pe setup-vmkit`
