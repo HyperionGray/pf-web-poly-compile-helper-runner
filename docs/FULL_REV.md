@@ -1,101 +1,55 @@
-# Full review: `./deb/` (with root/project alignment)
+# FULL VMKit Images Review
 
 Date: 2026-04-16
+Repository: `HyperionGray/pf-web-poly-compile-helper-runner`
+Scope: review of `./vmkit-images/` with root-level PF/PE integration checks.
 
-## Scope reviewed
+## What was reviewed
 
-- Root runner/layout used for packaging compatibility:
-  - `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/pf-runner-full/`
-  - `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/pf.sh`
-  - `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/test_installers.sh`
-- Debian packaging directory:
-  - `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/deb/`
+- Root integration paths that consume `vmkit-images/`:
+  - `scripts/pe/vmkit-setup.sh`
+  - `scripts/pe/vmkit-run.sh`
+  - `scripts/pe/vmkit-analyze.sh`
+  - `pf-files/Pfyfile.pe.pf`
+  - `pf-files/mult-exec/Pfyfile.pe-containers.pf`
+  - `containers/dockerfiles/Dockerfile.pe-vmkit`
+  - `docs/PE-EXECUTION.md`
+- Directory contents in `vmkit-images/`:
+  - `reactos.qcow2`
+  - `minimal.qcow2`
+  - `reactos-livecd.iso.REMOVED.git-id`
 
-## Baseline validation before changes
+## Findings
 
-- Ran installer baseline:
-  - `./test_installers.sh`
-- Result:
-  - Fails early at repo wrapper (`pf -V failed`) due pre-existing Python runtime/dependency environment constraints.
-  - This was pre-existing and not introduced by this review.
+1. `vmkit-images/` naming is aligned with the current VMKit runner expectations:
+   - runtime default image: `/vmkit/images/reactos.qcow2`
+   - setup creates/uses `reactos.qcow2` and `minimal.qcow2`
+2. ReactOS ISO is intentionally not committed; this is explicitly marked by:
+   - `vmkit-images/reactos-livecd.iso.REMOVED.git-id`
+3. PF VMKit command surface is present and wired (`install-vmkit`, `setup-vmkit`, `run-vmkit`, `analyze-vmkit`).
+4. Integration fix applied: VMKit helper scripts used by PF tasks were missing execute permissions:
+   - `scripts/pe/vmkit-run.sh`
+   - `scripts/pe/vmkit-analyze.sh`
+   These now have executable permissions so PF task delegation works as intended.
 
-## Findings and fixes applied in `./deb/`
+## Completeness status for `vmkit-images/`
 
-### 1) Entrypoint mismatch with current runner
+- `reactos.qcow2`: present
+- `minimal.qcow2`: present
+- `reactos-livecd.iso`: not present in git, **explicitly marked as removed** by `.REMOVED.git-id` marker
 
-- File: `deb/build-deb.sh`
-- Finding:
-  - Package wrapper was calling `/usr/local/lib/pf-runner/pf_main.py` directly.
-  - Current project runner path uses wrapper/runtime flow (`pf_universal` + `pf_runtime.sh`) for Python resolution and env setup.
-- Fix:
-  - Wrapper now executes `/usr/local/lib/pf-runner/pf_universal`.
-- Status: complete.
+Status: **Complete for repository-tracked VMKit assets**, with ISO absence explicitly marked.
 
-### 2) Runtime dependency under-installation in postinst
+## Validation performed
 
-- File: `deb/postinst`
-- Finding:
-  - Script only installed `lark` + `json5`, while current runtime checks/use can require `fabric`, `typer`, and `rich`.
-- Fix:
-  - Expanded `pip3 install` set to:
-    - `lark>=1.1.0,<2.0`
-    - `json5>=0.13.0`
-    - `fabric>=3.2.0`
-    - `typer>=0.12.0`
-    - `rich>=13.0.0`
-- Status: complete.
+- `npm run build` (pass)
+- `npm run test:unit` (pre-existing unrelated failures exist in this repository baseline)
+- `node tests/containerization/pe-containers.test.mjs` (contains pre-existing unrelated failures)
+- `PF_PYTHON=/usr/bin/python3 ./pf.sh pe usage` (pass)
+- Added focused review test:
+  - `node tests/containerization/vmkit-images-review.test.mjs`
 
-### 3) Python version metadata drift
+## Notes
 
-- File: `deb/control`
-- Finding:
-  - Control file had `python3 (>= 3.8)` while runner metadata in `pf-runner-full/pyproject.toml` requires `>=3.10`.
-- Fix:
-  - Updated to `python3 (>= 3.10)`.
-- Status: complete.
-
-### 4) Packaging metadata cleanup
-
-- Files: `deb/changelog`, `deb/copyright`
-- Findings:
-  - `changelog` had literal `$(date -R)` placeholder.
-  - Copyright `Source` pointed to placeholder example URL.
-- Fixes:
-  - Replaced changelog trailer date with concrete RFC 2822 date.
-  - Updated source URL to this repository.
-- Status: complete.
-
-### 5) Documentation alignment
-
-- File: `deb/README.md`
-- Finding:
-  - Package behavior/deps text was outdated relative to current runner entrypoint/runtime deps.
-- Fix:
-  - Updated docs to reflect `pf_universal` launcher and dependency set.
-- Status: complete.
-
-## Items reviewed but not fully unified in this round
-
-These were identified and are now explicitly marked:
-
-1. `deb/` currently mixes two packaging styles:
-   - standalone `build-deb.sh`/`control` flow (single package `pf-runner`, `/usr/local` layout)
-   - debhelper-style assets (`rules`, `pf-runner-core.*`) oriented around `pf-runner-core` naming and `/usr` layout.
-2. The current changes keep behavior working/aligned for the active `build-deb.sh` path and its installed artifacts.
-3. A full unification to one canonical Debian packaging pipeline (single-source `control`, scripts, install prefix, package names) is still pending.
-
-Status: **partially complete by design for this round; explicitly marked**.
-
-## Post-change verification performed
-
-- Re-ran packaging build command:
-  - `./deb/build-deb.sh`
-- Verified built package metadata and file list:
-  - package built successfully
-  - `/usr/local/bin/pf` wrapper now targets `pf_universal`
-  - postinst includes expanded runtime dependency install list
-
-## Conclusion
-
-`./deb/` has been reviewed against current project runner expectations and key compatibility gaps were fixed.  
-Remaining work (full packaging-pipeline unification) is explicitly marked above so scope is clear and tracked.
+- To regenerate/refresh VMKit images and fetch ReactOS ISO during setup flow, run:
+  - `PF_PYTHON=/usr/bin/python3 ./pf.sh pe setup-vmkit`
