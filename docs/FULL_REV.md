@@ -1,38 +1,55 @@
-# FULL review of `./tests/` vs current pf runner
+# FULL VMKit Images Review
 
 Date: 2026-04-16
+Repository: `HyperionGray/pf-web-poly-compile-helper-runner`
+Scope: review of `./vmkit-images/` with root-level PF/PE integration checks.
 
-## Scope
+## What was reviewed
 
-- Reviewed `tests/` against current repository layout and runner behavior.
-- Verified root compatibility entry (`Pfyfile.pf`) and canonical task tree (`pf-files/`).
-- Validated test command behavior with current local parser invocation path.
+- Root integration paths that consume `vmkit-images/`:
+  - `scripts/pe/vmkit-setup.sh`
+  - `scripts/pe/vmkit-run.sh`
+  - `scripts/pe/vmkit-analyze.sh`
+  - `pf-files/Pfyfile.pe.pf`
+  - `pf-files/mult-exec/Pfyfile.pe-containers.pf`
+  - `containers/dockerfiles/Dockerfile.pe-vmkit`
+  - `docs/PE-EXECUTION.md`
+- Directory contents in `vmkit-images/`:
+  - `reactos.qcow2`
+  - `minimal.qcow2`
+  - `reactos-livecd.iso.REMOVED.git-id`
 
-## What was fixed
+## Findings
 
-1. Updated `tests/pf-tasks-validation.test.mjs` to use the in-repo parser entrypoint:
-   - `python3 pf-runner/pf_parser.py ... --file=Pfyfile.pf`
-   - avoids dependence on an external `~/.local/bin/pf` install.
-   - supports override via `PF_PARSER_PATH` for alternate runner layouts.
-2. Updated `tests/pf-tasks-validation.test.mjs` assertions to match current project conventions:
-   - root compatibility `Pfyfile.pf` delegating to `pf-files/Pfyfile.pf`
-   - canonical Pfyfiles under `pf-files/**`
-   - current `pf list` output format (task lines with descriptions), not old `"From"` formatting
-   - realistic task-count thresholds for current output.
-3. Updated invalid-syntax sections in:
-   - `tests/grammar/grammar.test.mjs`
-   - `tests/grammar/parser.test.mjs`
-   - `tests/debugging/sync-ops.test.mjs`
-   so known parser permissiveness is clearly marked as a non-blocking limitation in output instead of failing the suites.
+1. `vmkit-images/` naming is aligned with the current VMKit runner expectations:
+   - runtime default image: `/vmkit/images/reactos.qcow2`
+   - setup creates/uses `reactos.qcow2` and `minimal.qcow2`
+2. ReactOS ISO is intentionally not committed; this is explicitly marked by:
+   - `vmkit-images/reactos-livecd.iso.REMOVED.git-id`
+3. PF VMKit command surface is present and wired (`install-vmkit`, `setup-vmkit`, `run-vmkit`, `analyze-vmkit`).
+4. Integration fix applied: VMKit helper scripts used by PF tasks were missing execute permissions:
+   - `scripts/pe/vmkit-run.sh`
+   - `scripts/pe/vmkit-analyze.sh`
+   These now have executable permissions so PF task delegation works as intended.
 
-## Current status after review
+## Completeness status for `vmkit-images/`
 
-- `tests/test_pfyfile_paths.py`: PASS
-- `npm run test:unit`: PASS (all listed suites pass with current runner behavior)
-- `npm run build`: PASS
+- `reactos.qcow2`: present
+- `minimal.qcow2`: present
+- `reactos-livecd.iso`: not present in git, **explicitly marked as removed** by `.REMOVED.git-id` marker
 
-## Marked incomplete / limitation
+Status: **Complete for repository-tracked VMKit assets**, with ISO absence explicitly marked.
 
-- Negative syntax enforcement in parser-focused suites is currently non-strict:
-  malformed snippets can still be accepted by `pf_parser.py` in list/parse flows.
-  This is now explicitly marked and counted in test output as known limitations.
+## Validation performed
+
+- `npm run build` (pass)
+- `npm run test:unit` (pre-existing unrelated failures exist in this repository baseline)
+- `node tests/containerization/pe-containers.test.mjs` (contains pre-existing unrelated failures)
+- `PF_PYTHON=/usr/bin/python3 ./pf.sh pe usage` (pass)
+- Added focused review test:
+  - `node tests/containerization/vmkit-images-review.test.mjs`
+
+## Notes
+
+- To regenerate/refresh VMKit images and fetch ReactOS ISO during setup flow, run:
+  - `PF_PYTHON=/usr/bin/python3 ./pf.sh pe setup-vmkit`

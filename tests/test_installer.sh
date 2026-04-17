@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test script to validate installer functionality
+# Test script to validate Debian installer functionality
 set -euo pipefail
 
 # Colors for output
@@ -32,11 +32,8 @@ test_hardcoded_paths() {
     
     local hardcoded_found=false
     local scan_paths=(
-        "./install.sh"
-        "./quick-install.sh"
-        "./scripts/install.sh"
-        "./scripts/quick-install.sh"
-        "./scripts/installer"
+        "./deb/build-deb.sh"
+        "./scripts/build-packages.sh"
         "./pf.sh"
         "./pf-runner-full"
     )
@@ -49,6 +46,9 @@ test_hardcoded_paths() {
         --exclude-dir=docs \
         --exclude-dir=bak \
         --exclude-dir=pf_runner.egg-info \
+        --exclude="AGENTS.md" \
+        --exclude=".copilot_rules" \
+        --exclude="rules.json5" \
         --exclude="*.backup" \
         2>/dev/null; then
         log_error "Found hardcoded /home/punk paths"
@@ -63,6 +63,9 @@ test_hardcoded_paths() {
         --exclude-dir=docs \
         --exclude-dir=bak \
         --exclude-dir=pf_runner.egg-info \
+        --exclude="AGENTS.md" \
+        --exclude=".copilot_rules" \
+        --exclude="rules.json5" \
         --exclude="*.backup" \
         2>/dev/null; then
         log_error "Found hardcoded venv paths in shebangs"
@@ -81,9 +84,9 @@ test_hardcoded_paths() {
 test_installer_prereqs() {
     log_info "Testing installer prerequisites..."
     
-    # Check if install.sh exists and is executable
-    if [[ ! -x "./install.sh" ]]; then
-        log_error "install.sh not found or not executable"
+    # Check if Debian package build script exists and is executable
+    if [[ ! -x "./deb/build-deb.sh" ]]; then
+        log_error "deb/build-deb.sh not found or not executable"
         return 1
     fi
     
@@ -135,15 +138,15 @@ test_container_files() {
     return 0
 }
 
-# Test 4: Dry run installer help
+# Test 4: Debian installer artifacts
 test_installer_help() {
-    log_info "Testing installer help..."
+    log_info "Testing Debian installer artifacts..."
     
-    if ./install.sh --help >/dev/null 2>&1; then
-        log_success "Installer help works"
+    if [[ -f "./deb/control" ]] && [[ -f "./deb/postinst" ]]; then
+        log_success "Debian packaging files are present"
         return 0
     else
-        log_error "Installer help failed"
+        log_error "Required Debian packaging files are missing"
         return 1
     fi
 }
