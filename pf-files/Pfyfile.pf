@@ -124,10 +124,10 @@ task install prefix="" skip_deps="false"
     else
       ROOT="$(pwd)"
     fi
-    DEB="$(ls -1 "$ROOT"/build-packages/deb/pf-runner_*.deb "$ROOT"/deb/build/pf-runner_*.deb "$ROOT"/debian/build/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
+    DEB="$(ls -1 "$ROOT"/build-packages/deb/pf-runner_*.deb "$ROOT"/deb/build/pf-runner_*.deb 2>/dev/null | sort -V | tail -n1 || true)"
     if [ -z "${DEB}" ] || [ ! -f "${DEB}" ]; then
-      echo "[ERR] no Debian package found under build-packages/deb, deb/build, or debian/build" >&2
-      echo "      Build one with: ./deb/build-deb.sh 1.0.0" >&2
+      echo "[ERR] no Debian package found under build-packages/deb or deb/build" >&2
+      echo "      Build one with: ./deb/build-packages.sh --version 1.0.0 deb" >&2
       exit 127
     fi
 
@@ -203,7 +203,7 @@ PY
       sudo dpkg -i "$DEB" || { echo "[install-smoke-test] Fixing deps..."; sudo apt-get -f install -y && sudo dpkg -i "$DEB"; }
     else
       echo "[ERR] .deb package not found for install-smoke-test" >&2
-      echo "      Build it with: pf build-packages or ./deb/build-deb.sh 1.0.0" >&2
+      echo "      Build it with: pf build-packages or ./deb/build-packages.sh --version 1.0.0 deb" >&2
       exit 127
     fi
 
