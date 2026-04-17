@@ -8,4 +8,4 @@ pf-runner (1.0.0-1) unstable; urgency=medium
   * Web development and security testing tools
   * Binary analysis and debugging capabilities
 
- -- PF Runner Team <maintainer@example.com>  $(date -R)
+ -- PF Runner Team <maintainer@example.com>  Thu, 16 Apr 2026 21:46:35 +0000

@@ -2,10 +2,10 @@
 
 Minimal steps to install, run tasks, and write your own.
 
-## Install (pick one)
-- Container (recommended): `./install.sh --runtime podman`
-- Host-only: `./install.sh --prefix ~/.local`
-- Editable (already cloned): `pip install -e pf-runner`
+## Install
+- Build `.deb`: `./deb/build-deb.sh 1.0.0`
+- Install: `sudo dpkg -i deb/build/pf-runner_1.0.0.deb && sudo apt-get install -f -y`
+
 
 Check: `pf list`
 

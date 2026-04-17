@@ -33,8 +33,8 @@ pf list
 The `.deb` package includes:
 - `/usr/local/lib/pf-runner/` - pf-runner Python library
 - `/usr/local/lib/pf-runner/fabric/` - bundled fabric library for SSH support
-- `/usr/local/bin/pf` - pf executable wrapper
-- Python dependencies (lark, json5) - installed via pip in postinst
+- `/usr/local/bin/pf` - pf executable wrapper (launches `pf_universal`)
+- Python dependencies (lark, json5, fabric, typer, rich) - installed via pip in postinst
 
 ## Dependencies
 

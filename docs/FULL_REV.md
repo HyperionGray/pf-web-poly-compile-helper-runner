@@ -1,59 +1,55 @@
-# Full review: `containers/` + root integration
+# FULL VMKit Images Review
 
 Date: 2026-04-16
+Repository: `HyperionGray/pf-web-poly-compile-helper-runner`
+Scope: review of `./vmkit-images/` with root-level PF/PE integration checks.
 
-## Scope reviewed
+## What was reviewed
 
-- `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/containers/**`
-- `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/pf-files/containers/Pfyfile.containers.pf`
-- `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/pf-files/distro-switching/Pfyfile.os-containers.pf`
-- `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/pf-files/distro-switching/Pfyfile.distro-switch.pf`
-- `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/pf-files/mult-exec/Pfyfile.pe-containers.pf`
-- `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/podman-compose.yml`
-- `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/Pfyfile.pf` (root include path)
+- Root integration paths that consume `vmkit-images/`:
+  - `scripts/pe/vmkit-setup.sh`
+  - `scripts/pe/vmkit-run.sh`
+  - `scripts/pe/vmkit-analyze.sh`
+  - `pf-files/Pfyfile.pe.pf`
+  - `pf-files/mult-exec/Pfyfile.pe-containers.pf`
+  - `containers/dockerfiles/Dockerfile.pe-vmkit`
+  - `docs/PE-EXECUTION.md`
+- Directory contents in `vmkit-images/`:
+  - `reactos.qcow2`
+  - `minimal.qcow2`
+  - `reactos-livecd.iso.REMOVED.git-id`
 
-## What was validated
+## Findings
 
-- [x] Container-related pf modules parse and list tasks when `PF_PYTHON` is set.
-- [x] Root Pfyfile delegates to `pf-files/Pfyfile.pf`, which includes container modules.
-- [x] `podman-compose.yml` service names align with container tasks (`api-server`, `pf-runner`, build/debug services).
-- [x] Missing quadlet installer script path in task definitions was fixed (see changes below).
-- [x] Baseline project build/tests were run before changes (`npm run build`, `npm run test:unit`).
+1. `vmkit-images/` naming is aligned with the current VMKit runner expectations:
+   - runtime default image: `/vmkit/images/reactos.qcow2`
+   - setup creates/uses `reactos.qcow2` and `minimal.qcow2`
+2. ReactOS ISO is intentionally not committed; this is explicitly marked by:
+   - `vmkit-images/reactos-livecd.iso.REMOVED.git-id`
+3. PF VMKit command surface is present and wired (`install-vmkit`, `setup-vmkit`, `run-vmkit`, `analyze-vmkit`).
+4. Integration fix applied: VMKit helper scripts used by PF tasks were missing execute permissions:
+   - `scripts/pe/vmkit-run.sh`
+   - `scripts/pe/vmkit-analyze.sh`
+   These now have executable permissions so PF task delegation works as intended.
 
-## Issue found and fixed
+## Completeness status for `vmkit-images/`
 
-### Broken task wiring for quadlets
+- `reactos.qcow2`: present
+- `minimal.qcow2`: present
+- `reactos-livecd.iso`: not present in git, **explicitly marked as removed** by `.REMOVED.git-id` marker
 
-`pf quadlet-install` (and related tasks) called:
+Status: **Complete for repository-tracked VMKit assets**, with ISO absence explicitly marked.
 
-- `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/containers/scripts/install-quadlets.sh`
+## Validation performed
 
-That file did not exist, causing exit code 127.
+- `npm run build` (pass)
+- `npm run test:unit` (pre-existing unrelated failures exist in this repository baseline)
+- `node tests/containerization/pe-containers.test.mjs` (contains pre-existing unrelated failures)
+- `PF_PYTHON=/usr/bin/python3 ./pf.sh pe usage` (pass)
+- Added focused review test:
+  - `node tests/containerization/vmkit-images-review.test.mjs`
 
-### Change made
+## Notes
 
-- Added executable script:
-  - `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/containers/scripts/install-quadlets.sh`
-
-This script now supports:
-
-- `--install`
-- `--remove`
-- `--list`
-- `--status`
-
-and safely handles environments where `systemctl`/user systemd is unavailable.
-
-## Post-change verification
-
-- [x] `PF_PYTHON=/usr/bin/python3 ./pf.sh --file pf-files/containers/Pfyfile.containers.pf quadlet-install`
-- [x] `PF_PYTHON=/usr/bin/python3 ./pf.sh --file pf-files/containers/Pfyfile.containers.pf quadlet-list`
-- [x] `PF_PYTHON=/usr/bin/python3 ./pf.sh --file pf-files/containers/Pfyfile.containers.pf quadlet-status`
-- [x] `PF_PYTHON=/usr/bin/python3 ./pf.sh --file pf-files/containers/Pfyfile.containers.pf quadlet-remove`
-
-## Completion status
-
-- [x] `containers/` reviewed against current pf runner wiring.
-- [x] Concrete breakage fixed in this round.
-- [x] Work documented in this file.
-- [ ] Full container image build matrix (`os` and `pe`) executed end-to-end in this CI sandbox (not completed here due runtime/time and host virtualization dependencies).
+- To regenerate/refresh VMKit images and fetch ReactOS ISO during setup flow, run:
+  - `PF_PYTHON=/usr/bin/python3 ./pf.sh pe setup-vmkit`

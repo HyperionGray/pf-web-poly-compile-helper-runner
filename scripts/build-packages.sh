@@ -215,7 +215,7 @@ install_packages() {
     
     if ! command -v apt-get >/dev/null 2>&1; then
         log_error "apt-get not found. This script only supports Debian/Ubuntu systems."
-        log_error "For other systems, use the static executable installer: ./install-static.sh"
+        log_error "Only Debian .deb installation is supported."
         return 1
     fi
     
