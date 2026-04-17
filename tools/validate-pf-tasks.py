@@ -144,7 +144,7 @@ def _validate_task_shell_paths(repo_root: Path, tasks: Dict[str, object]) -> Lis
 
     for task_name, task_obj in tasks.items():
         source_file = getattr(task_obj, "source_file", None)
-        task_dir = Path(source_file).resolve().parent if source_file else repo_root
+        task_dir = repo_root
         seen: set[Tuple[str, str]] = set()
 
         lines = getattr(task_obj, "lines", []) or []
@@ -227,25 +227,30 @@ def _validate_task_shell_paths(repo_root: Path, tasks: Dict[str, object]) -> Lis
 
 
 def _load_all_tasks(repo_root: Path, pfyfile_override: Optional[str]) -> Tuple[Dict[str, object], Optional[str]]:
-    runner_paths = [repo_root / "pf-runner-full", repo_root / "pf-runner"]
-    for runner_path in runner_paths:
-        if runner_path.exists():
-            sys.path.insert(0, str(runner_path))
+    runner_path: Optional[Path] = None
+    for candidate in (repo_root / "pf-runner-full", repo_root / "pf-runner"):
+        if (candidate / "pf_parser.py").exists():
+            runner_path = candidate
+            break
+    if not runner_path:
+        raise RuntimeError("Unable to locate pf runner parser module (pf-runner-full/pf-runner).")
 
+    sys.path.insert(0, str(runner_path))
     import pf_parser  # type: ignore
 
-    previous_cwd = Path.cwd()
-    try:
-        # pf_parser resolves pf-files/includes using cwd. Anchor to repo root so
-        # validation behaves the same way regardless of the caller's cwd.
-        os.chdir(repo_root)
-        dsl_src, task_sources = pf_parser._load_pfy_source_with_includes(
-            file_arg=pfyfile_override
-        )
-        tasks = pf_parser.parse_pfyfile_text(dsl_src, task_sources)
-    finally:
-        os.chdir(previous_cwd)
-    return tasks, None
+    dsl_src, task_sources = pf_parser._load_pfy_source_with_includes(file_arg=pfyfile_override)
+    tasks = pf_parser.parse_pfyfile_text(dsl_src, task_sources)
+    cfg_path: Optional[Path] = None
+    explicit_cfg = os.environ.get("PF_CONFIG_FILE")
+    if explicit_cfg:
+        candidate = Path(explicit_cfg).expanduser()
+        if candidate.exists():
+            cfg_path = candidate.resolve()
+    if cfg_path is None:
+        candidate = repo_root / "pf.config.json5"
+        if candidate.exists():
+            cfg_path = candidate
+    return tasks, str(cfg_path) if cfg_path else None
 
 
 def main(argv: Sequence[str]) -> int:

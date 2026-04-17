@@ -1,71 +1,55 @@
-# Full review: `./scripts/` (and root integration)
+# FULL VMKit Images Review
 
 Date: 2026-04-16
+Repository: `HyperionGray/pf-web-poly-compile-helper-runner`
+Scope: review of `./vmkit-images/` with root-level PF/PE integration checks.
 
-## Scope reviewed
+## What was reviewed
 
-- `scripts/` tree (shell, Python, and Node/MJS scripts)
-- Root integration points that invoke scripts:
-  - `package.json` scripts
-  - `Pfyfile.pf` / `pf-files/Pfyfile.pf`
-  - `tools/validate-pf-tasks.py` (used by `scripts/validate-pf-tasks.sh`)
+- Root integration paths that consume `vmkit-images/`:
+  - `scripts/pe/vmkit-setup.sh`
+  - `scripts/pe/vmkit-run.sh`
+  - `scripts/pe/vmkit-analyze.sh`
+  - `pf-files/Pfyfile.pe.pf`
+  - `pf-files/mult-exec/Pfyfile.pe-containers.pf`
+  - `containers/dockerfiles/Dockerfile.pe-vmkit`
+  - `docs/PE-EXECUTION.md`
+- Directory contents in `vmkit-images/`:
+  - `reactos.qcow2`
+  - `minimal.qcow2`
+  - `reactos-livecd.iso.REMOVED.git-id`
 
-## What was validated
+## Findings
 
-1. **Baseline project checks (before edits)**
-   - `npm run build` ✅
-   - `npm run test:unit` ❌ (pre-existing failures)
-   - `bash scripts/validate-pf-tasks.sh` ❌ (failed to load PF modules: `No module named 'pf_config'`)
+1. `vmkit-images/` naming is aligned with the current VMKit runner expectations:
+   - runtime default image: `/vmkit/images/reactos.qcow2`
+   - setup creates/uses `reactos.qcow2` and `minimal.qcow2`
+2. ReactOS ISO is intentionally not committed; this is explicitly marked by:
+   - `vmkit-images/reactos-livecd.iso.REMOVED.git-id`
+3. PF VMKit command surface is present and wired (`install-vmkit`, `setup-vmkit`, `run-vmkit`, `analyze-vmkit`).
+4. Integration fix applied: VMKit helper scripts used by PF tasks were missing execute permissions:
+   - `scripts/pe/vmkit-run.sh`
+   - `scripts/pe/vmkit-analyze.sh`
+   These now have executable permissions so PF task delegation works as intended.
 
-2. **Scripts health checks**
-   - Static syntax checks over `scripts/`:
-     - `bash -n` for `*.sh/*.bash`
-     - `node --check` for `*.mjs/*.js`
-     - `python3 -m py_compile` for `*.py`
-   - Result after fixes: **80 checked, 0 syntax failures** ✅
+## Completeness status for `vmkit-images/`
 
-3. **CI/CD review script path execution**
-   - `npm run cicd:file-analysis` ✅
-   - `npm run cicd:review:json` ✅
-   - `npm run cicd:test-coverage` ✅ (completes and reports summary)
+- `reactos.qcow2`: present
+- `minimal.qcow2`: present
+- `reactos-livecd.iso`: not present in git, **explicitly marked as removed** by `.REMOVED.git-id` marker
 
-4. **PF task compatibility validation**
-   - `bash scripts/validate-pf-tasks.sh` now loads current PF runner and parses tasks successfully:
-     - tasks parsed: **461**
-   - Remaining path errors reduced from **74** to **11** (see Outstanding items).
+Status: **Complete for repository-tracked VMKit assets**, with ISO absence explicitly marked.
 
-## Changes made
+## Validation performed
 
-### 1) Fixed PF runner compatibility in task validator
-- File: `tools/validate-pf-tasks.py`
-- Changes:
-  - Removed dependency on legacy `pf_config` module (not present in current runner).
-  - Load parser from current runner layout (`pf-runner-full` / `pf-runner`).
-  - Anchor parsing to repository root (`chdir(repo_root)`) so include/path resolution matches runner behavior.
-  - Improved script path resolution for task commands by checking both task-local and repo-root-relative candidates.
+- `npm run build` (pass)
+- `npm run test:unit` (pre-existing unrelated failures exist in this repository baseline)
+- `node tests/containerization/pe-containers.test.mjs` (contains pre-existing unrelated failures)
+- `PF_PYTHON=/usr/bin/python3 ./pf.sh pe usage` (pass)
+- Added focused review test:
+  - `node tests/containerization/vmkit-images-review.test.mjs`
 
-### 2) Fixed broken CI/CD wrapper script
-- File: `scripts/ci-cd-review/test-coverage-aggregator.mjs`
-- Changes:
-  - Removed duplicate in-file class implementation that shadowed imported class and caused:
-    - `SyntaxError: Identifier 'TestCoverageAggregator' has already been declared`
-  - Kept file as a thin CLI wrapper, consistent with other `scripts/ci-cd-review/*.mjs` wrappers.
+## Notes
 
-## Outstanding items (marked incomplete for follow-up)
-
-The PF task validator now reports **11 real missing script paths** (down from 74). These are outside `./scripts/` and point to missing files referenced by pf task definitions under `pf-files/`:
-
-- `pf-files/enhanced-tasks/Pfyfile.enhanced-workflows.pf`
-  - `tools/enhanced-workflows/binary_analyzer.py`
-  - `tools/enhanced-workflows/report_generator.py`
-- `pf-files/practice/Pfyfile.practice.pf`
-  - missing demo shell scripts under `pf-files/practice/demos/practice-binaries/`:
-    - `demo_stack_overflow.sh`
-    - `demo_format_string.sh`
-    - `demo_uaf.sh`
-    - `demo_command_injection.sh`
-    - `demo_fuzzing.sh`
-    - (and repeated references in `demo-all-practice`)
-
-These are not fixed in this pass to keep scope surgical to the scripts review issue, but they are now clearly surfaced and reproducible.
-
+- To regenerate/refresh VMKit images and fetch ReactOS ISO during setup flow, run:
+  - `PF_PYTHON=/usr/bin/python3 ./pf.sh pe setup-vmkit`
