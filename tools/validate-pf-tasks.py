@@ -118,12 +118,33 @@ def _extract_shell_cmd(line: str) -> Optional[str]:
     return cmd
 
 
+def _candidate_script_paths(token: str, cwd: Path, repo_root: Path) -> List[Path]:
+    script_path = Path(token).expanduser()
+    if script_path.is_absolute():
+        return [script_path.resolve()]
+
+    candidates = [(cwd / script_path).resolve()]
+    # Most pf tasks run from repo root; keep compatibility with repo-root-relative
+    # references like "tools/foo.py" used across pf-files modules.
+    if not token.startswith(("./", "../")):
+        candidates.append((repo_root / script_path).resolve())
+
+    deduped: List[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = str(candidate)
+        if key not in seen:
+            seen.add(key)
+            deduped.append(candidate)
+    return deduped
+
+
 def _validate_task_shell_paths(repo_root: Path, tasks: Dict[str, object]) -> List[Issue]:
     issues: List[Issue] = []
 
     for task_name, task_obj in tasks.items():
         source_file = getattr(task_obj, "source_file", None)
-        task_dir = Path(source_file).resolve().parent if source_file else repo_root
+        task_dir = repo_root
         seen: set[Tuple[str, str]] = set()
 
         lines = getattr(task_obj, "lines", []) or []
@@ -159,17 +180,17 @@ def _validate_task_shell_paths(repo_root: Path, tasks: Dict[str, object]) -> Lis
                         j += 1
                     if j < len(tokens) and _looks_like_script_path(tokens[j]):
                         script_token = _normalize_token(tokens[j])
-                        script_path = Path(script_token).expanduser()
-                        resolved = script_path.resolve() if script_path.is_absolute() else (cwd / script_path).resolve()
-                        if not resolved.is_relative_to(repo_root):
+                        candidates = _candidate_script_paths(script_token, cwd, repo_root)
+                        if not any(candidate.is_relative_to(repo_root) for candidate in candidates):
                             i += 1
                             continue
+                        resolved = candidates[0]
                         key = (task_name, str(resolved))
                         if key in seen:
                             i += 1
                             continue
                         seen.add(key)
-                        if not resolved.exists():
+                        if not any(candidate.exists() for candidate in candidates):
                             issues.append(
                                 Issue(
                                     kind="path-missing",
@@ -183,13 +204,14 @@ def _validate_task_shell_paths(repo_root: Path, tasks: Dict[str, object]) -> Lis
 
                 # Directly executed scripts (e.g. `./containers/scripts/foo.sh`)
                 if _looks_like_script_path(tok) and (tok.startswith(("./", "../")) or "/" in tok):
-                    script_path = Path(tok).expanduser()
-                    resolved = script_path.resolve() if script_path.is_absolute() else (cwd / script_path).resolve()
-                    if resolved.is_relative_to(repo_root):
+                    candidates = _candidate_script_paths(tok, cwd, repo_root)
+                    in_repo_candidates = [c for c in candidates if c.is_relative_to(repo_root)]
+                    if in_repo_candidates:
+                        resolved = in_repo_candidates[0]
                         key = (task_name, str(resolved))
                         if key not in seen:
                             seen.add(key)
-                            if not resolved.exists():
+                            if not any(candidate.exists() for candidate in in_repo_candidates):
                                 issues.append(
                                     Issue(
                                         kind="path-missing",
@@ -205,15 +227,29 @@ def _validate_task_shell_paths(repo_root: Path, tasks: Dict[str, object]) -> Lis
 
 
 def _load_all_tasks(repo_root: Path, pfyfile_override: Optional[str]) -> Tuple[Dict[str, object], Optional[str]]:
-    sys.path.insert(0, str(repo_root / "pf-runner"))
-    import pf_config  # type: ignore
-    import pf_parser  # type: ignore
+    runner_path: Optional[Path] = None
+    for candidate in (repo_root / "pf-runner-full", repo_root / "pf-runner"):
+        if (candidate / "pf_parser.py").exists():
+            runner_path = candidate
+            break
+    if not runner_path:
+        raise RuntimeError("Unable to locate pf runner parser module (pf-runner-full/pf-runner).")
 
-    cfg, cfg_path = pf_config.load_config(start_dir=str(repo_root))
-    pf_parser.configure(cfg, str(cfg_path) if cfg_path else None)
+    sys.path.insert(0, str(runner_path))
+    import pf_parser  # type: ignore
 
     dsl_src, task_sources = pf_parser._load_pfy_source_with_includes(file_arg=pfyfile_override)
     tasks = pf_parser.parse_pfyfile_text(dsl_src, task_sources)
+    cfg_path: Optional[Path] = None
+    explicit_cfg = os.environ.get("PF_CONFIG_FILE")
+    if explicit_cfg:
+        candidate = Path(explicit_cfg).expanduser()
+        if candidate.exists():
+            cfg_path = candidate.resolve()
+    if cfg_path is None:
+        candidate = repo_root / "pf.config.json5"
+        if candidate.exists():
+            cfg_path = candidate
     return tasks, str(cfg_path) if cfg_path else None
 
 

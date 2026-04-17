@@ -11,10 +11,8 @@ This directory contains Quadlet configuration files for managing the polyglot de
 
 ## Pods
 
-1. **pf-web-pod** - Web services (API server, static files)
-2. **pf-build-pod** - Build environment (Rust, C, Fortran, WASM)
-3. **pf-security-pod** - Security and debugging tools
-4. **pf-dev-pod** - Development environment (pf-runner, TUI)
+1. **pf-main-pod** - Main pod used by `pf-web-service`, `pf-build-service`, `pf-security-service`, and `pf-dev-service`
+2. **pf-main-pod-gpu** - Optional GPU variant used by `pf-build-service-gpu`
 
 ## Usage
 
@@ -25,7 +23,7 @@ Copy these files to your systemd user directory:
 mkdir -p ~/.config/containers/systemd
 
 # Copy quadlet files
-cp quadlet/*.{pod,container,network,volume} ~/.config/containers/systemd/
+cp compose/quadlet/*.{pod,container,network,volume} ~/.config/containers/systemd/
 
 # Reload systemd
 systemctl --user daemon-reload
@@ -36,9 +34,9 @@ systemctl --user start pf-main-pod.service
 
 ## GPU Support
 
-For GPU support, use the GPU-enabled variants:
-- `pf-build-pod-gpu.pod`
-- `pf-security-pod-gpu.pod`
+For GPU support, use:
+- `pf-main-pod-gpu.pod`
+- `pf-build-service-gpu.container`
 
 ## Networking
 

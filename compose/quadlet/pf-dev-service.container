@@ -21,7 +21,7 @@ Volume=pf-builds:/builds:rw,z
 Volume=pf-cache:/cache:rw,z
 
 # Environment variables
-Environment=PYTHONPATH=/workspace/pf-runner:${PYTHONPATH}
+Environment=PYTHONPATH=/workspace/pf-runner-full:${PYTHONPATH}
 Environment=PATH=/home/pf/.local/bin:${PATH}
 
 # Working directory

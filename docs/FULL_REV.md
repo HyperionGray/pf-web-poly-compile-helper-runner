@@ -1,38 +1,55 @@
-# FULL review: `./aflfuzz/`
+# FULL VMKit Images Review
 
 Date: 2026-04-16
+Repository: `HyperionGray/pf-web-poly-compile-helper-runner`
+Scope: review of `./vmkit-images/` with root-level PF/PE integration checks.
 
-## Scope reviewed
-- `./aflfuzz/`
-- Root `Pfyfile.pf` delegation and fuzzing task sources used by current pf runner
-- Relevant fuzzing task definitions under `pf-files/vuln-hunting/Pfyfile.fuzzing.pf` and `pf/Pfyfile.fuzzing.pf`
+## What was reviewed
 
-## What was validated
-- Baseline project checks before changes:
-  - `npm run build` (passed)
-  - `npm run test:unit` (pre-existing unrelated failures)
-  - `npm run test:fuzz` (passed)
-- `aflfuzz` corpus/output structure is present and readable.
-- Recorded AFL command format in `aflfuzz/out/default/fuzzer_setup` is compatible with current `pf afl-fuzz` task model (input dir + output dir + target with `@@`).
-- Current root task loading path is through `pf-files/Pfyfile.pf`, which includes `vuln-hunting/Pfyfile.fuzzing.pf`.
+- Root integration paths that consume `vmkit-images/`:
+  - `scripts/pe/vmkit-setup.sh`
+  - `scripts/pe/vmkit-run.sh`
+  - `scripts/pe/vmkit-analyze.sh`
+  - `pf-files/Pfyfile.pe.pf`
+  - `pf-files/mult-exec/Pfyfile.pe-containers.pf`
+  - `containers/dockerfiles/Dockerfile.pe-vmkit`
+  - `docs/PE-EXECUTION.md`
+- Directory contents in `vmkit-images/`:
+  - `reactos.qcow2`
+  - `minimal.qcow2`
+  - `reactos-livecd.iso.REMOVED.git-id`
 
 ## Findings
-1. `./aflfuzz/` appears to be a preserved AFL run snapshot (seed + metadata), not a complete active campaign workspace.
-2. `aflfuzz/out/default/` currently contains metadata files (`cmdline`, `fuzzer_setup`, `plot_data`) but does not include full result subtrees (for example `queue/`, `crashes/`, `hangs/`).
-3. The canonical fuzzing task file (`pf-files/vuln-hunting/Pfyfile.fuzzing.pf`) is already aligned with current runner behavior.
-4. A secondary legacy copy (`pf/Pfyfile.fuzzing.pf`) had a bad AFL++ source-build path and was fixed in this round.
 
-## Changes made
-- Fixed AFL++ install path logic in:
-  - `pf/Pfyfile.fuzzing.pf`
-- Added this review document:
-  - `docs/FULL_REV.md`
+1. `vmkit-images/` naming is aligned with the current VMKit runner expectations:
+   - runtime default image: `/vmkit/images/reactos.qcow2`
+   - setup creates/uses `reactos.qcow2` and `minimal.qcow2`
+2. ReactOS ISO is intentionally not committed; this is explicitly marked by:
+   - `vmkit-images/reactos-livecd.iso.REMOVED.git-id`
+3. PF VMKit command surface is present and wired (`install-vmkit`, `setup-vmkit`, `run-vmkit`, `analyze-vmkit`).
+4. Integration fix applied: VMKit helper scripts used by PF tasks were missing execute permissions:
+   - `scripts/pe/vmkit-run.sh`
+   - `scripts/pe/vmkit-analyze.sh`
+   These now have executable permissions so PF task delegation works as intended.
 
-## Completeness status
-- **Review completeness:** complete for this round.
-- **`aflfuzz` data completeness as a fuzzing campaign:** **incomplete** (metadata snapshot present; full result corpus/artifacts not present).
+## Completeness status for `vmkit-images/`
 
-## Recommended next round (optional)
-- If full replay is desired, run a fresh campaign with current task flow, e.g.:
-  - `pf afl-fuzz target=./aflfuzz/ls input=./aflfuzz/in output=./aflfuzz/out time=5m`
-- Then capture and retain `queue/`, `crashes/`, `hangs/`, and `fuzzer_stats` for a fully complete campaign record.
+- `reactos.qcow2`: present
+- `minimal.qcow2`: present
+- `reactos-livecd.iso`: not present in git, **explicitly marked as removed** by `.REMOVED.git-id` marker
+
+Status: **Complete for repository-tracked VMKit assets**, with ISO absence explicitly marked.
+
+## Validation performed
+
+- `npm run build` (pass)
+- `npm run test:unit` (pre-existing unrelated failures exist in this repository baseline)
+- `node tests/containerization/pe-containers.test.mjs` (contains pre-existing unrelated failures)
+- `PF_PYTHON=/usr/bin/python3 ./pf.sh pe usage` (pass)
+- Added focused review test:
+  - `node tests/containerization/vmkit-images-review.test.mjs`
+
+## Notes
+
+- To regenerate/refresh VMKit images and fetch ReactOS ISO during setup flow, run:
+  - `PF_PYTHON=/usr/bin/python3 ./pf.sh pe setup-vmkit`
