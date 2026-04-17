@@ -1,4 +1,14 @@
-# pf web plugin (minimal)
+# pf runner entrypoint
+#
+# Execution model:
+#   1) Install/base-runner tasks live in this file (install, install-all, dev-setup).
+#   2) Feature modules are layered in via the include list below.
+#
+# Top-level dependency management is also supported in any Pfyfile:
+#   dep apt <package...>
+#   dep github <owner/repo[@ref]...>
+#   dep pip <pip-spec...>
+# These dependencies are installed automatically before running tasks.
 
 # Note: always-available tasks are loaded automatically by the pf runner (if present).
 
@@ -97,8 +107,8 @@ end
 # Root web compatibility wrappers now live in compat/Pfyfile.module-compat.pf.
 
 task install-help
-  describe Show install task choices (Debian .deb only)
-  shell printf '%s\n' "Install options:" "  pf install            # Install latest local .deb package" "  pf install-all        # pf install + tooling bundles" "  pf install-smoke-test # Minimal CI smoke of .deb installer"
+  describe Show base-runner and module install task choices (Debian .deb only)
+  shell printf '%s\n' "Install flow:" "  1) pf install         # Install base runner from latest local .deb package" "  2) pf install-all     # Add module/tooling bundles on top of base runner" "  3) pf install-smoke-test # Minimal CI smoke of .deb installer"
 end
 task install prefix="" skip_deps="false"
   describe Install pf runner via local Debian .deb package

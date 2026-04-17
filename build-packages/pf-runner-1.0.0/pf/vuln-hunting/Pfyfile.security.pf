@@ -1,5 +1,0 @@
-# Split into parts on 2026-02-14 to keep file < 340 lines.
-# Original file: Pfyfile.security.pf
-
-include Pfyfile.security.part1.pf
-include Pfyfile.security.part2.pf

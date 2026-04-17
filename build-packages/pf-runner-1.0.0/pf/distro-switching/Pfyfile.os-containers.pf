@@ -1,4 +1,0 @@
-# Aggregates os-containers tasks split for readability
-# Core tasks (build, volumes) and advanced usage live in separate files.
-include Pfyfile.os-containers.core.pf
-include Pfyfile.os-containers.advanced.pf

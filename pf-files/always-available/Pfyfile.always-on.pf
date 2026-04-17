@@ -108,7 +108,7 @@ task always-on-install-all [alias=aoia]
 echo "Installing always-on service units..."
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 PF_RUNNER_DIR=""
-for dir in "$ROOT/pf-runner-full" "$ROOT/pf-runner" "$ROOT/build-packages/pf-runner-1.0.0/pf-runner"; do
+for dir in "$ROOT/pf-runner-full" "$ROOT/pf-runner" "$ROOT/build-packages/deb/pf-runner-1.0.0/pf-runner"; do
   if [ -d "$dir" ]; then
     PF_RUNNER_DIR="$dir"
     break

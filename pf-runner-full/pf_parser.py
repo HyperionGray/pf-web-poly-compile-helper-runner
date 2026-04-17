@@ -99,6 +99,17 @@ PFY_EMBED = """
 # Default embedded tasks - shown when no Pfyfile is found
 """
 
+_DEPENDENCY_DIRECTIVES = {
+    "dep",
+    "deps",
+    "dependency",
+    "dependencies",
+}
+_APT_PACKAGE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.+-]*$")
+_GITHUB_REPO_RE = re.compile(
+    r"^(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+?)(?:\.git)?(?:@(?P<ref>[^#\s]+))?$"
+)
+
 # Import HELP_VARIATIONS from pf_args to avoid duplication
 try:
     from pf_args import HELP_VARIATIONS
@@ -1015,6 +1026,92 @@ class Task:
 def _read_text_file(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
+
+
+def _github_dep_to_pip_spec(raw_spec: str) -> Optional[str]:
+    """Normalize a GitHub dependency token into a pip-installable spec."""
+    spec = raw_spec.strip()
+    if not spec:
+        return None
+
+    if spec.startswith("git+"):
+        return spec
+
+    if spec.startswith(("https://", "http://", "ssh://", "git@")):
+        if "github.com/" in spec and not spec.startswith("git+"):
+            return f"git+{spec}"
+        return spec
+
+    match = _GITHUB_REPO_RE.match(spec)
+    if not match:
+        return None
+
+    owner = match.group("owner")
+    repo = match.group("repo")
+    ref = match.group("ref")
+    ref_suffix = f"@{ref}" if ref else ""
+    return f"git+https://github.com/{owner}/{repo}.git{ref_suffix}"
+
+
+def parse_pfyfile_dependencies(text: str) -> Dict[str, List[str]]:
+    """Parse top-level dependency declarations from Pfyfile text.
+
+    Supported directives (outside task blocks):
+      dep apt <pkg...>
+      dep github <owner/repo[@ref] | github_url...>
+      dep pip <spec...>
+    """
+    dependencies: Dict[str, List[str]] = {"apt": [], "pip": []}
+    in_task = False
+
+    for raw_line in text.splitlines():
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped.startswith("task "):
+            in_task = True
+            continue
+        if in_task and stripped == "end":
+            in_task = False
+            continue
+        if in_task:
+            continue
+
+        try:
+            tokens = shlex.split(stripped)
+        except ValueError:
+            tokens = stripped.split()
+
+        if len(tokens) < 3:
+            continue
+        if tokens[0].lower() not in _DEPENDENCY_DIRECTIVES:
+            continue
+
+        manager = tokens[1].lower()
+        specs = tokens[2:]
+
+        if manager in {"apt", "apt-get"}:
+            for pkg in specs:
+                if _APT_PACKAGE_RE.match(pkg):
+                    if pkg not in dependencies["apt"]:
+                        dependencies["apt"].append(pkg)
+            continue
+
+        if manager == "github":
+            for spec in specs:
+                pip_spec = _github_dep_to_pip_spec(spec)
+                if pip_spec and pip_spec not in dependencies["pip"]:
+                    dependencies["pip"].append(pip_spec)
+            continue
+
+        if manager == "pip":
+            for spec in specs:
+                normalized = _github_dep_to_pip_spec(spec) if "github.com" in spec else spec
+                if normalized and normalized not in dependencies["pip"]:
+                    dependencies["pip"].append(normalized)
+            continue
+
+    return dependencies
 
 
 def _expand_includes_from_text(

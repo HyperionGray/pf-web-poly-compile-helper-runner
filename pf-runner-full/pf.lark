@@ -14,7 +14,7 @@
 
 start: lang_shebang? statement+
 
-statement: lang_shebang | env_var | task | comment
+statement: lang_shebang | env_var | dependency_decl | task | comment
 
 // Comments start with # and continue to end of line
 comment: COMMENT
@@ -22,6 +22,13 @@ comment: COMMENT
 // Global environment variable definition: env name="value"
 // Used for setting repository-wide or project-level configuration
 env_var: "env" IDENTIFIER "=" STRING
+
+// Top-level dependency declarations, installed before task execution.
+// Examples:
+//   dep apt curl jq
+//   dep github owner/repo@main
+//   dep pip "requests>=2.31"
+dependency_decl: ("dep" | "deps" | "dependency" | "dependencies") IDENTIFIER TEXT_LINE
 
 // Task definition with optional parameters and aliases
 // Parameters can appear in any order before the task name or after it
