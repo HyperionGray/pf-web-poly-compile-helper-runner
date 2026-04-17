@@ -1,70 +1,55 @@
-# FULL_REV: `./src/` review against current project + pf runner
+# FULL VMKit Images Review
 
 Date: 2026-04-16
+Repository: `HyperionGray/pf-web-poly-compile-helper-runner`
+Scope: review of `./vmkit-images/` with root-level PF/PE integration checks.
 
-## Scope reviewed
-- `src/` tree and its relationship to top-level runtime files (`pf-files/`, `pf/`, `tools/`, `pf-runner-full/`, `Pfyfile.pf`)
-- Current pf runner behavior via `python3 pf-runner-full/pf_main.py`
-- Task/script path compatibility for enhanced workflow tasks
+## What was reviewed
 
-## Baseline state before changes
-- `npm run build` passed.
-- `npm run test:unit` had pre-existing failures unrelated to this patch (6 failing suites, 48 failing tests).
-- `python3 -m pytest` was unavailable in this environment (pytest not installed).
-- `python3 pf-runner-full/pf_main.py list` worked and listed modules/tasks.
+- Root integration paths that consume `vmkit-images/`:
+  - `scripts/pe/vmkit-setup.sh`
+  - `scripts/pe/vmkit-run.sh`
+  - `scripts/pe/vmkit-analyze.sh`
+  - `pf-files/Pfyfile.pe.pf`
+  - `pf-files/mult-exec/Pfyfile.pe-containers.pf`
+  - `containers/dockerfiles/Dockerfile.pe-vmkit`
+  - `docs/PE-EXECUTION.md`
+- Directory contents in `vmkit-images/`:
+  - `reactos.qcow2`
+  - `minimal.qcow2`
+  - `reactos-livecd.iso.REMOVED.git-id`
 
-## `src/` parity findings
-Automated comparison of files under `src/` to same relative paths at repo root:
-- Total files scanned: 472
-- Same as root: 445
-- Different from root: 25
-- Present only in `src/`: 2
+## Findings
 
-Most `src/` content is a near-mirror of root. The key functional gap found from this review was in enhanced workflow helpers expected by current pf tasks.
+1. `vmkit-images/` naming is aligned with the current VMKit runner expectations:
+   - runtime default image: `/vmkit/images/reactos.qcow2`
+   - setup creates/uses `reactos.qcow2` and `minimal.qcow2`
+2. ReactOS ISO is intentionally not committed; this is explicitly marked by:
+   - `vmkit-images/reactos-livecd.iso.REMOVED.git-id`
+3. PF VMKit command surface is present and wired (`install-vmkit`, `setup-vmkit`, `run-vmkit`, `analyze-vmkit`).
+4. Integration fix applied: VMKit helper scripts used by PF tasks were missing execute permissions:
+   - `scripts/pe/vmkit-run.sh`
+   - `scripts/pe/vmkit-analyze.sh`
+   These now have executable permissions so PF task delegation works as intended.
 
-## Functional issues found (and fixed)
+## Completeness status for `vmkit-images/`
 
-### 1) Missing enhanced workflow helper scripts in root `tools/`
-Current pf task definitions (`pf-files/enhanced-tasks/Pfyfile.enhanced-workflows.pf`) invoke:
-- `tools/enhanced-workflows/binary_analyzer.py`
-- `tools/enhanced-workflows/report_generator.py`
+- `reactos.qcow2`: present
+- `minimal.qcow2`: present
+- `reactos-livecd.iso`: not present in git, **explicitly marked as removed** by `.REMOVED.git-id` marker
 
-These existed in `src/tools/enhanced-workflows/` but were missing at root.
+Status: **Complete for repository-tracked VMKit assets**, with ISO absence explicitly marked.
 
-**Fix applied:**
-- Added:
-  - `tools/enhanced-workflows/binary_analyzer.py`
-  - `tools/enhanced-workflows/report_generator.py`
+## Validation performed
 
-### 2) `enhanced-binary-analysis` task argument compatibility
-`enhanced-binary-analysis` passes `--comprehensive`, but delegated analyzer/checksec path did not accept it.
+- `npm run build` (pass)
+- `npm run test:unit` (pre-existing unrelated failures exist in this repository baseline)
+- `node tests/containerization/pe-containers.test.mjs` (contains pre-existing unrelated failures)
+- `PF_PYTHON=/usr/bin/python3 ./pf.sh pe usage` (pass)
+- Added focused review test:
+  - `node tests/containerization/vmkit-images-review.test.mjs`
 
-**Fix applied:**
-- Updated `tools/enhanced-workflows/binary_analyzer.py` to ignore `--comprehensive` while forwarding supported args.
+## Notes
 
-### 3) `checksec-unified` flag compatibility
-Task definitions use `${json:+--json}` while `tools/unified/unified_checksec.py` only supported `--format json`.
-
-**Fix applied:**
-- Added `--json` alias support in `tools/unified/unified_checksec.py`.
-
-### 4) Legacy `pf/` task file path mismatch
-`pf/Pfyfile.enhanced-workflows.pf` referenced a non-existent `tools/enhanced-workflows/unified_checksec.py`.
-
-**Fix applied:**
-- Updated that task to call `tools/unified/unified_checksec.py`.
-
-## Validation after changes
-- `python3 tools/enhanced-workflows/binary_analyzer.py /bin/ls --json` ✅
-- `python3 tools/enhanced-workflows/report_generator.py --target /bin/ls --output /tmp/full-rev-report.json` ✅
-- `python3 pf-runner-full/pf_main.py enhanced-binary-analysis binary=/bin/ls` ✅
-- `python3 pf-runner-full/pf_main.py checksec-unified binary=/bin/ls json=true` ✅
-
-## Marked incomplete / follow-up
-To keep this change surgical, this review does **not** fully rework the broad enhanced workflow subsystem.
-The following are still intentionally incomplete and should be handled in a dedicated follow-up:
-- `tools/enhanced-workflows/workflow_orchestrator.py` contains many placeholder implementations (`"... not implemented"`).
-- `tools/enhanced-workflows/README.md` lists additional components that are not all present as production-grade implementations.
-- Unit test suite still has many pre-existing failures unrelated to this targeted compatibility fix.
-
-Status for this round: **core `src`-to-root enhanced workflow compatibility gaps affecting current pf runner tasks are fixed; broader enhanced workflow completeness remains explicitly marked incomplete.**
+- To regenerate/refresh VMKit images and fetch ReactOS ISO during setup flow, run:
+  - `PF_PYTHON=/usr/bin/python3 ./pf.sh pe setup-vmkit`
