@@ -3,7 +3,7 @@
 
 task install-git-filter-repo
   describe Install git-filter-repo for safe git history rewriting
-  shell pip3 install --user git-filter-repo || pip install --user git-filter-repo
+  shell pip install --break-system-packages git-filter-repo
 end
 
 task git-cleanup-interactive

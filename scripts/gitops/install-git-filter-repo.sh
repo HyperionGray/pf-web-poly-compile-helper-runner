@@ -9,9 +9,9 @@ fi
 echo "Installing git-filter-repo..."
 
 if command -v pip3 >/dev/null 2>&1; then
-  pip3 install --user --break-system-packages git-filter-repo
+  pip3 install --break-system-packages git-filter-repo
 elif command -v pip >/dev/null 2>&1; then
-  pip install --user --break-system-packages git-filter-repo
+  pip install --break-system-packages git-filter-repo
 else
   echo "[ERR] pip/pip3 not found; install Python/pip and rerun"
   exit 1

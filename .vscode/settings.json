@@ -5,12 +5,14 @@
     "python.linting.pylintEnabled": true,
     "python.linting.banditEnabled": true,
     "python.formatting.provider": "black",
-    "python.formatting.blackArgs": ["--line-length=120"],
+    "python.formatting.blackArgs": [
+        "--line-length=120"
+    ],
     "eslint.enable": true,
     "eslint.format.enable": true,
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
-        "source.organizeImports": true
+        "source.organizeImports": "explicit"
     },
     "files.exclude": {
         "**/__pycache__": true,

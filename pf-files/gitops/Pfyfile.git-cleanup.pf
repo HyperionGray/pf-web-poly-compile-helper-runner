@@ -4,13 +4,12 @@
 task install-git-filter-repo
   describe Install git-filter-repo (required for history rewriting)
   shell_lang bash
-  shell |
-    set -euo pipefail
-    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-    bash "$ROOT/scripts/gitops/install-git-filter-repo.sh"
+  shell set -euo pipefail
+  shell ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  shell bash "$ROOT/scripts/gitops/install-git-filter-repo.sh"
 end
 
-task git-cleanup
+task clean
   describe Interactive TUI: remove large files from git history (uses git-filter-repo)
   shell_lang bash
   shell |
@@ -19,7 +18,7 @@ task git-cleanup
     node "$ROOT/tools/git-cleanup.mjs"
 end
 
-task git-cleanup-help
+task cleaner-tui "help=False"
   describe Show quick help for git-cleanup
   shell echo "Git Cleanup"
   shell echo ""
@@ -31,13 +30,12 @@ task git-cleanup-help
   shell echo "Docs: docs/GIT-CLEANUP.md"
 end
 
-task git-analyze-large-files min_mb="1" limit="50"
+task git-analyze-large-files min_mb="1" limit="50" remove="false"
   describe List largest blobs in git history (min_mb and limit)
   shell_lang bash
-  shell |
-    set -euo pipefail
-    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-    bash "$ROOT/scripts/gitops/git-analyze-large-files.sh" ${min_mb:-1} ${limit:-50}
+  shell ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  shell echo $ROOT is root
+  shell min_mb=1 limit=50 $ROOT/scripts/gitops/git-analyze-large-files.sh           
 end
 
 task git-repo-size
