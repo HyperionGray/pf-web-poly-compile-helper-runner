@@ -9,7 +9,7 @@ version: '3.8'
 services:
   web-service:
     build:
-      context: .
+      context: ..
       dockerfile: containers/web-services/Dockerfile
     image: localhost/pf-web-services:latest
     container_name: pf-web-service
@@ -20,7 +20,7 @@ services:
       - pf-workspace:/workspace:rw
       - pf-builds:/builds:rw
       - pf-cache:/cache:rw
-      - ./demos/pf-web-polyglot-demo-plus-c/web:/app/web:ro
+      - ../demos/pf-web-polyglot-demo-plus-c/web:/app/web:ro
     environment:
       - NODE_ENV=production
       - PORT=8080
@@ -44,7 +44,7 @@ services:
 
   build-service:
     build:
-      context: .
+      context: ..
       dockerfile: containers/build-environment/Dockerfile
     image: localhost/pf-build-environment:latest
     container_name: pf-build-service
@@ -52,7 +52,7 @@ services:
       - pf-workspace:/workspace:rw
       - pf-builds:/builds:rw
       - pf-cache:/cache:rw
-      - .:/workspace:rw
+      - ../:/workspace:rw
     environment:
       - WORKSPACE=/workspace
       - BUILD_OUTPUT=/builds
@@ -74,7 +74,7 @@ services:
 
   security-service:
     build:
-      context: .
+      context: ..
       dockerfile: containers/security-tools/Dockerfile
     image: localhost/pf-security-tools:latest
     container_name: pf-security-service
@@ -82,7 +82,7 @@ services:
       - pf-workspace:/workspace:rw
       - pf-builds:/builds:rw
       - pf-cache:/cache:rw
-      - .:/workspace:rw
+      - ../:/workspace:rw
     environment:
       - WORKSPACE=/workspace
     networks:
@@ -108,7 +108,7 @@ services:
 
   dev-service:
     build:
-      context: .
+      context: ..
       dockerfile: containers/development/Dockerfile
     image: localhost/pf-development:latest
     container_name: pf-dev-service
@@ -116,9 +116,9 @@ services:
       - pf-workspace:/workspace:rw
       - pf-builds:/builds:rw
       - pf-cache:/cache:rw
-      - .:/workspace:rw
+      - ../:/workspace:rw
     environment:
-      - PYTHONPATH=/workspace/pf-runner
+      - PYTHONPATH=/workspace/pf-runner-full
       - PATH=/home/pf/.local/bin:${PATH}
     networks:
       - pf-network
