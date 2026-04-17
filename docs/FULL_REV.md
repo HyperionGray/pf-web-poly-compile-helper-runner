@@ -1,51 +1,55 @@
-# FULL review: `./debian/`
+# FULL VMKit Images Review
 
-## Scope
-- Reviewed `./debian/`
-- Reviewed root-level packaging/build references that interact with Debian packaging
+Date: 2026-04-16
+Repository: `HyperionGray/pf-web-poly-compile-helper-runner`
+Scope: review of `./vmkit-images/` with root-level PF/PE integration checks.
 
-## Repository/context checks performed
-- Root files and task runner entrypoints reviewed (`./README.md`, `./Pfyfile.pf`, `./pf-runner-full/Makefile`, `./scripts/build-packages.sh`, `./test_installers.sh`)
-- Existing Debian packaging variants reviewed (`./debian/`, `./deb/`, `./third-party/archive/debian/`)
-- Baseline validation executed before changes:
-  - `npm run build` ✅
+## What was reviewed
 
-## `./debian/` file-by-file review
+- Root integration paths that consume `vmkit-images/`:
+  - `scripts/pe/vmkit-setup.sh`
+  - `scripts/pe/vmkit-run.sh`
+  - `scripts/pe/vmkit-analyze.sh`
+  - `pf-files/Pfyfile.pe.pf`
+  - `pf-files/mult-exec/Pfyfile.pe-containers.pf`
+  - `containers/dockerfiles/Dockerfile.pe-vmkit`
+  - `docs/PE-EXECUTION.md`
+- Directory contents in `vmkit-images/`:
+  - `reactos.qcow2`
+  - `minimal.qcow2`
+  - `reactos-livecd.iso.REMOVED.git-id`
 
-### `debian/control`
-- Contains source stanza + split binary package metadata:
-  - `pf-runner-core`
-  - `pf-runner-langs`
-  - `pf-runner-tools`
-  - `pf-runner` (metapackage)
-- This is metadata only and is **not sufficient by itself** to produce packages.
+## Findings
 
-### `debian/AGENTS.md`, `debian/rules.json5`, `debian/.copilot_rules`
-- Policy/instruction files only.
-- Do not provide Debian build mechanics.
+1. `vmkit-images/` naming is aligned with the current VMKit runner expectations:
+   - runtime default image: `/vmkit/images/reactos.qcow2`
+   - setup creates/uses `reactos.qcow2` and `minimal.qcow2`
+2. ReactOS ISO is intentionally not committed; this is explicitly marked by:
+   - `vmkit-images/reactos-livecd.iso.REMOVED.git-id`
+3. PF VMKit command surface is present and wired (`install-vmkit`, `setup-vmkit`, `run-vmkit`, `analyze-vmkit`).
+4. Integration fix applied: VMKit helper scripts used by PF tasks were missing execute permissions:
+   - `scripts/pe/vmkit-run.sh`
+   - `scripts/pe/vmkit-analyze.sh`
+   These now have executable permissions so PF task delegation works as intended.
 
-## Cross-repo compatibility findings
-1. `./pf-runner-full/Makefile` still references Debian package artifacts including `./debian/build/pf-runner_*.deb` (from repo root context).
-2. `./test_installers.sh` checks `./debian/build/pf-runner_1.0.0.deb` in its Debian package test section.
-3. `./scripts/build-packages.sh` uses a `dpkg-buildpackage` flow and expects Debian source-package files such as `./debian/changelog`.
-4. Current root `debian/` lacks required executable packaging files and therefore is not complete for current referenced flows.
+## Completeness status for `vmkit-images/`
 
-## Completeness decision
-Status: **INCOMPLETE (explicitly marked)**
+- `reactos.qcow2`: present
+- `minimal.qcow2`: present
+- `reactos-livecd.iso`: not present in git, **explicitly marked as removed** by `.REMOVED.git-id` marker
 
-A completion marker has been added at:
-- `./debian/REVIEW_STATUS.md`
+Status: **Complete for repository-tracked VMKit assets**, with ISO absence explicitly marked.
 
-This fulfills the requirement to mark incompleteness when full completion cannot be safely delivered in one surgical round without broader packaging refactor/synchronization.
+## Validation performed
 
-## What would be needed for full completion
-1. Port a complete Debian packaging set into `./debian/` (including at least build rules and changelog, plus any required maintainer scripts).
-2. Reconcile packaging paths/install layout with current pf runner structure (`pf-runner` symlink -> `pf-runner-full`, no `setup.py` in current runner tree).
-3. Build package from `./debian/` and validate install/run smoke tests:
-   - package build success
-   - `pf -V`
-   - `pf list`
+- `npm run build` (pass)
+- `npm run test:unit` (pre-existing unrelated failures exist in this repository baseline)
+- `node tests/containerization/pe-containers.test.mjs` (contains pre-existing unrelated failures)
+- `PF_PYTHON=/usr/bin/python3 ./pf.sh pe usage` (pass)
+- Added focused review test:
+  - `node tests/containerization/vmkit-images-review.test.mjs`
 
-## Notes on minimal-change approach taken
-- Kept this PR surgical and documentation-focused for the requested review.
-- Did not introduce broad packaging rewrites that could break existing parallel packaging paths (`deb/`, `build-packages/`, archived variants) without a dedicated migration round.
+## Notes
+
+- To regenerate/refresh VMKit images and fetch ReactOS ISO during setup flow, run:
+  - `PF_PYTHON=/usr/bin/python3 ./pf.sh pe setup-vmkit`
