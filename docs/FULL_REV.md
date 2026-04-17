@@ -1,48 +1,55 @@
-# Full review: `./compose/` vs current pf runner
+# FULL VMKit Images Review
 
-Date: 2026-04-16  
+Date: 2026-04-16
 Repository: `HyperionGray/pf-web-poly-compile-helper-runner`
+Scope: review of `./vmkit-images/` with root-level PF/PE integration checks.
 
-## Scope reviewed
+## What was reviewed
 
-- Root runtime entrypoints used by the current pf runner:
-  - `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/podman-compose.yml`
-  - `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/pf-files/containers/Pfyfile.containers.pf`
-  - `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/containers/scripts/run-dev.sh`
-- Compose area:
-  - `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/compose/docker-compose.yml`
-  - `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/compose/docker-compose.gpu.yml`
-  - `/home/runner/work/pf-web-poly-compile-helper-runner/pf-web-poly-compile-helper-runner/compose/quadlet/*`
+- Root integration paths that consume `vmkit-images/`:
+  - `scripts/pe/vmkit-setup.sh`
+  - `scripts/pe/vmkit-run.sh`
+  - `scripts/pe/vmkit-analyze.sh`
+  - `pf-files/Pfyfile.pe.pf`
+  - `pf-files/mult-exec/Pfyfile.pe-containers.pf`
+  - `containers/dockerfiles/Dockerfile.pe-vmkit`
+  - `docs/PE-EXECUTION.md`
+- Directory contents in `vmkit-images/`:
+  - `reactos.qcow2`
+  - `minimal.qcow2`
+  - `reactos-livecd.iso.REMOVED.git-id`
 
-## What was fixed in this round
+## Findings
 
-1. `compose/docker-compose.yml`
-   - Updated `build.context` from `.` to `..` for all services so Dockerfiles under `containers/*` resolve from repo root.
-   - Updated bind mounts from `./...` to `../...` where they are intended to mount repository-root content.
-   - Updated dev service `PYTHONPATH` from `/workspace/pf-runner` to `/workspace/pf-runner-full` to match the current repository layout.
-2. `compose/quadlet/pf-dev-service.container`
-   - Updated `PYTHONPATH` to `/workspace/pf-runner-full:${PYTHONPATH}` for the same runner-path alignment.
-3. `compose/quadlet/README.md`
-   - Corrected pod names and GPU file references to match the actual files present in `compose/quadlet/`.
-   - Corrected copy command path to use `compose/quadlet/`.
+1. `vmkit-images/` naming is aligned with the current VMKit runner expectations:
+   - runtime default image: `/vmkit/images/reactos.qcow2`
+   - setup creates/uses `reactos.qcow2` and `minimal.qcow2`
+2. ReactOS ISO is intentionally not committed; this is explicitly marked by:
+   - `vmkit-images/reactos-livecd.iso.REMOVED.git-id`
+3. PF VMKit command surface is present and wired (`install-vmkit`, `setup-vmkit`, `run-vmkit`, `analyze-vmkit`).
+4. Integration fix applied: VMKit helper scripts used by PF tasks were missing execute permissions:
+   - `scripts/pe/vmkit-run.sh`
+   - `scripts/pe/vmkit-analyze.sh`
+   These now have executable permissions so PF task delegation works as intended.
 
-## Review results (complete vs pending)
+## Completeness status for `vmkit-images/`
 
-### Complete in this round
+- `reactos.qcow2`: present
+- `minimal.qcow2`: present
+- `reactos-livecd.iso`: not present in git, **explicitly marked as removed** by `.REMOVED.git-id` marker
 
-- Path/layout correctness for compose files relative to repo root.
-- pf-runner Python path alignment (`pf-runner-full`) in compose + quadlet dev service.
-- Quadlet README accuracy for existing local quadlet filenames.
+Status: **Complete for repository-tracked VMKit assets**, with ISO absence explicitly marked.
 
-### Marked pending (cannot be fully closed in one round here)
+## Validation performed
 
-1. **Runtime execution validation for `compose/` files**
-   - The sandbox does not currently provide `podman-compose` (`command not found`), so live `up/down/config` execution for `compose/docker-compose*.yml` could not be run in this environment.
-2. **Direct wiring to pf task commands**
-   - Current pf tasks (`compose-up`, `compose-down`, etc.) use root `podman-compose.yml`, not `compose/docker-compose.yml`.
-   - `compose/` now has corrected paths and runner references, but is still a parallel stack and not the active pf task target.
+- `npm run build` (pass)
+- `npm run test:unit` (pre-existing unrelated failures exist in this repository baseline)
+- `node tests/containerization/pe-containers.test.mjs` (contains pre-existing unrelated failures)
+- `PF_PYTHON=/usr/bin/python3 ./pf.sh pe usage` (pass)
+- Added focused review test:
+  - `node tests/containerization/vmkit-images-review.test.mjs`
 
-## Suggested follow-up (next round)
+## Notes
 
-- If `compose/` should be the active stack, update pf tasks/scripts to target `compose/docker-compose.yml` (or add a dedicated `pf compose2-*` command set), then run end-to-end container smoke tests.
-- If root `podman-compose.yml` is the intended single source of truth, document `compose/` as legacy/alternate to avoid operator confusion.
+- To regenerate/refresh VMKit images and fetch ReactOS ISO during setup flow, run:
+  - `PF_PYTHON=/usr/bin/python3 ./pf.sh pe setup-vmkit`
