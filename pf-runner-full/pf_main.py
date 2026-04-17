@@ -27,7 +27,6 @@ import sys
 import atexit
 import shutil
 import tempfile
-import traceback
 import difflib
 import shlex
 import textwrap
@@ -93,6 +92,30 @@ class PfRunner:
         self.builtin_handler = BuiltinCommandHandler()
         self.task_executor = TaskExecutor()
         self.autocorrect = None
+
+    @staticmethod
+    def _debug_tracebacks_enabled() -> bool:
+        """Return True when verbose traceback output is explicitly enabled."""
+        value = os.getenv("PF_DEBUG", "")
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+
+    def _format_short_exception(self, exc: Exception) -> str:
+        """Return a concise exception message suitable for non-debug output."""
+        if isinstance(exc, PFException):
+            return exc.message
+        return str(exc) or type(exc).__name__
+
+    def _print_cli_failure(self, exc: Exception, *, show_usage: bool = True) -> None:
+        """Print failure output with optional full traceback in debug mode."""
+        include_traceback = self._debug_tracebacks_enabled()
+        if include_traceback:
+            print(format_exception_for_user(exc, include_traceback=True), file=sys.stderr)
+            return
+
+        print(f"Error: {self._format_short_exception(exc)}", file=sys.stderr)
+        if show_usage:
+            self.arg_parser.parser.print_usage(file=sys.stderr)
+            print("Set PF_DEBUG=1 to show full traceback details.", file=sys.stderr)
 
     def discover_subcommands(self, pfyfile: Optional[str] = None) -> Dict[str, List[str]]:
         """Discover and register subcommands from included files."""
@@ -300,12 +323,10 @@ class PfRunner:
                 )
                 
         except PFException as e:
-            # Our custom exceptions - show full context
-            print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
+            self._print_cli_failure(e)
             return 1
         except Exception as e:
-            # Unexpected exceptions - show with context
-            print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
+            self._print_cli_failure(e)
             return 1
     
     def _handle_prune_command(self, args) -> int:
@@ -482,9 +503,7 @@ class PfRunner:
                 pass
             return 0
         except Exception as e:
-            print(f"Error listing tasks: {e}", file=sys.stderr)
-            print("\nTraceback:", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
+            self._print_cli_failure(e, show_usage=False)
             return 1
     
     def _handle_help_command(self, args) -> int:
@@ -635,7 +654,7 @@ class PfRunner:
             return self._execute_on_hosts(selected_tasks, merged_hosts, args, global_env)
             
         except Exception as e:
-            print(f"Error executing tasks: {e}", file=sys.stderr)
+            self._print_cli_failure(e)
             return 1
     
     def _parse_task_arguments(
@@ -1212,10 +1231,10 @@ class PfRunner:
                 try:
                     rc = future.result()
                 except PFException as e:
-                    print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
+                    self._print_cli_failure(e, show_usage=False)
                     rc = 1
                 except Exception as e:
-                    print(format_exception_for_user(e, include_traceback=True), file=sys.stderr)
+                    self._print_cli_failure(e, show_usage=False)
                     rc = 1
                 rc_total = rc_total or rc
         except KeyboardInterrupt:

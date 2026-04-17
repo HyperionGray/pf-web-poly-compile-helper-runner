@@ -2,10 +2,13 @@
 
 import contextlib
 import io
+import os
 import tempfile
 import textwrap
+from unittest.mock import patch
 
 from pf_main import PfRunner
+from pf_exceptions import PFExecutionError
 
 
 class TestVersionCommand:
@@ -59,3 +62,33 @@ class TestListCommandEdgeCases:
             assert rc == 0
             assert "hello" in stdout.getvalue()
             assert "Greet the user" in stdout.getvalue()
+
+
+class TestErrorOutput:
+    def test_failure_shows_short_error_and_usage_when_pf_debug_is_off(self):
+        stderr = io.StringIO()
+        runner = PfRunner()
+        with patch.object(runner, "_handle_run_command", side_effect=PFExecutionError(message="boom")):
+            with patch.dict(os.environ, {"PF_DEBUG": "0"}):
+                with contextlib.redirect_stderr(stderr):
+                    rc = runner.run_command(["run", "demo-task"])
+
+        output = stderr.getvalue()
+        assert rc == 1
+        assert "Error: boom" in output
+        assert "usage: pf" in output
+        assert "--env" in output
+        assert "Python Traceback:" not in output
+
+    def test_failure_shows_full_traceback_when_pf_debug_is_on(self):
+        stderr = io.StringIO()
+        runner = PfRunner()
+        with patch.object(runner, "_handle_run_command", side_effect=PFExecutionError(message="boom")):
+            with patch.dict(os.environ, {"PF_DEBUG": "1"}):
+                with contextlib.redirect_stderr(stderr):
+                    rc = runner.run_command(["run", "demo-task"])
+
+        output = stderr.getvalue()
+        assert rc == 1
+        assert "PF ERROR" in output
+        assert "Python Traceback:" in output
