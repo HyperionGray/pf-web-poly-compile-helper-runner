@@ -170,24 +170,14 @@ Let's get you up and running quickly!
 
 ### Step 1: Install pf
 
-**Option A: Quick Install (Recommended)**
+**Debian package install (recommended)**
 
 ```bash
 git clone https://github.com/HyperionGray/pf-web-poly-compile-helper-runner.git
 cd pf-web-poly-compile-helper-runner
-./quick-install.sh
-```
-
-**Option B: Container Install**
-
-```bash
-./install.sh --runtime podman
-```
-
-**Option C: Native Install (No Containers)**
-
-```bash
-./install.sh --mode native --prefix ~/.local
+./deb/build-deb.sh 1.0.0
+sudo dpkg -i deb/build/pf-runner_1.0.0.deb
+sudo apt-get install -f -y
 ```
 
 ### Step 2: Verify Installation

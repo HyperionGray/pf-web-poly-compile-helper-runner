@@ -1,49 +1,55 @@
-# Full Review: `pf-runner-full/`
+# FULL VMKit Images Review
 
-- Date: 2026-04-16
-- Scope reviewed:
-  - `pf-runner-full/` runtime, packaging metadata, tests, and docs links
-  - Root linkage into current runner (`pf-runner -> pf-runner-full`, `pf.sh`, root `Pfyfile.pf`)
+Date: 2026-04-16
+Repository: `HyperionGray/pf-web-poly-compile-helper-runner`
+Scope: review of `./vmkit-images/` with root-level PF/PE integration checks.
 
-## Completion Status
+## What was reviewed
 
-- [x] Clean up this directory (no new artifacts included in this review change)
-- [x] Confirm `pf-runner-full` is the active runner path for the repository
-- [x] Validate `pf` entrypoint behavior against current root/task layout
-- [x] Verify test coverage in `pf-runner-full/tests`
-- [x] Fix completeness gap found during review
-- [x] Document results in `docs/FULL_REV.md`
+- Root integration paths that consume `vmkit-images/`:
+  - `scripts/pe/vmkit-setup.sh`
+  - `scripts/pe/vmkit-run.sh`
+  - `scripts/pe/vmkit-analyze.sh`
+  - `pf-files/Pfyfile.pe.pf`
+  - `pf-files/mult-exec/Pfyfile.pe-containers.pf`
+  - `containers/dockerfiles/Dockerfile.pe-vmkit`
+  - `docs/PE-EXECUTION.md`
+- Directory contents in `vmkit-images/`:
+  - `reactos.qcow2`
+  - `minimal.qcow2`
+  - `reactos-livecd.iso.REMOVED.git-id`
 
-## What was validated
+## Findings
 
-1. **Root -> runner wiring is correct**
-   - `pf-runner` is a symlink to `pf-runner-full`
-   - `pf.sh` dispatches to `pf-runner-full/pf_universal` (fallback `pf`)
-   - `pf-runner-full/pf` and `pf_universal` both route through `pf_runtime.sh` into `pf_main.py`
+1. `vmkit-images/` naming is aligned with the current VMKit runner expectations:
+   - runtime default image: `/vmkit/images/reactos.qcow2`
+   - setup creates/uses `reactos.qcow2` and `minimal.qcow2`
+2. ReactOS ISO is intentionally not committed; this is explicitly marked by:
+   - `vmkit-images/reactos-livecd.iso.REMOVED.git-id`
+3. PF VMKit command surface is present and wired (`install-vmkit`, `setup-vmkit`, `run-vmkit`, `analyze-vmkit`).
+4. Integration fix applied: VMKit helper scripts used by PF tasks were missing execute permissions:
+   - `scripts/pe/vmkit-run.sh`
+   - `scripts/pe/vmkit-analyze.sh`
+   These now have executable permissions so PF task delegation works as intended.
 
-2. **Current runner behavior works with project task tree**
-   - `pf-runner-full/pf version` succeeds
-   - `pf-runner-full/pf list` succeeds and lists expected root tasks/modules
-   - `pf.sh version` and `pf.sh list` also succeed through the same runtime path
+## Completeness status for `vmkit-images/`
 
-3. **Test suite status**
-   - `pf-runner-full/tests`: **89 passed**
+- `reactos.qcow2`: present
+- `minimal.qcow2`: present
+- `reactos-livecd.iso`: not present in git, **explicitly marked as removed** by `.REMOVED.git-id` marker
 
-## Gap found + fix applied
+Status: **Complete for repository-tracked VMKit assets**, with ISO absence explicitly marked.
 
-### Gap
-`pf_runtime.sh` requires `fabric`, `lark`, `typer`, `json5`, and `rich`, but `pf-runner-full` default package dependencies only declared the first three (plus API deps). This made dependency metadata incomplete for normal runtime expectations.
+## Validation performed
 
-### Fix
-Added missing runtime dependencies to package metadata:
-- `json5>=0.12`
-- `rich>=13`
-
-Updated files:
-- `pf-runner-full/pyproject.toml`
-- `pf-runner-full/pf_runner.egg-info/requires.txt`
-- `pf-runner-full/pf_runner.egg-info/PKG-INFO`
+- `npm run build` (pass)
+- `npm run test:unit` (pre-existing unrelated failures exist in this repository baseline)
+- `node tests/containerization/pe-containers.test.mjs` (contains pre-existing unrelated failures)
+- `PF_PYTHON=/usr/bin/python3 ./pf.sh pe usage` (pass)
+- Added focused review test:
+  - `node tests/containerization/vmkit-images-review.test.mjs`
 
 ## Notes
 
-- The checked-in local venv symlink (`pf-runner-full/.venv/bin/python3 -> /usr/local/bin/python3`) is environment-specific and not relied on for this review. Runtime validation was performed with system Python plus declared dependencies.
+- To regenerate/refresh VMKit images and fetch ReactOS ISO during setup flow, run:
+  - `PF_PYTHON=/usr/bin/python3 ./pf.sh pe setup-vmkit`
