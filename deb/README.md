@@ -10,6 +10,9 @@ This directory contains the files needed to build a `.deb` package for pf-runner
 
 # Build with specific version
 ./build-deb.sh 1.2.3
+
+# Canonical package builder entrypoint
+./build-packages.sh --version 1.2.3 deb
 ```
 
 The package will be created at `build/pf-runner_<version>.deb`.

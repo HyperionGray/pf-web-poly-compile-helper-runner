@@ -161,6 +161,76 @@ def _has_shell_metacharacters(cmd: str) -> bool:
     return any(char in cmd for char in shell_chars)
 
 
+def _resolve_env_only_assignment(
+    raw_cmd: str,
+    env_keys: List[str],
+    task_env: Dict[str, str],
+    sudo: bool = False,
+    sudo_user: Optional[str] = None,
+    connection=None,
+) -> int:
+    """
+    Evaluate env-only assignments (e.g. `ROOT="$(pwd)"`) and persist values to task_env.
+    """
+    if not env_keys:
+        return 0
+
+    key_items = " ".join(shlex.quote(k) for k in env_keys)
+    script = (
+        f"{raw_cmd}\n"
+        f"for _pf_k in {key_items}; do printf '%s=%s\\0' \"$_pf_k\" \"${{!_pf_k}}\"; done"
+    )
+
+    if connection is None:
+        proc_env = dict(os.environ)
+        proc_env.update({k: str(v) for k, v in task_env.items()})
+
+        if sudo:
+            sudo_args: List[str] = ["sudo"]
+            if sudo_user:
+                sudo_args += ["-u", sudo_user, "-H"]
+            sudo_args += ["bash", "-lc", script]
+            proc = subprocess.run(sudo_args, env=proc_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        else:
+            proc = subprocess.run(["bash", "-lc", script], env=proc_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        if proc.returncode != 0:
+            if proc.stdout:
+                sys.stdout.buffer.write(proc.stdout)
+                sys.stdout.flush()
+            if proc.stderr:
+                sys.stderr.buffer.write(proc.stderr)
+                sys.stderr.flush()
+            return proc.returncode
+
+        parsed = proc.stdout.decode("utf-8", errors="replace").split("\0")
+    else:
+        wrapped = f"bash -lc {shlex.quote(script)}"
+        if sudo:
+            if sudo_user:
+                wrapped = f"sudo -u {shlex.quote(sudo_user)} -H {wrapped}"
+            else:
+                wrapped = f"sudo {wrapped}"
+        result = connection.run(wrapped, pty=True, warn=True, hide=True)
+        if result.exited != 0:
+            if result.stdout:
+                print(result.stdout, end="")
+            if result.stderr:
+                print(result.stderr, end="", file=sys.stderr)
+            return result.exited
+        parsed = result.stdout.split("\0")
+
+    for item in parsed:
+        if not item:
+            continue
+        key, sep, value = item.partition("=")
+        if not sep:
+            continue
+        if key in env_keys:
+            task_env[key] = value
+    return 0
+
+
 def execute_shell_command(cmd_line: str, task_env: Optional[Dict[str, str]] = None,
                          sudo: bool = False, sudo_user: Optional[str] = None,
                          connection=None, prefix: str = "") -> int:
@@ -215,8 +285,18 @@ def execute_shell_command(cmd_line: str, task_env: Optional[Dict[str, str]] = No
         print(f"{prefix}[warn] Empty command")
         return 0
     if not command:
-        # This can happen for env-only invocations like: FOO=bar
-        # Treat it as a no-op.
+        # Env-only invocation like: FOO=bar or ROOT="$(pwd)".
+        # Evaluate in-shell so expansion/substitution happens, then persist to task_env.
+        if env_vars and task_env is not None:
+            print(f"{prefix}$ {raw_cmd}")
+            return _resolve_env_only_assignment(
+                raw_cmd=raw_cmd,
+                env_keys=list(env_vars.keys()),
+                task_env=task_env,
+                sudo=sudo,
+                sudo_user=sudo_user,
+                connection=connection,
+            )
         print(f"{prefix}[warn] Empty command after parsing environment variables")
         return 0
     

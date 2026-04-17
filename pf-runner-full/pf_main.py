@@ -1234,7 +1234,8 @@ class PfRunner:
                             else:
                                 rendered_cmd = None
                                 lang_for_line = active_lang(line_lang)
-                                if lang_for_line:
+                                effective_lang = _canonical_lang(lang_for_line) if lang_for_line else None
+                                if effective_lang and effective_lang != "bash":
                                     rendered_cmd, _lang = _render_polyglot_command(
                                         lang_for_line, shell_cmd, os.getcwd()
                                     )
