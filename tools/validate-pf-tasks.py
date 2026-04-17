@@ -118,6 +118,27 @@ def _extract_shell_cmd(line: str) -> Optional[str]:
     return cmd
 
 
+def _candidate_script_paths(token: str, cwd: Path, repo_root: Path) -> List[Path]:
+    script_path = Path(token).expanduser()
+    if script_path.is_absolute():
+        return [script_path.resolve()]
+
+    candidates = [(cwd / script_path).resolve()]
+    # Most pf tasks run from repo root; keep compatibility with repo-root-relative
+    # references like "tools/foo.py" used across pf-files modules.
+    if not token.startswith(("./", "../")):
+        candidates.append((repo_root / script_path).resolve())
+
+    deduped: List[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = str(candidate)
+        if key not in seen:
+            seen.add(key)
+            deduped.append(candidate)
+    return deduped
+
+
 def _validate_task_shell_paths(repo_root: Path, tasks: Dict[str, object]) -> List[Issue]:
     issues: List[Issue] = []
 
@@ -159,17 +180,17 @@ def _validate_task_shell_paths(repo_root: Path, tasks: Dict[str, object]) -> Lis
                         j += 1
                     if j < len(tokens) and _looks_like_script_path(tokens[j]):
                         script_token = _normalize_token(tokens[j])
-                        script_path = Path(script_token).expanduser()
-                        resolved = script_path.resolve() if script_path.is_absolute() else (cwd / script_path).resolve()
-                        if not resolved.is_relative_to(repo_root):
+                        candidates = _candidate_script_paths(script_token, cwd, repo_root)
+                        if not any(candidate.is_relative_to(repo_root) for candidate in candidates):
                             i += 1
                             continue
+                        resolved = candidates[0]
                         key = (task_name, str(resolved))
                         if key in seen:
                             i += 1
                             continue
                         seen.add(key)
-                        if not resolved.exists():
+                        if not any(candidate.exists() for candidate in candidates):
                             issues.append(
                                 Issue(
                                     kind="path-missing",
@@ -183,13 +204,14 @@ def _validate_task_shell_paths(repo_root: Path, tasks: Dict[str, object]) -> Lis
 
                 # Directly executed scripts (e.g. `./containers/scripts/foo.sh`)
                 if _looks_like_script_path(tok) and (tok.startswith(("./", "../")) or "/" in tok):
-                    script_path = Path(tok).expanduser()
-                    resolved = script_path.resolve() if script_path.is_absolute() else (cwd / script_path).resolve()
-                    if resolved.is_relative_to(repo_root):
+                    candidates = _candidate_script_paths(tok, cwd, repo_root)
+                    in_repo_candidates = [c for c in candidates if c.is_relative_to(repo_root)]
+                    if in_repo_candidates:
+                        resolved = in_repo_candidates[0]
                         key = (task_name, str(resolved))
                         if key not in seen:
                             seen.add(key)
-                            if not resolved.exists():
+                            if not any(candidate.exists() for candidate in in_repo_candidates):
                                 issues.append(
                                     Issue(
                                         kind="path-missing",
