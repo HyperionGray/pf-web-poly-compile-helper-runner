@@ -5,6 +5,7 @@ OUTPUT_DIR="${output_dir:-./fuzzing}"
 OUTPUT_FILE="${output:-${OUTPUT_DIR}/fuzz_target.c}"
 
 mkdir -p "$OUTPUT_DIR"
+mkdir -p "$(dirname "$OUTPUT_FILE")"
 
 echo "Generating libfuzzer template at $OUTPUT_FILE..."
 

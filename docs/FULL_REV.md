@@ -1,60 +1,55 @@
-# Full review: `./corpus/` and project-root integration
+# FULL VMKit Images Review
 
 Date: 2026-04-16
+Repository: `HyperionGray/pf-web-poly-compile-helper-runner`
+Scope: review of `./vmkit-images/` with root-level PF/PE integration checks.
 
-## Scope reviewed
-- Repository root layout and runner entrypoints
-- `./corpus/` contents and compatibility with current `pf` runner fuzzing paths
-- Default fuzzing task wiring in:
-  - `pf-files/vuln-hunting/Pfyfile.fuzzing.pf`
-  - `pf/Pfyfile.fuzzing.pf`
-  - `tools/fuzzing/fuzz_with_sanitizer.py`
+## What was reviewed
 
-## Baseline status (before corpus changes)
-- `npm run build`: passes
-- `npm run test:unit`: fails in multiple pre-existing suites (grammar/parser/api/sync/package-manager/task-validation)
-- `pytest -q`: cannot run in this environment (`pytest` not installed)
+- Root integration paths that consume `vmkit-images/`:
+  - `scripts/pe/vmkit-setup.sh`
+  - `scripts/pe/vmkit-run.sh`
+  - `scripts/pe/vmkit-analyze.sh`
+  - `pf-files/Pfyfile.pe.pf`
+  - `pf-files/mult-exec/Pfyfile.pe-containers.pf`
+  - `containers/dockerfiles/Dockerfile.pe-vmkit`
+  - `docs/PE-EXECUTION.md`
+- Directory contents in `vmkit-images/`:
+  - `reactos.qcow2`
+  - `minimal.qcow2`
+  - `reactos-livecd.iso.REMOVED.git-id`
 
-These failures are pre-existing and unrelated to `./corpus/`.
+## Findings
 
-## Corpus inventory and review
-Files found in `./corpus/`:
-- `1f444844b1ca616009c2b0e3564fecc065872b5b`
-- `3d637fc604995b51a048db0058a7c210e57a38cc`
-- `58e6b3a414a1e090dfc6029add0f3555ccba127f`
-- `c845fd5022215c2a6fabcef4951090a59d82bb65`
-- `ea31d4b8c018ba8973da1ae57e79df8d9eafdd02`
-- `seed`
-- `AGENTS.md`
-- `rules.json5`
-- hidden corpus files used as seed inputs: `.copilot_rules`, `.bish.sqlite`
+1. `vmkit-images/` naming is aligned with the current VMKit runner expectations:
+   - runtime default image: `/vmkit/images/reactos.qcow2`
+   - setup creates/uses `reactos.qcow2` and `minimal.qcow2`
+2. ReactOS ISO is intentionally not committed; this is explicitly marked by:
+   - `vmkit-images/reactos-livecd.iso.REMOVED.git-id`
+3. PF VMKit command surface is present and wired (`install-vmkit`, `setup-vmkit`, `run-vmkit`, `analyze-vmkit`).
+4. Integration fix applied: VMKit helper scripts used by PF tasks were missing execute permissions:
+   - `scripts/pe/vmkit-run.sh`
+   - `scripts/pe/vmkit-analyze.sh`
+   These now have executable permissions so PF task delegation works as intended.
 
-### Compatibility verification
-Validated with current runner and fuzzing helpers:
+## Completeness status for `vmkit-images/`
 
-1) pf runner + libFuzzer task path
-```bash
-PF_PYTHON=$(command -v python3) ./pf-runner-full/pf \
-  --file pf-files/vuln-hunting/Pfyfile.fuzzing.pf \
-  run-libfuzzer target=./_fuzzer corpus=./corpus time=1
-```
-Result: success, corpus discovered and consumed by libFuzzer (`10 files found in ./corpus`).
+- `reactos.qcow2`: present
+- `minimal.qcow2`: present
+- `reactos-livecd.iso`: not present in git, **explicitly marked as removed** by `.REMOVED.git-id` marker
 
-2) sanitizer corpus runner path
-```bash
-python3 tools/fuzzing/fuzz_with_sanitizer.py \
-  --sanitizer asan --binary /bin/cat --corpus ./corpus \
-  --timeout 1 --per-run-timeout 0.2 --crash-dir /tmp/pf-corpus-crashes
-```
-Result: success (`cases` executed, `crashes: 0`).
+Status: **Complete for repository-tracked VMKit assets**, with ISO absence explicitly marked.
 
-## Completeness verdict
-- **Runner compatibility**: COMPLETE (current `pf` fuzzing paths accept and run with `./corpus/` as-is).
-- **Corpus curation/readability**: PARTIAL.
-  - The directory contains hashed/binary seeds whose provenance/purpose is not fully described in-repo.
-  - This does not break current runner execution, but it is not self-documenting.
+## Validation performed
 
-### Marked follow-up (not required to keep runner working)
-To make corpus curation fully complete in a future pass:
-- Add a `corpus/README.md` that documents seed provenance and intended retention policy.
-- Optionally classify files into curated human-readable seeds vs discovered/minimized fuzz artifacts.
+- `npm run build` (pass)
+- `npm run test:unit` (pre-existing unrelated failures exist in this repository baseline)
+- `node tests/containerization/pe-containers.test.mjs` (contains pre-existing unrelated failures)
+- `PF_PYTHON=/usr/bin/python3 ./pf.sh pe usage` (pass)
+- Added focused review test:
+  - `node tests/containerization/vmkit-images-review.test.mjs`
+
+## Notes
+
+- To regenerate/refresh VMKit images and fetch ReactOS ISO during setup flow, run:
+  - `PF_PYTHON=/usr/bin/python3 ./pf.sh pe setup-vmkit`

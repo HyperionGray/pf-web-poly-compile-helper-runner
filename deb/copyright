@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: pf-runner
 Upstream-Contact: PF Runner Team <maintainer@example.com>
-Source: https://github.com/example/pf-runner
+Source: https://github.com/HyperionGray/pf-web-poly-compile-helper-runner
 
 Files: *
 Copyright: 2024 PF Runner Team
