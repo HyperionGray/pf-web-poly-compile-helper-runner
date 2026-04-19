@@ -88,6 +88,8 @@ _PFYFILE_MODULE_SUFFIX = ".pf"
 class PfRunner:
     """Enhanced pf runner with subcommand support and modular architecture."""
     
+    _DEFAULT_TASK_CATEGORY = "misc"
+
     def __init__(self):
         self.arg_parser = PfArgumentParser()
         self.subcommand_manager = SubcommandManager()
@@ -315,7 +317,7 @@ class PfRunner:
         """Print a compact category summary for a set of tasks."""
         category_counts: Dict[str, int] = {}
         for task_name, _description, _aliases in tasks:
-            prefix = task_name.split("-", 1)[0] if "-" in task_name else "misc"
+            prefix = task_name.split("-", 1)[0] if "-" in task_name else self._DEFAULT_TASK_CATEGORY
             category_counts[prefix] = category_counts.get(prefix, 0) + 1
 
         for category, count in sorted(category_counts.items()):

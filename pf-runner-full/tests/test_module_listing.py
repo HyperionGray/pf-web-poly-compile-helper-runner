@@ -205,6 +205,23 @@ class TestModuleListing(unittest.TestCase):
             self.assertIn("install (", output)
             self.assertNotIn("install-tools - Install helper", output)
 
+    def test_task_category_summary_groups_by_prefix_and_misc(self):
+        runner = PfRunner()
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            runner._print_task_category_summary(
+                [
+                    ("web-build", "Build web", []),
+                    ("web-test", "Test web", []),
+                    ("standalone", "No hyphen task", []),
+                ]
+            )
+
+        output = stdout.getvalue()
+        self.assertIn("web (2 tasks)", output)
+        self.assertIn("misc (1 task)", output)
+
 
 if __name__ == "__main__":
     unittest.main()
