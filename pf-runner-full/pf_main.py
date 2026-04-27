@@ -88,6 +88,8 @@ _PFYFILE_MODULE_SUFFIX = ".pf"
 class PfRunner:
     """Enhanced pf runner with subcommand support and modular architecture."""
     
+    _DEFAULT_TASK_CATEGORY = "misc"
+
     def __init__(self):
         self.arg_parser = PfArgumentParser()
         self.subcommand_manager = SubcommandManager()
@@ -243,6 +245,55 @@ class PfRunner:
     # Module names that are always flattened into the root listing surface.
     _ROOT_FLAT_MODULES = frozenset({"always-available", "module-compat"})
 
+    def _load_task_listing_detailed(
+        self, file_arg: Optional[str]
+    ) -> Tuple[List[TaskListing], List[TaskListing], Dict[str, List[TaskListing]]]:
+        """Load task metadata as `(primary_tasks, default_tasks, module_tasks)`.
+
+        `primary_tasks` are tasks sourced directly from the resolved target Pfyfile
+        surface (including same-named includes). `default_tasks` are flattened
+        always-on/root compatibility tasks surfaced for the default/root Pfyfile.
+        `module_tasks` is keyed by module name for all other included module files.
+        """
+        dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
+        dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
+
+        resolved_pfyfile = _find_pfyfile(file_arg=file_arg)
+        main_pfyfile = (
+            os.path.abspath(resolved_pfyfile) if resolved_pfyfile and os.path.exists(resolved_pfyfile) else None
+        )
+
+        # Derive module name for the main Pfyfile (None for root Pfyfile.pf).
+        main_module_name = self._module_name_from_source_file(main_pfyfile) if main_pfyfile else None
+        is_root = main_module_name is None
+
+        primary_tasks: List[TaskListing] = []
+        default_tasks: List[TaskListing] = []
+        module_tasks: Dict[str, List[TaskListing]] = {}
+
+        for task_name, task in sorted(dsl_tasks.items()):
+            task_info = (task_name, task.description, task.aliases)
+            source_file = os.path.abspath(task.source_file) if task.source_file else None
+
+            if main_pfyfile and source_file == main_pfyfile:
+                primary_tasks.append(task_info)
+                continue
+
+            module_name = self._module_name_from_source_file(source_file)
+            if module_name:
+                # Same-named included file: merge into the primary surface.
+                if main_module_name and module_name == main_module_name:
+                    primary_tasks.append(task_info)
+                # Root-surface flat modules: keep as summarized default tasks.
+                elif is_root and module_name in self._ROOT_FLAT_MODULES:
+                    default_tasks.append(task_info)
+                else:
+                    module_tasks.setdefault(module_name, []).append(task_info)
+            else:
+                primary_tasks.append(task_info)
+
+        return primary_tasks, default_tasks, module_tasks
+
     def _load_task_listing(
         self, file_arg: Optional[str]
     ) -> Tuple[List[TaskListing], Dict[str, List[TaskListing]]]:
@@ -259,43 +310,18 @@ class PfRunner:
         - Tasks from ``always-available`` and ``module-compat`` are merged into
           ``direct_tasks`` when loading the root/default Pfyfile surface.
         """
-        dsl_src, task_sources = _load_pfy_source_with_includes(file_arg=file_arg)
-        dsl_tasks = parse_pfyfile_text(dsl_src, task_sources)
+        primary_tasks, default_tasks, module_tasks = self._load_task_listing_detailed(file_arg)
+        return primary_tasks + default_tasks, module_tasks
 
-        resolved_pfyfile = _find_pfyfile(file_arg=file_arg)
-        main_pfyfile = (
-            os.path.abspath(resolved_pfyfile) if resolved_pfyfile and os.path.exists(resolved_pfyfile) else None
-        )
+    def _print_task_category_summary(self, tasks: List[TaskListing]) -> None:
+        """Print a compact category summary for a set of tasks."""
+        category_counts: Dict[str, int] = {}
+        for task_name, _description, _aliases in tasks:
+            prefix = task_name.split("-", 1)[0] if "-" in task_name else self._DEFAULT_TASK_CATEGORY
+            category_counts[prefix] = category_counts.get(prefix, 0) + 1
 
-        # Derive module name for the main Pfyfile (None for root Pfyfile.pf).
-        main_module_name = self._module_name_from_source_file(main_pfyfile) if main_pfyfile else None
-        is_root = main_module_name is None
-
-        direct_tasks: List[TaskListing] = []
-        module_tasks: Dict[str, List[TaskListing]] = {}
-
-        for task_name, task in sorted(dsl_tasks.items()):
-            task_info = (task_name, task.description, task.aliases)
-            source_file = os.path.abspath(task.source_file) if task.source_file else None
-
-            if main_pfyfile and source_file == main_pfyfile:
-                direct_tasks.append(task_info)
-                continue
-
-            module_name = self._module_name_from_source_file(source_file)
-            if module_name:
-                # Same-named included file: merge into the core surface.
-                if main_module_name and module_name == main_module_name:
-                    direct_tasks.append(task_info)
-                # Root-surface flat modules: merge into root core tasks.
-                elif is_root and module_name in self._ROOT_FLAT_MODULES:
-                    direct_tasks.append(task_info)
-                else:
-                    module_tasks.setdefault(module_name, []).append(task_info)
-            else:
-                direct_tasks.append(task_info)
-
-        return direct_tasks, module_tasks
+        for category, count in sorted(category_counts.items()):
+            print(f"  {category} ({self._format_task_count(count)})")
 
     def _print_task_entries(self, tasks: List[TaskListing]) -> None:
         """Print `(task_name, description, aliases)` entries as CLI list rows."""
@@ -494,7 +520,7 @@ class PfRunner:
                 resolved = _resolve_pfyfile_reference(target, start_dir=os.getcwd())
                 file_arg = resolved or target
 
-            direct_tasks, module_tasks = self._load_task_listing(file_arg)
+            primary_tasks, default_tasks, module_tasks = self._load_task_listing_detailed(file_arg)
             requested_module = (getattr(args, "subcommand", None) or "").strip().lower()
 
             if requested_module:
@@ -512,7 +538,7 @@ class PfRunner:
                 print("       pf help <task_name>  # Show help for a specific task")
                 return 0
 
-            total_tasks = len(direct_tasks) + sum(len(tasks) for tasks in module_tasks.values())
+            total_tasks = len(primary_tasks) + len(default_tasks) + sum(len(tasks) for tasks in module_tasks.values())
             print("Available tasks:")
             if total_tasks == 0:
                 print("  No tasks found.")
@@ -526,9 +552,13 @@ class PfRunner:
                     )
                 return 0
 
-            if direct_tasks:
-                print("\nCore tasks:")
-                self._print_task_entries(direct_tasks)
+            if primary_tasks:
+                print("\nPfyfile tasks:")
+                self._print_task_entries(primary_tasks)
+
+            if default_tasks:
+                print("\nDefault core tasks (summarized):")
+                self._print_task_category_summary(default_tasks)
 
             if module_tasks:
                 print("\nModules:")

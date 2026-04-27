@@ -75,7 +75,7 @@ class TestModuleListing(unittest.TestCase):
 
             output = stdout.getvalue()
             self.assertEqual(rc, 0)
-            self.assertIn("Core tasks:", output)
+            self.assertIn("Pfyfile tasks:", output)
             self.assertIn("local-task - Local task", output)
             self.assertIn("local-alias - Local alias task (aliases: lt)", output)
             self.assertIn("Modules:", output)
@@ -162,6 +162,65 @@ class TestModuleListing(unittest.TestCase):
 
             registered_files = "\n".join(sorted(subcommands))
             self.assertNotIn("Pfyfile.always-available.pf", registered_files)
+
+    def test_default_tasks_are_summarized_not_mixed_into_pfyfile_section(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            pf_files = root / "pf-files"
+            always_dir = pf_files / "always-available"
+            always_dir.mkdir(parents=True)
+            (always_dir / "Pfyfile.always-available.pf").write_text(
+                textwrap.dedent(
+                    """
+                    task install-tools
+                      describe Install helper
+                    end
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            root_file = pf_files / "Pfyfile.pf"
+            root_file.write_text(
+                textwrap.dedent(
+                    """
+                    task local-task
+                      describe Local task
+                    end
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                rc = PfRunner().run_command(["--file", str(root_file), "list"])
+
+            output = stdout.getvalue()
+            self.assertEqual(rc, 0)
+            self.assertIn("Pfyfile tasks:", output)
+            self.assertIn("local-task - Local task", output)
+            self.assertIn("Default core tasks (summarized):", output)
+            self.assertIn("install (", output)
+            self.assertNotIn("install-tools - Install helper", output)
+
+    def test_task_category_summary_groups_by_prefix_and_misc(self):
+        runner = PfRunner()
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            runner._print_task_category_summary(
+                [
+                    ("web-build", "Build web", []),
+                    ("web-test", "Test web", []),
+                    ("standalone", "No hyphen task", []),
+                ]
+            )
+
+        output = stdout.getvalue()
+        self.assertIn("web (2 tasks)", output)
+        self.assertIn("misc (1 task)", output)
 
 
 if __name__ == "__main__":
