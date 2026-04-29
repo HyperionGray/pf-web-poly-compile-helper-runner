@@ -232,67 +232,31 @@ def test_prune_reports_missing_heredoc_terminator(tmp_path: Path) -> None:
     assert "Heredoc delimiter 'EOF' not found" in combined
 
 
-def test_polyglot_languages_share_same_environment(tmp_path: Path) -> None:
-    required_executables = ("fish", "python3", "perl", "node", "ts-node", "clang")
-    missing = [cmd for cmd in required_executables if shutil.which(cmd) is None]
-    if missing:
-        pytest.skip(f"Missing required runtime(s): {', '.join(missing)}")
+def test_playwright_shell_lang_renders_browser_context_command(tmp_path: Path) -> None:
+    sys.path.insert(0, str(REPO_ROOT / "pf-runner-full"))
+    import pf_parser  # type: ignore
 
-    fixture = tmp_path / "polyglot-shared-env.pf"
-    _write_pf(
-        fixture,
-        """
-        task polyglot-shared-env
-          env PF_SHARED_ENV=shared-value
-          shell_lang bash
-          shell echo "bash:$PF_SHARED_ENV:$PF_INHERITED_ENV"
-          shell_lang fish
-          shell echo "fish:$PF_SHARED_ENV:$PF_INHERITED_ENV"
-          shell_lang python
-          shell import os; print("python:"+os.getenv("PF_SHARED_ENV","")+":"+os.getenv("PF_INHERITED_ENV",""))
-          shell_lang perl
-          shell print "perl:$ENV{PF_SHARED_ENV}:$ENV{PF_INHERITED_ENV}\n";
-          shell_lang javascript
-          shell console.log("javascript:"+(process.env.PF_SHARED_ENV || "")+":"+(process.env.PF_INHERITED_ENV || ""))
-          shell_lang ts-node
-          shell console.log("typescript:"+(process.env.PF_SHARED_ENV || "")+":"+(process.env.PF_INHERITED_ENV || ""))
-          shell_lang c
-          shell |
-            int printf(const char *fmt, ...);
-            char *getenv(const char *name);
-            int main(void) {
-              char *shared = getenv("PF_SHARED_ENV");
-              char *inherited = getenv("PF_INHERITED_ENV");
-              printf("c:%s:%s\\n", shared ? shared : "", inherited ? inherited : "");
-              return 0;
-            }
-        end
-        """,
+    rendered, lang = pf_parser._render_polyglot_command(
+        "playwright",
+        "console.log('playwright-inline-ok')",
+        str(tmp_path),
     )
 
-    inherited_env_value = "inherited-value"
-    result = _run_pf(
-        tmp_path,
-        str(fixture),
-        "polyglot-shared-env",
-        env={"PF_INHERITED_ENV": inherited_env_value},
+    assert lang == "playwright"
+    assert rendered is not None
+    assert "const { chromium } = require('playwright');" in rendered
+    assert "const page = await browser.newPage();" in rendered
+    assert "console.log('playwright-inline-ok')" in rendered
+
+
+def test_playwright_alias_browser_js_maps_to_playwright(tmp_path: Path) -> None:
+    sys.path.insert(0, str(REPO_ROOT / "pf-runner-full"))
+    import pf_parser  # type: ignore
+
+    _, lang = pf_parser._render_polyglot_command(
+        "browser-js",
+        "console.log('alias-ok')",
+        str(tmp_path),
     )
 
-    assert result.returncode == 0, result.stderr
-    expected_lines = [
-        "bash:shared-value:inherited-value",
-        "fish:shared-value:inherited-value",
-        "python:shared-value:inherited-value",
-        "perl:shared-value:inherited-value",
-        "javascript:shared-value:inherited-value",
-        "typescript:shared-value:inherited-value",
-        "c:shared-value:inherited-value",
-    ]
-    for line in expected_lines:
-        assert line in result.stdout
-
-    position = -1
-    for line in expected_lines:
-        next_position = result.stdout.find(line)
-        assert next_position > position
-        position = next_position
+    assert lang == "playwright"

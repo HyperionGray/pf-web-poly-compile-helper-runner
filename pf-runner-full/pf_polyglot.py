@@ -13,8 +13,8 @@ Extracted from pf_parser.py to improve modularity and maintainability.
 Supported Languages:
 - Shells: bash, sh, dash, zsh, fish, ksh, tcsh, pwsh
 - Interpreted: python, node, deno, perl, php, ruby, r, julia, haskell, ocaml, elixir, dart, lua
-- Compiled: go, rust, c, cpp, fortran, zig, nim, crystal, haskell-compile, ocamlc
-- JVM: java-openjdk, java-android
+- Compiled: go, rust, c, cpp, fortran, cuda, zig, nim, crystal, haskell-compile, ocamlc
+- JVM: java-openjdk, java-android, kotlin
 - Special: c-llvm, cpp-llvm, c-llvm-bc, cpp-llvm-bc, fortran-llvm, asm
 """
 
@@ -328,6 +328,7 @@ POLYGLOT_LANGS: Dict[str, Callable[[str, List[str]], str]] = {
         "echo '(LLVM bitcode generated with O3 optimization)'",
     ),
     "fortran": _compile_profile(".f90", "gfortran {src} -o {bin}", "{bin}"),
+    "cuda": _compile_profile(".cu", "nvcc {src} -o {bin}", "{bin}"),
     "fortran-llvm": _compile_profile(
         ".f90",
         "flang -O3 {src} -S -emit-llvm -o {bin}.ll && cat {bin}.ll",
@@ -344,6 +345,12 @@ POLYGLOT_LANGS: Dict[str, Callable[[str, List[str]], str]] = {
     # Java / JVM
     "java-openjdk": _java_openjdk_builder(),
     "java-android": _java_android_builder(),
+    "kotlin": _compile_profile(
+        ".kt",
+        "kotlinc {src} -include-runtime -d {jar}",
+        "java -jar {jar}",
+        setup_lines=['jar="$tmpdir/pf_poly.jar"'],
+    ),
 }
 
 POLYGLOT_ALIASES = {
@@ -386,6 +393,7 @@ POLYGLOT_ALIASES = {
     "ml": "ocaml",
     "hs": "haskell",
     "fortran90": "fortran",
+    "fortran-latest": "fortran",
     "gfortran": "fortran",
     "java": "java-openjdk",
     "java-openjdk": "java-openjdk",
@@ -396,6 +404,11 @@ POLYGLOT_ALIASES = {
     "shellscript": "bash",
     "dashshell": "dash",
     "asm86": "asm",
+    "kts": "kotlin",
+    "kt": "kotlin",
+    "kotlin-jvm": "kotlin",
+    "cu": "cuda",
+    "nvcc": "cuda",
 }
 
 

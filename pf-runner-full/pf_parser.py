@@ -493,7 +493,7 @@ def _build_compile_command(
     )
 
 
-def _build_browser_js_command(code: str, args: List[str]) -> str:
+def _build_playwright_command(code: str, args: List[str]) -> str:
     code = _ensure_newline(code)
     arg_str = _poly_args(args)
     snippet = textwrap.indent(code, "  ")
@@ -641,6 +641,7 @@ POLYGLOT_LANGS: Dict[str, Callable[[str, List[str]], str]] = {
     # Scripting / Interpreted
     "python": _script_profile(["python3"], ".py"),
     "node": _script_profile(["node"], ".js"),
+    "playwright": _build_playwright_command,
     "deno": _script_profile(["deno", "run"], ".ts"),
     "ts-node": _script_profile(["ts-node"], ".ts"),
     "perl": _script_profile(["perl"], ".pl"),
@@ -679,6 +680,7 @@ POLYGLOT_LANGS: Dict[str, Callable[[str, List[str]], str]] = {
         "echo '(LLVM bitcode generated with O3 optimization)'",
     ),
     "fortran": _compile_profile(".f90", "gfortran {src} -o {bin}", "{bin}"),
+    "cuda": _compile_profile(".cu", "nvcc {src} -o {bin}", "{bin}"),
     "fortran-llvm": _compile_profile(
         ".f90",
         "flang -O3 {src} -S -emit-llvm -o {bin}.ll && cat {bin}.ll",
@@ -695,6 +697,12 @@ POLYGLOT_LANGS: Dict[str, Callable[[str, List[str]], str]] = {
     # Java / JVM
     "java-openjdk": _java_openjdk_builder(),
     "java-android": _java_android_builder(),
+    "kotlin": _compile_profile(
+        ".kt",
+        "kotlinc {src} -include-runtime -d {jar}",
+        "java -jar {jar}",
+        setup_lines=['jar="$tmpdir/pf_poly.jar"'],
+    ),
 }
 
 POLYGLOT_ALIASES = {
@@ -712,6 +720,9 @@ POLYGLOT_ALIASES = {
     "javascript": "node",
     "js": "node",
     "nodejs": "node",
+    "browser-js": "playwright",
+    "browserjs": "playwright",
+    "pw": "playwright",
     "ts": "deno",
     "typescript": "deno",
     "tsnode": "ts-node",
@@ -737,6 +748,7 @@ POLYGLOT_ALIASES = {
     "ml": "ocaml",
     "hs": "haskell",
     "fortran90": "fortran",
+    "fortran-latest": "fortran",
     "gfortran": "fortran",
     "java": "java-openjdk",
     "java-openjdk": "java-openjdk",
@@ -747,6 +759,11 @@ POLYGLOT_ALIASES = {
     "shellscript": "bash",
     "dashshell": "dash",
     "asm86": "asm",
+    "kts": "kotlin",
+    "kt": "kotlin",
+    "kotlin-jvm": "kotlin",
+    "cu": "cuda",
+    "nvcc": "cuda",
 }
 
 
