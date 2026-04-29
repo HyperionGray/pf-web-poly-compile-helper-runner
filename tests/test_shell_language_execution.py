@@ -233,8 +233,8 @@ def test_prune_reports_missing_heredoc_terminator(tmp_path: Path) -> None:
 
 
 def test_polyglot_languages_share_same_environment(tmp_path: Path) -> None:
-    required_commands = ("fish", "python3", "perl", "node", "ts-node", "clang")
-    missing = [cmd for cmd in required_commands if shutil.which(cmd) is None]
+    required_executables = ("fish", "python3", "perl", "node", "ts-node", "clang")
+    missing = [cmd for cmd in required_executables if shutil.which(cmd) is None]
     if missing:
         pytest.skip(f"Missing required runtime(s): {', '.join(missing)}")
 
@@ -249,19 +249,21 @@ def test_polyglot_languages_share_same_environment(tmp_path: Path) -> None:
           shell_lang fish
           shell echo "fish:$PF_SHARED_ENV:$PF_INHERITED_ENV"
           shell_lang python
-          shell print("python:"+__import__("os").getenv("PF_SHARED_ENV","")+":"+__import__("os").getenv("PF_INHERITED_ENV",""))
+          shell import os; print("python:"+os.getenv("PF_SHARED_ENV","")+":"+os.getenv("PF_INHERITED_ENV",""))
           shell_lang perl
-          shell print "perl:$ENV{PF_SHARED_ENV}:$ENV{PF_INHERITED_ENV}";
+          shell print "perl:$ENV{PF_SHARED_ENV}:$ENV{PF_INHERITED_ENV}\n";
           shell_lang javascript
-          shell console.log("javascript:"+process.env.PF_SHARED_ENV+":"+process.env.PF_INHERITED_ENV)
+          shell console.log("javascript:"+(process.env.PF_SHARED_ENV || "")+":"+(process.env.PF_INHERITED_ENV || ""))
           shell_lang ts-node
-          shell console.log("typescript:"+process.env.PF_SHARED_ENV+":"+process.env.PF_INHERITED_ENV)
+          shell console.log("typescript:"+(process.env.PF_SHARED_ENV || "")+":"+(process.env.PF_INHERITED_ENV || ""))
           shell_lang c
           shell |
             int printf(const char *fmt, ...);
             char *getenv(const char *name);
             int main(void) {
-              printf("c:%s:%s\\n", getenv("PF_SHARED_ENV"), getenv("PF_INHERITED_ENV"));
+              char *shared = getenv("PF_SHARED_ENV");
+              char *inherited = getenv("PF_INHERITED_ENV");
+              printf("c:%s:%s\\n", shared ? shared : "", inherited ? inherited : "");
               return 0;
             }
         end
