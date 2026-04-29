@@ -641,6 +641,7 @@ POLYGLOT_LANGS: Dict[str, Callable[[str, List[str]], str]] = {
     # Scripting / Interpreted
     "python": _script_profile(["python3"], ".py"),
     "node": _script_profile(["node"], ".js"),
+    "playwright": _build_browser_js_command,
     "deno": _script_profile(["deno", "run"], ".ts"),
     "ts-node": _script_profile(["ts-node"], ".ts"),
     "perl": _script_profile(["perl"], ".pl"),
@@ -712,6 +713,9 @@ POLYGLOT_ALIASES = {
     "javascript": "node",
     "js": "node",
     "nodejs": "node",
+    "browser-js": "playwright",
+    "browserjs": "playwright",
+    "pw": "playwright",
     "ts": "deno",
     "typescript": "deno",
     "tsnode": "ts-node",

@@ -20,6 +20,129 @@ task test
   shell npx playwright test --reporter=list
 end
 
+task playwright-smoke url="http://127.0.0.1:8080" timeout_ms="30000"
+  describe Open a page with Playwright and fail on non-2xx/3xx navigation responses
+  shell_lang playwright
+  shell |
+    const target = "$url";
+    const timeout = Number("$timeout_ms");
+    const response = await page.goto(target, { waitUntil: "domcontentloaded", timeout });
+    if (!response) {
+      throw new Error(`No response while opening ${target}`);
+    }
+    if (response.status() >= 400) {
+      throw new Error(`Navigation failed for ${target}: HTTP ${response.status()}`);
+    }
+    console.log(`[OK] playwright-smoke ${target} => HTTP ${response.status()}`);
+end
+
+task playwright-no-http-errors url="http://127.0.0.1:8080" min_xhr="0"
+  describe Ensure page load and subrequests do not produce HTTP/network failures (404/502/etc)
+  shell_lang playwright
+  shell |
+    const target = "$url";
+    const minXhr = Number("$min_xhr");
+    const failures = [];
+    let xhrCount = 0;
+    page.on("requestfailed", (request) => {
+      failures.push(`${request.method()} ${request.url()} -> REQUEST_FAILED ${request.failure()?.errorText || "unknown"}`);
+    });
+    page.on("response", (response) => {
+      const request = response.request();
+      const resourceType = request.resourceType();
+      if (resourceType === "xhr" || resourceType === "fetch") {
+        xhrCount += 1;
+      }
+      if (response.status() >= 400) {
+        failures.push(`${request.method()} ${response.url()} -> HTTP ${response.status()}`);
+      }
+    });
+    const response = await page.goto(target, { waitUntil: "networkidle" });
+    if (!response) {
+      throw new Error(`No response while opening ${target}`);
+    }
+    if (response.status() >= 400) {
+      failures.push(`GET ${target} -> HTTP ${response.status()}`);
+    }
+    if (xhrCount < minXhr) {
+      throw new Error(`Expected at least ${minXhr} xhr/fetch request(s), got ${xhrCount}`);
+    }
+    if (failures.length > 0) {
+      throw new Error(`HTTP failures detected (${failures.length}):\n${failures.join("\n")}`);
+    }
+    console.log(`[OK] playwright-no-http-errors ${target} xhr/fetch=${xhrCount}`);
+end
+
+task playwright-click-all url="http://127.0.0.1:8080" max_clicks="50"
+  describe Click common interactive elements without selectors and fail on HTTP/network errors
+  shell_lang playwright
+  shell |
+    const target = "$url";
+    const maxClicks = Number("$max_clicks");
+    const failures = [];
+    page.on("requestfailed", (request) => {
+      failures.push(`${request.method()} ${request.url()} -> REQUEST_FAILED ${request.failure()?.errorText || "unknown"}`);
+    });
+    page.on("response", (response) => {
+      if (response.status() >= 400) {
+        const request = response.request();
+        failures.push(`${request.method()} ${response.url()} -> HTTP ${response.status()}`);
+      }
+    });
+    const response = await page.goto(target, { waitUntil: "domcontentloaded" });
+    if (!response) {
+      throw new Error(`No response while opening ${target}`);
+    }
+    const locator = page.locator("a[href], button, [role='button'], input[type='button'], input[type='submit'], [onclick]");
+    const total = Math.min(await locator.count(), maxClicks);
+    let clicked = 0;
+    for (let i = 0; i < total; i += 1) {
+      const element = locator.nth(i);
+      try {
+        await element.scrollIntoViewIfNeeded();
+        await element.click({ timeout: 2500 });
+        clicked += 1;
+        await page.waitForTimeout(150);
+      } catch (error) {
+        console.log(`[WARN] click skipped at index ${i}: ${error.message}`);
+      }
+    }
+    if (failures.length > 0) {
+      throw new Error(`HTTP failures detected (${failures.length}):\n${failures.join("\n")}`);
+    }
+    console.log(`[OK] playwright-click-all attempted=${total} clicked=${clicked} url=${target}`);
+end
+
+task playwright-assert-xhr url="http://127.0.0.1:8080" contains="" min_hits="1" timeout_ms="30000"
+  describe Ensure expected XHR/fetch requests are triggered for a page flow
+  shell_lang playwright
+  shell |
+    const target = "$url";
+    const needle = "$contains";
+    const minHits = Number("$min_hits");
+    const timeout = Number("$timeout_ms");
+    let hits = 0;
+    const matched = [];
+    page.on("request", (request) => {
+      const type = request.resourceType();
+      if (type !== "xhr" && type !== "fetch") {
+        return;
+      }
+      const reqUrl = request.url();
+      if (!needle || reqUrl.includes(needle)) {
+        hits += 1;
+        matched.push(`${request.method()} ${reqUrl}`);
+      }
+    });
+    await page.goto(target, { waitUntil: "domcontentloaded", timeout });
+    await page.waitForTimeout(1000);
+    if (hits < minHits) {
+      throw new Error(`Expected at least ${minHits} matching xhr/fetch request(s), got ${hits}. Filter: ${needle || "<none>"}`);
+    }
+    console.log(`[OK] playwright-assert-xhr hits=${hits} filter=${needle || "<none>"}`);
+    matched.slice(0, 20).forEach((line) => console.log(`  ${line}`));
+end
+
 # ============================================================================
 # Rust WebAssembly Tasks
 # ============================================================================
