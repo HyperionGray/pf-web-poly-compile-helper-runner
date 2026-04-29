@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
+import os
+import shutil
 import subprocess
 import sys
 import textwrap
 from pathlib import Path
+
+import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -14,10 +18,14 @@ def _write_pf(path: Path, content: str) -> None:
     path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
 
 
-def _run_pf(tmp_path: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def _run_pf(tmp_path: Path, *args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    merged_env = os.environ.copy()
+    if env:
+        merged_env.update(env)
     return subprocess.run(
         [sys.executable, str(PF_MAIN), *args],
         cwd=tmp_path,
+        env=merged_env,
         capture_output=True,
         text=True,
     )
