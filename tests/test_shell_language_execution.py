@@ -222,3 +222,33 @@ def test_prune_reports_missing_heredoc_terminator(tmp_path: Path) -> None:
     assert result.returncode == 1
     combined = result.stdout + result.stderr
     assert "Heredoc delimiter 'EOF' not found" in combined
+
+
+def test_playwright_shell_lang_renders_browser_context_command(tmp_path: Path) -> None:
+    sys.path.insert(0, str(REPO_ROOT / "pf-runner-full"))
+    import pf_parser  # type: ignore
+
+    rendered, lang = pf_parser._render_polyglot_command(
+        "playwright",
+        "console.log('playwright-inline-ok')",
+        str(tmp_path),
+    )
+
+    assert lang == "playwright"
+    assert rendered is not None
+    assert "const { chromium } = require('playwright');" in rendered
+    assert "const page = await browser.newPage();" in rendered
+    assert "console.log('playwright-inline-ok')" in rendered
+
+
+def test_playwright_alias_browser_js_maps_to_playwright(tmp_path: Path) -> None:
+    sys.path.insert(0, str(REPO_ROOT / "pf-runner-full"))
+    import pf_parser  # type: ignore
+
+    _, lang = pf_parser._render_polyglot_command(
+        "browser-js",
+        "console.log('alias-ok')",
+        str(tmp_path),
+    )
+
+    assert lang == "playwright"

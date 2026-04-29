@@ -31,6 +31,11 @@ const testSuites = [
         description: 'Tests shell language support and polyglot execution'
     },
     {
+        name: 'Web WASM Flow Tests',
+        file: 'shell-scripts/web-wasm-playwright-flow.test.mjs',
+        description: 'Tests real pf web wasm conversion and headed Playwright flow abstraction'
+    },
+    {
         name: 'Build Helper Tests',
         file: 'compilation/build-helpers.test.mjs',
         description: 'Tests build system integrations'
