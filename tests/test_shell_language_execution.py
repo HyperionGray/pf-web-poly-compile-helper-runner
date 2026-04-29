@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
+import os
+import shutil
 import subprocess
 import sys
 import textwrap
 from pathlib import Path
+
+import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -14,10 +18,14 @@ def _write_pf(path: Path, content: str) -> None:
     path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
 
 
-def _run_pf(tmp_path: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def _run_pf(tmp_path: Path, *args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    merged_env = os.environ.copy()
+    if env:
+        merged_env.update(env)
     return subprocess.run(
         [sys.executable, str(PF_MAIN), *args],
         cwd=tmp_path,
+        env=merged_env,
         capture_output=True,
         text=True,
     )
@@ -222,3 +230,67 @@ def test_prune_reports_missing_heredoc_terminator(tmp_path: Path) -> None:
     assert result.returncode == 1
     combined = result.stdout + result.stderr
     assert "Heredoc delimiter 'EOF' not found" in combined
+
+
+def test_polyglot_languages_share_same_environment(tmp_path: Path) -> None:
+    required_commands = ("fish", "python3", "perl", "node", "ts-node", "clang")
+    missing = [cmd for cmd in required_commands if shutil.which(cmd) is None]
+    if missing:
+        pytest.skip(f"Missing required runtime(s): {', '.join(missing)}")
+
+    fixture = tmp_path / "polyglot-shared-env.pf"
+    _write_pf(
+        fixture,
+        """
+        task polyglot-shared-env
+          env PF_SHARED_ENV=shared-value
+          shell_lang bash
+          shell echo "bash:$PF_SHARED_ENV:$PF_INHERITED_ENV"
+          shell_lang fish
+          shell echo "fish:$PF_SHARED_ENV:$PF_INHERITED_ENV"
+          shell_lang python
+          shell print("python:"+__import__("os").getenv("PF_SHARED_ENV","")+":"+__import__("os").getenv("PF_INHERITED_ENV",""))
+          shell_lang perl
+          shell print "perl:$ENV{PF_SHARED_ENV}:$ENV{PF_INHERITED_ENV}";
+          shell_lang javascript
+          shell console.log("javascript:"+process.env.PF_SHARED_ENV+":"+process.env.PF_INHERITED_ENV)
+          shell_lang ts-node
+          shell console.log("typescript:"+process.env.PF_SHARED_ENV+":"+process.env.PF_INHERITED_ENV)
+          shell_lang c
+          shell |
+            int printf(const char *fmt, ...);
+            char *getenv(const char *name);
+            int main(void) {
+              printf("c:%s:%s\\n", getenv("PF_SHARED_ENV"), getenv("PF_INHERITED_ENV"));
+              return 0;
+            }
+        end
+        """,
+    )
+
+    inherited_env_value = "inherited-value"
+    result = _run_pf(
+        tmp_path,
+        str(fixture),
+        "polyglot-shared-env",
+        env={"PF_INHERITED_ENV": inherited_env_value},
+    )
+
+    assert result.returncode == 0, result.stderr
+    expected_lines = [
+        "bash:shared-value:inherited-value",
+        "fish:shared-value:inherited-value",
+        "python:shared-value:inherited-value",
+        "perl:shared-value:inherited-value",
+        "javascript:shared-value:inherited-value",
+        "typescript:shared-value:inherited-value",
+        "c:shared-value:inherited-value",
+    ]
+    for line in expected_lines:
+        assert line in result.stdout
+
+    position = -1
+    for line in expected_lines:
+        next_position = result.stdout.find(line)
+        assert next_position > position
+        position = next_position
