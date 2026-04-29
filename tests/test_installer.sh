@@ -32,6 +32,7 @@ test_hardcoded_paths() {
     
     local hardcoded_found=false
     local scan_paths=(
+        "./build-packages/build-packages"
         "./deb/build-deb.sh"
         "./deb/build-packages.sh"
         "./scripts/build-packages.sh"
@@ -93,6 +94,11 @@ test_installer_prereqs() {
 
     if [[ ! -x "./deb/build-packages.sh" ]]; then
         log_error "deb/build-packages.sh not found or not executable"
+        return 1
+    fi
+
+    if [[ ! -x "./build-packages/build-packages" ]]; then
+        log_error "build-packages/build-packages not found or not executable"
         return 1
     fi
     
