@@ -114,7 +114,10 @@ build/
 
 # Debian package build artifacts
 debian/build/
-build-packages/
+!build-packages/
+build-packages/*
+!build-packages/build-packages.sh
+!build-packages/build-packages
 
 # Container artifacts (don't commit built images or runtime data)
 # Note: Dockerfiles and quadlet configs ARE committed
