@@ -1,8 +1,9 @@
 import { defineConfig } from '@playwright/test';
 
+const DEFAULT_SLOWMO = 300;
 const headless = String(process.env.PF_PLAYWRIGHT_HEADLESS ?? 'false').toLowerCase() === 'true';
-const parsedSlowMo = Number(process.env.PF_PLAYWRIGHT_SLOWMO ?? '300');
-const slowMo = Number.isFinite(parsedSlowMo) ? parsedSlowMo : 300;
+const parsedSlowMo = Number(process.env.PF_PLAYWRIGHT_SLOWMO ?? String(DEFAULT_SLOWMO));
+const slowMo = Number.isFinite(parsedSlowMo) ? parsedSlowMo : DEFAULT_SLOWMO;
 
 export default defineConfig({
   timeout: 30_000,

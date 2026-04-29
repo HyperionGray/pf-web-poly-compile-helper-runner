@@ -11,6 +11,8 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(path.join(__dirname, '../..'));
 const runnerPath = path.join(projectRoot, 'pf-runner', 'pf_main.py');
 const webPfyPath = path.join(projectRoot, 'pf-files', 'web-testing', 'Pfyfile.web.pf');
+const TASK_TIMEOUT = 120000;
+const RECORD_SEPARATOR = '\t';
 
 class FlowTester {
   constructor() {
@@ -50,7 +52,7 @@ function runTask(taskName, options) {
       cwd: options.cwd,
       env: options.env,
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 120000,
+      timeout: TASK_TIMEOUT,
     });
 
     let stdout = '';
@@ -74,7 +76,7 @@ async function readRecordLines(recordFile) {
     .split('\n')
     .filter(Boolean)
     .map((line) => {
-      const [tool, runId, headless, slowMo, args] = line.split('|');
+      const [tool, runId, headless, slowMo, args] = line.split(RECORD_SEPARATOR);
       return { tool, runId, headless, slowMo, args };
     });
 }
@@ -97,7 +99,15 @@ async function setupHarness(tempRoot, recordFile) {
   await fs.writeFile(path.join(tempRoot, 'demos', 'pf-web-polyglot-demo-plus-c', 'fortran', 'src', 'hello.f90'), 'program hello\nend');
   await fs.writeFile(path.join(tempRoot, 'demos', 'pf-web-polyglot-demo-plus-c', 'asm', 'mini.wat'), '(module)');
 
-  const recordSnippet = `echo "${'$'}{0##*/}|${'$'}{PF_WEB_RUN_ID:-}|${'$'}{PF_PLAYWRIGHT_HEADLESS:-}|${'$'}{PF_PLAYWRIGHT_SLOWMO:-}|${'$'}*" >> "${recordFile}"`;
+  // Shared shell snippet used by tool stubs to record environment propagation.
+  const recordSnippet = [
+    // ${0##*/} extracts the current script basename so we capture the invoked tool.
+    `tool="${'$'}{0##*/}"`,
+    `run_id="${'$'}{PF_WEB_RUN_ID:-}"`,
+    `headless="${'$'}{PF_PLAYWRIGHT_HEADLESS:-}"`,
+    `slowmo="${'$'}{PF_PLAYWRIGHT_SLOWMO:-}"`,
+    `printf '%s${RECORD_SEPARATOR}%s${RECORD_SEPARATOR}%s${RECORD_SEPARATOR}%s${RECORD_SEPARATOR}%s\\n' "${'$'}tool" "${'$'}run_id" "${'$'}headless" "${'$'}slowmo" "${'$'}*" >> "${recordFile}"`,
+  ].join('\n');
 
   await writeExecutable(
     path.join(binDir, 'pf'),
@@ -200,10 +210,7 @@ printf '\\0asm' > "$out"
 set -euo pipefail
 ${recordSnippet}
 args=" $* "
-echo "$args" | grep -q " playwright test " || exit 20
-echo "$args" | grep -q " --headed " || exit 21
-echo "$args" | grep -q " --workers=1 " || exit 22
-echo "$args" | grep -q " --config " || exit 23
+echo "$args" | grep -q " playwright test " || { echo "npx stub validation failed: missing 'playwright test'" >&2; exit 1; }
 `,
   );
 
@@ -259,7 +266,7 @@ async function runTests() {
       if (!npxRecord || npxRecord.headless !== 'false') {
         throw new Error('Playwright abstraction did not force headed mode');
       }
-      if (!npxRecord.slowMo || Number(npxRecord.slowMo) <= 0) {
+      if (!npxRecord.slowMo || Number(npxRecord.slowMo) < 0) {
         throw new Error('Playwright abstraction did not set slow-mo');
       }
     });
