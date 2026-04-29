@@ -1,9 +1,16 @@
 import { defineConfig } from '@playwright/test';
 
+const headless = String(process.env.PF_PLAYWRIGHT_HEADLESS ?? 'false').toLowerCase() === 'true';
+const parsedSlowMo = Number(process.env.PF_PLAYWRIGHT_SLOWMO ?? '300');
+const slowMo = Number.isFinite(parsedSlowMo) ? parsedSlowMo : 300;
+
 export default defineConfig({
   timeout: 30_000,
   retries: 0,
-  use: { headless: true },
+  use: {
+    headless,
+    launchOptions: { slowMo },
+  },
   reporter: [
     ['list'],
     ['html', { outputFolder: 'playwright-report', open: 'never' }]

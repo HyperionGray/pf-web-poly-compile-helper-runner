@@ -11,6 +11,7 @@ task usage
   shell echo "  pf web dev-static [dir=<path>] [port=8080]   # Explicit static server alias"
   shell echo "  pf web api-server [dir=<path>] [port=8080]   # Start the REST API server"
   shell echo "  pf web test                                  # Run Playwright tests"
+  shell echo "  pf web build-and-test-visible                # Build WASM + run headed slow-mo Playwright tests"
   shell echo "  pf web build-all-wasm                        # Build all WebAssembly targets"
   shell echo "  pf web build-all-llvm                        # Build all LLVM IR targets"
   shell echo "  pf web toolchain-check                       # Verify toolchain availability"

@@ -15,9 +15,13 @@ task dev
 end
 
 task test
-  describe Run web tests
-  shell_lang bash
-  shell npx playwright test --reporter=list
+  describe Run web tests in a visible browser session (headful + slow-mo)
+  shell pf "$PFY_FILE_PATH" test-visible slow_mo="${slow_mo:-300}" grep="${grep:-}" project="${project:-}"
+end
+
+task test-visible slow_mo="" grep="" project=""
+  describe Playwright abstraction layer: headed browser with slow motion and a predictable environment
+  shell ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; PF_WEB_RUN_ID="${PF_WEB_RUN_ID:-pf-web-run}"; export PF_WEB_RUN_ID PF_PLAYWRIGHT_HEADLESS=false PF_PLAYWRIGHT_SLOWMO="${slow_mo:-300}"; npx playwright test --config "$ROOT/pf-files/web-testing/playwright.config.ts" --headed --workers=1 --reporter=list ${grep:+-g "$grep"} ${project:+--project "$project"}
 end
 
 # ============================================================================
@@ -109,10 +113,12 @@ end
 
 task build-all-wasm
   describe Build all languages to WebAssembly
-  shell pf web build-rust
-  shell pf web build-c
-  shell pf web build-fortran
-  shell pf web build-wat
+  shell PF_WEB_RUN_ID="${PF_WEB_RUN_ID:-pf-web-run}"; export PF_WEB_RUN_ID; pf "$PFY_FILE_PATH" build-rust && pf "$PFY_FILE_PATH" build-c && pf "$PFY_FILE_PATH" build-fortran && pf "$PFY_FILE_PATH" build-wat
+end
+
+task build-and-test-visible slow_mo="" grep="" project=""
+  describe Build all WASM targets and run visible Playwright tests in one environment
+  shell PF_WEB_RUN_ID="${PF_WEB_RUN_ID:-pf-web-run}"; export PF_WEB_RUN_ID; pf "$PFY_FILE_PATH" build-all-wasm && pf "$PFY_FILE_PATH" test-visible slow_mo="${slow_mo:-300}" grep="${grep:-}" project="${project:-}"
 end
 
 task build-all-asm
