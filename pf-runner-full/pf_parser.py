@@ -493,7 +493,7 @@ def _build_compile_command(
     )
 
 
-def _build_browser_js_command(code: str, args: List[str]) -> str:
+def _build_playwright_command(code: str, args: List[str]) -> str:
     code = _ensure_newline(code)
     arg_str = _poly_args(args)
     snippet = textwrap.indent(code, "  ")
@@ -641,7 +641,7 @@ POLYGLOT_LANGS: Dict[str, Callable[[str, List[str]], str]] = {
     # Scripting / Interpreted
     "python": _script_profile(["python3"], ".py"),
     "node": _script_profile(["node"], ".js"),
-    "playwright": _build_browser_js_command,
+    "playwright": _build_playwright_command,
     "deno": _script_profile(["deno", "run"], ".ts"),
     "ts-node": _script_profile(["ts-node"], ".ts"),
     "perl": _script_profile(["perl"], ".pl"),

@@ -73,12 +73,14 @@ task playwright-no-http-errors url="http://127.0.0.1:8080" min_xhr="0"
     console.log(`[OK] playwright-no-http-errors ${target} xhr/fetch=${xhrCount}`);
 end
 
-task playwright-click-all url="http://127.0.0.1:8080" max_clicks="50"
+task playwright-click-all url="http://127.0.0.1:8080" max_clicks="50" click_timeout_ms="2500" click_delay_ms="150"
   describe Click common interactive elements without selectors and fail on HTTP/network errors
   shell_lang playwright
   shell |
     const target = "$url";
     const maxClicks = Number("$max_clicks");
+    const clickTimeout = Number("$click_timeout_ms");
+    const clickDelay = Number("$click_delay_ms");
     const failures = [];
     page.on("requestfailed", (request) => {
       failures.push(`${request.method()} ${request.url()} -> REQUEST_FAILED ${request.failure()?.errorText || "unknown"}`);
@@ -100,9 +102,9 @@ task playwright-click-all url="http://127.0.0.1:8080" max_clicks="50"
       const element = locator.nth(i);
       try {
         await element.scrollIntoViewIfNeeded();
-        await element.click({ timeout: 2500 });
+        await element.click({ timeout: clickTimeout });
         clicked += 1;
-        await page.waitForTimeout(150);
+        await page.waitForTimeout(clickDelay);
       } catch (error) {
         console.log(`[WARN] click skipped at index ${i}: ${error.message}`);
       }
@@ -113,7 +115,7 @@ task playwright-click-all url="http://127.0.0.1:8080" max_clicks="50"
     console.log(`[OK] playwright-click-all attempted=${total} clicked=${clicked} url=${target}`);
 end
 
-task playwright-assert-xhr url="http://127.0.0.1:8080" contains="" min_hits="1" timeout_ms="30000"
+task playwright-assert-xhr url="http://127.0.0.1:8080" contains="" min_hits="1" timeout_ms="30000" settle_delay_ms="1000"
   describe Ensure expected XHR/fetch requests are triggered for a page flow
   shell_lang playwright
   shell |
@@ -121,6 +123,7 @@ task playwright-assert-xhr url="http://127.0.0.1:8080" contains="" min_hits="1" 
     const needle = "$contains";
     const minHits = Number("$min_hits");
     const timeout = Number("$timeout_ms");
+    const settleDelay = Number("$settle_delay_ms");
     let hits = 0;
     const matched = [];
     page.on("request", (request) => {
@@ -135,7 +138,7 @@ task playwright-assert-xhr url="http://127.0.0.1:8080" contains="" min_hits="1" 
       }
     });
     await page.goto(target, { waitUntil: "domcontentloaded", timeout });
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(settleDelay);
     if (hits < minHits) {
       throw new Error(`Expected at least ${minHits} matching xhr/fetch request(s), got ${hits}. Filter: ${needle || "<none>"}`);
     }
