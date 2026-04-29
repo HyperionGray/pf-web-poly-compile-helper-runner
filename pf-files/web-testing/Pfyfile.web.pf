@@ -15,9 +15,23 @@ task dev
 end
 
 task test
-  describe Run web tests
-  shell_lang bash
-  shell npx playwright test --reporter=list
+  describe Run web tests in a visible browser session (headed + slow-mo)
+  shell pf "$PFY_FILE_PATH" test-visible slow_mo="${slow_mo:-300}"
+end
+
+task test-visible slow_mo=""
+  describe Playwright abstraction layer: headed browser with slow motion and a predictable environment
+  shell |
+    set -euo pipefail
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    export PF_WEB_RUN_ID="${PF_WEB_RUN_ID:-pf-web-run-$(date +%s)-$$}"
+    export PF_PLAYWRIGHT_HEADLESS=false
+    export PF_PLAYWRIGHT_SLOWMO="${slow_mo:-300}"
+    npx playwright test \
+      --config "$ROOT/pf-files/web-testing/playwright.config.ts" \
+      --headed \
+      --workers=1 \
+      --reporter=list
 end
 
 task playwright-smoke url="http://127.0.0.1:8080" timeout_ms="30000"
@@ -235,10 +249,22 @@ end
 
 task build-all-wasm
   describe Build all languages to WebAssembly
-  shell pf web build-rust
-  shell pf web build-c
-  shell pf web build-fortran
-  shell pf web build-wat
+  shell |
+    set -euo pipefail
+    export PF_WEB_RUN_ID="${PF_WEB_RUN_ID:-pf-web-run-$(date +%s)-$$}"
+    pf "$PFY_FILE_PATH" build-rust
+    pf "$PFY_FILE_PATH" build-c
+    pf "$PFY_FILE_PATH" build-fortran
+    pf "$PFY_FILE_PATH" build-wat
+end
+
+task build-and-test-visible slow_mo=""
+  describe Build all WASM targets and run visible Playwright tests in one environment
+  shell |
+    set -euo pipefail
+    export PF_WEB_RUN_ID="${PF_WEB_RUN_ID:-pf-web-run-$(date +%s)-$$}"
+    pf "$PFY_FILE_PATH" build-all-wasm
+    pf "$PFY_FILE_PATH" test-visible slow_mo="${slow_mo:-300}"
 end
 
 task build-all-asm
