@@ -6,6 +6,8 @@ pf-runner now supports a single installer path: **Debian `.deb` packages**.
 
 ```bash
 ./deb/build-deb.sh 1.0.0
+# or legacy wrapper:
+./build-packages/build-packages --version 1.0.0 deb
 ```
 
 This creates a package under `deb/build/`.
