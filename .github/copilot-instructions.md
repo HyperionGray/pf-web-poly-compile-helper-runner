@@ -1,38 +1,30 @@
-# Copilot Instructions (P4X-ng)
+- All files with source code are to be kept under approximately 600-700 lines. If some module, file, concept, etc. needs to exceed that, split it up into logical modules/includes
+- When i say "test" something - it means build an automated but *user realistic* test. Not just checking if something parses, not some weak automated test. The test should
+  verify that when an actual user is going to perform an action it works.
+- When i say "test" something - it also means to try it in an actual deployment in your environment and go through the flow as the user.
+- All tests are to be reported back in comments. Lack of this will get a PR rejected outright.
+- Projects should be organized and semi-standardized. Examples: a python project should look something like 
 
-These instructions apply to all code changes, PRs, and issue work produced by Copilot.
+```
+src/{logical_module_1,logical_module_2...} etc.
+docs/         # all docs go in here except for a base README.me, QUICKSTART.md, USER_DOCS.md, DEVELOPER_DOCS.md
+tests/        # all tests go in here, see above for test guidelines
+scripts/      # helper scripts go in here. These should NOT be base source code, they should be helpers for common actions the user or I might need to take often
+build/        # if needed, mainly for C code but use if needed for any code.
+bin/          # for any binaries that are built
+Makefile/<some sort of build file>    # this can be a makefile, CMake stuff, a .pf file for building
+```
 
-## Global rules
-- Follow repository rules and any `rules.json` strictly when present.
-- Keep files small and modular (aim for <= 200–300 lines per file). Refactor into multiple files/modules when needed.
-- Prefer clarity, safety, and maintainability over cleverness.
-- Add or update tests for any significant logic change. Do not reduce test coverage.
+The above is the basic example shape of a logical project. Some projects are large, if that is the case here then those directories may be repeated several times
+in intuitively named directories that make up the project. For example:
 
-## Language choices
-- Prefer **Python** if no language is specified.
-- If significant JavaScript is required, use **TypeScript** (not JavaScript).
-- In C/C++: prioritize memory safety. Add bounds checks; validate pointers; avoid undefined behavior.
+```
+pfs-sdk/memhub-sdk/<structure outlined above>
+pfs-sdk/other-sdk/<structure outlined above>
+```
 
-## Python standards
-- Keep modules small and focused.
-- Double-check imports; remove unused imports.
-- Use type hints where practical.
+If additional directories are needed besides those above, please make or look for another directory that is intuitively named and part of an important separate
+category of object that is needed.
 
-## Container / runtime standards
-- Use **Podman**, not Docker.
-- Name compose files generically according to best practices (e.g., `compose.yml`). Avoid `Dockerfile` unless explicitly required.
-
-## Virtual machines
-- For VM needs, use `P4X-ng/HGWS` and the **VMKit** directory.
-- If VMKit is missing/broken, fix VMKit first, then proceed.
-
-## Testing / PF DSL
-- If tests require PF, use `HyperionGray/pf-web-poly-compiler-helper`.
-- Before editing PF scripts, inspect the `.lark` grammar, learn the DSL, and update any examples accordingly.
-- Always check `Pfyfile.pf` and other `.pf` files for outdated paths or stale targets; update them.
-
-## Repository cleanup
-- As a final step, clean up the repository:
-  - Move truly unneeded artifacts to `bak/` at repo root.
-  - Move useful references to `refs/` at repo root.
-  - Keep the tree tidy and consistent.
+- Keep code clean, modular, relatively small functions or objects, and logically separated. I should be able to read your code and understand what it does by
+  seeing the flow, order things are written in, naming, and structure.

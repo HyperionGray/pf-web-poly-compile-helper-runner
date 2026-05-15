@@ -1,5 +1,0 @@
-pf-runner (1.0.0-1) unstable; urgency=medium
-
-  * Canonical Debian package build moved to ./deb/build-deb.sh.
-
- -- PF Runner Team <maintainer@example.com>  Fri, 17 Apr 2026 22:40:55 +0000
